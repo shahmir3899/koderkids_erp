@@ -1,26 +1,69 @@
-from datetime import timedelta
 import os
 from pathlib import Path
-from dotenv import load_dotenv # type: ignore
+from dotenv import load_dotenv
+from datetime import timedelta
 
-load_dotenv()  # Load .env variables
+# Load environment variables
+load_dotenv()
 
-NGROK_URL = os.getenv("NGROK_URL", "").strip()  # Read from .env file
-if not NGROK_URL.startswith("http"):
-    NGROK_URL = "https://default.ngrok-url.com"  # Fallback to prevent Django errors
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'your-secret-key'
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Secret key & Debug mode from environment
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
+DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
-DEBUG = True
+# Allowed Hosts
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+    'frontend.koderkids.pk',
+    'django-server-production-7046.up.railway.app'
+]
 
-AUTH_USER_MODEL = 'students.CustomUser'  # ✅ Use CustomUser instead of default User
+# Database Configuration
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / "db.sqlite3",
+        'OPTIONS': {'timeout': 30},  # Prevents database locking
+    }
+}
 
+# Installed Apps
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'rest_framework',
+    'corsheaders',
+    'students',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+]
+
+# Middleware
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+# URL Configuration
+ROOT_URLCONF = 'school_management.urls'
+
+# Templates
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, "templates")],  # Ensure this is set correctly
+        'DIRS': [os.path.join(BASE_DIR, "templates")],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -33,104 +76,41 @@ TEMPLATES = [
     },
 ]
 
-
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'frontend.koderkids.pk', 'testserver', 'django-server-production-7046.up.railway.app']
-
-
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'rest_framework',
-    'corsheaders',
-    'students',
-    'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',  # For logout functionality
-]
-
-MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
-]
-
-ROOT_URLCONF = 'school_management.urls'
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / "db.sqlite3",
-        'OPTIONS': {
-            'timeout': 30,  # ✅ Increase timeout to prevent locking (default is 5)
-        }
-    }
-}
-
+# CORS & CSRF Settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://frontend.koderkids.pk",  # ✅ Allow frontend domain
-    "https://django-server-production-7046.up.railway.app"  # ✅ Allow backend itself
+    "https://frontend.koderkids.pk",
+    "https://django-server-production-7046.up.railway.app"
 ]
-
-
-#
-
-# Additional settings for wider compatibility
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = [
-    "Authorization",
-    "Content-Type",
-    "Accept",
-    "X-CSRFToken",
-]
-
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-
+CORS_ALLOW_ALL_ORIGINS = True
 CSRF_TRUSTED_ORIGINS = [
-    
     "https://frontend.koderkids.pk",
     "https://django-server-production-7046.up.railway.app"
 ]
 
-
-
-
-ALLOWED_HOSTS = [
-    '127.0.0.1',
-    'localhost', 
-    'frontend.koderkids.pk',
-    'frontend.koderkids.pk/login'
-    'django-server-production-7046.up.railway.app'
-]
+# Authentication & JWT
+AUTH_USER_MODEL = 'students.CustomUser'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
-
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # Token expires in 1 day
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7), # Refresh token valid for 7 days
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-
-CORS_ALLOW_ALL_ORIGINS = True
-
-
-
+# Static & Media Files
 STATIC_URL = '/static/'
-
-
-
 MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Store all media files here
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  # Collects static files here
+
+
+
+
+
+
