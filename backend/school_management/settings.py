@@ -27,7 +27,8 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     'frontend.koderkids.pk',
-    'koderkidserp.up.railway.app'
+    'frontend.koderkdis.pk/login',
+    'koderkids-erp.onrender.com'
 ]
 
 CORS_ALLOW_HEADERS = [
