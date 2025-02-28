@@ -12,13 +12,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
+import dj_database_url
+
+DATABASES = {
+    'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
+}
+
+
+
+
+
 # Allowed Hosts
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     'frontend.koderkids.pk',
-    'django-server-production-7046.up.railway.app'
+    'koderkidserp.up.railway.app'
 ]
+
+CORS_ALLOW_HEADERS = [
+    'content-type',
+    'authorization',
+    'x-requested-with',
+    'ngrok-skip-browser-warning'  # ✅ Add this line
+]
+
 
 # Database Configuration
 DATABASES = {
@@ -80,7 +98,7 @@ TEMPLATES = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://frontend.koderkids.pk",
-    "https://django-server-production-7046.up.railway.app"
+    
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
