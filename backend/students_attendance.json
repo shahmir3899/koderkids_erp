@@ -1,0 +1,296 @@
+[
+    {
+        "model": "students.attendance",
+        "pk": 1,
+        "fields": {
+            "student": 7,
+            "session_date": "2025-02-20",
+            "status": "Present",
+            "teacher": 5,
+            "lesson_plan": 1,
+            "achieved_topic": null,
+            "created_at": "2025-02-20T06:13:50.488Z",
+            "updated_at": "2025-02-20T06:13:50.488Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 2,
+        "fields": {
+            "student": 47,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.178Z",
+            "updated_at": "2025-02-26T06:54:56.930Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 3,
+        "fields": {
+            "student": 42,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.261Z",
+            "updated_at": "2025-02-26T06:54:58.069Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 4,
+        "fields": {
+            "student": 56,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.321Z",
+            "updated_at": "2025-02-26T06:54:58.129Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 5,
+        "fields": {
+            "student": 41,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.372Z",
+            "updated_at": "2025-02-26T06:54:58.184Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 6,
+        "fields": {
+            "student": 5,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.422Z",
+            "updated_at": "2025-02-26T06:54:58.246Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 7,
+        "fields": {
+            "student": 59,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Absent'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.478Z",
+            "updated_at": "2025-02-26T06:54:58.303Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 8,
+        "fields": {
+            "student": 40,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Absent'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.541Z",
+            "updated_at": "2025-02-26T06:54:58.354Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 9,
+        "fields": {
+            "student": 45,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.603Z",
+            "updated_at": "2025-02-26T06:54:58.406Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 10,
+        "fields": {
+            "student": 33,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": null,
+            "created_at": "2025-02-26T06:42:52.661Z",
+            "updated_at": "2025-02-26T06:54:58.473Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 11,
+        "fields": {
+            "student": 49,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": "a quick brown fox",
+            "created_at": "2025-02-26T07:07:03.391Z",
+            "updated_at": "2025-02-26T07:07:03.391Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 12,
+        "fields": {
+            "student": 53,
+            "session_date": "2025-02-03",
+            "status": "{'status': 'Absent'}",
+            "teacher": 5,
+            "lesson_plan": null,
+            "achieved_topic": "Another quick brown fox",
+            "created_at": "2025-02-26T07:07:03.793Z",
+            "updated_at": "2025-02-26T07:07:03.793Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 13,
+        "fields": {
+            "student": 47,
+            "session_date": "2025-02-10",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "ccsdfd",
+            "created_at": "2025-02-26T07:59:51.077Z",
+            "updated_at": "2025-02-26T07:59:51.077Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 14,
+        "fields": {
+            "student": 42,
+            "session_date": "2025-02-10",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "dfsd",
+            "created_at": "2025-02-26T07:59:51.226Z",
+            "updated_at": "2025-02-26T07:59:51.226Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 15,
+        "fields": {
+            "student": 56,
+            "session_date": "2025-02-10",
+            "status": "{'status': 'Absent'}",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "dsfsd",
+            "created_at": "2025-02-26T07:59:51.288Z",
+            "updated_at": "2025-02-26T07:59:51.288Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 16,
+        "fields": {
+            "student": 41,
+            "session_date": "2025-02-10",
+            "status": "N/A",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "sdfsd",
+            "created_at": "2025-02-26T07:59:51.356Z",
+            "updated_at": "2025-02-26T07:59:51.356Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 17,
+        "fields": {
+            "student": 5,
+            "session_date": "2025-02-10",
+            "status": "{'status': 'Present'}",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "fdsfsd",
+            "created_at": "2025-02-26T07:59:51.410Z",
+            "updated_at": "2025-02-26T07:59:51.410Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 18,
+        "fields": {
+            "student": 59,
+            "session_date": "2025-02-10",
+            "status": "{'status': 'Absent'}",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "sdfsd",
+            "created_at": "2025-02-26T07:59:51.479Z",
+            "updated_at": "2025-02-26T07:59:51.479Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 19,
+        "fields": {
+            "student": 40,
+            "session_date": "2025-02-10",
+            "status": "{'status': 'Absent'}",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "sdfsd",
+            "created_at": "2025-02-26T07:59:51.572Z",
+            "updated_at": "2025-02-26T07:59:51.572Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 20,
+        "fields": {
+            "student": 45,
+            "session_date": "2025-02-10",
+            "status": "N/A",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "fsdf",
+            "created_at": "2025-02-26T07:59:51.630Z",
+            "updated_at": "2025-02-26T07:59:51.630Z"
+        }
+    },
+    {
+        "model": "students.attendance",
+        "pk": 21,
+        "fields": {
+            "student": 33,
+            "session_date": "2025-02-10",
+            "status": "N/A",
+            "teacher": 5,
+            "lesson_plan": 12,
+            "achieved_topic": "sdf",
+            "created_at": "2025-02-26T07:59:51.687Z",
+            "updated_at": "2025-02-26T07:59:51.687Z"
+        }
+    }
+]

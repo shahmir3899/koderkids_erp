@@ -1,0 +1,1199 @@
+[
+    {
+        "model": "students.student",
+        "pk": 1,
+        "fields": {
+            "date_of_registration": "2024-11-09",
+            "reg_num": "24-KK-GCS-92",
+            "name": "Faizan Irfan",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2024-01-31",
+            "student_class": "4",
+            "phone": "3141891395.0",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 2,
+        "fields": {
+            "date_of_registration": "2024-11-18",
+            "reg_num": "24-KK-GCS-93",
+            "name": "Syed Hadi Asif",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2014-12-29",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 3,
+        "fields": {
+            "date_of_registration": "2024-11-09",
+            "reg_num": "24-KK-GCS-94",
+            "name": "Zeeshan Irfan",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2024-11-27",
+            "student_class": "6",
+            "phone": "3141891395.0",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 4,
+        "fields": {
+            "date_of_registration": "2024-11-09",
+            "reg_num": "24-KK-GCS-95",
+            "name": "Rouhan Niaz",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2024-05-31",
+            "student_class": "6",
+            "phone": "Unknown",
+            "address": "Street # 41, House # R646",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 5,
+        "fields": {
+            "date_of_registration": "2024-11-20",
+            "reg_num": "24-KK-GCS-96",
+            "name": "Muhammad Arhum Irfan",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2018-03-27",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "House # 1019, Street 43 H, Phase 4A, Ghauri TOwn Islamabad",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 6,
+        "fields": {
+            "date_of_registration": "2024-11-21",
+            "reg_num": "24-KK-GCS-97",
+            "name": "Muhammad Ahmed Irfan",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2016-03-25",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "House # 1019, Street 43 H, Phase 4A, Ghauri TOwn Islamabad",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 7,
+        "fields": {
+            "date_of_registration": "2024-11-22",
+            "reg_num": "24-KK-GCS-98",
+            "name": "Abdul Ahad",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2014-07-16",
+            "student_class": "5",
+            "phone": "Unknownx",
+            "address": "House # 235, Street 16",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T17:59:39.426Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 8,
+        "fields": {
+            "date_of_registration": "2024-11-21",
+            "reg_num": "24-KK-GCS-99",
+            "name": "Ayan Nabi",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2013-08-13",
+            "student_class": "4",
+            "phone": "Unknown",
+            "address": "St# 18, House # 337",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 9,
+        "fields": {
+            "date_of_registration": "2024-11-22",
+            "reg_num": "24-KK-GCS-101",
+            "name": "Dua Samsoon",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2013-05-19",
+            "student_class": "5",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 10,
+        "fields": {
+            "date_of_registration": "2024-11-25",
+            "reg_num": "24-KK-GCS-102",
+            "name": "Sawera Rajpoot",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2014-05-05",
+            "student_class": "6",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 11,
+        "fields": {
+            "date_of_registration": "2024-11-28",
+            "reg_num": "24-KK-GCS-103",
+            "name": "Abiha Mansoor",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2012-07-28",
+            "student_class": "6",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 12,
+        "fields": {
+            "date_of_registration": "2024-11-21",
+            "reg_num": "24-KK-GCS-104",
+            "name": "Aena Noor",
+            "gender": "F",
+            "school": 8,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2013-07-17",
+            "student_class": "5",
+            "phone": "Unknown",
+            "address": "Street 4",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 13,
+        "fields": {
+            "date_of_registration": "2024-11-28",
+            "reg_num": "24-KK-GCS-108",
+            "name": "Haider Ali",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2018-12-24",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "St#20, 4A",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 14,
+        "fields": {
+            "date_of_registration": "2024-11-28",
+            "reg_num": "24-KK-GCS-109",
+            "name": "Shawaiz",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "500.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 15,
+        "fields": {
+            "date_of_registration": "2024-11-28",
+            "reg_num": "24-KK-GCS-118",
+            "name": "Muhammad Shahbaz Ali",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2016-10-28",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Street 1B, ghauri town",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 16,
+        "fields": {
+            "date_of_registration": "2024-11-29",
+            "reg_num": "24-KK-GCS-111",
+            "name": "Hooria Waqas",
+            "gender": "F",
+            "school": 8,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2017-07-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "4A",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 17,
+        "fields": {
+            "date_of_registration": "2024-11-28",
+            "reg_num": "24-KK-GCS-130",
+            "name": "Abdul Momin Butt",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2013-08-15",
+            "student_class": "5",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 18,
+        "fields": {
+            "date_of_registration": "2024-11-28",
+            "reg_num": "24-KK-GCS-105",
+            "name": "Mubarak",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2018-08-09",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 19,
+        "fields": {
+            "date_of_registration": "2024-11-28",
+            "reg_num": "24-KK-GCS-106",
+            "name": "Ibad Rehan",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 20,
+        "fields": {
+            "date_of_registration": "2024-12-01",
+            "reg_num": "24-KK-GCS-107",
+            "name": "Abdullah Abbasi",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2014-04-10",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 21,
+        "fields": {
+            "date_of_registration": "2024-12-01",
+            "reg_num": "24-KK-GCS-110",
+            "name": "Tuba Mehak",
+            "gender": "F",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2020-11-07",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 22,
+        "fields": {
+            "date_of_registration": "2024-12-01",
+            "reg_num": "24-KK-GCS-113",
+            "name": "Asad Ali",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2011-01-25",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 23,
+        "fields": {
+            "date_of_registration": "2024-12-02",
+            "reg_num": "24-KK-GCS-114",
+            "name": "Muhammad Khizar Khan",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2015-10-10",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 24,
+        "fields": {
+            "date_of_registration": "2024-12-02",
+            "reg_num": "24-KK-GCS-115",
+            "name": "Muhammad Azan Khan",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2016-12-12",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 25,
+        "fields": {
+            "date_of_registration": "2024-12-03",
+            "reg_num": "24-KK-GCS-116",
+            "name": "Saqlain Abdul Malik",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2016-03-15",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Street 14 A",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 26,
+        "fields": {
+            "date_of_registration": "2024-12-04",
+            "reg_num": "24-KK-GCS-117",
+            "name": "Midha",
+            "gender": "F",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2018-08-09",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 27,
+        "fields": {
+            "date_of_registration": "2024-12-04",
+            "reg_num": "24-KK-GCS-120",
+            "name": "Hasnain Abdul Malik",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2016-03-15",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "Street 14 A",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 28,
+        "fields": {
+            "date_of_registration": "2024-12-04",
+            "reg_num": "24-KK-GCS-123",
+            "name": "Fatima Rehan",
+            "gender": "F",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "Street 14 A",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 29,
+        "fields": {
+            "date_of_registration": "2024-12-04",
+            "reg_num": "24-KK-GCS-124",
+            "name": "Sumbal Ali",
+            "gender": "F",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2016-06-07",
+            "student_class": "4",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 30,
+        "fields": {
+            "date_of_registration": "2024-12-04",
+            "reg_num": "24-KK-GCS-125",
+            "name": "Muhammad Ibrahim Rehan",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2012-03-23",
+            "student_class": "4",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 31,
+        "fields": {
+            "date_of_registration": "2024-12-08",
+            "reg_num": "24-KK-GCS-127",
+            "name": "Hina Hassan",
+            "gender": "F",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2012-10-03",
+            "student_class": "5",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 32,
+        "fields": {
+            "date_of_registration": "2024-12-08",
+            "reg_num": "24-KK-GCS-128",
+            "name": "Muskan Arshad",
+            "gender": "F",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "2011-05-24",
+            "student_class": "5",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 33,
+        "fields": {
+            "date_of_registration": "2024-12-03",
+            "reg_num": "24-KK-GCS-131",
+            "name": "Sayed Ashar Hussnain",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2016-12-03",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "4A",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 34,
+        "fields": {
+            "date_of_registration": "2024-12-07",
+            "reg_num": "24-KK-GCS-132",
+            "name": "Uswa Yasir Abbasi",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2015-07-14",
+            "student_class": "4",
+            "phone": "Unknown",
+            "address": "4A",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 35,
+        "fields": {
+            "date_of_registration": "2024-12-05",
+            "reg_num": "24-KK-GCS-133",
+            "name": "Syed Ahmed Zawar",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "2011-07-29",
+            "student_class": "6",
+            "phone": "Unknown",
+            "address": "4A",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 36,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-134",
+            "name": "Huzaifa Javed",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "6",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 37,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-135",
+            "name": "Abdul Samad",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "4",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 38,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-136",
+            "name": "Ayat Hayat",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 39,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-137",
+            "name": "Dua Adnan",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 40,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-138",
+            "name": "Ruhan Salman",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 41,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-139",
+            "name": "Khalifa Asif",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 42,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-140",
+            "name": "Dania Adnan",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 43,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-141",
+            "name": "Abdullah Aziz",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 44,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-142",
+            "name": "Umer Ali",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "6",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 45,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-143",
+            "name": "Sajal Faisal",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 46,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-144",
+            "name": "Ibaad Faisal",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 47,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-146",
+            "name": "Alizay Jannat",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 48,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-147",
+            "name": "Emaan Fatima",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "4",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 49,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-148",
+            "name": "Amna Tehreen",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "7",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 50,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-149",
+            "name": "Amani Ismail",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 51,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-150",
+            "name": "Arfa Zahra",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 52,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-151",
+            "name": "Hifza Amir",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "2",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 53,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-152",
+            "name": "Warisha Amir",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "7",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 54,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-153",
+            "name": "Joail Emmanuel",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "6",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 55,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-154",
+            "name": "Joycee Emmanuel",
+            "gender": "F",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "4",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 56,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-155",
+            "name": "Haim Ali",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 57,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-156",
+            "name": "Abdul Wasay Waseem",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "4",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 58,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-157",
+            "name": "Bilal Ahmed",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "5",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 59,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-158",
+            "name": "Muhammad Rohan",
+            "gender": "M",
+            "school": 7,
+            "monthly_fee": "1000.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "1",
+            "phone": "Unknown",
+            "address": "Unknown",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 60,
+        "fields": {
+            "date_of_registration": "2024-12-10",
+            "reg_num": "24-KK-GCS-159",
+            "name": "Hassan Mehmood",
+            "gender": "M",
+            "school": 8,
+            "monthly_fee": "0.00",
+            "date_of_birth": "1900-01-01",
+            "student_class": "3",
+            "phone": "Unknown",
+            "address": "Street 14",
+            "status": "Active",
+            "created_at": "2025-02-14T16:57:19.299Z",
+            "updated_at": "2025-02-14T16:57:19.306Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 62,
+        "fields": {
+            "date_of_registration": "2025-02-15",
+            "reg_num": "25-87-45",
+            "name": "TestStudent",
+            "gender": "Male",
+            "school": 9,
+            "monthly_fee": "1000.00",
+            "date_of_birth": null,
+            "student_class": "1",
+            "phone": "033958",
+            "address": null,
+            "status": "Active",
+            "created_at": "2025-02-15T17:18:47.551Z",
+            "updated_at": "2025-02-15T17:18:47.551Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 63,
+        "fields": {
+            "date_of_registration": "2025-02-15",
+            "reg_num": "005822",
+            "name": "test2",
+            "gender": "Male",
+            "school": 9,
+            "monthly_fee": "1000.00",
+            "date_of_birth": null,
+            "student_class": "1",
+            "phone": "4587466",
+            "address": null,
+            "status": "Active",
+            "created_at": "2025-02-15T17:20:10.348Z",
+            "updated_at": "2025-02-15T17:20:10.348Z"
+        }
+    },
+    {
+        "model": "students.student",
+        "pk": 65,
+        "fields": {
+            "date_of_registration": "2025-02-27",
+            "reg_num": "tetssds",
+            "name": "yestest",
+            "gender": "Male",
+            "school": 9,
+            "monthly_fee": "1000.00",
+            "date_of_birth": null,
+            "student_class": "1",
+            "phone": "0900786201",
+            "address": null,
+            "status": "Active",
+            "created_at": "2025-02-27T04:09:21.676Z",
+            "updated_at": "2025-02-27T04:09:21.676Z"
+        }
+    }
+]

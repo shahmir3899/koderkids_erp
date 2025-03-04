@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { redirectUser } from "../api"; // ✅ Import the function
 
 function LoginPage() {
     const [formData, setFormData] = useState({
@@ -15,25 +16,25 @@ function LoginPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setMessage(""); // Clear previous messages
-
+    
         try {
             const response = await fetch(`${process.env.REACT_APP_API_URL}/api/token/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(formData),
             });
-
+    
             const data = await response.json();
-
+    
             if (response.ok) {
                 localStorage.setItem("access", data.access);
                 localStorage.setItem("refresh", data.refresh);
-                localStorage.setItem("role", data.role); // ✅ Store role in localStorage
-                localStorage.setItem("username", data.username); // ✅ Store username in localStorage
-
+                localStorage.setItem("role", data.role);
+                localStorage.setItem("username", data.username);
+    
                 setMessage("✅ Login successful! Redirecting...");
                 setTimeout(() => {
-                    window.location.href = "/"; // Redirect to homepage
+                    redirectUser(); // 🔄 Redirect using centralized function
                 }, 1000);
             } else {
                 setMessage(`⚠️ Error: ${data.detail || "Login failed"}`);
@@ -42,6 +43,7 @@ function LoginPage() {
             setMessage("⚠️ Network error. Try again.");
         }
     };
+    
 
     // 🔹 Maintain your existing UI styles
     const styles = {

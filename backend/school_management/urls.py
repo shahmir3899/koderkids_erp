@@ -6,7 +6,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from students.views import (
     CustomTokenObtainPairView, StudentViewSet, get_attendance_count, get_fees, get_lesson_plan, get_lesson_plan_range, get_lessons_achieved, get_school_details, get_student_details, get_student_images, get_student_progress_images, get_students,
-    create_new_month_fees, students_progress, update_fees, students_per_school, fee_received_per_month,
+    create_new_month_fees, get_teacher_dashboard_lessons, students_progress, update_fees, students_per_school, fee_received_per_month,
     new_registrations, get_schools, get_logged_in_user, mark_attendance, get_attendance,
     update_attendance, create_lesson_plan, update_achieved_topic, add_student, get_classes, upload_student_image, register_user
 )
@@ -69,6 +69,8 @@ urlpatterns = [
     path('api/attendance-count/', get_attendance_count, name='get_attendance_count'),
     path('api/lessons-achieved/', get_lessons_achieved, name='get_lessons_achieved'),
     path('api/student-progress-images/', get_student_progress_images, name='get_student_progress_images'),
+    # Teacher dahbord
+    path('api/teacher-dashboard-lessons/', get_teacher_dashboard_lessons, name='teacher_dashboard_lessons'),
 
 
 

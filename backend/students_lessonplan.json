@@ -1,0 +1,394 @@
+[
+    {
+        "model": "students.lessonplan",
+        "pk": 1,
+        "fields": {
+            "session_date": "2025-02-20",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "This section will show plan topics?",
+            "achieved_topic": "There we should have remarks",
+            "created_at": "2025-02-20T06:13:29.088Z",
+            "updated_at": "2025-02-20T06:13:29.088Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 2,
+        "fields": {
+            "session_date": "2025-02-24",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "2",
+            "planned_topic": "Scratch Jr Page 24",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T05:39:12.746Z",
+            "updated_at": "2025-02-24T05:39:12.746Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 3,
+        "fields": {
+            "session_date": "2025-02-25",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "topic 2",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T05:43:49.853Z",
+            "updated_at": "2025-02-24T05:43:49.853Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 4,
+        "fields": {
+            "session_date": "2025-02-24",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "test topics",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T05:43:50.006Z",
+            "updated_at": "2025-02-24T05:43:50.006Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 5,
+        "fields": {
+            "session_date": "2025-01-05",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "Hello\ntest enty",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:46:34.332Z",
+            "updated_at": "2025-02-24T07:46:34.332Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 6,
+        "fields": {
+            "session_date": "2025-01-12",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "a",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:46:34.530Z",
+            "updated_at": "2025-02-24T07:46:34.530Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 7,
+        "fields": {
+            "session_date": "2025-01-26",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "7",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:46:34.599Z",
+            "updated_at": "2025-02-24T07:47:49.127Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 8,
+        "fields": {
+            "session_date": "2025-01-27",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "8",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:46:34.681Z",
+            "updated_at": "2025-02-24T07:49:38.186Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 9,
+        "fields": {
+            "session_date": "2025-01-06",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "2",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:47:48.986Z",
+            "updated_at": "2025-02-24T07:47:48.986Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 10,
+        "fields": {
+            "session_date": "2025-01-19",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "5",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:47:49.280Z",
+            "updated_at": "2025-02-24T07:49:37.893Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 11,
+        "fields": {
+            "session_date": "2025-01-20",
+            "teacher": 6,
+            "school": 9,
+            "student_class": "1",
+            "planned_topic": "6",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:49:38.086Z",
+            "updated_at": "2025-02-24T07:49:38.086Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 12,
+        "fields": {
+            "session_date": "2025-02-10",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "z",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:54:38.518Z",
+            "updated_at": "2025-02-24T08:39:10.073Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 13,
+        "fields": {
+            "session_date": "2025-02-17",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "e",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:54:38.612Z",
+            "updated_at": "2025-02-24T08:39:10.200Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 14,
+        "fields": {
+            "session_date": "2025-02-24",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "g",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:54:38.693Z",
+            "updated_at": "2025-02-24T08:39:10.398Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 15,
+        "fields": {
+            "session_date": "2025-02-16",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "5",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T07:54:38.792Z",
+            "updated_at": "2025-02-24T07:54:38.792Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 16,
+        "fields": {
+            "session_date": "2025-02-03",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "x",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T08:39:09.940Z",
+            "updated_at": "2025-02-24T08:39:09.940Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 17,
+        "fields": {
+            "session_date": "2025-02-04",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "y",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T08:39:10.011Z",
+            "updated_at": "2025-02-24T08:39:10.011Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 18,
+        "fields": {
+            "session_date": "2025-02-11",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "w",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T08:39:10.137Z",
+            "updated_at": "2025-02-24T08:39:10.137Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 19,
+        "fields": {
+            "session_date": "2025-02-18",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "f",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T08:39:10.306Z",
+            "updated_at": "2025-02-24T08:39:10.306Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 20,
+        "fields": {
+            "session_date": "2025-02-25",
+            "teacher": 5,
+            "school": 7,
+            "student_class": "1",
+            "planned_topic": "h",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T08:39:10.473Z",
+            "updated_at": "2025-02-24T08:39:10.473Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 21,
+        "fields": {
+            "session_date": "2024-12-31",
+            "teacher": 5,
+            "school": 8,
+            "student_class": "2",
+            "planned_topic": "test 1",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T17:33:03.940Z",
+            "updated_at": "2025-02-24T17:33:03.940Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 22,
+        "fields": {
+            "session_date": "2025-01-01",
+            "teacher": 5,
+            "school": 8,
+            "student_class": "2",
+            "planned_topic": "test 1",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T17:33:04.058Z",
+            "updated_at": "2025-02-24T17:33:04.058Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 23,
+        "fields": {
+            "session_date": "2025-01-07",
+            "teacher": 5,
+            "school": 8,
+            "student_class": "2",
+            "planned_topic": "test 1",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T17:33:04.127Z",
+            "updated_at": "2025-02-24T17:33:04.127Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 24,
+        "fields": {
+            "session_date": "2025-01-08",
+            "teacher": 5,
+            "school": 8,
+            "student_class": "2",
+            "planned_topic": "test 1",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T17:33:04.186Z",
+            "updated_at": "2025-02-24T17:33:04.186Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 25,
+        "fields": {
+            "session_date": "2025-01-14",
+            "teacher": 5,
+            "school": 8,
+            "student_class": "2",
+            "planned_topic": "test 1",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T17:33:04.248Z",
+            "updated_at": "2025-02-24T17:33:04.248Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 26,
+        "fields": {
+            "session_date": "2025-01-15",
+            "teacher": 5,
+            "school": 8,
+            "student_class": "2",
+            "planned_topic": "test 1",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T17:33:04.311Z",
+            "updated_at": "2025-02-24T17:33:04.311Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 27,
+        "fields": {
+            "session_date": "2025-01-21",
+            "teacher": 5,
+            "school": 8,
+            "student_class": "2",
+            "planned_topic": "test 1",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T17:33:05.498Z",
+            "updated_at": "2025-02-24T17:33:05.498Z"
+        }
+    },
+    {
+        "model": "students.lessonplan",
+        "pk": 28,
+        "fields": {
+            "session_date": "2025-01-22",
+            "teacher": 5,
+            "school": 8,
+            "student_class": "2",
+            "planned_topic": "test 1",
+            "achieved_topic": null,
+            "created_at": "2025-02-24T17:33:05.578Z",
+            "updated_at": "2025-02-24T17:33:05.578Z"
+        }
+    }
+]

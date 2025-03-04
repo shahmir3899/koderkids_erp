@@ -136,6 +136,8 @@ class StudentImage(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)  # Links image to a student
     session_date = models.DateField()  # Date when the image was uploaded
     image_url = models.URLField()  # Stores the image URL
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
 
     def __str__(self):
         return f"Image for {self.student.name} on {self.session_date}"

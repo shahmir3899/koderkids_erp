@@ -1,6 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
-import HomePage from "./pages/HomePage";
+import AdminDashboard from "./pages/AdminDashboard";
 import StudentsPage from "./pages/StudentsPage";
 import FeePage from "./pages/FeePage";
 import SchoolsPage from "./pages/SchoolsPage";
@@ -15,6 +15,9 @@ import LessonsPage from "./pages/LessonsPage";  // Import LessonsPage
 import ReportsPage from "./pages/ReportsPage";
 //import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import StudentReport from "./components/StudentReport";
+import TeacherDashboard from "./pages/TeacherDashboard"; // Import new dashboard
+
+export const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 
 
@@ -27,8 +30,7 @@ function App() {
                 <Sidebar />
                 <div className="ml-64 w-full p-2 bg-gray-100 min-h-screen">
                     <Routes>
-                        {/* 🔒 Protect Home Page */}
-                        <Route path="/" element={<ProtectedRoute element={<HomePage />} />} />
+                        
 
                         {/* Public Pages */}
                         <Route path="/register" element={<RegisterPage />} />
@@ -41,6 +43,7 @@ function App() {
                                 <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} />} /> {/* ✅ Added Progress Page */}
                                 <Route path="/lessons" element={<LessonsPage />} />  {/* ✅ Added Lessons Route */}
                                 <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} />} />
+                                <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboard />} />} />
                                 <Route path="/reports" element={<ReportsPage />} />
                                 {/* Route for viewing student report */}
                                 <Route path="/student-report/:studentId" element={<StudentReport />} />
@@ -52,6 +55,8 @@ function App() {
 
                         {role === "Admin" && (
                             <>
+                                {/* 🔒 Protect Home Page */}
+                                <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} />} />
                                 <Route path="/fee" element={<ProtectedRoute element={<FeePage />} />} />
                                 <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} />} />
                                 <Route path="/settings" element={<ProtectedRoute element={<SettingsPage />} />} />
@@ -66,11 +71,11 @@ function App() {
                         )}
 
                         {role === "Student" && (
-                            <Route path="/profile" element={<ProtectedRoute element={<HomePage />} />} />
+                            <Route path="/profile" element={<ProtectedRoute element={<LoginPage />} />} />
                         )}
 
                         {/* Redirect all unknown routes */}
-                        <Route path="*" element={<Navigate to="/" />} />
+                        <Route path="*" element={<Navigate to="/login" />} />
                     </Routes>
                 </div>
             </div>

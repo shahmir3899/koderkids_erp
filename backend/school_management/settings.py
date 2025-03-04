@@ -2,9 +2,35 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
+import dj_database_url
 
 # Load environment variables
+
+
+# Get the BASE_DIR (Project Root)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Load .env from the backend folder
 load_dotenv()
+# Check if the DATABASE_URL is loaded (for debugging)
+#print("DATABASE_URL Loaded:", os.getenv("DATABASE_URL"))
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres.vjulyxmuswlktvlvdhhi',
+        'PASSWORD': 'No@Sorry&703##',
+        'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
+        'PORT': '6543',
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    }
+}
+
+
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -12,11 +38,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
-import dj_database_url
 
-DATABASES = {
-    'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
-}
+
+
+
+
+
 
 
 
@@ -27,7 +54,6 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     'frontend.koderkids.pk',
-    'frontend.koderkdis.pk/login',
     'koderkids-erp.onrender.com'
 ]
 
@@ -40,13 +66,13 @@ CORS_ALLOW_HEADERS = [
 
 
 # Database Configuration
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / "db.sqlite3",
-        'OPTIONS': {'timeout': 30},  # Prevents database locking
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / "db.sqlite3",
+#         'OPTIONS': {'timeout': 30},  # Prevents database locking
+#     }
+# }
 
 # Installed Apps
 INSTALLED_APPS = [
@@ -59,6 +85,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'students',
+    'finance',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]
@@ -127,6 +154,8 @@ STATIC_URL = '/static/'
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  # Collects static files here
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 

@@ -1,7 +1,9 @@
 import axios from "axios";
+//import { getLessons, getLoggedInUser, getClassImageCount } from "../api";
 
 
-export const API_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
+
+export const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 
 // Helper function to get auth headers
@@ -12,6 +14,19 @@ export const getAuthHeaders = () => {
         return {};
     }
     return { Authorization: `Bearer ${token}` };
+};
+
+export const getClassImageCount = async (schoolId) => {
+    try {
+        const response = await axios.get(`${API_URL}/api/class-image-count/`, {
+            headers: { ...getAuthHeaders().headers },
+            params: { school_id: schoolId }
+        });
+        return response.data;
+    } catch (error) {
+        console.error("❌ Error fetching weekly image counts:", error.response?.data || error.message);
+        return null;
+    }
 };
 
 
@@ -62,7 +77,26 @@ export const getSchoolDetails = async (schoolId = null, schoolName = null) => {
 };
 
 
+export const redirectUser = () => {
+    const token = localStorage.getItem("access");
+    const role = localStorage.getItem("role");
 
+    if (!token) {
+        window.location.href = "/login"; // Redirect unauthorized users
+        return;
+    }
+
+    switch (role) {
+        case "Admin":
+            window.location.href = "/admindashboard";
+            break;
+        case "Teacher":
+            window.location.href = "/teacherdashboard";
+            break;
+        default:
+            window.location.href = "/publicdashboard";
+    }
+};
 
 // Fetch schools (now protected)
 export const getSchools = async () => {

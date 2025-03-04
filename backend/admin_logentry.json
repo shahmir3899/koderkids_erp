@@ -1,0 +1,301 @@
+[
+    {
+        "model": "admin.logentry",
+        "pk": 1,
+        "fields": {
+            "action_time": "2025-02-17T14:36:46.419Z",
+            "user": 1,
+            "content_type": 9,
+            "object_id": "115",
+            "object_repr": "Joycee Emmanuel - Jan-2025",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 2,
+        "fields": {
+            "action_time": "2025-02-17T14:37:12.973Z",
+            "user": 1,
+            "content_type": 8,
+            "object_id": "4",
+            "object_repr": "The Future Foundation School",
+            "action_flag": 1,
+            "change_message": "[{\"added\": {}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 3,
+        "fields": {
+            "action_time": "2025-02-17T14:38:19.101Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "2",
+            "object_repr": "admin3134 (Student)",
+            "action_flag": 1,
+            "change_message": "[{\"added\": {}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 4,
+        "fields": {
+            "action_time": "2025-02-17T14:49:19.827Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "3",
+            "object_repr": "teacher500 (Teacher)",
+            "action_flag": 1,
+            "change_message": "[{\"added\": {}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 5,
+        "fields": {
+            "action_time": "2025-02-17T14:51:41.268Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "2",
+            "object_repr": "admin3134 (Student)",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 6,
+        "fields": {
+            "action_time": "2025-02-17T14:52:02.779Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "4",
+            "object_repr": "admin3134 (Admin)",
+            "action_flag": 1,
+            "change_message": "[{\"added\": {}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 7,
+        "fields": {
+            "action_time": "2025-02-18T08:13:41.826Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "3",
+            "object_repr": "teacher500 (Teacher)",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 8,
+        "fields": {
+            "action_time": "2025-02-18T09:20:36.544Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "5",
+            "object_repr": "teacher500 (Student)",
+            "action_flag": 1,
+            "change_message": "[{\"added\": {}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 9,
+        "fields": {
+            "action_time": "2025-02-18T09:21:09.506Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "5",
+            "object_repr": "teacher500 (Teacher)",
+            "action_flag": 2,
+            "change_message": "[{\"changed\": {\"fields\": [\"Role\", \"Assigned schools\"]}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 10,
+        "fields": {
+            "action_time": "2025-02-18T09:21:53.692Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "6",
+            "object_repr": "teacher501 (Student)",
+            "action_flag": 1,
+            "change_message": "[{\"added\": {}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 11,
+        "fields": {
+            "action_time": "2025-02-18T09:22:52.372Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "6",
+            "object_repr": "teacher501 (Teacher)",
+            "action_flag": 2,
+            "change_message": "[{\"changed\": {\"fields\": [\"Role\", \"Assigned schools\"]}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 12,
+        "fields": {
+            "action_time": "2025-02-18T14:22:54.026Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "4",
+            "object_repr": "admin3134 (Admin)",
+            "action_flag": 2,
+            "change_message": "[{\"changed\": {\"fields\": [\"Assigned schools\"]}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 13,
+        "fields": {
+            "action_time": "2025-02-18T18:30:45.415Z",
+            "user": 1,
+            "content_type": 8,
+            "object_id": "4",
+            "object_repr": "The Future Foundation School",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 14,
+        "fields": {
+            "action_time": "2025-02-18T18:30:45.415Z",
+            "user": 1,
+            "content_type": 8,
+            "object_id": "3",
+            "object_repr": "The Renaissance Education System",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 15,
+        "fields": {
+            "action_time": "2025-02-18T18:30:45.415Z",
+            "user": 1,
+            "content_type": 8,
+            "object_id": "1",
+            "object_repr": "The Creative SchoolDiamond Campus",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 16,
+        "fields": {
+            "action_time": "2025-02-18T18:31:55.115Z",
+            "user": 1,
+            "content_type": 8,
+            "object_id": "6",
+            "object_repr": "TRES",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 17,
+        "fields": {
+            "action_time": "2025-02-18T18:31:55.115Z",
+            "user": 1,
+            "content_type": 8,
+            "object_id": "5",
+            "object_repr": "The Creative School",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 18,
+        "fields": {
+            "action_time": "2025-02-18T18:31:55.116Z",
+            "user": 1,
+            "content_type": 8,
+            "object_id": "2",
+            "object_repr": "The Generation Pre Cadet School",
+            "action_flag": 3,
+            "change_message": ""
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 19,
+        "fields": {
+            "action_time": "2025-02-19T17:17:01.582Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "5",
+            "object_repr": "teacher500 (Teacher)",
+            "action_flag": 2,
+            "change_message": "[{\"changed\": {\"fields\": [\"Assigned schools\"]}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 20,
+        "fields": {
+            "action_time": "2025-02-19T17:17:12.522Z",
+            "user": 1,
+            "content_type": 6,
+            "object_id": "6",
+            "object_repr": "teacher501 (Teacher)",
+            "action_flag": 2,
+            "change_message": "[{\"changed\": {\"fields\": [\"Assigned schools\"]}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 21,
+        "fields": {
+            "action_time": "2025-02-19T17:35:35.382Z",
+            "user": 1,
+            "content_type": 8,
+            "object_id": "8",
+            "object_repr": "The Creative School",
+            "action_flag": 2,
+            "change_message": "[]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 22,
+        "fields": {
+            "action_time": "2025-02-20T06:13:29.090Z",
+            "user": 1,
+            "content_type": 13,
+            "object_id": "1",
+            "object_repr": "2025-02-20 - 1 - teacher500",
+            "action_flag": 1,
+            "change_message": "[{\"added\": {}}]"
+        }
+    },
+    {
+        "model": "admin.logentry",
+        "pk": 23,
+        "fields": {
+            "action_time": "2025-02-20T06:13:50.491Z",
+            "user": 1,
+            "content_type": 12,
+            "object_id": "1",
+            "object_repr": "Attendance object (1)",
+            "action_flag": 1,
+            "change_message": "[{\"added\": {}}]"
+        }
+    }
+]

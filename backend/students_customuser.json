@@ -1,0 +1,87 @@
+[
+    {
+        "model": "students.customuser",
+        "pk": 1,
+        "fields": {
+            "password": "pbkdf2_sha256$870000$4EFSa2jBFRVOuBhkZP6caV$RncqXoze1fIIN21Cm+3WZvJJhq4BRjeI4pEID10gZkA=",
+            "last_login": "2025-02-28T04:32:52.502Z",
+            "is_superuser": true,
+            "username": "shahmir3899",
+            "first_name": "",
+            "last_name": "",
+            "email": "",
+            "is_staff": true,
+            "is_active": true,
+            "date_joined": "2025-02-17T10:02:56.284Z",
+            "role": "Student",
+            "assigned_schools": [],
+            "groups": [],
+            "user_permissions": []
+        }
+    },
+    {
+        "model": "students.customuser",
+        "pk": 4,
+        "fields": {
+            "password": "pbkdf2_sha256$870000$rBrdmUbFVvwKcJcyYSbVFy$OjGT8WZJr5/tuwDENxV+02+esxp/86GokgJFD/b5c8c=",
+            "last_login": null,
+            "is_superuser": false,
+            "username": "admin3134",
+            "first_name": "",
+            "last_name": "",
+            "email": "",
+            "is_staff": false,
+            "is_active": true,
+            "date_joined": "2025-02-17T14:52:00Z",
+            "role": "Admin",
+            "assigned_schools": [],
+            "groups": [],
+            "user_permissions": []
+        }
+    },
+    {
+        "model": "students.customuser",
+        "pk": 5,
+        "fields": {
+            "password": "pbkdf2_sha256$870000$jPuyFBdI0HcxRwSnNvJCWN$xDw+H/xn5aByP//iFXBOmpj4nZRkqWhIqccxpxP6DUM=",
+            "last_login": null,
+            "is_superuser": false,
+            "username": "teacher500",
+            "first_name": "",
+            "last_name": "",
+            "email": "",
+            "is_staff": false,
+            "is_active": true,
+            "date_joined": "2025-02-18T09:20:34Z",
+            "role": "Teacher",
+            "assigned_schools": [
+                7,
+                8
+            ],
+            "groups": [],
+            "user_permissions": []
+        }
+    },
+    {
+        "model": "students.customuser",
+        "pk": 6,
+        "fields": {
+            "password": "pbkdf2_sha256$870000$ZPTpIJ1UVYIwaKyk7OcUve$0xuqgO+nNtoxltZ5v8nrOHmAbdZ32PFzFW2dts+ymck=",
+            "last_login": null,
+            "is_superuser": false,
+            "username": "teacher501",
+            "first_name": "",
+            "last_name": "",
+            "email": "",
+            "is_staff": false,
+            "is_active": true,
+            "date_joined": "2025-02-18T09:21:51Z",
+            "role": "Teacher",
+            "assigned_schools": [
+                9
+            ],
+            "groups": [],
+            "user_permissions": []
+        }
+    }
+]

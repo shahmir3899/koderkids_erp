@@ -40,7 +40,9 @@ function LessonsPage() {
     // Function to fetch lessons for a specific date
     const fetchLessonsForRange = async (startDate, endDate, schoolId, studentClass) => {
         try {
-            const endpoint = `http://localhost:8000/api/lesson-plan-range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
+            //const endpoint = `http://localhost:8000/api/lesson-plan-range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
+            const endpoint = `${API_URL}/api/lesson-plan-range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
+
             console.log(`🔍 Fetching lessons from: ${endpoint}`);  // Debug log
             const response = await axios.get(endpoint, { headers: getAuthHeaders() });
             return response.data;

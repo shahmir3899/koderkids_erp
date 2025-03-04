@@ -1,0 +1,3079 @@
+[
+    {
+        "model": "students.fee",
+        "pk": 1,
+        "fields": {
+            "student_id": 1,
+            "student_name": "Faizan Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 2,
+        "fields": {
+            "student_id": 2,
+            "student_name": "Syed Hadi Asif",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "0.00",
+            "balance_due": "1000.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 3,
+        "fields": {
+            "student_id": 3,
+            "student_name": "Zeeshan Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 4,
+        "fields": {
+            "student_id": 4,
+            "student_name": "Rouhan Niaz",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 5,
+        "fields": {
+            "student_id": 5,
+            "student_name": "Muhammad Arhum Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 6,
+        "fields": {
+            "student_id": 6,
+            "student_name": "Muhammad Ahmed Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "0.00",
+            "balance_due": "1000.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 7,
+        "fields": {
+            "student_id": 7,
+            "student_name": "Abdul Ahad",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 8,
+        "fields": {
+            "student_id": 8,
+            "student_name": "Ayan Nabi",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 9,
+        "fields": {
+            "student_id": 9,
+            "student_name": "Dua Samsoon",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 10,
+        "fields": {
+            "student_id": 10,
+            "student_name": "Sawera Rajpoot",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 11,
+        "fields": {
+            "student_id": 11,
+            "student_name": "Abiha Mansoor",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 12,
+        "fields": {
+            "student_id": 12,
+            "student_name": "Aena Noor",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 13,
+        "fields": {
+            "student_id": 13,
+            "student_name": "Haider Ali",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 14,
+        "fields": {
+            "student_id": 14,
+            "student_name": "Shawaiz",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "500.00",
+            "month": "Dec-2024",
+            "total_fee": "500.00",
+            "paid_amount": "0.00",
+            "balance_due": "500.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 15,
+        "fields": {
+            "student_id": 15,
+            "student_name": "Muhammad Shahbaz Ali",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "0.00",
+            "balance_due": "1000.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 16,
+        "fields": {
+            "student_id": 16,
+            "student_name": "Hooria Waqas",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 17,
+        "fields": {
+            "student_id": 17,
+            "student_name": "Abdul Momin Butt",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 18,
+        "fields": {
+            "student_id": 18,
+            "student_name": "Mubarak",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 19,
+        "fields": {
+            "student_id": 19,
+            "student_name": "Ibad Rehan",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 20,
+        "fields": {
+            "student_id": 20,
+            "student_name": "Abdullah Abbasi",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 21,
+        "fields": {
+            "student_id": 21,
+            "student_name": "Tuba Mehak",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 22,
+        "fields": {
+            "student_id": 22,
+            "student_name": "Asad Ali",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 23,
+        "fields": {
+            "student_id": 23,
+            "student_name": "Muhammad Khizar Khan",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 24,
+        "fields": {
+            "student_id": 24,
+            "student_name": "Muhammad Azan Khan",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 25,
+        "fields": {
+            "student_id": 25,
+            "student_name": "Saqlain Abdul Malik",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 26,
+        "fields": {
+            "student_id": 26,
+            "student_name": "Midha",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 27,
+        "fields": {
+            "student_id": 27,
+            "student_name": "Hasnain Abdul Malik",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 28,
+        "fields": {
+            "student_id": 28,
+            "student_name": "Fatima Rehan",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 29,
+        "fields": {
+            "student_id": 29,
+            "student_name": "Sumbal Ali",
+            "school": "The Creative School",
+            "student_class": "4",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 30,
+        "fields": {
+            "student_id": 30,
+            "student_name": "Muhammad Ibrahim Rehan",
+            "school": "The Creative School",
+            "student_class": "4",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 31,
+        "fields": {
+            "student_id": 31,
+            "student_name": "Hina Hassan",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 32,
+        "fields": {
+            "student_id": 32,
+            "student_name": "Muskan Arshad",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 33,
+        "fields": {
+            "student_id": 33,
+            "student_name": "Sayed Ashar Hussnain",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 34,
+        "fields": {
+            "student_id": 34,
+            "student_name": "Uswa Yasir Abbasi",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 35,
+        "fields": {
+            "student_id": 35,
+            "student_name": "Syed Ahmed Zawar",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 36,
+        "fields": {
+            "student_id": 36,
+            "student_name": "Huzaifa Javed",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "0.00",
+            "balance_due": "1000.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 37,
+        "fields": {
+            "student_id": 37,
+            "student_name": "Abdul Samad",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 38,
+        "fields": {
+            "student_id": 38,
+            "student_name": "Ayat Hayat",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 39,
+        "fields": {
+            "student_id": 39,
+            "student_name": "Dua Adnan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 40,
+        "fields": {
+            "student_id": 40,
+            "student_name": "Ruhan Salman",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 41,
+        "fields": {
+            "student_id": 41,
+            "student_name": "Khalifa Asif",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 42,
+        "fields": {
+            "student_id": 42,
+            "student_name": "Dania Adnan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 43,
+        "fields": {
+            "student_id": 43,
+            "student_name": "Abdullah Aziz",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 44,
+        "fields": {
+            "student_id": 44,
+            "student_name": "Umer Ali",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 45,
+        "fields": {
+            "student_id": 45,
+            "student_name": "Sajal Faisal",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 46,
+        "fields": {
+            "student_id": 46,
+            "student_name": "Ibaad Faisal",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 47,
+        "fields": {
+            "student_id": 47,
+            "student_name": "Alizay Jannat",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 48,
+        "fields": {
+            "student_id": 48,
+            "student_name": "Emaan Fatima",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 49,
+        "fields": {
+            "student_id": 49,
+            "student_name": "Amna Tehreen",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "7",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "2250.00",
+            "paid_amount": "1000.00",
+            "balance_due": "1250.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 50,
+        "fields": {
+            "student_id": 50,
+            "student_name": "Amani Ismail",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 51,
+        "fields": {
+            "student_id": 51,
+            "student_name": "Arfa Zahra",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 52,
+        "fields": {
+            "student_id": 52,
+            "student_name": "Hifza Amir",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 53,
+        "fields": {
+            "student_id": 53,
+            "student_name": "Warisha Amir",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "7",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 54,
+        "fields": {
+            "student_id": 54,
+            "student_name": "Joail Emmanuel",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 55,
+        "fields": {
+            "student_id": 55,
+            "student_name": "Joycee Emmanuel",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 56,
+        "fields": {
+            "student_id": 56,
+            "student_name": "Haim Ali",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 57,
+        "fields": {
+            "student_id": 57,
+            "student_name": "Abdul Wasay Waseem",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 58,
+        "fields": {
+            "student_id": 58,
+            "student_name": "Bilal Ahmed",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 59,
+        "fields": {
+            "student_id": 59,
+            "student_name": "Muhammad Rohan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Dec-2024",
+            "total_fee": "1000.00",
+            "paid_amount": "0.00",
+            "balance_due": "1000.00",
+            "payment_date": "2024-12-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 60,
+        "fields": {
+            "student_id": 60,
+            "student_name": "Hassan Mehmood",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Dec-2024",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2024-12-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 61,
+        "fields": {
+            "student_id": 1,
+            "student_name": "Faizan Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 62,
+        "fields": {
+            "student_id": 2,
+            "student_name": "Syed Hadi Asif",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 63,
+        "fields": {
+            "student_id": 3,
+            "student_name": "Zeeshan Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 64,
+        "fields": {
+            "student_id": 4,
+            "student_name": "Rouhan Niaz",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 65,
+        "fields": {
+            "student_id": 5,
+            "student_name": "Muhammad Arhum Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 66,
+        "fields": {
+            "student_id": 6,
+            "student_name": "Muhammad Ahmed Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 67,
+        "fields": {
+            "student_id": 7,
+            "student_name": "Abdul Ahad",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 68,
+        "fields": {
+            "student_id": 8,
+            "student_name": "Ayan Nabi",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 69,
+        "fields": {
+            "student_id": 9,
+            "student_name": "Dua Samsoon",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 70,
+        "fields": {
+            "student_id": 10,
+            "student_name": "Sawera Rajpoot",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 71,
+        "fields": {
+            "student_id": 11,
+            "student_name": "Abiha Mansoor",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 72,
+        "fields": {
+            "student_id": 12,
+            "student_name": "Aena Noor",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "1000.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 73,
+        "fields": {
+            "student_id": 13,
+            "student_name": "Haider Ali",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 74,
+        "fields": {
+            "student_id": 14,
+            "student_name": "Shawaiz",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "500.00",
+            "month": "Jan-2025",
+            "total_fee": "1000.00",
+            "paid_amount": "500.00",
+            "balance_due": "500.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 75,
+        "fields": {
+            "student_id": 15,
+            "student_name": "Muhammad Shahbaz Ali",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "1000.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 76,
+        "fields": {
+            "student_id": 16,
+            "student_name": "Hooria Waqas",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "1000.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 77,
+        "fields": {
+            "student_id": 17,
+            "student_name": "Abdul Momin Butt",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "1000.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 78,
+        "fields": {
+            "student_id": 18,
+            "student_name": "Mubarak",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 79,
+        "fields": {
+            "student_id": 19,
+            "student_name": "Ibad Rehan",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 80,
+        "fields": {
+            "student_id": 20,
+            "student_name": "Abdullah Abbasi",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 81,
+        "fields": {
+            "student_id": 21,
+            "student_name": "Tuba Mehak",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 82,
+        "fields": {
+            "student_id": 22,
+            "student_name": "Asad Ali",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 83,
+        "fields": {
+            "student_id": 23,
+            "student_name": "Muhammad Khizar Khan",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 84,
+        "fields": {
+            "student_id": 24,
+            "student_name": "Muhammad Azan Khan",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 85,
+        "fields": {
+            "student_id": 25,
+            "student_name": "Saqlain Abdul Malik",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 86,
+        "fields": {
+            "student_id": 26,
+            "student_name": "Midha",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 87,
+        "fields": {
+            "student_id": 27,
+            "student_name": "Hasnain Abdul Malik",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 88,
+        "fields": {
+            "student_id": 28,
+            "student_name": "Fatima Rehan",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 89,
+        "fields": {
+            "student_id": 29,
+            "student_name": "Sumbal Ali",
+            "school": "The Creative School",
+            "student_class": "4",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 90,
+        "fields": {
+            "student_id": 30,
+            "student_name": "Muhammad Ibrahim Rehan",
+            "school": "The Creative School",
+            "student_class": "4",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 91,
+        "fields": {
+            "student_id": 31,
+            "student_name": "Hina Hassan",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 92,
+        "fields": {
+            "student_id": 32,
+            "student_name": "Muskan Arshad",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 93,
+        "fields": {
+            "student_id": 33,
+            "student_name": "Sayed Ashar Hussnain",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 94,
+        "fields": {
+            "student_id": 34,
+            "student_name": "Uswa Yasir Abbasi",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 95,
+        "fields": {
+            "student_id": 35,
+            "student_name": "Syed Ahmed Zawar",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 96,
+        "fields": {
+            "student_id": 36,
+            "student_name": "Huzaifa Javed",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 97,
+        "fields": {
+            "student_id": 37,
+            "student_name": "Abdul Samad",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 98,
+        "fields": {
+            "student_id": 38,
+            "student_name": "Ayat Hayat",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 99,
+        "fields": {
+            "student_id": 39,
+            "student_name": "Dua Adnan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 100,
+        "fields": {
+            "student_id": 40,
+            "student_name": "Ruhan Salman",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 101,
+        "fields": {
+            "student_id": 41,
+            "student_name": "Khalifa Asif",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 102,
+        "fields": {
+            "student_id": 42,
+            "student_name": "Dania Adnan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 103,
+        "fields": {
+            "student_id": 43,
+            "student_name": "Abdullah Aziz",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 104,
+        "fields": {
+            "student_id": 44,
+            "student_name": "Umer Ali",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 105,
+        "fields": {
+            "student_id": 45,
+            "student_name": "Sajal Faisal",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 106,
+        "fields": {
+            "student_id": 46,
+            "student_name": "Ibaad Faisal",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 107,
+        "fields": {
+            "student_id": 47,
+            "student_name": "Alizay Jannat",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 108,
+        "fields": {
+            "student_id": 48,
+            "student_name": "Emaan Fatima",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 109,
+        "fields": {
+            "student_id": 49,
+            "student_name": "Amna Tehreen",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "7",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2300.00",
+            "paid_amount": "1000.00",
+            "balance_due": "1300.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 110,
+        "fields": {
+            "student_id": 50,
+            "student_name": "Amani Ismail",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 111,
+        "fields": {
+            "student_id": 51,
+            "student_name": "Arfa Zahra",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 112,
+        "fields": {
+            "student_id": 52,
+            "student_name": "Hifza Amir",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 113,
+        "fields": {
+            "student_id": 53,
+            "student_name": "Warisha Amir",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "7",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 114,
+        "fields": {
+            "student_id": 54,
+            "student_name": "Joail Emmanuel",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 116,
+        "fields": {
+            "student_id": 56,
+            "student_name": "Haim Ali",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 117,
+        "fields": {
+            "student_id": 57,
+            "student_name": "Abdul Wasay Waseem",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 118,
+        "fields": {
+            "student_id": 58,
+            "student_name": "Bilal Ahmed",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 119,
+        "fields": {
+            "student_id": 59,
+            "student_name": "Muhammad Rohan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Jan-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 120,
+        "fields": {
+            "student_id": 60,
+            "student_name": "Hassan Mehmood",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Jan-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-01-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 121,
+        "fields": {
+            "student_id": 7,
+            "student_name": "Abdul Ahad",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 122,
+        "fields": {
+            "student_id": 17,
+            "student_name": "Abdul Momin Butt",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 123,
+        "fields": {
+            "student_id": 37,
+            "student_name": "Abdul Samad",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 124,
+        "fields": {
+            "student_id": 57,
+            "student_name": "Abdul Wasay Waseem",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 125,
+        "fields": {
+            "student_id": 20,
+            "student_name": "Abdullah Abbasi",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 126,
+        "fields": {
+            "student_id": 43,
+            "student_name": "Abdullah Aziz",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 127,
+        "fields": {
+            "student_id": 11,
+            "student_name": "Abiha Mansoor",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 128,
+        "fields": {
+            "student_id": 12,
+            "student_name": "Aena Noor",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 129,
+        "fields": {
+            "student_id": 47,
+            "student_name": "Alizay Jannat",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 130,
+        "fields": {
+            "student_id": 50,
+            "student_name": "Amani Ismail",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 131,
+        "fields": {
+            "student_id": 49,
+            "student_name": "Amna Tehreen",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "7",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "2300.00",
+            "paid_amount": "0.00",
+            "balance_due": "2300.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 132,
+        "fields": {
+            "student_id": 51,
+            "student_name": "Arfa Zahra",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 133,
+        "fields": {
+            "student_id": 22,
+            "student_name": "Asad Ali",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 134,
+        "fields": {
+            "student_id": 8,
+            "student_name": "Ayan Nabi",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 135,
+        "fields": {
+            "student_id": 38,
+            "student_name": "Ayat Hayat",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 136,
+        "fields": {
+            "student_id": 58,
+            "student_name": "Bilal Ahmed",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 137,
+        "fields": {
+            "student_id": 42,
+            "student_name": "Dania Adnan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 138,
+        "fields": {
+            "student_id": 39,
+            "student_name": "Dua Adnan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 139,
+        "fields": {
+            "student_id": 9,
+            "student_name": "Dua Samsoon",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "5",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 140,
+        "fields": {
+            "student_id": 48,
+            "student_name": "Emaan Fatima",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 141,
+        "fields": {
+            "student_id": 1,
+            "student_name": "Faizan Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 142,
+        "fields": {
+            "student_id": 28,
+            "student_name": "Fatima Rehan",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 143,
+        "fields": {
+            "student_id": 13,
+            "student_name": "Haider Ali",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "1000.00",
+            "paid_amount": "0.00",
+            "balance_due": "1000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 144,
+        "fields": {
+            "student_id": 56,
+            "student_name": "Haim Ali",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 145,
+        "fields": {
+            "student_id": 27,
+            "student_name": "Hasnain Abdul Malik",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 146,
+        "fields": {
+            "student_id": 60,
+            "student_name": "Hassan Mehmood",
+            "school": "The Creative School",
+            "student_class": "3",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 147,
+        "fields": {
+            "student_id": 52,
+            "student_name": "Hifza Amir",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 148,
+        "fields": {
+            "student_id": 31,
+            "student_name": "Hina Hassan",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 149,
+        "fields": {
+            "student_id": 16,
+            "student_name": "Hooria Waqas",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 150,
+        "fields": {
+            "student_id": 36,
+            "student_name": "Huzaifa Javed",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 151,
+        "fields": {
+            "student_id": 46,
+            "student_name": "Ibaad Faisal",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 152,
+        "fields": {
+            "student_id": 19,
+            "student_name": "Ibad Rehan",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 153,
+        "fields": {
+            "student_id": 54,
+            "student_name": "Joail Emmanuel",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 154,
+        "fields": {
+            "student_id": 55,
+            "student_name": "Joycee Emmanuel",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "1000.00",
+            "paid_amount": "0.00",
+            "balance_due": "1000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 155,
+        "fields": {
+            "student_id": 41,
+            "student_name": "Khalifa Asif",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 156,
+        "fields": {
+            "student_id": 26,
+            "student_name": "Midha",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 157,
+        "fields": {
+            "student_id": 18,
+            "student_name": "Mubarak",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 158,
+        "fields": {
+            "student_id": 6,
+            "student_name": "Muhammad Ahmed Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 159,
+        "fields": {
+            "student_id": 5,
+            "student_name": "Muhammad Arhum Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 160,
+        "fields": {
+            "student_id": 24,
+            "student_name": "Muhammad Azan Khan",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 161,
+        "fields": {
+            "student_id": 30,
+            "student_name": "Muhammad Ibrahim Rehan",
+            "school": "The Creative School",
+            "student_class": "4",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 162,
+        "fields": {
+            "student_id": 23,
+            "student_name": "Muhammad Khizar Khan",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 163,
+        "fields": {
+            "student_id": 59,
+            "student_name": "Muhammad Rohan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 164,
+        "fields": {
+            "student_id": 15,
+            "student_name": "Muhammad Shahbaz Ali",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "2000.00",
+            "paid_amount": "0.00",
+            "balance_due": "2000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 165,
+        "fields": {
+            "student_id": 32,
+            "student_name": "Muskan Arshad",
+            "school": "The Creative School",
+            "student_class": "5",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 166,
+        "fields": {
+            "student_id": 4,
+            "student_name": "Rouhan Niaz",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 167,
+        "fields": {
+            "student_id": 40,
+            "student_name": "Ruhan Salman",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 168,
+        "fields": {
+            "student_id": 45,
+            "student_name": "Sajal Faisal",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 169,
+        "fields": {
+            "student_id": 25,
+            "student_name": "Saqlain Abdul Malik",
+            "school": "The Creative School",
+            "student_class": "2",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 170,
+        "fields": {
+            "student_id": 10,
+            "student_name": "Sawera Rajpoot",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 171,
+        "fields": {
+            "student_id": 33,
+            "student_name": "Sayed Ashar Hussnain",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 172,
+        "fields": {
+            "student_id": 14,
+            "student_name": "Shawaiz",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "500.00",
+            "month": "Feb-2025",
+            "total_fee": "1000.00",
+            "paid_amount": "0.00",
+            "balance_due": "1000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 173,
+        "fields": {
+            "student_id": 29,
+            "student_name": "Sumbal Ali",
+            "school": "The Creative School",
+            "student_class": "4",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 174,
+        "fields": {
+            "student_id": 35,
+            "student_name": "Syed Ahmed Zawar",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 175,
+        "fields": {
+            "student_id": 2,
+            "student_name": "Syed Hadi Asif",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "3",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 176,
+        "fields": {
+            "student_id": 62,
+            "student_name": "TestStudent",
+            "school": "TRES",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "1000.00",
+            "paid_amount": "1000.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Paid"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 177,
+        "fields": {
+            "student_id": 21,
+            "student_name": "Tuba Mehak",
+            "school": "The Creative School",
+            "student_class": "1",
+            "monthly_fee": "0.00",
+            "month": "Feb-2025",
+            "total_fee": "0.00",
+            "paid_amount": "0.00",
+            "balance_due": "0.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 178,
+        "fields": {
+            "student_id": 44,
+            "student_name": "Umer Ali",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 179,
+        "fields": {
+            "student_id": 34,
+            "student_name": "Uswa Yasir Abbasi",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "4",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 180,
+        "fields": {
+            "student_id": 53,
+            "student_name": "Warisha Amir",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "7",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 181,
+        "fields": {
+            "student_id": 3,
+            "student_name": "Zeeshan Irfan",
+            "school": "The Generation Pre Cadet School",
+            "student_class": "6",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "3000.00",
+            "paid_amount": "0.00",
+            "balance_due": "3000.00",
+            "payment_date": "2025-02-15",
+            "status": "Pending"
+        }
+    },
+    {
+        "model": "students.fee",
+        "pk": 182,
+        "fields": {
+            "student_id": 63,
+            "student_name": "test2",
+            "school": "TRES",
+            "student_class": "1",
+            "monthly_fee": "1000.00",
+            "month": "Feb-2025",
+            "total_fee": "1000.00",
+            "paid_amount": "500.00",
+            "balance_due": "500.00",
+            "payment_date": "2025-02-15",
+            "status": "Overdue"
+        }
+    }
+]

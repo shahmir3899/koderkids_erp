@@ -74,16 +74,17 @@ const LessonPlanModal = ({ isOpen, onClose }) => {
         }
     
         const [year, month] = selectedMonth.split("-");
-        const monthIndex = parseInt(month, 10) - 1;
+        const monthIndex = parseInt(month, 10) - 1; // ✅ Ensure correct month indexing
         let generatedLessons = [];
         let daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
     
-        for (let day = 1; day <= daysInMonth && generatedLessons.length < 8; day++) {
+        for (let day = 1; day <= daysInMonth; day++) {
             let lessonDate = new Date(year, monthIndex, day);
             let weekday = lessonDate.toLocaleDateString("en-US", { weekday: "long" });
     
+            // ✅ Check if the weekday is selected
             if (selectedDays.includes(weekday)) {
-                const formattedDate = lessonDate.toISOString().split("T")[0]; // ✅ Format to YYYY-MM-DD
+                const formattedDate = lessonDate.toISOString().split("T")[0]; // ✅ Convert to YYYY-MM-DD
                 generatedLessons.push({ session_date: formattedDate, planned_topic: "" });
             }
         }
@@ -91,6 +92,8 @@ const LessonPlanModal = ({ isOpen, onClose }) => {
         console.log("✅ Generated Lessons:", generatedLessons);
         setLessons(generatedLessons);
     };
+    
+    
     
     
     
