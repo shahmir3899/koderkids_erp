@@ -11,7 +11,7 @@ function TeacherStudentDashboard() {
     const [lessons, setLessons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isUserLoaded, setIsUserLoaded] = useState(false);  // ✅ Track if `user` is fully loaded
-    const API_BASE_URL = "http://127.0.0.1:8000";  // ✅ Django Backend URL
+    const API_BASE_URL = process.env.REACT_APP_API_URL;
     const [assignedClasses, setAssignedClasses] = useState([]);  // ✅ Track assigned classes
 
     console.log("🛠 Debug: User data:", user);

@@ -36,9 +36,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Secret key & Debug mode from environment
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
-DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
+DEBUG = True
 
+DJANGO_DEBUG=True
 
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
+# Only include STATICFILES_DIRS when in development mode
+if DEBUG:
+    STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+else:
+    STATICFILES_DIRS = []  # ✅ Prevents duplicate directories
 
 
 
@@ -61,7 +72,7 @@ CORS_ALLOW_HEADERS = [
     'content-type',
     'authorization',
     'x-requested-with',
-    'ngrok-skip-browser-warning'  # ✅ Add this line
+    
 ]
 
 
@@ -133,7 +144,7 @@ CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 CORS_ALLOW_ALL_ORIGINS = True
 CSRF_TRUSTED_ORIGINS = [
     "https://frontend.koderkids.pk",
-    "https://django-server-production-7046.up.railway.app"
+
 ]
 
 # Authentication & JWT
@@ -148,16 +159,9 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
-
-# Static & Media Files
-STATIC_URL = '/static/'
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  # Collects static files here
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
+# Static & Media Files
 
 
 

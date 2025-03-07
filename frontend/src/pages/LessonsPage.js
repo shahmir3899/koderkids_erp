@@ -126,39 +126,40 @@ function LessonsPage() {
 
     return (
         <div className="container mx-auto p-4">
-            <h1 className="text-3xl font-bold text-center mb-6">Lesson Management</h1>
+            {/* Main Heading */}
+            <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">Lesson Management</h1>
     
             {/* Input Row: Start Date, End Date, School, Class, Fetch Button */}
-            <div className="flex flex-wrap items-end gap-4 mb-6">
+            <div className="flex flex-wrap items-end gap-4 mb-8">
                 {/* Start Date */}
-                <div className="flex flex-col">
-                    <label className="font-bold mb-1">Start Date:</label>
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">Start Date:</label>
                     <input
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="p-2 border border-gray-300 rounded"
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                     />
                 </div>
     
                 {/* End Date */}
-                <div className="flex flex-col">
-                    <label className="font-bold mb-1">End Date:</label>
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">End Date:</label>
                     <input
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="p-2 border border-gray-300 rounded"
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                     />
                 </div>
     
                 {/* School Selector */}
-                <div className="flex flex-col">
-                    <label className="font-bold mb-1">Select School:</label>
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">Select School:</label>
                     <select
                         value={selectedSchool}
                         onChange={(e) => setSelectedSchool(e.target.value)}
-                        className="p-2 border border-gray-300 rounded"
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                     >
                         <option value="">-- Select School --</option>
                         {schools.map((school) => (
@@ -168,13 +169,13 @@ function LessonsPage() {
                 </div>
     
                 {/* Class Selector */}
-                <div className="flex flex-col">
-                    <label className="font-bold mb-1">Select Class:</label>
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">Select Class:</label>
                     <select
                         value={selectedClass}
                         onChange={(e) => setSelectedClass(e.target.value)}
                         disabled={!selectedSchool}
-                        className="p-2 border border-gray-300 rounded"
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors disabled:opacity-50"
                     >
                         <option value="">-- Select Class --</option>
                         {classes.map((className, index) => (
@@ -184,51 +185,57 @@ function LessonsPage() {
                 </div>
     
                 {/* Fetch Lessons Button */}
-                <button
-                    onClick={fetchLessons}
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                >
-                    🔍 Fetch Lessons
-                </button>
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <button
+                        onClick={fetchLessons}
+                        className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                        🔍 Fetch Lessons
+                    </button>
+                </div>
             </div>
     
             {/* Loading & Error Messages */}
-            {loading && <p className="text-center">Loading...</p>}
-            {error && <p className="text-center text-red-500">{error}</p>}
+            {loading && <p className="text-center text-gray-600">Loading...</p>}
+            {error && <p className="text-center text-red-500 font-medium">{error}</p>}
     
             {/* Lessons Table */}
             {!loading && !error && lessons.length > 0 ? (
-                <table className="w-full border-collapse border border-gray-300">
-                    <thead>
-                        <tr className="bg-gray-100">
-                            <th className="p-3 border border-gray-300">Date</th>
-                            <th className="p-3 border border-gray-300">School</th>
-                            <th className="p-3 border border-gray-300">Class</th>
-                            <th className="p-3 border border-gray-300">Planned Topic</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {lessons.map((lesson) => (
-                            <tr key={lesson.id} className="hover:bg-gray-50">
-                                <td className="p-3 border border-gray-300">{lesson.session_date}</td>
-                                <td className="p-3 border border-gray-300">{lesson.school_name}</td>
-                                <td className="p-3 border border-gray-300">{lesson.student_class}</td>
-                                <td className="p-3 border border-gray-300">{lesson.planned_topic}</td>
+                <div className="overflow-x-auto shadow-lg rounded-lg">
+                    <table className="w-full border-collapse">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">Date</th>
+                                <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">School</th>
+                                <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">Class</th>
+                                <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">Planned Topic</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {lessons.map((lesson) => (
+                                <tr key={lesson.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="p-3 border border-gray-300 text-gray-600">{lesson.session_date}</td>
+                                    <td className="p-3 border border-gray-300 text-gray-600">{lesson.school_name}</td>
+                                    <td className="p-3 border border-gray-300 text-gray-600">{lesson.student_class}</td>
+                                    <td className="p-3 border border-gray-300 text-gray-600">{lesson.planned_topic}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             ) : (
                 <p className="text-center text-gray-600">No lessons found.</p>
             )}
     
             {/* Add Lesson Plan Button */}
-            <button
-                onClick={() => setIsModalOpen(true)}
-                className="bg-green-500 text-white px-4 py-2 rounded mt-6 hover:bg-green-600"
-            >
-                ➕ Add Lesson Plan
-            </button>
+            <div className="flex justify-center mt-8">
+                <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                >
+                    ➕ Add Lesson Plan
+                </button>
+            </div>
     
             {/* Lesson Plan Modal */}
             {isModalOpen && <LessonPlanModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />}

@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+
 class School(models.Model):
     name = models.CharField(max_length=255, unique=True)
     location = models.CharField(max_length=255, blank=True, null=True)

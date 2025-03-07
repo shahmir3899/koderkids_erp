@@ -1,4 +1,5 @@
 import React from "react";
+import './App.css';
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import AdminDashboard from "./pages/AdminDashboard";
 import StudentsPage from "./pages/StudentsPage";
@@ -16,6 +17,11 @@ import ReportsPage from "./pages/ReportsPage";
 //import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import StudentReport from "./components/StudentReport";
 import TeacherDashboard from "./pages/TeacherDashboard"; // Import new dashboard
+import FinanceDashboard from "./pages/FinanceDashboard";
+import TransactionsPage from "./pages/TransactionsPage";
+
+
+
 
 export const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -25,6 +31,7 @@ function App() {
     const role = localStorage.getItem("role"); // ✅ Get role from localStorage
 
     return (
+       
         <Router>
             <div className="flex m-0">
                 <Sidebar />
@@ -60,6 +67,11 @@ function App() {
                                 <Route path="/fee" element={<ProtectedRoute element={<FeePage />} />} />
                                 <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} />} />
                                 <Route path="/settings" element={<ProtectedRoute element={<SettingsPage />} />} />
+                                <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} />} />
+                                <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} />} />
+                                
+                            
+                                
                             </>
                         )}
 

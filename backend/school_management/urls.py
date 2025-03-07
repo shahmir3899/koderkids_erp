@@ -5,7 +5,7 @@ from django.contrib import admin
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from students.views import (
-    CustomTokenObtainPairView, StudentViewSet, get_attendance_count, get_fees, get_lesson_plan, get_lesson_plan_range, get_lessons_achieved, get_school_details, get_student_details, get_student_images, get_student_progress_images, get_students,
+    CustomTokenObtainPairView, StudentViewSet, get_attendance_count, get_fees, get_lesson_plan, get_lesson_plan_range, get_lessons_achieved, get_school_details, get_schools_with_classes, get_student_details, get_student_images, get_student_progress_images, get_students,
     create_new_month_fees, get_teacher_dashboard_lessons, students_progress, update_fees, students_per_school, fee_received_per_month,
     new_registrations, get_schools, get_logged_in_user, mark_attendance, get_attendance,
     update_attendance, create_lesson_plan, update_achieved_topic, add_student, get_classes, upload_student_image, register_user
@@ -23,6 +23,7 @@ def home(request):
 urlpatterns = [
     # Admin Panel
     path('admin/', admin.site.urls),
+    path('api/', include('finance.urls')),  # ✅ Include finance URLs
 
     # JWT Authentication
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -38,7 +39,8 @@ urlpatterns = [
     path('api/students/add/', add_student, name='add_student'),
     path('api/schools/', get_schools, name="schools_list"),
     path('api/students-per-school/', students_per_school, name='students_per_school'),
-    
+    path('api/new-registrations/', new_registrations, name='new_registrations'),
+    path('api/schools-with-classes/', get_schools_with_classes, name='schools_with_classes'),
 
 
     # Fees Management

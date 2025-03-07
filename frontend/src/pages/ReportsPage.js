@@ -89,32 +89,38 @@ const ReportsPage = () => {
     };
 
     return (
-        <div style={{ padding: "20px", maxWidth: "800px", margin: "auto" }}>
-            <h2 style={{ textAlign: "center", marginBottom: "20px" }}>📊 Monthly Reports</h2>
+        <div className="p-6 bg-gray-50 min-h-screen">
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">📊 Monthly Reports</h2>
     
             {/* Filters Container */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "20px" }}>
-            <div style={{ flex: "1" }}>
-            <label>Select Month:</label>
-            <input 
-                type="month" 
-                value={selectedMonth} 
-                onChange={(e) => {
-                    const selectedMonth = e.target.value;
-                    setSelectedMonth(selectedMonth);
-                
-                    const { firstDay, lastDay } = getMonthDates(selectedMonth); // Use the same function from `StudentReport.js`
-                    setStartDate(firstDay);
-                    setEndDate(lastDay);
-                }}
-                 
-            />
-        </div>
-
+            <div className="flex flex-wrap gap-4 mb-6">
+                {/* Select Month */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">Select Month:</label>
+                    <input
+                        type="month"
+                        value={selectedMonth}
+                        onChange={(e) => {
+                            const selectedMonth = e.target.value;
+                            setSelectedMonth(selectedMonth);
     
-                <div style={{ flex: "1" }}>
-                    <label>School:</label>
-                    <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
+                            const { firstDay, lastDay } = getMonthDates(selectedMonth); // Use the same function from `StudentReport.js`
+                            setStartDate(firstDay);
+                            setEndDate(lastDay);
+                        }}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    />
+                </div>
+    
+                {/* School Selector */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">School:</label>
+                    <select
+                        value={selectedSchool}
+                        onChange={(e) => setSelectedSchool(e.target.value)}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    >
                         <option value="">-- Select School --</option>
                         {schools.map((school) => (
                             <option key={school.id} value={school.id}>{school.name}</option>
@@ -122,12 +128,14 @@ const ReportsPage = () => {
                     </select>
                 </div>
     
-                <div style={{ flex: "1" }}>
-                    <label>Class:</label>
-                    <select 
-                        value={selectedClass} 
-                        onChange={(e) => setSelectedClass(e.target.value)} 
+                {/* Class Selector */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">Class:</label>
+                    <select
+                        value={selectedClass}
+                        onChange={(e) => setSelectedClass(e.target.value)}
                         disabled={!selectedSchool}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors disabled:opacity-50"
                     >
                         <option value="">-- Select Class --</option>
                         {classes.map((className, index) => (
@@ -137,18 +145,10 @@ const ReportsPage = () => {
                 </div>
     
                 {/* Search Button */}
-                <div style={{ flex: "1", alignSelf: "flex-end" }}>
-                    <button 
-                        onClick={fetchStudents} 
-                        style={{
-                            width: "100%",
-                            backgroundColor: "#007BFF",
-                            color: "white",
-                            padding: "10px",
-                            border: "none",
-                            borderRadius: "5px",
-                            cursor: "pointer",
-                        }}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <button
+                        onClick={fetchStudents}
+                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
                     >
                         🔍 Search
                     </button>
@@ -157,42 +157,36 @@ const ReportsPage = () => {
     
             {/* Students List */}
             {Array.isArray(students) && students.length > 0 ? (
-                <div>
-                    <h3 style={{ marginBottom: "10px" }}>📋 Student List</h3>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <thead>
-                            <tr style={{ background: "#f4f4f4", textAlign: "left" }}>
-                                <th style={{ padding: "10px", borderBottom: "2px solid #ddd" }}>Student Name</th>
-                                <th style={{ padding: "10px", borderBottom: "2px solid #ddd" }}>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {students.map((student) => (
-                                <tr key={student.id}>
-                                    <td style={{ padding: "10px", borderBottom: "1px solid #ddd" }}>{student.name}</td>
-                                    <td style={{ padding: "10px", borderBottom: "1px solid #ddd" }}>
-    <button 
-        onClick={() => navigate(`/student-report/${student.id}`, { state: { autoGenerate: true,month: selectedMonth } })} 
-        style={{
-            backgroundColor: "#28A745",
-            color: "white",
-            padding: "8px",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer",
-        }}
-    >
-        📄 Generate Report
-    </button>
-</td>
-
+                <div className="bg-white p-6 rounded-lg shadow-lg">
+                    <h3 className="text-xl font-semibold text-gray-700 mb-4">📋 Student List</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead className="bg-gray-100">
+                                <tr>
+                                    <th className="p-3 text-left text-gray-700 font-semibold">Student Name</th>
+                                    <th className="p-3 text-left text-gray-700 font-semibold">Action</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {students.map((student) => (
+                                    <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-3 border-t border-gray-200 text-gray-600">{student.name}</td>
+                                        <td className="p-3 border-t border-gray-200">
+                                            <button
+                                                onClick={() => navigate(`/student-report/${student.id}`, { state: { autoGenerate: true, month: selectedMonth } })}
+                                                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                                            >
+                                                📄 Generate Report
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             ) : (
-                <p style={{ textAlign: "center", color: "gray" }}>No students found. Adjust filters and try again.</p>
+                <p className="text-center text-gray-500">No students found. Adjust filters and try again.</p>
             )}
         </div>
     );

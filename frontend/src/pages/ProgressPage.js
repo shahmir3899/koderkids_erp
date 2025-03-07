@@ -381,19 +381,31 @@ const ProgressPage = () => {
 
 
     return (
-        <Container>
-            <Title>Session Progress</Title>
+        <Container className="p-6 bg-gray-50 min-h-screen">
+            {/* Title */}
+            <Title className="text-3xl font-bold text-gray-800 mb-8">Session Progress</Title>
     
-            {/* ✅ Filters in One Row */}
-            <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBottom: "20px" }}>
-                <FormGroup>
-                    <label>Session Date:</label>
-                    <input type="date" value={sessionDate} onChange={handleDateChange} />
+            {/* Filters Row */}
+            <div className="flex flex-wrap items-end gap-4 mb-8">
+                {/* Session Date */}
+                <FormGroup className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">Session Date:</label>
+                    <input
+                        type="date"
+                        value={sessionDate}
+                        onChange={handleDateChange}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    />
                 </FormGroup>
     
-                <FormGroup>
-                    <label>School:</label>
-                    <select value={selectedSchool} onChange={e => setSelectedSchool(e.target.value)}>
+                {/* School Selector */}
+                <FormGroup className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">School:</label>
+                    <select
+                        value={selectedSchool}
+                        onChange={e => setSelectedSchool(e.target.value)}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    >
                         <option value="">Select School</option>
                         {schools.map(school => (
                             <option key={school.id} value={school.id}>{school.name}</option>
@@ -401,93 +413,114 @@ const ProgressPage = () => {
                     </select>
                 </FormGroup>
     
-                <FormGroup>
-                    <label>Class:</label>
-                    <select value={studentClass} onChange={e => setStudentClass(e.target.value)}>
+                {/* Class Selector */}
+                <FormGroup className="flex flex-col flex-1 min-w-[200px]">
+                    <label className="font-bold mb-2 text-gray-700">Class:</label>
+                    <select
+                        value={studentClass}
+                        onChange={e => setStudentClass(e.target.value)}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    >
                         {classes.map(cls => (
                             <option key={cls.id} value={cls.id}>{cls.name}</option>
                         ))}
                     </select>
                 </FormGroup>
     
-                {/* ✅ Search Button in Line */}
-                <Button onClick={handleSearch}>Search</Button>
+                {/* Search Button */}
+                <Button
+                    onClick={handleSearch}
+                    className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                    Search
+                </Button>
             </div>
     
             {showTable && (
                 <>
-                    <Table>
-                        <thead>
-                            <tr>
-                                <th>Student Name</th>
-                                <th>Attendance</th>
-                                <th>Planned Lesson</th>
-                                <th>Achieved Lesson</th>
-                                <th>Upload Image</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {students.map(student => (
-                                <tr key={student.id}>
-                                    <td>{student.name}</td>
-                                    <td>
-                                        {/* ✅ Toggle Button for Attendance */}
-                                        <Button 
-                                        onClick={() => handleAttendanceChange(student.id, 
-                                            attendanceData[student.id]?.status === "Present" ? "Absent" : "Present"
-                                        )}
-                                        style={{ 
-                                            backgroundColor: attendanceData[student.id]?.status === "Present" ? "green" 
-                                            : attendanceData[student.id]?.status === "Absent" ? "red" : "gray", 
-                                            color: "white", 
-                                            border: "none", 
-                                            padding: "5px 10px",
-                                            cursor: "pointer"
-                                        }}
-                                    >
-                                        {attendanceData[student.id]?.status || "Set Attendance"}
-                                    </Button>
-
-                                    </td>
-                                    <td>{plannedTopic}</td>
-                                    <td>
-                                        {/* ✅ Multi-line Input for Achieved Lessons */}
-                                        <textarea 
-                                            value={achievedLessons[student.id] || ""} 
-                                            onChange={e => handleAchievedChange(student.id, e.target.value)}
-                                            rows="3"  
-                                            style={{ width: "100%", resize: "vertical" }} 
-                                        />
-                                    </td>
-                                    <td>
-                                        {/* ✅ Upload Section */}
-                                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-    <input 
-        type="file" 
-        accept="image/*" 
-        ref={(el) => (fileInputRefs.current[student.id] = el)} 
-        style={{ display: "none" }} 
-        onChange={(event) => handleFileSelect(event, student.id)}  
-    />
-
-    <Button type="button" onClick={() => openFileDialog(student.id)}>Browse</Button>
-    <Button onClick={() => handleFileUpload(student.id)}>Upload</Button>
-
-    {/* ✅ Show image preview only for the selected student */}
-    {uploadedImages[student.id] && (
-        <img src={uploadedImages[student.id]} alt="Uploaded" width="80" style={{ borderRadius: "5px" }} />
-    )}
-</div>
-
-                                    </td>
+                    {/* Table */}
+                    <div className="overflow-x-auto shadow-lg rounded-lg">
+                        <Table className="w-full border-collapse">
+                            <thead className="bg-gray-100">
+                                <tr>
+                                    <th className="p-3 text-left text-gray-700 font-semibold">Student Name</th>
+                                    <th className="p-3 text-left text-gray-700 font-semibold">Attendance</th>
+                                    <th className="p-3 text-left text-gray-700 font-semibold">Planned Lesson</th>
+                                    <th className="p-3 text-left text-gray-700 font-semibold">Achieved Lesson</th>
+                                    <th className="p-3 text-left text-gray-700 font-semibold">Upload Image</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </Table>
-                    
-                    {/* ✅ Submit Button */}
-                    <div style={{ marginTop: "20px", textAlign: "right" }}>
-                        <Button onClick={handleSubmit} className="btn btn-success">Submit</Button>
+                            </thead>
+                            <tbody>
+                                {students.map(student => (
+                                    <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-3 border-t border-gray-200 text-gray-600">{student.name}</td>
+                                        <td className="p-3 border-t border-gray-200">
+                                            {/* Attendance Toggle Button */}
+                                            <Button
+                                                onClick={() => handleAttendanceChange(student.id, 
+                                                    attendanceData[student.id]?.status === "Present" ? "Absent" : "Present"
+                                                )}
+                                                className={`px-4 py-2 rounded-lg text-white ${
+                                                    attendanceData[student.id]?.status === "Present" ? "bg-green-500 hover:bg-green-600" 
+                                                    : attendanceData[student.id]?.status === "Absent" ? "bg-red-500 hover:bg-red-600" 
+                                                    : "bg-gray-500 hover:bg-gray-600"
+                                                } transition-colors`}
+                                            >
+                                                {attendanceData[student.id]?.status || "Set Attendance"}
+                                            </Button>
+                                        </td>
+                                        <td className="p-3 border-t border-gray-200 text-gray-600">{plannedTopic}</td>
+                                        <td className="p-3 border-t border-gray-200">
+                                            {/* Achieved Lesson Textarea */}
+                                            <textarea
+                                                value={achievedLessons[student.id] || ""}
+                                                onChange={e => handleAchievedChange(student.id, e.target.value)}
+                                                rows="3"
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors resize-vertical"
+                                            />
+                                        </td>
+                                        <td className="p-3 border-t border-gray-200">
+                                            {/* File Upload Section */}
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    ref={(el) => (fileInputRefs.current[student.id] = el)}
+                                                    className="hidden"
+                                                    onChange={(event) => handleFileSelect(event, student.id)}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => openFileDialog(student.id)}
+                                                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                                                >
+                                                    Browse
+                                                </Button>
+                                                <Button
+                                                    onClick={() => handleFileUpload(student.id)}
+                                                    className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                                                >
+                                                    Upload
+                                                </Button>
+                                                {uploadedImages[student.id] && (
+                                                    <img src={uploadedImages[student.id]} alt="Uploaded" className="w-20 h-20 rounded-lg" />
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </div>
+    
+                    {/* Submit Button */}
+                    <div className="mt-6 text-right">
+                        <Button
+                            onClick={handleSubmit}
+                            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                        >
+                            Submit
+                        </Button>
                     </div>
                 </>
             )}

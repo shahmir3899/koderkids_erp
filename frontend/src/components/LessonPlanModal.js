@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { getSchools, getAuthHeaders, getClasses, addLesson } from "../api";
-import "../App.css";
+
 
 const LessonPlanModal = ({ isOpen, onClose }) => {
     const [schools, setSchools] = useState([]);

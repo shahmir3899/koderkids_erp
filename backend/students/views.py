@@ -167,10 +167,20 @@ def register_user(request):
 @permission_classes([IsAuthenticated])
 def get_schools(request):
     user = request.user
-    if user.role != "Teacher":
+    print(f"🔍 Debug: User={user.username}, Role={user.role}")
+
+    if user.role == "Admin":
+        schools = School.objects.all()  # ✅ Admins see all schools
+    elif user.role == "Teacher":
+        schools = user.assigned_schools.all()  # ✅ Teachers see only assigned schools
+    else:
         return Response({"error": "Unauthorized"}, status=403)
 
-    assigned_schools = user.assigned_schools.all()
+    # ✅ Only filter classes if the user is a teacher
+    if user.role == "Teacher":
+        assigned_schools = user.assigned_schools.all()
+    else:
+        assigned_schools = schools  # ✅ Admin should see all schools
 
     schools_data = []
     for school in assigned_schools:
@@ -181,7 +191,9 @@ def get_schools(request):
             "classes": list(classes)
         })
 
+    print(f"✅ Schools Response: {schools_data}")  # Debugging output
     return Response(schools_data)
+
 
 
   
@@ -288,7 +300,7 @@ def get_students(request):
 
         try:
             if user.role == "Admin":
-                students = Student.objects.select_related("school").all()
+                students = Student.objects.filter(status="Active").select_related("school").all()  # ✅ Fetch only Active students
 
             elif user.role == "Teacher":
                 assigned_schools = user.assigned_schools.values_list("name", flat=True)
@@ -297,9 +309,11 @@ def get_students(request):
                 if school_name and school_name not in assigned_schools:
                     print(f"❌ Unauthorized: {user.username} cannot access {school_name}")
                     return Response([])
+                
                 print("✅ Fetching students for:", school_name)
-                students = Student.objects.filter(school__name=school_name)
+                students = Student.objects.filter(school__name=school_name, status="Active")  # ✅ Filter by Active status
                 print(f"✅ Students before filtering class: {students.count()}")
+
                 if student_class:
                     students = students.filter(student_class=student_class)
 
@@ -461,8 +475,22 @@ def update_student(request, pk):
     
 @api_view(['GET'])
 def students_per_school(request):
-    data = Student.objects.values('school').annotate(total_students=Count('id'))
-    return Response(list(data))
+    """Return total students per school with school names instead of IDs."""
+    data = (
+        Student.objects.values('school')  # Get school_id
+        .annotate(total_students=Count('id'))  # Count students per school
+    )
+
+    # Convert school_id to school name
+    formatted_data = []
+    for entry in data:
+        school = School.objects.filter(id=entry['school']).first()
+        formatted_data.append({
+            'school': school.name if school else "Unknown",
+            'total_students': entry['total_students']
+        })
+
+    return Response(formatted_data)
 
 @api_view(['POST'])
 def update_fees(request):
@@ -549,10 +577,6 @@ def get_fees(request):
 
     return Response(fee_list)
 
-@api_view(['GET'])
-def students_per_school(request):
-    data = Student.objects.values('school').annotate(total_students=Count('id'))
-    return Response(data)
 
 @api_view(['GET'])
 def fee_received_per_month(request):
@@ -572,15 +596,34 @@ def delete_student(request, pk):
 
 @api_view(['GET'])
 def new_registrations(request):
+    """Fetch newly registered students from the last month"""
+    
     last_month = now().month  # Get the current month
     current_year = now().year
+
+    print(f"🔍 Fetching new registrations for month: {last_month}, year: {current_year}")
 
     students = Student.objects.filter(
         date_of_registration__month=last_month,
         date_of_registration__year=current_year
-    ).values('id', 'name', 'school', 'date_of_registration')
+    ).values('id', 'name', 'school_id', 'date_of_registration')
 
-    return Response(students)
+    print(f"✅ Retrieved {students.count()} students")  # Debugging
+
+    # Convert school_id to school name
+    formatted_data = []
+    for student in students:
+        school_name = student['school_id']  # Debugging line
+        print(f"Processing student {student['name']} - School ID: {school_name}")
+
+        formatted_data.append({
+            "id": student['id'],
+            "name": student['name'],
+            "school": school_name,  # Temporarily keeping school_id for debugging
+            "date_of_registration": student['date_of_registration']
+        })
+
+    return Response(formatted_data)
 
 @api_view(['POST'])
 def create_new_month_fees(request):
@@ -1068,3 +1111,62 @@ def get_student_progress_images(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_schools_with_classes(request):
+    try:
+        user = request.user
+        logger.info(f"🔍 Fetching schools for user: {user.username}, role: {user.role}")
+
+        # Determine which schools to fetch based on role
+        if user.role == "Admin":
+            schools = School.objects.all()  # Admins see all schools
+        elif user.role == "Teacher":
+            # Teachers only see their assigned schools
+            assigned_schools = user.assigned_schools.all()
+            if not assigned_schools.exists():
+                logger.warning(f"⚠️ No schools assigned to teacher: {user.username}")
+                return Response([])  # Return empty list if no schools assigned
+            schools = assigned_schools  # Filter to only assigned schools
+        else:
+            logger.error(f"❌ Unauthorized role for user: {user.username}, role: {user.role}")
+            return Response({"error": "Unauthorized role"}, status=403)
+
+        # Aggregate data for each school
+        school_data = []
+        for school in schools:
+            # Get active students for this school and count per class
+            class_counts = (
+                Student.objects
+                .filter(school=school, status="Active")
+                .values("student_class")
+                .annotate(count=Count("id"))
+                .order_by("student_class")
+            )
+
+            # Convert class_counts to a list of {className, strength} objects
+            classes = [
+                {
+                    "className": entry["student_class"],
+                    "strength": entry["count"]
+                }
+                for entry in class_counts
+            ]
+
+            # Calculate total students
+            total_students = sum(entry["count"] for entry in class_counts)
+
+            school_data.append({
+                "name": school.name,
+                "address": school.location or "No location available",
+                "total_students": total_students,  # Already added in previous step
+                "classes": classes
+            })
+
+        logger.info(f"✅ Fetched schools with classes: {school_data}")
+        return Response(school_data)
+
+    except Exception as e:
+        logger.error(f"❌ Error fetching schools with classes: {str(e)}")
+        return Response({"error": "Server error, check logs"}, status=500)

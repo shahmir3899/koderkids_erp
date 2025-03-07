@@ -3,7 +3,7 @@ import axios from "axios";
 
 
 
-export const API_URL = process.env.REACT_APP_BACKEND_URL;
+export const API_URL = process.env.REACT_APP_API_URL;
 
 
 // Helper function to get auth headers
@@ -42,6 +42,7 @@ export const getStudents = async (schoolName = "", studentClass = "") => {
     const params = {
         school: schoolName, // ✅ Use school name, not ID
         class: studentClass ? String(studentClass) : "", // ✅ Ensure class is sent as a string
+        status: "Active",  // ✅ Ensure only Active students are fetched
     };
 
     try {
@@ -57,6 +58,32 @@ export const getStudents = async (schoolName = "", studentClass = "") => {
         return [];
     }
 };
+
+
+// export const getStudents = async (schoolName, params = {}) => {
+//     const queryParams = new URLSearchParams(params);
+    
+//     // Only add the school parameter if schoolName is provided
+//     if (schoolName) {
+//         queryParams.set("school", schoolName);
+//     }
+
+//     // Log the request for debugging
+//     console.log("🔍 Requesting students with filters:", { schoolName, params });
+
+//     // Proceed with the request even if schoolName is null (for all_schools=true)
+//     const response = await fetch(`/api/students/?${queryParams.toString()}`, {
+//         method: "GET",
+//         headers: {
+//             "Authorization": `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
+//             "Content-Type": "application/json"
+//         }
+//     });
+
+//     const data = await response.json();
+//     console.log("✅ Students API Response:", data);
+//     return data;
+// };
 
 export const getSchoolDetails = async (schoolId = null, schoolName = null) => {
     try {
@@ -274,5 +301,38 @@ export const getLoggedInUser = async () => {
     } catch (error) {
         console.error("❌ Error fetching user:", error.response?.data || error.message);
         return null; // Handle errors gracefully
+    }
+};
+
+
+export const getTransactions = async () => {
+    try {
+        const response = await axios.get(`${API_URL}/api/transactions/`, {
+            headers: getAuthHeaders()
+        });
+        return response.data;
+    } catch (error) {
+        console.error("❌ Error fetching transactions:", error.response?.data || error.message);
+        return [];
+    }
+};
+
+export const getSchoolsWithClasses = async () => {
+    try {
+        console.log("🔍 Fetching schools with classes...");
+
+        const response = await axios.get(`${API_URL}/api/schools-with-classes/`, {
+            headers: {
+                ...getAuthHeaders(),
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        });
+
+        console.log("✅ Schools with Classes API Response:", response.data);
+        return response.data;
+    } catch (error) {
+        console.error("❌ Error fetching schools with classes:", error.response?.data || error.message);
+        throw error;
     }
 };

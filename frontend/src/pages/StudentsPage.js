@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import AddStudentPopup from "./AddStudentPopup";  // ✅ Ensure it's imported
 import { updateStudent, deleteStudent, getStudents  } from "../api";
-import "../App.css";
+
 import { useCallback } from "react";
 import axios from "axios";  // ✅ Fix axios not defined error
 
@@ -281,216 +281,234 @@ function StudentsPage() {
 
     
     return (
-        <div className="App">
-            <header className="App-header">
-                <h1>Student Management</h1>
-
-                <input
-                    type="text"
-                    placeholder="Search by Name or Reg Num"
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc", marginRight: "10px" }}
-                />
-
-                <select
-                    value={schoolFilter}
-                    onChange={handleSchoolFilterChange}
-                    style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc", marginRight: "10px" }}
-                >
-                    <option value="All Schools">All Schools</option>
-                    {schools.map((school, index) => (
-                        <option key={school.id} value={school.name}>{school.name}</option>
-                    ))}
-                </select>
-
-                <select value={classFilter} onChange={handleClassFilterChange}>
-    {classes.length > 1 ? (
-        classes.map((cls, index) => (
-            <option key={index} value={cls}>{cls}</option>
-        ))
-    ) : (
-        <option disabled>Loading classes...</option> // ✅ Better UX
-    )}
-</select>
-
-
-
-                <button
-                    onClick={handleSearchClick}
-                    style={{ padding: "10px", backgroundColor: "#007BFF", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}
-                >
-                    🔍 Search
-                </button>
-
-                <button
-                    onClick={handleAddNewStudent}
-                    style={{ padding: "10px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", marginLeft: "10px" }}
-                    //{isAdding && <AddStudentPopup />}  // ✅ Show the new form
-                >
-                    ➕ Add New Student
-                </button>
-            </header>
-
-            {loading && <p>Loading...</p>}
-            {error && <p style={{ color: "red" }}>{error}</p>}
-
-            {showResults && !loading && !error && (
-                <table className="student-table">
-                    <thead>
-                        <tr>
-                            <th>Reg Num</th>
-                            <th>Name</th>
-                            <th>School</th>
-                            <th>Class</th>
-                            <th>Monthly Fee</th>
-                            <th>Phone</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredStudents.map((student) => (
-                            <tr key={student.id} style={{ cursor: "pointer" }}>
-                                <td>{student.reg_num}</td>
-                                <td>{student.name}</td>
-                                <td>{student.school}</td>
-                                <td>{student.student_class}</td>
-                                <td>{student.monthly_fee}</td>
-                                <td>{student.phone}</td>
-                                <td>
-                                    <button
-                                        onClick={() => handleViewDetails(student)}
-                                        style={{
-                                            padding: "5px 8px",
-                                            fontSize: "12px",
-                                            backgroundColor: "#007BFF",
-                                            color: "white",
-                                            border: "none",
-                                            borderRadius: "3px",
-                                            cursor: "pointer",
-                                            marginRight: "5px",
-                                            whiteSpace: "nowrap"
-                                        }}
-                                    >
-                                        👁️
-                                    </button>
-
-                                    <button
-                                        onClick={() => handleDeleteStudent(student.id)}
-                                        style={{
-                                            padding: "5px 8px",
-                                            fontSize: "12px",
-                                            backgroundColor: "#dc3545",
-                                            color: "white",
-                                            border: "none",
-                                            borderRadius: "3px",
-                                            cursor: "pointer",
-                                            whiteSpace: "nowrap"
-                                        }}
-                                    >
-                                        🗑️
-                                    </button>
-                                </td>
-                            </tr>
+        <div className="min-h-screen bg-gray-50 p-6">
+            {/* Header Section */}
+            <header className="bg-white shadow-md p-6 rounded-lg mb-6">
+                <h1 className="text-3xl font-bold text-gray-800 text-center mb-6">Student Management</h1>
+    
+                {/* Search and Filters Section */}
+                <div className="flex flex-wrap gap-4 mb-6">
+                    {/* Search Input */}
+                    <input
+                        type="text"
+                        placeholder="Search by Name or Reg Num"
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors flex-1 min-w-[200px]"
+                    />
+    
+                    {/* School Filter */}
+                    <select
+                        value={schoolFilter}
+                        onChange={handleSchoolFilterChange}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors flex-1 min-w-[200px]"
+                    >
+                        <option value="All Schools">All Schools</option>
+                        {schools.map((school) => (
+                            <option key={school.id} value={school.name}>{school.name}</option>
                         ))}
-                    </tbody>
-                </table>
-            )}
-
-            {selectedStudent && (
-                <div className="modal" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", backgroundColor: "#fff", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)", zIndex: 1000 }}>
-                    <h2 style={{ color: "#007BFF" }}>Student Profile</h2>
-                    {isEditing ? (
-                        <>
-                            <label>Name:</label>
-                            <input
-                                type="text"
-                                name="name"
-                                value={selectedStudent.name}
-                                onChange={handleInputChange}
-                                style={{ marginBottom: "10px", padding: "5px", width: "100%" }}
-                            />
-                            <label>Reg Num:</label>
-                            <input
-                                type="text"
-                                name="reg_num"
-                                value={selectedStudent.reg_num}
-                                onChange={handleInputChange}
-                                style={{ marginBottom: "10px", padding: "5px", width: "100%" }}
-                            />
-                            <label>School:</label>
-                            <input
-                                type="text"
-                                name="school"
-                                value={selectedStudent.school}
-                                onChange={handleInputChange}
-                                style={{ marginBottom: "10px", padding: "5px", width: "100%" }}
-                            />
-                            <label>Class:</label>
-                            <input
-                                type="text"
-                                name="student_class"
-                                value={selectedStudent.student_class}
-                                onChange={handleInputChange}
-                                style={{ marginBottom: "10px", padding: "5px", width: "100%" }}
-                            />
-                            <label>Monthly Fee:</label>
-                            <input
-                                type="number"
-                                name="monthly_fee"
-                                value={selectedStudent.monthly_fee}
-                                onChange={handleInputChange}
-                                style={{ marginBottom: "10px", padding: "5px", width: "100%" }}
-                            />
-                            <label>Phone:</label>
-                            <input
-                                type="text"
-                                name="phone"
-                                value={selectedStudent.phone}
-                                onChange={handleInputChange}
-                                style={{ marginBottom: "10px", padding: "5px", width: "100%" }}
-                            />
-                            <button
-                                onClick={handleSaveChanges}
-                                style={{ padding: "10px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", marginRight: "10px" }}
-                            >
-                                Save Changes
-                            </button>
-                            <button
-                                onClick={() => setIsEditing(false)}
-                                style={{ padding: "10px", backgroundColor: "#dc3545", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}
-                            >
-                                Cancel
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <p><strong>Reg Num:</strong> {selectedStudent.reg_num}</p>
-                            <p><strong>Name:</strong> {selectedStudent.name}</p>
-                            <p><strong>School:</strong> {selectedStudent.school}</p>
-                            <p><strong>Class:</strong> {selectedStudent.student_class}</p>
-                            <p><strong>Monthly Fee:</strong> {selectedStudent.monthly_fee}</p>
-                            <p><strong>Phone:</strong> {selectedStudent.phone}</p>
-                            <button
-                                onClick={handleEdit}
-                                style={{ padding: "8px", backgroundColor: "#007BFF", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", marginRight: "10px" }}
-                            >
-                                Edit
-                            </button>
-                            <button
-                                onClick={handleCloseDetails}
-                                style={{ padding: "8px", backgroundColor: "#dc3545", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}
-                            >
-                                Close
-                            </button>
-                        </>
-                    )}
+                    </select>
+    
+                    {/* Class Filter */}
+                    <select
+                        value={classFilter}
+                        onChange={handleClassFilterChange}
+                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors flex-1 min-w-[200px]"
+                    >
+                        {classes.length > 1 ? (
+                            classes.map((cls, index) => (
+                                <option key={index} value={cls}>{cls}</option>
+                            ))
+                        ) : (
+                            <option disabled>Loading classes...</option>
+                        )}
+                    </select>
+    
+                    {/* Search Button */}
+                    <button
+                        onClick={handleSearchClick}
+                        className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                    >
+                        🔍 Search
+                    </button>
+    
+                    {/* Add New Student Button */}
+                    <button
+                        onClick={handleAddNewStudent}
+                        className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                    >
+                        ➕ Add New Student
+                    </button>
+                </div>
+            </header>
+    
+            {/* Loading and Error Messages */}
+            {loading && <p className="text-center text-gray-600">Loading...</p>}
+            {error && <p className="text-center text-red-500">{error}</p>}
+    
+            {/* Results Table */}
+            {showResults && !loading && !error && (
+                <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-3 text-left text-gray-700 font-semibold">Reg Num</th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">Name</th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">School</th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">Class</th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">Monthly Fee</th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">Phone</th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredStudents.map((student) => (
+                                <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.reg_num}</td>
+                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.name}</td>
+                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.school}</td>
+                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.student_class}</td>
+                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.monthly_fee}</td>
+                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.phone}</td>
+                                    <td className="p-3 border-t border-gray-200">
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleViewDetails(student)}
+                                                className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-1"
+                                            >
+                                                👁️ View
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteStudent(student.id)}
+                                                className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
+                                            >
+                                                🗑️ Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
-
-            {isAdding && (
-                  <AddStudentPopup onClose={() => setIsAdding(false)} />
+    
+            {/* Student Profile Modal */}
+            {selectedStudent && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+                        <h2 className="text-2xl font-bold text-blue-600 mb-4">Student Profile</h2>
+                        {isEditing ? (
+                            <>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-gray-700">Name:</label>
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={selectedStudent.name}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700">Reg Num:</label>
+                                        <input
+                                            type="text"
+                                            name="reg_num"
+                                            value={selectedStudent.reg_num}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700">School:</label>
+                                        <input
+                                            type="text"
+                                            name="school"
+                                            value={selectedStudent.school}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700">Class:</label>
+                                        <input
+                                            type="text"
+                                            name="student_class"
+                                            value={selectedStudent.student_class}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700">Monthly Fee:</label>
+                                        <input
+                                            type="number"
+                                            name="monthly_fee"
+                                            value={selectedStudent.monthly_fee}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700">Phone:</label>
+                                        <input
+                                            type="text"
+                                            name="phone"
+                                            value={selectedStudent.phone}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 mt-6">
+                                    <button
+                                        onClick={handleSaveChanges}
+                                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                                    >
+                                        Save Changes
+                                    </button>
+                                    <button
+                                        onClick={() => setIsEditing(false)}
+                                        className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="space-y-2">
+                                    <p><strong>Reg Num:</strong> {selectedStudent.reg_num}</p>
+                                    <p><strong>Name:</strong> {selectedStudent.name}</p>
+                                    <p><strong>School:</strong> {selectedStudent.school}</p>
+                                    <p><strong>Class:</strong> {selectedStudent.student_class}</p>
+                                    <p><strong>Monthly Fee:</strong> {selectedStudent.monthly_fee}</p>
+                                    <p><strong>Phone:</strong> {selectedStudent.phone}</p>
+                                </div>
+                                <div className="flex gap-2 mt-6">
+                                    <button
+                                        onClick={handleEdit}
+                                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={handleCloseDetails}
+                                        className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
             )}
+    
+            {/* Add Student Popup */}
+            {isAdding && <AddStudentPopup onClose={() => setIsAdding(false)} />}
         </div>
     );
 }
