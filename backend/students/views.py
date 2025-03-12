@@ -1082,7 +1082,34 @@ def get_lessons_achieved(request):
         return JsonResponse({"error": "Student not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_planned_topic(request, lesson_plan_id):
+    """Allows teachers to update the planned lesson topic"""
+    teacher = request.user
+
+    if teacher.role != 'Teacher':
+        return Response({"error": "Only teachers can update planned topics."}, status=403)
+
+    try:
+        lesson_plan = LessonPlan.objects.get(id=lesson_plan_id)
+
+        if lesson_plan.teacher != teacher:
+            return Response({"error": "You can only update your own lesson plans."}, status=403)
+
+        planned_topic = request.data.get('planned_topic')
+        if not planned_topic:
+            return Response({"error": "Planned topic cannot be empty."}, status=400)
+
+        lesson_plan.planned_topic = planned_topic
+        lesson_plan.save()
+
+        return Response({"message": "Planned topic updated successfully!", "data": LessonPlanSerializer(lesson_plan).data})
+    except LessonPlan.DoesNotExist:
+        return Response({"error": "Lesson plan not found."}, status=404)
+
+
 def get_student_progress_images(request):
     student_id = request.GET.get('student_id')
     month = request.GET.get('month')  # Format: YYYY-MM

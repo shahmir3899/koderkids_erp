@@ -1,272 +1,275 @@
 .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-  
-  .modal-container {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 800px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  }
-  
-  .modal-title {
-    font-size: 1.5rem;
-    margin-bottom: 20px;
-    color: #333;
-  }
-  
-  .form-group {
-    margin-bottom: 15px;
-  }
-  
-  .form-label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 5px;
-    color: #555;
-  }
-  
-  .form-select,
-  .form-input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-  }
-  
-  .date-range-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  
-  .date-range-separator {
-    font-size: 1rem;
-    color: #666;
-  }
-  .date-checkboxes {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 2 items per row */
-    gap: 10px;
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-  }
-  
-  .date-checkbox-item {
-    padding: 10px;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    background: #f9f9f9;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-  }
-  
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-  }
-  
-  .checkbox-input {
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-  }
-  
-  .checkbox-label span {
-    font-size: 1.1rem;
-    color: #333;
-  }
-  
-  
-  
-  
-  .existing-lesson {
-    background: #f9f9f9;
-  }
-  
-  .new-lesson {
-    background: #e6f3ff;
-  }
-  
-  .form-textarea {
-    width: 100%;
-    min-height: 60px;
-    padding: 5px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    resize: vertical;
-  }
-  
-  .empty-table-text {
-    text-align: center;
-    color: #888;
-    padding: 20px;
-  }
-  
-  .btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background 0.2s;
-  }
-  
-  .btn-primary {
-    background: #007bff;
-    color: white;
-  }
-  
-  .btn-primary:hover {
-    background: #0056b3;
-  }
-  
-  .btn-secondary {
-    background: #6c757d;
-    color: white;
-  }
-  
-  .btn-secondary:hover {
-    background: #5a6268;
-  }
-  
-  .btn-success {
-    background: #28a745;
-    color: white;
-  }
-  
-  .btn-success:hover {
-    background: #218838;
-  }
-  
-  .btn-danger {
-    background: #dc3545;
-    color: white;
-  }
-  
-  .btn-danger:hover {
-    background: #c82333;
-  }
-  
-  .btn:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-  }
-  
-  .modal-actions {
-    margin-top: 20px;
-    display: flex;
-    gap: 10px;
-  }
-  
-  .loading-text {
-    color: #007bff;
-    text-align: center;
-  }
-  
-  .error-text {
-    color: #dc3545;
-    text-align: center;
-    margin-bottom: 15px;
-  }
-
-  .checkbox-label span {
-    font-size: 1rem;
-    color: #333;
-  }
-  
-  .checkbox-label span::before {
-    content: attr(data-day) " ";
-    font-weight: bold;
-  }
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 500; /* Lower z-index for main modal */
+}
 
 
 
+.modal-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
 
 
+.modal-title {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  color: #333;
+}
 
-  .lesson-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 1rem;
-  }
-  
-  .lesson-table th,
-  .lesson-table td {
-    padding: 10px 14px;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-  }
-  
-  .lesson-table th {
-    background: #4a90e2;
-    color: white;
-    font-weight: bold;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    border-bottom: 2px solid #3a78c2;
-  }
-  
-  .lesson-table tbody tr:nth-child(odd) {
-    background: #f5faff;
-  }
-  
-  .lesson-table tbody tr:nth-child(even) {
-    background: #ffffff;
-  }
-  
-  .lesson-table td:nth-child(1) {
-    font-weight: bold;
-    color: #2c3e50;
-  }
-  
-  .lesson-table td:nth-child(2) {
-    color: #e74c3c;
-  }
-  
-  .lesson-table td:nth-child(3) {
-    color: #3498db;
-  }
-  
-  .lesson-table td:nth-child(4) {
-    color: #555;
-  }
-  
-  .lesson-table tbody tr:hover {
-    background: #e0e7ff;
-  }
+.form-group {
+  margin-bottom: 15px;
+}
 
-  .table-container {
-    margin-top: 20px;
-    overflow-x: auto; /* Allow horizontal scrolling on small screens */
-  }
-  
-  .lesson-table {
-    min-width: 600px; /* Ensure table doesn’t collapse too much on small screens */
-  }
-  
-  .lesson-table td,
-  .lesson-table th {
-    min-height: 48px; /* Ensure rows are tall enough for touch targets */
-    line-height: 1.5;
-  }
+.form-label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #555;
+}
+
+.form-select,
+.form-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.date-range-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.date-range-separator {
+  font-size: 1rem;
+  color: #666;
+}
+
+.date-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.date-checkbox-item {
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #f9f9f9;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.checkbox-input {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  font-size: 1rem;
+  color: #333;
+}
+
+.checkbox-label span::before {
+  content: attr(data-day) " ";
+  font-weight: bold;
+}
+
+.existing-lesson {
+  background: #f9f9f9;
+}
+
+.new-lesson {
+  background: #e6f3ff;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.empty-table-text {
+  text-align: center;
+  color: #888;
+  padding: 20px;
+}
+
+.table-container {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+
+.lesson-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+  min-width: 600px;
+}
+
+.lesson-table th,
+.lesson-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+  min-height: 48px;
+  line-height: 1.5;
+}
+
+.lesson-table th {
+  background: #4a90e2;
+  color: white;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  border-bottom: 2px solid #3a78c2;
+}
+
+.lesson-table tbody tr:nth-child(odd) {
+  background: #f5faff;
+}
+
+.lesson-table tbody tr:nth-child(even) {
+  background: #ffffff;
+}
+
+.lesson-table td:nth-child(1) {
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.lesson-table td:nth-child(2) {
+  color: #e74c3c;
+}
+
+.lesson-table td:nth-child(3) {
+  color: #3498db;
+}
+
+.lesson-table td:nth-child(4) {
+  color: #555;
+}
+
+.lesson-table tbody tr:hover {
+  background: #e0e7ff;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #0056b3;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #218838;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.modal-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.loading-text {
+  color: #007bff;
+  text-align: center;
+}
+
+.error-text {
+  color: #dc3545;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+/* Customize the toast container */
+.Toastify__toast {
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  border-radius: 8px;
+}
+
+/* Customize success toast */
+.Toastify__toast--success {
+  background: #28a745 !important; /* Match your app's green */
+}
+
+/* Customize error toast */
+.Toastify__toast--error {
+  background: #dc3545 !important; /* Match your app's red */
+}

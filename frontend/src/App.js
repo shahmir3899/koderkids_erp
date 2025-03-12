@@ -18,6 +18,7 @@ import StudentReport from "./components/StudentReport";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import TransactionsPage from "./pages/TransactionsPage";
+import { ClipLoader } from "react-spinners";
 import { ToastContainer } from "react-toastify"; // Import ToastContainer
 import "react-toastify/dist/ReactToastify.css"; // Import react-toastify CSS
 

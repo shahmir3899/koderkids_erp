@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { getSchools, getAuthHeaders, getClasses, addLesson } from "../api";
+import {  toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "./LessonPlanModal.css";
 
 // Helper function to format dates as "D MMM YYYY"
@@ -134,11 +136,11 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
 
   const handleSubmit = async () => {
     if (!selectedSchool || !selectedClass || !teacherId) {
-      setError("Please select a school, class, and ensure teacher ID is loaded.");
+      toast.error("Please select a school, class, and ensure teacher ID is loaded.");
       return;
     }
     if (newLessons.some((lesson) => !lesson.session_date || !lesson.planned_topic.trim())) {
-      setError("Please fill all fields for new lessons before saving.");
+      toast.error("Please fill all fields for new lessons before saving.");
       return;
     }
     try {
@@ -152,10 +154,10 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
           planned_topic: lesson.planned_topic,
         });
       }
-      alert("New Lessons Added Successfully!");
+      toast.success("New Lessons Added Successfully!");
       onClose();
     } catch (error) {
-      setError("Failed to add new lessons. Please try again.");
+      toast.error("Failed to add new lessons. Please try again.");
       console.error("Error adding new lessons:", error.response?.data || error.message);
     } finally {
       setLoading(false);
@@ -166,13 +168,22 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
 
   return (
     <div className="modal-overlay">
+      {/* <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="light"
+      /> */}
       <div className="modal-container">
         <h2 className="modal-title">📅 Add Lesson Plan</h2>
 
         {loading && <p className="loading-text">Loading...</p>}
         {error && <p className="error-text">{error}</p>}
 
-        {/* School and Class Selection */}
         <div className="form-group">
           <label className="form-label">School:</label>
           <select
@@ -207,7 +218,6 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
           </select>
         </div>
 
-        {/* Month Picker */}
         <div className="form-group">
           <label className="form-label">Select Month:</label>
           <input
@@ -219,14 +229,13 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
           />
         </div>
 
-        {/* Date Selection with Day Names */}
         {allDates.length > 0 && (
           <div className="form-group">
             <label className="form-label">Select Lesson Dates:</label>
             <div className="date-checkboxes">
               {allDates.map((date) => {
                 const dayName = new Date(date).toLocaleDateString("en-US", { weekday: "long" });
-                const formattedDate = formatDate(date); // Use the helper function
+                const formattedDate = formatDate(date);
                 return (
                   <div key={date} className="date-checkbox-item">
                     <label className="checkbox-label">
@@ -253,7 +262,6 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
           </div>
         )}
 
-        {/* Lesson Table */}
         <div className="table-container">
           <table className="lesson-table">
             <thead>
@@ -265,7 +273,7 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
             <tbody>
               {newLessons.map((lesson, index) => (
                 <tr key={`new-${index}`} className="new-lesson">
-                  <td>{formatDate(lesson.session_date)}</td> {/* Format date in table */}
+                  <td>{formatDate(lesson.session_date)}</td>
                   <td>
                     <textarea
                       className="form-textarea"
@@ -290,7 +298,6 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
           </table>
         </div>
 
-        {/* Action Buttons */}
         <div className="modal-actions">
           <button
             onClick={handleSubmit}
@@ -299,6 +306,7 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
           >
             Save New Lessons
           </button>
+          <button onClick={() => toast.success("Test Toast!")}>Show Test Toast</button>
           <button onClick={onClose} className="btn btn-danger" disabled={loading}>
             Cancel
           </button>

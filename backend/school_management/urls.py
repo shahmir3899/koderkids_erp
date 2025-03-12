@@ -8,7 +8,7 @@ from students.views import (
     CustomTokenObtainPairView, StudentViewSet, get_attendance_count, get_fees, get_lesson_plan, get_lesson_plan_range, get_lessons_achieved, get_school_details, get_schools_with_classes, get_student_details, get_student_images, get_student_progress_images, get_students,
     create_new_month_fees, get_teacher_dashboard_lessons, students_progress, update_fees, students_per_school, fee_received_per_month,
     new_registrations, get_schools, get_logged_in_user, mark_attendance, get_attendance,
-    update_attendance, create_lesson_plan, update_achieved_topic, add_student, get_classes, upload_student_image, register_user
+    update_attendance, create_lesson_plan, update_achieved_topic, add_student, get_classes, update_planned_topic, upload_student_image, register_user
 )
 
 # ✅ Register ViewSet-based routes
@@ -61,6 +61,7 @@ urlpatterns = [
     path("api/lesson-plan-range/", get_lesson_plan_range, name="get_lesson_plan_range"),
     path('api/lesson-plan/update/<int:lesson_plan_id>/', update_achieved_topic, name="update_achieved_topic"),
     path("api/lesson-plan/<str:session_date>/<int:school_id>/<int:student_class>/", get_lesson_plan, name="get_lesson_plan"),
+    path('api/lesson-plans/<int:lesson_plan_id>/update-planned-topic/', update_planned_topic, name='update_planned_topic'),
 
     # Misc
     path('api/classes/', get_classes, name="get_classes"),

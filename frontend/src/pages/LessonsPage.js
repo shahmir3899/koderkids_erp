@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { getAuthHeaders,  getSchools, getClasses } from "../api";
+import { getAuthHeaders, getSchools, getClasses } from "../api";
 import { useAuth } from "../auth";
 import LessonPlanModal from "../components/LessonPlanModal";
-
-
-
+import { toast } from "react-toastify";
 
 function LessonsPage() {
     const { user } = useAuth();
@@ -17,33 +15,18 @@ function LessonsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-
     const [selectedClass, setSelectedClass] = useState("");
     const [schools, setSchools] = useState([]);
     const [classes, setClasses] = useState([]);
-    //const [allDates, setAllDates] = useState(false); // Controls "All Dates" checkbox
+    const [editingLessonId, setEditingLessonId] = useState(null);
+    const [editedTopic, setEditedTopic] = useState("");
 
-    //const schoolId = selectedSchool || user?.school_id || "";
     const API_URL = process.env.REACT_APP_API_URL;
 
-    console.log("🔗 API_URL:", API_URL);
-    
-
-    // Function to calculate the start and end dates of the selected month
-    // const getMonthDateRange = (month) => {
-    //     const [year, monthNumber] = month.split("-");
-    //     const startDate = new Date(year, monthNumber - 1, 1);
-    //     const endDate = new Date(year, monthNumber, 0);
-    //     return { startDate, endDate };
-    // };
-
-    // Function to fetch lessons for a specific date
     const fetchLessonsForRange = async (startDate, endDate, schoolId, studentClass) => {
         try {
-            //const endpoint = `http://localhost:8000/api/lesson-plan-range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
             const endpoint = `${API_URL}/api/lesson-plan-range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
-
-            console.log(`🔍 Fetching lessons from: ${endpoint}`);  // Debug log
+            console.log(`🔍 Fetching lessons from: ${endpoint}`);
             const response = await axios.get(endpoint, { headers: getAuthHeaders() });
             return response.data;
         } catch (err) {
@@ -51,21 +34,22 @@ function LessonsPage() {
             return [];
         }
     };
-    
+
     const fetchLessons = async () => {
         if (!startDate || !endDate || !selectedSchool || !selectedClass) {
             console.log("⚠️ Please select all required fields.");
             return;
         }
-    
+
         setLoading(true);
         setError(null);
         setLessons([]);
-    
+
         try {
             console.log("🚀 Fetching lessons...");
             const lessonsData = await fetchLessonsForRange(startDate, endDate, selectedSchool, selectedClass);
             setLessons(lessonsData);
+            setEditingLessonId(null);
         } catch (err) {
             console.error("❌ Error fetching lessons:", err);
             setError("Failed to fetch lessons.");
@@ -73,16 +57,12 @@ function LessonsPage() {
             setLoading(false);
         }
     };
-    
-    
 
-    // Fetch schools on component mount
     useEffect(() => {
         const fetchSchoolList = async () => {
             try {
                 const schoolData = await getSchools();
                 console.log("🏫 Fetched Schools:", schoolData);
-
                 setSchools(schoolData);
             } catch (error) {
                 console.error("❌ Error loading schools:", error);
@@ -91,7 +71,6 @@ function LessonsPage() {
         fetchSchoolList();
     }, []);
 
-    // Fetch classes when a school is selected
     useEffect(() => {
         const fetchClassList = async () => {
             if (!selectedSchool) {
@@ -109,29 +88,40 @@ function LessonsPage() {
         fetchClassList();
     }, [selectedSchool]);
 
-    
+    const handleEdit = (lessonId, currentTopic) => {
+        setEditingLessonId(lessonId);
+        setEditedTopic(currentTopic);
+    };
 
+    const handleSave = async (lessonId) => {
+        try {
+            const endpoint = `${API_URL}/api/lesson-plans/${lessonId}/update-planned-topic/`;
+            await axios.put(endpoint, { planned_topic: editedTopic }, { headers: getAuthHeaders() });
+            setLessons(lessons.map((lesson) =>
+                lesson.id === lessonId ? { ...lesson, planned_topic: editedTopic } : lesson
+            ));
+            setEditingLessonId(null);
+            setEditedTopic("");
+            toast.success("Lesson updated successfully");
+        } catch (err) {
+            console.error("❌ Error updating lesson:", err.response?.data || err.message);
+            toast.error(`Failed to update lesson: ${err.response?.data?.detail || err.message}`);
+        }
+    };
 
-    
-
-    // Render loading state if user data is not available
     if (!user) {
         return <h2 className="text-center text-xl mt-8">Loading user data...</h2>;
     }
 
-    // Restrict access to admins and teachers only
     if (!["admin", "teacher"].includes(user.role)) {
         return <h2 className="text-center text-xl mt-8">Access Denied: Only Admins and Teachers can manage lessons.</h2>;
     }
 
     return (
         <div className="container mx-auto p-4">
-            {/* Main Heading */}
             <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">Lesson Management</h1>
-    
-            {/* Input Row: Start Date, End Date, School, Class, Fetch Button */}
+
             <div className="flex flex-wrap items-end gap-4 mb-8">
-                {/* Start Date */}
                 <div className="flex flex-col flex-1 min-w-[200px]">
                     <label className="font-bold mb-2 text-gray-700">Start Date:</label>
                     <input
@@ -141,8 +131,7 @@ function LessonsPage() {
                         className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                     />
                 </div>
-    
-                {/* End Date */}
+
                 <div className="flex flex-col flex-1 min-w-[200px]">
                     <label className="font-bold mb-2 text-gray-700">End Date:</label>
                     <input
@@ -152,8 +141,7 @@ function LessonsPage() {
                         className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                     />
                 </div>
-    
-                {/* School Selector */}
+
                 <div className="flex flex-col flex-1 min-w-[200px]">
                     <label className="font-bold mb-2 text-gray-700">Select School:</label>
                     <select
@@ -167,8 +155,7 @@ function LessonsPage() {
                         ))}
                     </select>
                 </div>
-    
-                {/* Class Selector */}
+
                 <div className="flex flex-col flex-1 min-w-[200px]">
                     <label className="font-bold mb-2 text-gray-700">Select Class:</label>
                     <select
@@ -183,8 +170,7 @@ function LessonsPage() {
                         ))}
                     </select>
                 </div>
-    
-                {/* Fetch Lessons Button */}
+
                 <div className="flex flex-col flex-1 min-w-[200px]">
                     <button
                         onClick={fetchLessons}
@@ -194,12 +180,10 @@ function LessonsPage() {
                     </button>
                 </div>
             </div>
-    
-            {/* Loading & Error Messages */}
+
             {loading && <p className="text-center text-gray-600">Loading...</p>}
             {error && <p className="text-center text-red-500 font-medium">{error}</p>}
-    
-            {/* Lessons Table */}
+
             {!loading && !error && lessons.length > 0 ? (
                 <div className="overflow-x-auto shadow-lg rounded-lg">
                     <table className="w-full border-collapse">
@@ -209,6 +193,7 @@ function LessonsPage() {
                                 <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">School</th>
                                 <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">Class</th>
                                 <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">Planned Topic</th>
+                                <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -217,7 +202,48 @@ function LessonsPage() {
                                     <td className="p-3 border border-gray-300 text-gray-600">{lesson.session_date}</td>
                                     <td className="p-3 border border-gray-300 text-gray-600">{lesson.school_name}</td>
                                     <td className="p-3 border border-gray-300 text-gray-600">{lesson.student_class}</td>
-                                    <td className="p-3 border border-gray-300 text-gray-600">{lesson.planned_topic}</td>
+                                    <td className="p-3 border border-gray-300 text-gray-600">
+                                        {editingLessonId === lesson.id ? (
+                                            <input
+                                                type="text"
+                                                value={editedTopic}
+                                                onChange={(e) => setEditedTopic(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        handleSave(lesson.id);
+                                                    }
+                                                }}
+                                                className="p-1 border border-gray-300 rounded w-full"
+                                            />
+                                        ) : (
+                                            lesson.planned_topic
+                                        )}
+                                    </td>
+                                    <td className="p-3 border border-gray-300 text-gray-600">
+                                        {editingLessonId === lesson.id ? (
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleSave(lesson.id)}
+                                                    className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                                                >
+                                                    Save
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingLessonId(null)}
+                                                    className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleEdit(lesson.id, lesson.planned_topic)}
+                                                className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600"
+                                            >
+                                                Edit
+                                            </button>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -226,8 +252,7 @@ function LessonsPage() {
             ) : (
                 <p className="text-center text-gray-600">No lessons found.</p>
             )}
-    
-            {/* Add Lesson Plan Button */}
+
             <div className="flex justify-center mt-8">
                 <button
                     onClick={() => setIsModalOpen(true)}
@@ -236,12 +261,10 @@ function LessonsPage() {
                     ➕ Add Lesson Plan
                 </button>
             </div>
-    
-            {/* Lesson Plan Modal */}
+
             {isModalOpen && <LessonPlanModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />}
         </div>
     );
-    
 }
 
 export default LessonsPage;
