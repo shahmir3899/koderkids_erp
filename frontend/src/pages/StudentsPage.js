@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
-import AddStudentPopup from "./AddStudentPopup";  // ✅ Ensure it's imported
-import { updateStudent, deleteStudent, getStudents  } from "../api";
-
-import { useCallback } from "react";
-import axios from "axios";  // ✅ Fix axios not defined error
-
-
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import AddStudentPopup from "./AddStudentPopup";
+import { updateStudent, deleteStudent, getStudents } from "../api";
+import axios from "axios";
+import { ClipLoader } from "react-spinners"; // Import ClipLoader
+import { toast } from "react-toastify"; // Import toast for notifications (if not already imported)
 
 function StudentsPage() {
     const [students, setStudents] = useState([]);
@@ -20,40 +18,40 @@ function StudentsPage() {
     const [schools, setSchools] = useState([]);
     const [classes, setClasses] = useState([]);
     const [showResults, setShowResults] = useState(false);
-
+    const [sortBy, setSortBy] = useState("name");
+    const [sortOrder, setSortOrder] = useState("asc");
+    const [isSubmitting, setIsSubmitting] = useState(false); // For save changes
+    const [isDeleting, setIsDeleting] = useState(false); // For delete action
 
     const availableClasses = useMemo(() => {
         if (students.length === 0) return ["All Classes"];
-    
+
         const uniqueClasses = Array.from(new Set(students.map(student => student.student_class)))
             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    
+
         console.log("📚 Updated Class Filter Options:", uniqueClasses);
         return ["All Classes", ...uniqueClasses];
-    
-    }, [students]);  // ✅ This ensures availableClasses updates when students change
-    
+    }, [students]);
 
     const fetchStudents = useCallback(async () => {
         setLoading(true);
         setError(null);
-    
+
         try {
             const filteredSchool = schoolFilter !== "All Schools" ? schoolFilter : null;
             const filteredClass = classFilter !== "All Classes" ? classFilter : null;
-            
-    
+
             console.log(`🔍 Fetching students for School: ${filteredSchool}, Class: ${filteredClass}`);
-            
+
             const response = await getStudents(filteredSchool, filteredClass);
-            
+
             if (!Array.isArray(response)) {
                 console.error("❌ Error: Expected an array but received:", response);
                 return;
             }
-    
+
             setStudents(response);
-            setShowResults(true); // ✅ Ensure table is displayed
+            setShowResults(true);
         } catch (error) {
             console.error("Error fetching students:", error);
             setError("Failed to fetch students.");
@@ -61,33 +59,32 @@ function StudentsPage() {
             setLoading(false);
         }
     }, [schoolFilter, classFilter]);
-    
+
     async function fetchAllClasses(schoolId) {
         try {
             console.log("🔄 Fetching students and extracting classes...");
-    
+
             const token = localStorage.getItem("access");
             if (!token) {
                 console.error("❌ No authentication token found!");
                 return;
             }
-    
-            // ✅ If schoolId is still missing, log error
+
             if (!schoolId) {
                 console.error("❌ No school selected! Cannot fetch classes.");
                 return;
             }
-    
+
             console.log("📌 Fetching classes for school:", schoolId);
-    
+
             const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/students/?school=${schoolId}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
             });
-    
+
             console.log("✅ Fetched Student Data:", response.data);
-    
+
             if (Array.isArray(response.data)) {
                 const extractedClasses = [...new Set(response.data.map(student => student.student_class))];
                 setClasses(["All Classes", ...extractedClasses]);
@@ -99,77 +96,45 @@ function StudentsPage() {
             console.error("❌ Error fetching students:", error);
         }
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    useEffect(() => {
-        if (students.length > 0) {
-            const uniqueClassesFromStudents = Array.from(new Set(students.map(student => student.student_class))).sort();
-            console.log("✅ Extracted Classes from Students:", uniqueClassesFromStudents);
-    
-            setClasses([...["All Classes", ...uniqueClassesFromStudents]]); // ✅ Force state update
-        }
-    }, [students]);
-    
-    
-    useEffect(() => {
-        console.log("📚 Classes state updated:", classes);
-    }, [classes]);
-    
-    // useEffect(() => {
-    //     fetchStudents();  // ✅ Now fetchStudents is stable
-    // }, [fetchStudents]);
-    
 
-    
     useEffect(() => {
         console.log("🔄 Students data after refresh:", students);
         if (students.length > 0) {
             const uniqueClasses = Array.from(new Set(students.map(student => student.student_class)))
                 .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    
+
             console.log("✅ Extracted Classes from Students:", uniqueClasses);
-            setClasses(["All Classes", ...uniqueClasses]); 
+            setClasses(["All Classes", ...uniqueClasses]);
         }
     }, [students]);
-    
-    
-    
-    
+
     useEffect(() => {
         async function fetchSchools() {
             try {
                 console.log("🔄 Fetching list of schools...");
-    
+
                 const token = localStorage.getItem("access");
                 if (!token) {
                     console.error("❌ No authentication token found!");
                     return;
                 }
-    
+
                 const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/schools/`, {
                     headers: {
                         Authorization: `Bearer ${token}`
                     }
                 });
-    
+
                 console.log("✅ Raw Schools API Response:", response.data);
-    
+
                 if (Array.isArray(response.data) && response.data.length > 0) {
                     setSchools(response.data);
-    
-                    // ✅ Store the first school ID if it's missing
+
                     if (!localStorage.getItem("selected_school")) {
                         const firstSchoolId = response.data[0].id;
                         localStorage.setItem("selected_school", firstSchoolId);
                         console.log("🏫 Stored School ID:", firstSchoolId);
-    
-                        // ✅ Fetch classes immediately after storing school ID
+
                         fetchAllClasses(firstSchoolId);
                     }
                 } else {
@@ -179,25 +144,45 @@ function StudentsPage() {
                 console.error("❌ Error fetching schools:", error);
             }
         }
-    
+
         fetchSchools();
     }, []);
-    
-    
-    
-    
-    
-
 
     const filteredStudents = useMemo(() => {
-        return students.filter((student) =>
-            (searchTerm === "" ||
-                (student.name && student.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (student.reg_num && student.reg_num.toLowerCase().includes(searchTerm.toLowerCase()))) &&
-            (schoolFilter === "" || schoolFilter === "All Schools" || student.school === schoolFilter) &&
-            (classFilter === "" || classFilter === "All Classes" || student.student_class === classFilter)
-        );
-    }, [students, searchTerm, schoolFilter, classFilter]);
+        return students
+            .filter((student) =>
+                (searchTerm === "" ||
+                    (student.name && student.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                    (student.reg_num && student.reg_num.toLowerCase().includes(searchTerm.toLowerCase()))) &&
+                (schoolFilter === "" || schoolFilter === "All Schools" || student.school === schoolFilter) &&
+                (classFilter === "" || classFilter === "All Classes" || student.student_class === classFilter)
+            )
+            .sort((a, b) => {
+                let valueA, valueB;
+                switch (sortBy) {
+                    case "name":
+                        valueA = a.name ? a.name.toLowerCase() : "";
+                        valueB = b.name ? b.name.toLowerCase() : "";
+                        break;
+                    case "reg_num":
+                        valueA = a.reg_num || "";
+                        valueB = b.reg_num || "";
+                        break;
+                    case "student_class":
+                        valueA = a.student_class || "";
+                        valueB = b.student_class || "";
+                        break;
+                    default:
+                        valueA = a.name ? a.name.toLowerCase() : "";
+                        valueB = b.name ? b.name.toLowerCase() : "";
+                }
+                if (sortOrder === "asc") {
+                    return valueA.localeCompare(valueB);
+                } else {
+                    return valueB.localeCompare(valueA);
+                }
+            });
+    }, [students, searchTerm, schoolFilter, classFilter, sortBy, sortOrder]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -205,9 +190,8 @@ function StudentsPage() {
 
     const handleSearchClick = () => {
         console.log("🔍 Search button clicked. Fetching students...");
-        fetchStudents(); // ✅ Ensure it fetches filtered students
+        fetchStudents();
     };
-    
 
     const handleSchoolFilterChange = (e) => {
         const newValue = e.target.value;
@@ -217,13 +201,11 @@ function StudentsPage() {
 
     const handleClassFilterChange = (e) => {
         const selectedClass = e.target.value;
-        
-        // ✅ Ensure selected class exists in availableClasses
         if (availableClasses.includes(selectedClass)) {
             setClassFilter(selectedClass);
             console.log("📌 Class filter updated to:", selectedClass);
         } else {
-            setClassFilter("All Classes"); // ✅ Reset if invalid
+            setClassFilter("All Classes");
         }
     };
 
@@ -241,16 +223,19 @@ function StudentsPage() {
     };
 
     const handleSaveChanges = async () => {
+        setIsSubmitting(true); // Set submitting state
         try {
             const updatedStudent = await updateStudent(selectedStudent.id, selectedStudent);
             setStudents(students.map(student =>
                 student.id === updatedStudent.id ? updatedStudent : student
             ));
             setIsEditing(false);
-            alert("✅ Student updated successfully!");
+            toast.success("✅ Student updated successfully!"); // Use toast instead of alert
         } catch (error) {
             console.error("Error updating student:", error);
-            alert("⚠️ Failed to update student.");
+            toast.error("⚠️ Failed to update student.");
+        } finally {
+            setIsSubmitting(false); // Reset submitting state
         }
     };
 
@@ -258,37 +243,36 @@ function StudentsPage() {
         const { name, value } = e.target;
         setSelectedStudent(prev => ({ ...prev, [name]: value }));
     };
-    
+
     const handleAddNewStudent = () => {
         console.log("🆕 Opening Add Student Popup...");
         setIsAdding(true);
     };
 
- 
-
     const handleDeleteStudent = async (studentId) => {
         if (!window.confirm("Are you sure you want to delete this student?")) return;
 
+        setIsDeleting(true); // Set deleting state
         try {
             await deleteStudent(studentId);
             setStudents(students.filter(student => student.id !== studentId));
-            alert("✅ Student deleted successfully!");
+            toast.success("✅ Student deleted successfully!"); // Use toast instead of alert
         } catch (error) {
             console.error("❌ Error deleting student:", error);
-            alert("⚠️ Failed to delete student.");
+            toast.error("⚠️ Failed to delete student.");
+        } finally {
+            setIsDeleting(false); // Reset deleting state
         }
     };
 
-    
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             {/* Header Section */}
             <header className="bg-white shadow-md p-6 rounded-lg mb-6">
                 <h1 className="text-3xl font-bold text-gray-800 text-center mb-6">Student Management</h1>
-    
+
                 {/* Search and Filters Section */}
                 <div className="flex flex-wrap gap-4 mb-6">
-                    {/* Search Input */}
                     <input
                         type="text"
                         placeholder="Search by Name or Reg Num"
@@ -296,8 +280,7 @@ function StudentsPage() {
                         onChange={handleSearchChange}
                         className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors flex-1 min-w-[200px]"
                     />
-    
-                    {/* School Filter */}
+
                     <select
                         value={schoolFilter}
                         onChange={handleSchoolFilterChange}
@@ -308,8 +291,7 @@ function StudentsPage() {
                             <option key={school.id} value={school.name}>{school.name}</option>
                         ))}
                     </select>
-    
-                    {/* Class Filter */}
+
                     <select
                         value={classFilter}
                         onChange={handleClassFilterChange}
@@ -323,16 +305,14 @@ function StudentsPage() {
                             <option disabled>Loading classes...</option>
                         )}
                     </select>
-    
-                    {/* Search Button */}
+
                     <button
                         onClick={handleSearchClick}
                         className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
                     >
                         🔍 Search
                     </button>
-    
-                    {/* Add New Student Button */}
+
                     <button
                         onClick={handleAddNewStudent}
                         className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
@@ -341,21 +321,58 @@ function StudentsPage() {
                     </button>
                 </div>
             </header>
-    
+
             {/* Loading and Error Messages */}
-            {loading && <p className="text-center text-gray-600">Loading...</p>}
+            {loading && (
+                <div className="text-center">
+                    <ClipLoader color="#000000" size={50} />
+                </div>
+            )}
             {error && <p className="text-center text-red-500">{error}</p>}
-    
+
             {/* Results Table */}
             {showResults && !loading && !error && (
                 <div className="bg-white shadow-md rounded-lg overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead className="bg-gray-100">
                             <tr>
-                                <th className="p-3 text-left text-gray-700 font-semibold">Reg Num</th>
-                                <th className="p-3 text-left text-gray-700 font-semibold">Name</th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">
+                                    <button
+                                        onClick={() => {
+                                            setSortBy("reg_num");
+                                            setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                                        }}
+                                        className="flex items-center gap-1"
+                                    >
+                                        Reg Num
+                                        {sortBy === "reg_num" && (sortOrder === "asc" ? " ↑" : " ↓")}
+                                    </button>
+                                </th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">
+                                    <button
+                                        onClick={() => {
+                                            setSortBy("name");
+                                            setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                                        }}
+                                        className="flex items-center gap-1"
+                                    >
+                                        Name
+                                        {sortBy === "name" && (sortOrder === "asc" ? " ↑" : " ↓")}
+                                    </button>
+                                </th>
                                 <th className="p-3 text-left text-gray-700 font-semibold">School</th>
-                                <th className="p-3 text-left text-gray-700 font-semibold">Class</th>
+                                <th className="p-3 text-left text-gray-700 font-semibold">
+                                    <button
+                                        onClick={() => {
+                                            setSortBy("student_class");
+                                            setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                                        }}
+                                        className="flex items-center gap-1"
+                                    >
+                                        Class
+                                        {sortBy === "student_class" && (sortOrder === "asc" ? " ↑" : " ↓")}
+                                    </button>
+                                </th>
                                 <th className="p-3 text-left text-gray-700 font-semibold">Monthly Fee</th>
                                 <th className="p-3 text-left text-gray-700 font-semibold">Phone</th>
                                 <th className="p-3 text-left text-gray-700 font-semibold">Actions</th>
@@ -381,8 +398,9 @@ function StudentsPage() {
                                             <button
                                                 onClick={() => handleDeleteStudent(student.id)}
                                                 className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
+                                                disabled={isDeleting}
                                             >
-                                                🗑️ Delete
+                                                {isDeleting ? "Deleting..." : "🗑️ Delete"}
                                             </button>
                                         </div>
                                     </td>
@@ -392,7 +410,7 @@ function StudentsPage() {
                     </table>
                 </div>
             )}
-    
+
             {/* Student Profile Modal */}
             {selectedStudent && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -466,8 +484,9 @@ function StudentsPage() {
                                     <button
                                         onClick={handleSaveChanges}
                                         className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                                        disabled={isSubmitting}
                                     >
-                                        Save Changes
+                                        {isSubmitting ? "Saving..." : "Save Changes"}
                                     </button>
                                     <button
                                         onClick={() => setIsEditing(false)}
@@ -506,7 +525,7 @@ function StudentsPage() {
                     </div>
                 </div>
             )}
-    
+
             {/* Add Student Popup */}
             {isAdding && <AddStudentPopup onClose={() => setIsAdding(false)} />}
         </div>

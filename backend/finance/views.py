@@ -153,3 +153,5 @@ def loan_summary(request):
         })
 
     return Response(summary_data)
+
+

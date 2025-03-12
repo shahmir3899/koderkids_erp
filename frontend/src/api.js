@@ -121,7 +121,7 @@ export const redirectUser = () => {
             window.location.href = "/teacherdashboard";
             break;
         default:
-            window.location.href = "/publicdashboard";
+            window.location.href = "/login";
     }
 };
 

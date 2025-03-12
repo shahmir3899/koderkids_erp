@@ -24,7 +24,7 @@ function ProtectedRoute({ element, allowedRoles }) {
 
     // ✅ If user is not authenticated, redirect to login
     if (!isAuthenticated) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
+        return <Navigate to="/login"  replace />;
     }
 
     // ✅ If user is authenticated but role is not allowed, redirect to home

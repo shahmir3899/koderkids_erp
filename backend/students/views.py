@@ -787,7 +787,7 @@ def update_attendance(request, attendance_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_lesson_plan(request):
-    """Allows teachers to create lesson plans for a session"""
+    """Allows teachers to create or update lesson plans for a session"""
     teacher = request.user
 
     if teacher.role != 'Teacher':
@@ -796,14 +796,13 @@ def create_lesson_plan(request):
     session_date = request.data.get('session_date')
     student_class = request.data.get('student_class')
     planned_topic = request.data.get('planned_topic')
-    school_id = request.data.get('school_id')  # ✅ Get school_id from request
+    school_id = request.data.get('school_id')
 
-    if not session_date or not student_class or not planned_topic or not school_id:
-        return Response({"error": "Invalid data provided. Make sure session_date, student_class, planned_topic, and school_id are included."}, status=400)
+    if not all([session_date, student_class, planned_topic, school_id]):
+        return Response({"error": "Invalid data provided. All fields are required."}, status=400)
 
     try:
-        school = School.objects.get(id=school_id)  # ✅ Get school from database
-        
+        school = School.objects.get(id=school_id)
         if not teacher.assigned_schools.filter(id=school.id).exists():
             return Response({"error": "You are not assigned to this school."}, status=403)
 
@@ -811,16 +810,21 @@ def create_lesson_plan(request):
             session_date=session_date,
             teacher=teacher,
             student_class=student_class,
-            school=school,  # ✅ Corrected: Now using the selected school
+            school=school,
             defaults={"planned_topic": planned_topic}
         )
 
-        return Response({"message": "Lesson plan created successfully!", "data": LessonPlanSerializer(lesson_plan).data})
+        action = "created" if created else "updated"
+        return Response({
+            "message": f"Lesson plan {action} successfully!",
+            "action": action,
+            "data": LessonPlanSerializer(lesson_plan).data
+        }, status=200)
+
     except School.DoesNotExist:
         return Response({"error": "Invalid school ID."}, status=400)
     except IntegrityError:
         return Response({"error": "Duplicate lesson plan detected."}, status=400)
-
 
 
 from django.db.models import Q

@@ -1,19 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { getSchoolsWithClasses } from "../api";
+import { ClipLoader } from "react-spinners"; // Import ClipLoader
+import { toast } from "react-toastify"; // Import toast for notifications
 
 function SchoolsPage() {
     const [schools, setSchools] = useState([]);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isRetrying, setIsRetrying] = useState(false); // State for retry loading
 
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
+            setError(null);
             try {
                 const schoolsWithClasses = await getSchoolsWithClasses();
+                if (!Array.isArray(schoolsWithClasses)) {
+                    throw new Error("Invalid data format received from API.");
+                }
                 setSchools(schoolsWithClasses);
             } catch (err) {
-                setError(err.message || "Failed to load schools. Please try again.");
+                const errorMessage = err.message || "Failed to load schools. Please try again.";
+                setError(errorMessage);
+                toast.error(errorMessage);
             } finally {
                 setLoading(false);
             }
@@ -21,8 +30,36 @@ function SchoolsPage() {
         loadData();
     }, []);
 
-    if (loading) return <p className="text-gray-500 p-6">Loading schools...</p>;
-    if (error) return <p className="text-red-500 p-6">{error}</p>;
+    const handleRetry = async () => {
+        setIsRetrying(true);
+        setError(null); // Clear error to trigger a re-fetch
+        setLoading(true); // Trigger loading state to re-run useEffect
+        setIsRetrying(false);
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-6 min-h-screen bg-gray-100">
+                <ClipLoader color="#000000" size={50} />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="p-6 text-red-500 flex flex-col items-center">
+                <p>{error}</p>
+                <button
+                    className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                    onClick={handleRetry}
+                    disabled={isRetrying}
+                    aria-label="Retry fetching schools data"
+                >
+                    {isRetrying ? "Retrying..." : "Retry"}
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6">
