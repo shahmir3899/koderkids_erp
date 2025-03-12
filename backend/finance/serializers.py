@@ -68,8 +68,32 @@ class AccountSerializer(serializers.ModelSerializer):
         fields = ['id', 'account_name', 'account_type', 'current_balance', 'last_updated']
 
     def create(self, validated_data):
-        """Ensure the account starts with a balance of 0 and is managed via transactions."""
-        validated_data["current_balance"] = 0  # Initial balance should always be zero
-        return super().create(validated_data)
+        transaction_type = validated_data.get("transaction_type")
+        category = validated_data.get("category")
+        from_account = validated_data.get("from_account", None)
+        to_account = validated_data.get("to_account", None)
+        received_from = self.initial_data.get("received_from", None)
+
+        if category == "Loan Received":
+            if not received_from:
+                raise serializers.ValidationError({"received_from": "Loan Received transactions must have a lender (Person)."})
+            try:
+                from_account = Account.objects.get(id=received_from, account_type="Person")
+            except Account.DoesNotExist:
+                raise serializers.ValidationError({"received_from": "The selected lender is not a valid Person account."})
+        elif transaction_type == "Expense" and category == "Loan Paid" and (not from_account or not to_account):
+            raise serializers.ValidationError({"from_account": "Both accounts must be selected for a Loan Paid transaction.", "to_account": "Both accounts must be selected for a Loan Paid transaction."})
+
+        validated_data["to_account"] = to_account
+        validated_data["from_account"] = from_account
+
+        transaction = super().create(validated_data)
+
+        if transaction.from_account:
+            transaction.from_account.update_balance()
+        if transaction.to_account:
+            transaction.to_account.update_balance()
+
+        return transaction
 
 
