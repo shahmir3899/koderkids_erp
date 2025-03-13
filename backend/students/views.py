@@ -894,7 +894,7 @@ def update_achieved_topic(request, lesson_plan_id):
     
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])  # ✅ Require authentication
+@permission_classes([IsAuthenticated])  
 def upload_student_image(request):
     """Handles student image uploads"""
     
@@ -902,29 +902,24 @@ def upload_student_image(request):
         return Response({"error": "No image provided"}, status=400)
 
     image = request.FILES['image']
-    student_id = request.data.get('student_id', '')  # ✅ Use request.data.get()
-    session_date = request.data.get('session_date', '')  # ✅ Use request.data.get()
+    student_id = request.data.get('student_id', '')
+    session_date = request.data.get('session_date', '')
 
     if not student_id or not session_date:
         return Response({"error": "Student ID and Date are required"}, status=400)
 
-    # ✅ Format: media/uploads/students/{student_id}/{date}_{timestamp}.jpg
-    date_str = session_date.replace("-", "")  # Format date (YYYYMMDD)
+    # ✅ Construct filename
+    date_str = session_date.replace("-", "")  # Format date as YYYYMMDD
     timestamp = datetime.now().strftime("%H%M%S")  # Unique timestamp
-    file_extension = os.path.splitext(image.name)[1]  # Get file extension
-
+    file_extension = os.path.splitext(image.name)[1]
     filename = f"{date_str}_{timestamp}{file_extension}"
-    image_path = f"uploads/students/{student_id}/{filename}"
-    
-    # ❌ FIX: Explicitly store files in /var/media/
-    full_path = os.path.join(settings.MEDIA_ROOT, image_path)
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)  # Ensure directory exists
+    image_path = os.path.join("uploads/students", str(student_id), filename)
 
-    # ✅ Save the file to /var/media/
-    saved_path = default_storage.save(full_path, ContentFile(image.read()))
+    # ✅ Use Django's `default_storage.save()` instead of manually writing the file
+    saved_path = default_storage.save(image_path, ContentFile(image.read()))
 
-    # ✅ Generate full URL for accessing the file
-    image_url = f"{request.build_absolute_uri(settings.MEDIA_URL)}{image_path}"
+    # ✅ Generate the accessible URL
+    image_url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
 
     return Response({
         "message": "Image uploaded successfully",
@@ -944,22 +939,21 @@ def get_student_images(request):
     if not student_id or not session_date:
         return Response({"error": "Student ID and Date are required"}, status=400)
 
-    # ✅ Search for all images matching this date
-    image_folder = f"uploads/students/{student_id}/"
+    # ✅ Use absolute path to ensure correct lookup
+    image_folder = os.path.join(settings.MEDIA_ROOT, f"uploads/students/{student_id}/")
     date_str = session_date.replace("-", "")
 
     image_files = []
-    if default_storage.exists(image_folder):
-        for filename in default_storage.listdir(image_folder)[1]:  # Get files
-            if filename.startswith(date_str):  # ✅ Match Date
-                image_files.append(f"{settings.MEDIA_URL}{image_folder}{filename}")
+    if os.path.exists(image_folder):  # ✅ Use `os.path.exists()` instead of `default_storage.exists()`
+        for filename in os.listdir(image_folder):
+            if filename.startswith(date_str):
+                image_files.append(f"{settings.MEDIA_URL}uploads/students/{student_id}/{filename}")
 
     return Response({
         "student_id": student_id,
         "session_date": session_date,
         "images": image_files
     })
-
 
 @api_view(['GET'])
 def students_progress(request):
