@@ -134,6 +134,7 @@ const ProgressPage = () => {
                 headers: { "Content-Type": "multipart/form-data", ...getAuthHeaders() },
             });
             console.log("Uploaded image URL:", response.data.image_url);
+            console.log("Uploading image with params:", { studentId, sessionDate });
             setUploadedImages(prev => ({
                 ...prev,
                 [studentId]: response.data.image_url
@@ -168,50 +169,82 @@ const ProgressPage = () => {
     
         setIsSearching(true);
         try {
-            // Fetch lesson plan
-            const teacherId = user.id;
-            const schoolId = selectedSchool;
-            const requestUrl = `${API_URL}/api/lesson-plan-range/?start_date=${sessionDate}&end_date=${sessionDate}&school_id=${schoolId}&student_class=${studentClass}&teacher_id=${teacherId}`;
-            const lessonResponse = await axios.get(requestUrl, {
-                headers: getAuthHeaders(),
-            });
+            // Clear previous state to avoid stale data
+            setAttendanceData({});
+            setAchievedLessons({});
+            setStudents([]);
+            setLessonPlan(null);
+            setShowTable(false);
+            setUploadedImages({}); // Clear previous images
     
-            if (lessonResponse.data.length === 0) {
-                setLessonPlanData(null);
-                setPlannedTopic("No lesson planned.");
-            } else {
-                const data = lessonResponse.data[0];
-                setLessonPlanData(data);
-                setPlannedTopic(data.planned_topic);
+            // Debug the raw sessionDate value
+            console.log("Raw sessionDate (YYYY-MM-DD):", sessionDate);
+    
+            // Reformat sessionDate from YYYY-MM-DD to MM/DD/YYYY for students-prog API
+            const [year, month, day] = sessionDate.split('-');
+            if (!year || !month || !day) {
+                throw new Error("Invalid date format in sessionDate. Expected YYYY-MM-DD.");
             }
+            const formattedDate = `${month}/${day}/${year}`; // e.g., "03/12/2025"
+            console.log("Formatted sessionDate (MM/DD/YYYY):", formattedDate);
     
-            // Fetch students with attendance data
+            // Fetch student data
             const response = await axios.get(`${API_URL}/api/students-prog/`, {
                 params: {
                     school_id: selectedSchool,
                     class_id: studentClass,
-                    session_date: sessionDate
+                    session_date: formattedDate
                 },
                 headers: getAuthHeaders(),
             });
+    
+            console.log("API Response (students):", response.data);
     
             const fetchedStudents = response.data.students || [];
             setStudents(fetchedStudents);
             setLessonPlan(response.data.lesson_plan || null);
     
-            // Initialize attendanceData and achievedLessons with fetched data
+            // Process attendance and achieved lessons
             const newAttendanceData = {};
             const newAchievedLessons = {};
             fetchedStudents.forEach(student => {
-                if (student.attendance_status) {
-                    newAttendanceData[student.id] = { status: student.attendance_status };
+                console.log(`Processing student ${student.id}: status=${student.status}`);
+                if (student.status && student.status !== "N/A") {
+                    newAttendanceData[student.id] = { status: student.status };
                 }
                 if (student.achieved_topic) {
                     newAchievedLessons[student.id] = student.achieved_topic;
                 }
             });
+    
+            console.log("New Attendance Data:", newAttendanceData);
             setAttendanceData(newAttendanceData);
             setAchievedLessons(newAchievedLessons);
+    
+            // Fetch images for each student using YYYY-MM-DD format
+            const newUploadedImages = {};
+            for (const student of fetchedStudents) {
+                try {
+                    const imageResponse = await axios.get(`${API_URL}/api/student-images/`, {
+                        params: {
+                            student_id: student.id,
+                            session_date: sessionDate // Use raw YYYY-MM-DD format
+                        },
+                        headers: getAuthHeaders(),
+                    });
+                    console.log(`Images for student ${student.id}:`, imageResponse.data);
+                    if (imageResponse.data.images && imageResponse.data.images.length > 0) {
+                        // Assuming the API returns { images: ["url1", "url2", ...] }
+                        // For simplicity, we'll take the first image
+                        newUploadedImages[student.id] = imageResponse.data.images[0];
+                    }
+                } catch (error) {
+                    console.error(`❌ Error fetching images for student ${student.id}:`, error.response?.data || error.message);
+                }
+            }
+    
+            console.log("Fetched Uploaded Images:", newUploadedImages);
+            setUploadedImages(newUploadedImages);
     
             if (fetchedStudents.length > 0) {
                 setShowTable(true);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ Import useNavigate
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_URL, getAuthHeaders, getSchools, getClasses } from "../api";
 
@@ -11,9 +11,6 @@ const getMonthDates = (month) => {
     return { firstDay, lastDay };
 };
 
-
-
-
 const ReportsPage = () => {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -22,9 +19,8 @@ const ReportsPage = () => {
     const [students, setStudents] = useState([]);
     const [schools, setSchools] = useState([]);
     const [classes, setClasses] = useState([]);
-    const navigate = useNavigate(); // ✅ Initialize navigation function
+    const navigate = useNavigate();
     const [selectedMonth, setSelectedMonth] = useState(""); // YYYY-MM format
-
 
     // Fetch schools on component mount
     useEffect(() => {
@@ -60,30 +56,45 @@ const ReportsPage = () => {
 
     // Fetch students based on school and class selection
     const fetchStudents = async () => {
-        if (!selectedSchool || !selectedClass) {
-            alert("Please select a school and class.");
+        if (!selectedMonth || !selectedSchool || !selectedClass) {
+            alert("Please select a month, school, and class before searching.");
             return;
         }
 
         try {
-            console.log(`📡 Fetching students for School: ${selectedSchool}, Class: ${selectedClass}`);
+            // Debug the raw startDate value
+            console.log(`📅 Raw startDate (YYYY-MM-DD): ${startDate}`);
+
+            // Reformat startDate from YYYY-MM-DD to MM/DD/YYYY
+            const [year, month, day] = startDate.split('-');
+            if (!year || !month || !day) {
+                throw new Error("Invalid startDate format. Expected YYYY-MM-DD.");
+            }
+            const formattedDate = `${month}/${day}/${year}`; // e.g., "03/01/2025"
+            console.log(`📅 Formatted session_date (MM/DD/YYYY): ${formattedDate}`);
+
+            console.log(`📡 Fetching students for School: ${selectedSchool}, Class: ${selectedClass}, Date: ${formattedDate}`);
             const response = await axios.get(`${API_URL}/api/students-prog/`, {
                 headers: getAuthHeaders(),
                 params: {
                     school_id: selectedSchool,
                     class_id: selectedClass,
-                    session_date: startDate // Use startDate or add a new date filter
+                    session_date: formattedDate
                 },
             });
 
             console.log("🔍 Full API Response:", response.data);
-            console.log("✅ Extracted Students:", response.data.students || response.data);
-            const studentList = response.data?.students || response.data || []; // Handle different formats
+            const studentList = response.data?.students || response.data || [];
             console.log("✅ Processed Students Data:", studentList);
-            setStudents(studentList);
 
+            if (studentList.length === 0) {
+                alert("No students found for the selected criteria.");
+            }
+
+            setStudents(studentList);
         } catch (error) {
             console.error("❌ Error fetching students:", error.response?.data || error.message);
+            alert("Failed to fetch students. Please try again.");
             setStudents([]);
         }
     };
@@ -105,7 +116,7 @@ const ReportsPage = () => {
                             const selectedMonth = e.target.value;
                             setSelectedMonth(selectedMonth);
     
-                            const { firstDay, lastDay } = getMonthDates(selectedMonth); // Use the same function from `StudentReport.js`
+                            const { firstDay, lastDay } = getMonthDates(selectedMonth);
                             setStartDate(firstDay);
                             setEndDate(lastDay);
                         }}
@@ -190,7 +201,6 @@ const ReportsPage = () => {
             )}
         </div>
     );
-    
 };
 
 export default ReportsPage;

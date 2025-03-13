@@ -40,16 +40,19 @@ DEBUG = True
 
 DJANGO_DEBUG=True
 
+# Static Files (CSS, JavaScript, etc.)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
-# Only include STATICFILES_DIRS when in development mode
-if DEBUG:
+# Media Files (User Uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = '/var/media/' if not os.getenv("DEBUG", "True") == "True" else os.path.join(BASE_DIR, "media")
+
+# Static Files Directories (Only in Development)
+if os.getenv("DEBUG", "True") == "True":  # Use env variable to determine mode
     STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 else:
-    STATICFILES_DIRS = []  # ✅ Prevents duplicate directories
+    STATICFILES_DIRS = []  # Prevents duplicate directories in production
 
 
 
