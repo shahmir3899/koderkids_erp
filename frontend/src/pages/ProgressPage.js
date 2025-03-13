@@ -1,145 +1,19 @@
 import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
-import styled from "styled-components";
 import { getSchools, getClasses } from "../api";
 import { getAuthHeaders } from "../api";
-import { ClipLoader } from "react-spinners"; // Import ClipLoader
-import { toast } from "react-toastify"; // Import toast for notifications
+import { ClipLoader } from "react-spinners";
+import { toast } from "react-toastify";
+import { useAuth } from "../auth";
 
 const API_URL = process.env.REACT_APP_API_URL;
 console.log("API URL:", process.env.REACT_APP_API_URL);
 
-// Styled Components for better UI
-const Container = styled.div`
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-    font-family: Arial, sans-serif;
-`;
 
-const Title = styled.h2`
-    text-align: center;
-    color: #333;
-    margin-bottom: 20px;
-`;
-
-const FormGroup = styled.div`
-    margin-bottom: 15px;
-    label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-        color: #555;
-    }
-    input,
-    select,
-    textarea {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 14px;
-    }
-    textarea {
-        resize: vertical;
-        height: 80px;
-    }
-`;
-
-const Accordion = styled.div`
-    width: 100%;
-    margin-top: 20px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    overflow: hidden;
-`;
-
-const AccordionItem = styled.div`
-    border-bottom: 1px solid #ddd;
-    &:last-child {
-        border-bottom: none;
-    }
-`;
-
-const AccordionHeader = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px;
-    background-color: #f4f4f4;
-    cursor: pointer;
-    &:hover {
-        background-color: #e9ecef;
-    }
-`;
-
-const AccordionContent = styled.div`
-    padding: 12px;
-    background-color: #fff;
-    display: ${props => (props.isOpen ? "block" : "none")};
-`;
-
-const AccordionToggle = styled.span`
-    font-size: 16px;
-    color: #555;
-`;
-
-const Button = styled.button`
-    padding: 10px;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    cursor: pointer;
-    margin: 0 5px;
-    &:hover {
-        opacity: 0.9;
-    }
-    &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-`;
-
-const AttendanceButton = styled(Button)`
-    background-color: ${props =>
-        props.status === "Present"
-            ? "#28a745"
-            : props.status === "Absent"
-            ? "#dc3545"
-            : "#6c757d"};
-    &:hover {
-        background-color: ${props =>
-            props.status === "Present"
-                ? "#218838"
-                : props.status === "Absent"
-                ? "#c82333"
-                : "#5a6268"};
-    }
-`;
-
-const ActionButton = styled(Button)`
-    background-color: ${props =>
-        props.type === "browse"
-            ? "#007bff"
-            : props.type === "upload"
-            ? "#28a745"
-            : props.type === "delete"
-            ? "#dc3545"
-            : "#6c757d"};
-    &:hover {
-        background-color: ${props =>
-            props.type === "browse"
-                ? "#0056b3"
-                : props.type === "upload"
-                ? "#218838"
-                : props.type === "delete"
-                ? "#c82333"
-                : "#5a6268"};
-    }
-`;
 
 const ProgressPage = () => {
+    const { user } = useAuth();
+    console.log("User object:", user);
     const [schools, setSchools] = useState([]);
     const [classes, setClasses] = useState([]);
     const [students, setStudents] = useState([]);
@@ -151,16 +25,18 @@ const ProgressPage = () => {
     const [plannedTopic, setPlannedTopic] = useState("");
     const [selectedFile, setSelectedFile] = useState(null);
     const [lessonPlan, setLessonPlan] = useState(null);
+    const [lessonPlanData, setLessonPlanData] = useState(null);
     const [showTable, setShowTable] = useState(false);
     const [uploadedImages, setUploadedImages] = useState({});
     const [expandedStudent, setExpandedStudent] = useState(null);
     const fileInputRefs = useRef({});
-    const [loading, setLoading] = useState(true); // Global loading state
-    const [isSearching, setIsSearching] = useState(false); // Search loading state
-    const [isSubmitting, setIsSubmitting] = useState(false); // Submit loading state
-    const [isUploading, setIsUploading] = useState({}); // Upload loading state per student
+    const [loading, setLoading] = useState(true);
+    const [isSearching, setIsSearching] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState({});
     const [error, setError] = useState(null);
-    const [isRetrying, setIsRetrying] = useState(false); // Retry loading state
+    const [isRetrying, setIsRetrying] = useState(false);
+    const [isUserLoading, setIsUserLoading] = useState(true); // Add this state
 
     // Fetch assigned schools for the logged-in teacher
     useEffect(() => {
@@ -183,6 +59,27 @@ const ProgressPage = () => {
         };
         loadInitialData();
     }, []);
+
+    useEffect(() => {
+        const checkUser = async () => {
+            if (!user) {
+                setIsUserLoading(true);
+                // Optional: Retry fetching user data if needed
+                try {
+                    // Simulate a delay or retry logic if useAuth doesn't handle it
+                    setTimeout(() => {
+                        setIsUserLoading(false);
+                    }, 1000); // Adjust delay as needed
+                } catch (error) {
+                    console.error("Error checking user:", error);
+                    setIsUserLoading(false);
+                }
+            } else {
+                setIsUserLoading(false);
+            }
+        };
+        checkUser();
+    }, [user]);
 
     useEffect(() => {
         async function fetchClassesBySchool() {
@@ -236,7 +133,7 @@ const ProgressPage = () => {
             const response = await axios.post(`${API_URL}/api/upload-student-image/`, formData, {
                 headers: { "Content-Type": "multipart/form-data", ...getAuthHeaders() },
             });
-
+            console.log("Uploaded image URL:", response.data.image_url);
             setUploadedImages(prev => ({
                 ...prev,
                 [studentId]: response.data.image_url
@@ -268,9 +165,27 @@ const ProgressPage = () => {
             toast.error("Please select a date, school, and class before searching.");
             return;
         }
-
+    
         setIsSearching(true);
         try {
+            // Fetch lesson plan
+            const teacherId = user.id;
+            const schoolId = selectedSchool;
+            const requestUrl = `${API_URL}/api/lesson-plan-range/?start_date=${sessionDate}&end_date=${sessionDate}&school_id=${schoolId}&student_class=${studentClass}&teacher_id=${teacherId}`;
+            const lessonResponse = await axios.get(requestUrl, {
+                headers: getAuthHeaders(),
+            });
+    
+            if (lessonResponse.data.length === 0) {
+                setLessonPlanData(null);
+                setPlannedTopic("No lesson planned.");
+            } else {
+                const data = lessonResponse.data[0];
+                setLessonPlanData(data);
+                setPlannedTopic(data.planned_topic);
+            }
+    
+            // Fetch students with attendance data
             const response = await axios.get(`${API_URL}/api/students-prog/`, {
                 params: {
                     school_id: selectedSchool,
@@ -279,20 +194,35 @@ const ProgressPage = () => {
                 },
                 headers: getAuthHeaders(),
             });
-
-            setStudents(response.data.students || []);
+    
+            const fetchedStudents = response.data.students || [];
+            setStudents(fetchedStudents);
             setLessonPlan(response.data.lesson_plan || null);
-
-            if (response.data.students.length > 0) {
+    
+            // Initialize attendanceData and achievedLessons with fetched data
+            const newAttendanceData = {};
+            const newAchievedLessons = {};
+            fetchedStudents.forEach(student => {
+                if (student.attendance_status) {
+                    newAttendanceData[student.id] = { status: student.attendance_status };
+                }
+                if (student.achieved_topic) {
+                    newAchievedLessons[student.id] = student.achieved_topic;
+                }
+            });
+            setAttendanceData(newAttendanceData);
+            setAchievedLessons(newAchievedLessons);
+    
+            if (fetchedStudents.length > 0) {
                 setShowTable(true);
             } else {
                 setShowTable(false);
                 toast.info("No students found for the selected criteria.");
             }
         } catch (error) {
-            console.error("❌ Error fetching students:", error.response?.data || error.message);
-            setError("Failed to fetch students.");
-            toast.error("Failed to fetch students. Please try again.");
+            console.error("❌ Error fetching data:", error.response?.data || error.message);
+            setError("Failed to fetch data.");
+            toast.error("Failed to fetch data. Please try again.");
         } finally {
             setIsSearching(false);
         }
@@ -324,7 +254,7 @@ const ProgressPage = () => {
 
             const attendanceUpdates = students.map(student => {
                 const attendanceId = student.attendance_id || null;
-                const status = attendanceData[student.id] || "N/A";
+                const status = attendanceData[student.id]?.status || "N/A";
                 const achievedTopic = achievedLessons[student.id] || "";
                 const lessonPlanId = student.lesson_plan_id || null;
 
@@ -341,6 +271,11 @@ const ProgressPage = () => {
                 return { attendance_id: attendanceId, status, achieved_topic: achievedTopic, lesson_plan_id: lessonPlanId };
             });
 
+            console.log("Submitting attendance payload:", {
+                session_date: sessionDate,
+                attendance: newAttendanceRecords
+            });
+
             if (newAttendanceRecords.length > 0) {
                 const createResponse = await axios.post(`${API_URL}/api/attendance/`, {
                     session_date: sessionDate,
@@ -348,7 +283,7 @@ const ProgressPage = () => {
                 }, {
                     headers: getAuthHeaders(),
                 });
-                console.log("✅ Attendance records created:", createResponse.data);
+                console.log("✅ Attendance response:", createResponse.data);
             }
 
             for (const update of attendanceUpdates) {
@@ -361,41 +296,17 @@ const ProgressPage = () => {
 
             toast.success("Attendance and achieved topics updated successfully!");
         } catch (error) {
-            console.error("❌ Error updating attendance:", error.response?.data || error.message);
-            toast.error("Failed to update attendance.");
+            const errorDetails = error.response?.data || error.response || error.message || "Unknown error";
+            console.error("❌ Error updating attendance:", errorDetails);
+            toast.error(`Failed to update attendance: ${JSON.stringify(errorDetails)}`);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleDateChange = async (e) => {
+    const handleDateChange = (e) => {
         const newDate = e.target.value;
         setSessionDate(newDate);
-
-        if (!studentClass || !selectedSchool) {
-            toast.warn("School and class must be selected before fetching lesson plan.");
-            return;
-        }
-
-        const schoolId = selectedSchool;
-
-        try {
-            const requestUrl = `${API_URL}/api/lesson-plan-range/?start_date=${newDate}&end_date=${newDate}&school_id=${schoolId}&student_class=${studentClass}`;
-            const lessonResponse = await axios.get(requestUrl, {
-                headers: getAuthHeaders(),
-            });
-
-            if (lessonResponse.data.length === 0) {
-                setPlannedTopic("No lesson planned.");
-                return;
-            }
-
-            setPlannedTopic(lessonResponse.data[0].planned_topic);
-        } catch (error) {
-            console.error("❌ Error fetching lesson plan:", error.response?.data || error.message);
-            setPlannedTopic("Error fetching lesson.");
-            toast.error("Failed to fetch lesson plan.");
-        }
     };
 
     const toggleAccordion = (studentId) => {
@@ -405,9 +316,17 @@ const ProgressPage = () => {
     const handleRetry = async () => {
         setIsRetrying(true);
         setError(null);
-        setLoading(true); // Trigger re-fetch of initial data
+        setLoading(true);
         setIsRetrying(false);
     };
+
+    if (!user) {
+        return (
+            <div className="flex items-center justify-center p-6 min-h-screen bg-gray-50">
+                <ClipLoader color="#000000" size={50} />
+            </div>
+        );
+    }
 
     if (loading) {
         return (
@@ -434,14 +353,11 @@ const ProgressPage = () => {
     }
 
     return (
-        <Container className="p-6 bg-gray-50 min-h-screen">
-            {/* Title */}
-            <Title className="text-3xl font-bold text-gray-800 mb-8">Session Progress</Title>
+        <div className="container p-6 bg-gray-50 min-h-screen">
+            <h2 className="title text-3xl font-bold text-gray-800 mb-8">Session Progress</h2>
 
-            {/* Filters Row with Proper Alignment */}
             <div className="flex items-center gap-4 mb-8">
-                {/* Session Date */}
-                <FormGroup className="flex flex-col flex-1 min-w-[200px]">
+                <div className="form-group flex flex-col flex-1 min-w-[200px]">
                     <label className="font-bold mb-2 text-gray-700">Session Date:</label>
                     <input
                         type="date"
@@ -449,10 +365,9 @@ const ProgressPage = () => {
                         onChange={handleDateChange}
                         className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                     />
-                </FormGroup>
+                </div>
 
-                {/* School Selector */}
-                <FormGroup className="flex flex-col flex-1 min-w-[200px]">
+                <div className="form-group flex flex-col flex-1 min-w-[200px]">
                     <label className="font-bold mb-2 text-gray-700">School:</label>
                     <select
                         value={selectedSchool}
@@ -464,10 +379,9 @@ const ProgressPage = () => {
                             <option key={school.id} value={school.id}>{school.name}</option>
                         ))}
                     </select>
-                </FormGroup>
+                </div>
 
-                {/* Class Selector */}
-                <FormGroup className="flex flex-col flex-1 min-w-[200px]">
+                <div className="form-group flex flex-col flex-1 min-w-[200px]">
                     <label className="font-bold mb-2 text-gray-700">Class:</label>
                     <select
                         value={studentClass}
@@ -478,39 +392,40 @@ const ProgressPage = () => {
                             <option key={cls.id} value={cls.id}>{cls.name}</option>
                         ))}
                     </select>
-                </FormGroup>
+                </div>
 
-                {/* Search Button */}
-                <Button
+                <button
                     onClick={handleSearch}
-                    className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors self-end"
-                    disabled={isSearching}
+                    className="button bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors self-end"
+                    disabled={isUserLoading || isSearching}
                 >
                     {isSearching ? "Searching..." : "Search"}
-                </Button>
+                </button>
             </div>
 
             {showTable && (
                 <>
-                    {/* Planned Lesson */}
                     <div className="mb-4 p-3 bg-gray-100 rounded-lg">
                         <strong className="text-gray-700">Planned Lesson:</strong> {plannedTopic}
+                        {lessonPlanData && (
+                            <>
+                                {/* <p><strong>Teacher:</strong> {lessonPlanData.teacher_name}</p>
+                                <p><strong>School:</strong> {lessonPlanData.school_name}</p> */}
+                            </>
+                        )}
                     </div>
 
-                    {/* Accordion for Students */}
-                    <Accordion>
+                    <div className="accordion">
                         {students.map(student => (
-                            <AccordionItem key={student.id}>
-                                <AccordionHeader onClick={() => toggleAccordion(student.id)}>
+                            <div className="accordion-item" key={student.id}>
+                                <div className="accordion-header" onClick={() => toggleAccordion(student.id)}>
                                     <div className="flex items-center justify-between w-full">
-                                        {/* Fixed-width Name with Truncation */}
                                         <div className="w-[300px] truncate text-gray-600 font-medium" title={student.name}>
                                             {student.name}
                                         </div>
-                                        {/* Attendance Button and Toggle */}
                                         <div className="flex items-center gap-4">
-                                            <AttendanceButton
-                                                status={attendanceData[student.id]?.status || "Set Attendance"}
+                                            <button
+                                                className={`button attendance-button ${attendanceData[student.id]?.status === "Present" ? "present" : attendanceData[student.id]?.status === "Absent" ? "absent" : ""}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleAttendanceChange(student.id,
@@ -519,17 +434,16 @@ const ProgressPage = () => {
                                                 }}
                                             >
                                                 {attendanceData[student.id]?.status || "Set Attendance"}
-                                            </AttendanceButton>
-                                            <AccordionToggle>
+                                            </button>
+                                            <span className="accordion-toggle">
                                                 {expandedStudent === student.id ? "▼" : "▶"}
-                                            </AccordionToggle>
+                                            </span>
                                         </div>
                                     </div>
-                                </AccordionHeader>
+                                </div>
 
-                                <AccordionContent isOpen={expandedStudent === student.id}>
+                                <div className="accordion-content" style={{ display: expandedStudent === student.id ? "block" : "none" }}>
                                     <div className="flex flex-col gap-4 max-w-md">
-                                        {/* Achieved Lesson */}
                                         <div>
                                             <label className="block font-bold mb-2 text-gray-700">Achieved Lesson:</label>
                                             <textarea
@@ -540,7 +454,6 @@ const ProgressPage = () => {
                                             />
                                         </div>
 
-                                        {/* Upload Image Section */}
                                         <div>
                                             <label className="block font-bold mb-2 text-gray-700">Upload Image:</label>
                                             <div className="flex flex-wrap items-center gap-2">
@@ -551,51 +464,50 @@ const ProgressPage = () => {
                                                     className="hidden"
                                                     onChange={(event) => handleFileSelect(event)}
                                                 />
-                                                <ActionButton
-                                                    type="browse"
+                                                <button
+                                                    className="button action-button browse"
                                                     onClick={() => openFileDialog(student.id)}
                                                 >
                                                     Browse
-                                                </ActionButton>
-                                                <ActionButton
-                                                    type="upload"
+                                                </button>
+                                                <button
+                                                    className="button action-button upload"
                                                     onClick={() => handleFileUpload(student.id)}
                                                     disabled={isUploading[student.id] || !selectedFile}
                                                 >
                                                     {isUploading[student.id] ? "Uploading..." : "Upload"}
-                                                </ActionButton>
+                                                </button>
                                                 {uploadedImages[student.id] && (
                                                     <>
                                                         <img src={uploadedImages[student.id]} alt="Uploaded" className="w-20 h-20 rounded-lg" />
-                                                        <ActionButton
-                                                            type="delete"
+                                                        <button
+                                                            className="button action-button delete"
                                                             onClick={() => handleFileDelete(student.id)}
                                                         >
                                                             Delete
-                                                        </ActionButton>
+                                                        </button>
                                                     </>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
-                                </AccordionContent>
-                            </AccordionItem>
+                                </div>
+                            </div>
                         ))}
-                    </Accordion>
+                    </div>
 
-                    {/* Submit Button */}
                     <div className="mt-6 text-right">
-                        <Button
+                        <button
                             onClick={handleSubmit}
-                            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                            className="button bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? "Submitting..." : "Submit"}
-                        </Button>
+                        </button>
                     </div>
                 </>
             )}
-        </Container>
+        </div>
     );
 };
 

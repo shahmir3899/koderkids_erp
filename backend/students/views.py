@@ -109,8 +109,6 @@ def get_lesson_plan_range(request):
     
     return Response(serialized_data.data)
 
-
-
 @permission_classes([IsAuthenticated])
 def get_class_image_count(request):
     school_id = request.GET.get("school_id")
@@ -961,31 +959,36 @@ def get_student_images(request):
 def students_progress(request):
     school_id = request.GET.get('school_id')
     student_class = request.GET.get('class_id')
-    session_date = request.GET.get('session_date')
+    session_date_str = request.GET.get('session_date')
 
-    # ✅ Initialize lesson_plan as None
-    lesson_plan = None  
+    # Validate required parameters
+    if not all([school_id, student_class, session_date_str]):
+        return Response({"error": "Missing required parameters: school_id, class_id, session_date"}, status=400)
 
-    # ✅ Fetch Lesson Plan safely
-    lesson_plan_query = LessonPlan.objects.filter(
+    # Parse session_date from MM/DD/YYYY to YYYY-MM-DD
+    try:
+        session_date = datetime.strptime(session_date_str, '%m/%d/%Y').date()
+        logger.info(f"Parsed session_date: {session_date}")
+    except ValueError:
+        logger.error(f"Invalid date format for session_date: {session_date_str}. Expected MM/DD/YYYY.")
+        return Response({"error": "Invalid date format. Use MM/DD/YYYY (e.g., 03/12/2025)."}, status=400)
+
+    # Fetch Lesson Plan
+    lesson_plan = LessonPlan.objects.filter(
         session_date=session_date,
-        school_id=school_id if school_id else None,
-        student_class=student_class if student_class else None
+        school_id=school_id,
+        student_class=student_class
     ).first()
+    logger.info(f"Lesson plan found: {lesson_plan.id if lesson_plan else 'None'}")
 
-    if lesson_plan_query:
-        lesson_plan = lesson_plan_query  # ✅ Assign the fetched lesson plan
-
-    # ✅ Get Students
-    students = Student.objects.filter(status="Active")
-    if school_id:
-        students = students.filter(school_id=school_id)
-    if student_class:
-        students = students.filter(student_class=student_class)
+    # Fetch Students
+    students = Student.objects.filter(status="Active", school_id=school_id, student_class=student_class)
+    logger.info(f"Found {students.count()} active students")
 
     student_data = []
     for student in students:
         attendance = Attendance.objects.filter(student=student, session_date=session_date).first()
+        logger.info(f"Student {student.id} ({student.name}) - Attendance: {attendance.status if attendance else 'None'}")
 
         student_data.append({
             "id": student.id,
@@ -995,13 +998,14 @@ def students_progress(request):
             "attendance_id": attendance.id if attendance else None,
             "status": attendance.status if attendance else "N/A",
             "achieved_topic": attendance.achieved_topic if attendance else "",
-            "lesson_plan_id": lesson_plan.id if lesson_plan else None  # ✅ Safe access
+            "lesson_plan_id": lesson_plan.id if lesson_plan else None
         })
 
     return Response({
         "students": student_data,
         "lesson_plan": LessonPlanSerializer(lesson_plan).data if lesson_plan else None
     })
+
 # API for reports
 def get_student_details(request):
     student_id = request.GET.get('student_id')

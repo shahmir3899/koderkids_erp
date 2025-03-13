@@ -92,6 +92,22 @@ function HomePage() {
         fetchData();
     }, []);
 
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+const sortData = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+        direction = 'desc';
+    }
+    const sorted = [...registrations].sort((a, b) => {
+        if (a[key] < b[key]) return direction === 'asc' ? -1 : 1;
+        if (a[key] > b[key]) return direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+    setRegistrations(sorted);
+    setSortConfig({ key, direction });
+};
+    
     const handleRetry = async () => {
         setIsRetrying(true);
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
@@ -136,13 +152,14 @@ function HomePage() {
                         <h1 className="text-2xl font-bold ">Koder Kids Admin Dashboard</h1>
                     </div>
                 </header>
-
+    
                 <div className="flex flex-wrap justify-center gap-6 w-full mb-6">
                     {/* Students Per School (Pie Chart) */}
                     <div className="w-full md:w-1/2 border p-4 rounded-lg shadow-md bg-white mb-6">
                         <h2 className="text-xl font-semibold mb-3 text-gray-700 text-center">Students Enrolled Per School</h2>
                         <div className="flex justify-center">
-                            <PieChart width={400} height={400}>
+                        <ResponsiveContainer width="100%" height={400}>
+                            <PieChart>
                                 <Pie
                                     data={studentsData}
                                     dataKey="total_students"
@@ -157,12 +174,13 @@ function HomePage() {
                                         <Cell key={`cell-${index}`} fill={["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"][index % 4]} />
                                     ))}
                                 </Pie>
-                                <Tooltip />
-                                <Legend />
+                                <Tooltip formatter={(value) => `${value} students`} />
+                                <Legend layout="horizontal" align="center" verticalAlign="bottom" wrapperStyle={{ fontSize: '16px', paddingTop: '10px' }} />
                             </PieChart>
-                        </div>
+                        </ResponsiveContainer>
                     </div>
-
+                    </div>
+    
                     {/* Fee Received Per Month (Bar Chart) */}
                     <div className="w-full md:w-1/2 border p-4 rounded bg-white shadow-md">
                         <h2 className="text-lg font-semibold text-gray-700 mb-4 text-center">Top 3 Schools - Fee Collection (Last 3 Months)</h2>
@@ -171,7 +189,7 @@ function HomePage() {
                                 <BarChart data={feeData}>
                                     <XAxis dataKey="month" />
                                     <YAxis />
-                                    <Tooltip />
+                                    <Tooltip formatter={(value) => `PKR ${value.toLocaleString()}`} />
                                     <Legend />
                                     {Object.keys(feeData[0]).filter(key => key !== "month").map((school, index) => (
                                         <Bar key={index} dataKey={school} fill={["#8884d8", "#82ca9d", "#ffbb28"][index % 3]} />
@@ -183,7 +201,7 @@ function HomePage() {
                         )}
                     </div>
                 </div>
-
+    
                 {/* New Registrations */}
                 <div className="border p-0 m-0 rounded-lg shadow-md bg-white">
                     <h2 className="text-xl font-semibold mb-3 text-gray-700">New Registrations</h2>
@@ -191,20 +209,26 @@ function HomePage() {
                         <table className="w-full border-collapse border bg-gray-100 text-gray-700">
                             <thead className="bg-gray-300 text-gray-800">
                                 <tr>
-                                    <th className="border p-3 text-center">ID</th>
-                                    <th className="border p-3 text-center">Student Name</th>
-                                    <th className="border p-3 text-center">School</th>
-                                    <th className="border p-3 text-center">Date</th>
+                                    <th className="border p-3 text-center w-1/12 cursor-pointer" onClick={() => sortData('id')}>
+                                        ID {sortConfig.key === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                    </th>
+                                    <th className="border p-3 text-center w-3/12 cursor-pointer" onClick={() => sortData('name')}>
+                                        Student Name {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                    </th>
+                                    <th className="border p-3 text-center w-3/12 cursor-pointer" onClick={() => sortData('school')}>
+                                        School {sortConfig.key === 'school' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                    </th>
+                                    <th className="border p-3 text-center w-5/12">Date</th> {/* No sorting on Date for simplicity */}
                                 </tr>
                             </thead>
                             <tbody>
                                 {registrations.length > 0 ? (
                                     registrations.map((student, index) => (
                                         <tr key={index} className={index % 2 === 0 ? "bg-gray-200" : "bg-gray-50"}>
-                                            <td className="border p-3 text-center">{student.id}</td>
-                                            <td className="border p-3 text-center">{student.name}</td>
-                                            <td className="border p-3 text-center">{student.school}</td>
-                                            <td className="border p-3 text-center">{student.date_of_registration}</td>
+                                            <td className="border p-3 text-center w-1/12">{student.id}</td>
+                                            <td className="border p-3 text-center w-3/12">{student.name}</td>
+                                            <td className="border p-3 text-center w-3/12">{student.school}</td>
+                                            <td className="border p-3 text-center w-5/12">{student.date_of_registration}</td>
                                         </tr>
                                     ))
                                 ) : (

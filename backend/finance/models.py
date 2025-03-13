@@ -5,7 +5,9 @@ from django.utils.timezone import now
 from django.apps import apps
 from students.models import School
 from django.db.models import Sum  # ✅ Import Sum for aggregating totals
-
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 
 User = get_user_model()  # Use custom user model if exists
@@ -45,6 +47,19 @@ class Account(models.Model):
     def __str__(self):
         return f"{self.account_name} ({self.account_type})"
 
+class IncomeDeleteView(APIView):
+    def delete(self, request, pk):
+        try:
+            transaction = Transaction.objects.get(pk=pk, transaction_type="Income")
+            # Optional: Add permission check
+            if not request.user.is_authenticated or request.user.role != "Admin":
+                return Response({"error": "Only admins can delete transactions."}, status=403)
+            transaction.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Transaction.DoesNotExist:
+            return Response({"error": "Transaction not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class Transaction(models.Model):
     TRANSACTION_TYPES = [
@@ -93,23 +108,17 @@ class Transaction(models.Model):
             self.from_account.update_balance()
             self.to_account.update_balance()
 
-
+    def delete(self, *args, **kwargs):
+        from_account = self.from_account
+        to_account = self.to_account
+        super().delete(*args, **kwargs)
+        if from_account:
+            from_account.update_balance()
+        if to_account:
+            to_account.update_balance()
 
     def __str__(self):
         return f"{self.transaction_type}: {self.amount} ({self.category}) - {self.school.name if self.school else 'No School'}"
-
-class JournalEntry(FinanceModelBase):
-    date = models.DateField(default=now)
-    debit_account = models.CharField(max_length=100)
-    credit_account = models.CharField(max_length=100)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    description = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.date} - {self.debit_account} -> {self.credit_account} ({self.amount})"
-
-    class Meta:
-        ordering = ['-date']
 
 class Loan(FinanceModelBase):
     borrower = models.CharField(max_length=100)
@@ -131,22 +140,4 @@ class Loan(FinanceModelBase):
     class Meta:
         ordering = ['-due_date']
 
-class BankReconciliation(models.Model):
-    transaction_date = models.DateField()
-    bank_transaction_id = models.CharField(max_length=50, unique=True)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    description = models.TextField(blank=True, null=True)
-    matched_status = models.CharField(
-        max_length=10, choices=[('Matched', 'Matched'), ('Unmatched', 'Unmatched')], default='Unmatched'
-    )
-    matched_with_transaction = models.ForeignKey(
-        "finance.Transaction",  # ✅ String reference to avoid circular import
-        on_delete=models.SET_NULL, blank=True, null=True
-    )
-
-    def __str__(self):
-        return f"{self.transaction_date} - {self.bank_transaction_id} ({self.matched_status})"
-
-    class Meta:
-        ordering = ['-transaction_date']
 

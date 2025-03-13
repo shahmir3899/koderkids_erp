@@ -290,3 +290,382 @@ input:focus, select:focus {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+
+/* Success Toast: Green background with white text */
+.Toastify__toast--success {
+  background-color: #4CAF50 !important; /* Green background */
+  color: #FFFFFF !important; /* White text */
+}
+
+/* Error Toast: Red background with white text */
+.Toastify__toast--error {
+  background-color: #F44336 !important; /* Red background */
+  color: #FFFFFF !important; /* White text */
+}
+
+/* Warning Toast: Orange background with white text */
+.Toastify__toast--warning {
+  background-color: #FF9800 !important; /* Orange background */
+  color: #FFFFFF !important; /* White text */
+}
+
+/* Info Toast: Blue background with white text */
+.Toastify__toast--info {
+  background-color: #2196F3 !important; /* Blue background */
+  color: #FFFFFF !important; /* White text */
+}
+
+/* Default Toast: Gray background with black text */
+.Toastify__toast {
+  background-color: #616161 !important; /* Gray background */
+  color: #FFFFFF !important; /* White text for contrast */
+}
+
+/* Optional: Style the close button and progress bar for better visibility */
+.Toastify__close-button {
+  color: #FFFFFF !important; /* White close button for all toasts */
+}
+
+.Toastify__progress-bar--success {
+  background-color: #388E3C !important; /* Darker green progress bar */
+}
+
+.Toastify__progress-bar--error {
+  background-color: #D32F2F !important; /* Darker red progress bar */
+}
+
+.Toastify__progress-bar--warning {
+  background-color: #F57C00 !important; /* Darker orange progress bar */
+}
+
+.Toastify__progress-bar--info {
+  background-color: #1976D2 !important; /* Darker blue progress bar */
+}
+
+/* Transactions Page Styles */
+.container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f7f8fc;
+  min-height: 100vh;
+}
+
+.title {
+  text-align: center;
+  color: #1a202c;
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  text-transform: uppercase;
+}
+
+.tab-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  justify-content: center;
+}
+
+.tab-button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  background-color: #e2e8f0;
+  color: #2d3748;
+  transition: background-color 0.3s ease;
+}
+.tab-button.active {
+  background-color: #2b6cb0;
+  color: #ffffff;
+}
+.tab-button:hover {
+  background-color: #d1d5db;
+}
+.tab-button.active:hover {
+  background-color: #2c5282;
+}
+
+.form {
+  border-radius: 10px;
+  padding: 24px;
+  background: #ffffff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+}
+
+.category-button {
+  padding: 10px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  margin: 4px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #ffffff;
+  color: #2d3748;
+}
+.category-button.selected {
+  background-color: #2b6cb0;
+  color: #ffffff;
+}
+.category-button:hover {
+  background-color: #edf2f7;
+}
+.category-button.selected:hover {
+  background-color: #2c5282;
+}
+
+.add-category-input {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.submit-button.disabled {
+  background-color: #4a5568;
+  cursor: not-allowed;
+}
+.submit-button:hover:not(.disabled) {
+  background-color: #1a202c;
+}
+
+.fetching-message {
+  text-align: center;
+  padding: 12px;
+  background-color: #edf2f7;
+  color: #2d3748;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-header {
+  padding: 12px;
+  background-color: #edf2f7;
+  color: #2d3748;
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.table-cell {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #4a5568;
+}
+
+.action-button {
+  padding: 8px 12px;
+  margin-right: 4px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.action-button:hover {
+  opacity: 0.9;
+}
+.action-button:last-child {
+  margin-right: 0;
+}
+
+.modal-content {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 90%;
+}
+
+/* Modal close button */
+.modal-close-button {
+  padding: 8px 16px;
+  background-color: #4a5568;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+.modal-close-button:hover {
+  background-color: #2d3748;
+}
+
+/* Fetching message */
+.fetching-message {
+  text-align: center;
+  padding: 12px;
+  background-color: #edf2f7;
+  color: #2d3748;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+
+/* App.css */
+.container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: Arial, sans-serif;
+}
+
+.title {
+  text-align: center;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  resize: vertical;
+  height: 80px;
+}
+
+.accordion {
+  width: 100%;
+  margin-top: 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.accordion-item {
+  border-bottom: 1px solid #ddd;
+}
+
+.accordion-item:last-child {
+  border-bottom: none;
+}
+
+.accordion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background-color: #f4f4f4;
+  cursor: pointer;
+}
+
+.accordion-header:hover {
+  background-color: #e9ecef;
+}
+
+.accordion-content {
+  padding: 12px;
+  background-color: #fff;
+}
+
+.accordion-content[style*="display: none"] {
+  display: none;
+}
+
+.accordion-toggle {
+  font-size: 16px;
+  color: #555;
+}
+
+.button {
+  padding: 10px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  margin: 0 5px;
+}
+
+.button:hover {
+  opacity: 0.9;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.attendance-button {
+  background-color: #6c757d;
+}
+
+.attendance-button.present {
+  background-color: #28a745;
+}
+
+.attendance-button.present:hover {
+  background-color: #218838;
+}
+
+.attendance-button.absent {
+  background-color: #dc3545;
+}
+
+.attendance-button.absent:hover {
+  background-color: #c82333;
+}
+
+.action-button {
+  background-color: #6c757d;
+}
+
+.action-button.browse {
+  background-color: #007bff;
+}
+
+.action-button.browse:hover {
+  background-color: #0056b3;
+}
+
+.action-button.upload {
+  background-color: #28a745;
+}
+
+.action-button.upload:hover {
+  background-color: #218838;
+}
+
+.action-button.delete {
+  background-color: #dc3545;
+}
+
+.action-button.delete:hover {
+  background-color: #c82333;
+}
