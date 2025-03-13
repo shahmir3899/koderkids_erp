@@ -909,17 +909,24 @@ def upload_student_image(request):
         return Response({"error": "Student ID and Date are required"}, status=400)
 
     # ✅ Construct filename
-    date_str = session_date.replace("-", "")  # Format date as YYYYMMDD
-    timestamp = datetime.now().strftime("%H%M%S")  # Unique timestamp
+    date_str = session_date.replace("-", "")  
+    timestamp = datetime.now().strftime("%H%M%S")  
     file_extension = os.path.splitext(image.name)[1]
     filename = f"{date_str}_{timestamp}{file_extension}"
-    image_path = os.path.join("uploads/students", str(student_id), filename)
+    
+    # ✅ Save to `/var/media/` explicitly
+    image_folder = os.path.join(settings.MEDIA_ROOT, "uploads/students", str(student_id))
+    os.makedirs(image_folder, exist_ok=True)  # Ensure directory exists
 
-    # ✅ Use Django's `default_storage.save()` instead of manually writing the file
-    saved_path = default_storage.save(image_path, ContentFile(image.read()))
+    file_path = os.path.join(image_folder, filename)
 
-    # ✅ Generate the accessible URL
-    image_url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+    # ✅ Save the file using Django storage
+    with open(file_path, "wb") as f:
+        for chunk in image.chunks():
+            f.write(chunk)
+
+    # ✅ Generate full URL for frontend
+    image_url = request.build_absolute_uri(settings.MEDIA_URL + f"uploads/students/{student_id}/{filename}")
 
     return Response({
         "message": "Image uploaded successfully",
@@ -927,7 +934,6 @@ def upload_student_image(request):
         "student_id": student_id,
         "date": session_date
     }, status=201)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
