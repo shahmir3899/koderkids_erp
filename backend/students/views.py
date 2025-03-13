@@ -916,11 +916,15 @@ def upload_student_image(request):
     filename = f"{date_str}_{timestamp}{file_extension}"
     image_path = f"uploads/students/{student_id}/{filename}"
     
-    # ✅ Save the file
-    saved_path = default_storage.save(image_path, ContentFile(image.read()))
+    # ❌ FIX: Explicitly store files in /var/media/
+    full_path = os.path.join(settings.MEDIA_ROOT, image_path)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)  # Ensure directory exists
+
+    # ✅ Save the file to /var/media/
+    saved_path = default_storage.save(full_path, ContentFile(image.read()))
 
     # ✅ Generate full URL for accessing the file
-    image_url = f"{request.build_absolute_uri(settings.MEDIA_URL)}{saved_path}"
+    image_url = f"{request.build_absolute_uri(settings.MEDIA_URL)}{image_path}"
 
     return Response({
         "message": "Image uploaded successfully",
@@ -928,6 +932,8 @@ def upload_student_image(request):
         "student_id": student_id,
         "date": session_date
     }, status=201)
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_images(request):
