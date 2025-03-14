@@ -949,26 +949,27 @@ def upload_student_image(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_images(request):
-    """Fetch all images for a student between start_date and end_date"""
+    """
+    Fetch images for a student for a specific session date.
+    Used in the Session Page.
+    """
     student_id = request.GET.get('student_id')
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
+    session_date = request.GET.get('session_date')  # Single Date
 
-    if not student_id or not start_date or not end_date:
-        return Response({"error": "Student ID, start_date, and end_date are required"}, status=400)
+    if not student_id or not session_date:
+        return Response({"error": "student_id and session_date are required"}, status=400)
 
     try:
-        # Get all images for the student in the given date range
+        # Fetch images from the database for a single session date
         images = StudentImage.objects.filter(
             student_id=student_id,
-            session_date__range=[start_date, end_date]
+            session_date=session_date
         ).values_list('image_url', flat=True)
 
         return Response({"images": list(images)})
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
-
 
 @api_view(['GET'])
 def students_progress(request):
@@ -1132,6 +1133,10 @@ def update_planned_topic(request, lesson_plan_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_progress_images(request):
+    """
+    Fetch all stored images for a student within a given month.
+    Used in the Report Generation.
+    """
     student_id = request.GET.get('student_id')
     month = request.GET.get('month')  # Format: YYYY-MM
 
@@ -1139,15 +1144,15 @@ def get_student_progress_images(request):
         return JsonResponse({"error": "student_id and month are required"}, status=400)
 
     # Define the correct folder path
-    image_folder = os.path.join(settings.MEDIA_ROOT, f"uploads/students/{student_id}/")
+    student_folder = os.path.join(settings.MEDIA_ROOT, f"uploads/students/{student_id}/")
 
-    if not os.path.exists(image_folder):
+    if not os.path.exists(student_folder):
         return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
 
     try:
         matching_images = []
-        for filename in os.listdir(image_folder):
-            if f"{month}-" in filename:  # ✅ Look for any file with YYYY-MM
+        for filename in os.listdir(student_folder):
+            if filename.startswith(month):  # ✅ Match files with YYYY-MM format
                 image_path = f"uploads/students/{student_id}/{filename}"
                 image_url = request.build_absolute_uri(settings.MEDIA_URL + image_path)
                 matching_images.append(image_url)
