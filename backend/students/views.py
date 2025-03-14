@@ -10,7 +10,7 @@ from rest_framework import viewsets, status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-#from backend.school_management import settings
+from supabase import create_client
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -20,6 +20,7 @@ from .serializers import StudentSerializer, SchoolSerializer, AttendanceSerializ
 from django.shortcuts import render
 from django.db.models import Q
 import logging
+import uuid  # Add this import
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.conf import settings
@@ -893,73 +894,75 @@ def update_achieved_topic(request, lesson_plan_id):
         return Response({"error": "Lesson plan not found."}, status=404)
     
 
+# Initialize Supabase Client
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])  
+@permission_classes([IsAuthenticated])
 def upload_student_image(request):
-    """Handles student image uploads"""
-    
+    """Uploads student images to Supabase Storage"""
+
     if 'image' not in request.FILES:
         return Response({"error": "No image provided"}, status=400)
 
     image = request.FILES['image']
-    student_id = request.data.get('student_id', '')
-    session_date = request.data.get('session_date', '')
+    student_id = request.data.get('student_id')
+    session_date = request.data.get('session_date')
 
     if not student_id or not session_date:
         return Response({"error": "Student ID and Date are required"}, status=400)
 
-    # ✅ Construct filename
-    date_str = session_date.replace("-", "")  
-    timestamp = datetime.now().strftime("%H%M%S")  
-    file_extension = os.path.splitext(image.name)[1]
-    filename = f"{date_str}_{timestamp}{file_extension}"
-    
-    # ✅ Save to `/var/media/` explicitly
-    image_folder = os.path.join(settings.MEDIA_ROOT, "uploads/students", str(student_id))
-    os.makedirs(image_folder, exist_ok=True)  # Ensure directory exists
+    # Generate a unique filename
+    ext = os.path.splitext(image.name)[1]  # Get file extension (.jpg, .png, etc.)
+    unique_filename = f"{student_id}/{session_date}_{uuid.uuid4().hex}{ext}"
 
-    file_path = os.path.join(image_folder, filename)
+    try:
+        # Upload to Supabase Storage
+        response = supabase.storage.from_(settings.SUPABASE_BUCKET).upload(unique_filename, image.read(), content_type=image.content_type)
 
-    # ✅ Save the file using Django storage
-    with open(file_path, "wb") as f:
-        for chunk in image.chunks():
-            f.write(chunk)
+        if response.get("error"):
+            return Response({"error": response["error"]["message"]}, status=500)
 
-    # ✅ Generate full URL for frontend
-    image_url = request.build_absolute_uri(settings.MEDIA_URL + f"uploads/students/{student_id}/{filename}")
+        # Generate a signed URL (valid for 7 days)
+        signed_url = supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(unique_filename, 604800)  # 7 days in seconds
 
-    return Response({
-        "message": "Image uploaded successfully",
-        "image_url": image_url,
-        "student_id": student_id,
-        "date": session_date
-    }, status=201)
+        return Response({
+            "message": "Image uploaded successfully",
+            "image_url": signed_url,
+            "student_id": student_id,
+            "date": session_date
+        }, status=201)
 
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_images(request):
-    """Fetch all images for a student and a specific date"""
-    student_id = request.GET.get('student_id', '')
-    session_date = request.GET.get('session_date', '')
+    """Fetch all images for a student from Supabase Storage"""
+    student_id = request.GET.get('student_id')
+    session_date = request.GET.get('session_date')
 
     if not student_id or not session_date:
         return Response({"error": "Student ID and Date are required"}, status=400)
 
-    # ✅ Use absolute path to ensure correct lookup
-    image_folder = os.path.join(settings.MEDIA_ROOT, f"uploads/students/{student_id}/")
-    date_str = session_date.replace("-", "")
+    try:
+        # List files in the bucket
+        response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(student_id)
 
-    image_files = []
-    if os.path.exists(image_folder):  # ✅ Use `os.path.exists()` instead of `default_storage.exists()`
-        for filename in os.listdir(image_folder):
-            if filename.startswith(date_str):
-                image_files.append(f"{settings.MEDIA_URL}uploads/students/{student_id}/{filename}")
+        if "error" in response:
+            return Response({"error": response["error"]["message"]}, status=500)
 
-    return Response({
-        "student_id": student_id,
-        "session_date": session_date,
-        "images": image_files
-    })
+        # Generate signed URLs for all images
+        image_urls = [
+            supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(f"{student_id}/{file['name']}", 604800)
+            for file in response
+            if session_date in file["name"]  # Filter by session date
+        ]
+
+        return Response({"images": image_urls})
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 @api_view(['GET'])
 def students_progress(request):

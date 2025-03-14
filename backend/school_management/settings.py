@@ -5,7 +5,10 @@ from datetime import timedelta
 import dj_database_url
 
 # Load environment variables
-
+# Supabase Storage Configuration
+SUPABASE_URL = "https://vjulyxmuswlktvlvdhhi.supabase.co"  # Your Supabase Project URL
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqdWx5eG11c3dsa3R2bHZkaGhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MDkyMTMyNCwiZXhwIjoyMDU2NDk3MzI0fQ.civdal8JUya2xw1jS6Tc_J_JJex2N5r2hewPAR5NPqc"  # Your Service Role Key
+SUPABASE_BUCKET = "student-images"  # Your Supabase bucket name
 
 # Get the BASE_DIR (Project Root)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -15,18 +18,9 @@ load_dotenv()
 #print("DATABASE_URL Loaded:", os.getenv("DATABASE_URL"))
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.vjulyxmuswlktvlvdhhi',
-        'PASSWORD': 'No@Sorry&703##',
-        'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
-        'PORT': '6543',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-    }
+    'default': dj_database_url.config(default=os.getenv("DATABASE_URL"), conn_max_age=600)
 }
+
 
 
 
@@ -46,7 +40,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Media Files (User Uploads)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = '/var/media/' if not os.getenv("DEBUG", "True") == "True" else os.path.join(BASE_DIR, "media")
+#MEDIA_ROOT = '/var/media/' if not os.getenv("DEBUG", "True") == "True" else os.path.join(BASE_DIR, "media")
 
 # Static Files Directories (Only in Development)
 if os.getenv("DEBUG", "True") == "True":  # Use env variable to determine mode
@@ -137,7 +131,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CSRF_TRUSTED_ORIGINS = [
     "http://frontend.koderkids.pk",
 
