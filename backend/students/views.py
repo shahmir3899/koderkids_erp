@@ -948,34 +948,33 @@ def upload_student_image(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_student_progress_images(request):
+def get_student_images(request):
+    """Fetch all images for a student from Supabase Storage"""
     student_id = request.GET.get('student_id')
-    month = request.GET.get('month')  # Format: YYYY-MM
+    session_date = request.GET.get('session_date')
 
-    if not student_id or not month:
-        return JsonResponse({"error": "student_id and month are required"}, status=400)
-
-    # Define the correct folder path
-    image_folder = os.path.join(settings.MEDIA_ROOT, f"uploads/students/{student_id}/")
-
-    if not os.path.exists(image_folder):
-        return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
+    if not student_id or not session_date:
+        return Response({"error": "Student ID and Date are required"}, status=400)
 
     try:
-        matching_images = []
-        for filename in os.listdir(image_folder):
-            if f"{month}-" in filename:  # ✅ Look for any file with YYYY-MM
-                image_path = f"uploads/students/{student_id}/{filename}"
-                image_url = request.build_absolute_uri(settings.MEDIA_URL + image_path)
-                matching_images.append(image_url)
+        # List files in the bucket
+        response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(student_id)
 
-        if not matching_images:
-            return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
+        if "error" in response:
+            return Response({"error": response["error"]["message"]}, status=500)
 
-        return JsonResponse({"progress_images": matching_images})
+        # Generate signed URLs for all images
+        image_urls = [
+            supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(f"{student_id}/{file['name']}", 604800)
+            for file in response
+            if session_date in file["name"]  # Filter by session date
+        ]
+
+        return Response({"images": image_urls})
 
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        return Response({"error": str(e)}, status=500)
+
 
 
 @api_view(['GET'])
@@ -1137,6 +1136,8 @@ def update_planned_topic(request, lesson_plan_id):
         return Response({"error": "Lesson plan not found."}, status=404)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_student_progress_images(request):
     student_id = request.GET.get('student_id')
     month = request.GET.get('month')  # Format: YYYY-MM
@@ -1144,28 +1145,24 @@ def get_student_progress_images(request):
     if not student_id or not month:
         return JsonResponse({"error": "student_id and month are required"}, status=400)
 
-    # Define the student’s media directory
-    student_folder = os.path.join(settings.MEDIA_ROOT, 'uploads', 'students', str(student_id))
+    # Define the correct folder path
+    image_folder = os.path.join(settings.MEDIA_ROOT, f"uploads/students/{student_id}/")
 
-    # Check if the folder exists
-    if not os.path.exists(student_folder):
+    if not os.path.exists(image_folder):
         return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
 
     try:
-        # Get all image files in the student's folder that match the month
         matching_images = []
-        for filename in os.listdir(student_folder):
-            if filename.startswith(month.replace("-", "")):  # Convert YYYY-MM to YYYYMM
-                image_path = os.path.join('uploads', 'students', str(student_id), filename)
+        for filename in os.listdir(image_folder):
+            if f"{month}-" in filename:  # ✅ Look for any file with YYYY-MM
+                image_path = f"uploads/students/{student_id}/{filename}"
                 image_url = request.build_absolute_uri(settings.MEDIA_URL + image_path)
                 matching_images.append(image_url)
 
         if not matching_images:
             return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
 
-        # Shuffle and return up to 4 images
-        random.shuffle(matching_images)
-        return JsonResponse({"progress_images": matching_images[:4]})
+        return JsonResponse({"progress_images": matching_images})
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
