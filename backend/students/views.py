@@ -918,7 +918,10 @@ def upload_student_image(request):
 
     try:
         # Upload to Supabase Storage
-        response = supabase.storage.from_(settings.SUPABASE_BUCKET).upload(unique_filename, image.read(), content_type=image.content_type)
+        response = supabase.storage.from_(settings.SUPABASE_BUCKET).upload(
+    unique_filename, image.read()
+)
+
 
         if response.get("error"):
             return Response({"error": response["error"]["message"]}, status=500)
