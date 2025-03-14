@@ -1167,6 +1167,16 @@ def get_student_progress_images(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+@api_view(["GET"])
+def debug_cors(request):
+    referer = request.headers.get("Referer", "No Referer")
+    origin = request.headers.get("Origin", "No Origin")
+    return Response({"Referer": referer, "Origin": origin})
+
+
+
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_schools_with_classes(request):

@@ -136,14 +136,16 @@ TEMPLATES = [
 # CORS & CSRF Settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://frontend.koderkids.pk",
+    "https://frontend.koderkids.pk",
+    "https://koderkids-erp.onrender.com",
     
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 CORS_ALLOW_ALL_ORIGINS = False
 CSRF_TRUSTED_ORIGINS = [
-    "http://frontend.koderkids.pk",
+    "https://frontend.koderkids.pk",
+     "https://koderkids-erp.onrender.com",
 
 ]
 
