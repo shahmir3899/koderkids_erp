@@ -919,25 +919,33 @@ def upload_student_image(request):
     try:
         # Upload to Supabase Storage
         response = supabase.storage.from_(settings.SUPABASE_BUCKET).upload(
-    unique_filename, image.read()
-)
+            unique_filename, image.read()
+        )
 
-
-        if response.get("error"):
+        # Check for errors in response
+        if isinstance(response, dict) and "error" in response:
             return Response({"error": response["error"]["message"]}, status=500)
 
         # Generate a signed URL (valid for 7 days)
-        signed_url = supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(unique_filename, 604800)  # 7 days in seconds
+        signed_url_response = supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(
+            unique_filename, 604800  # 7 days in seconds
+        )
+
+        if isinstance(signed_url_response, dict) and "error" in signed_url_response:
+            return Response({"error": signed_url_response["error"]["message"]}, status=500)
 
         return Response({
             "message": "Image uploaded successfully",
-            "image_url": signed_url,
+            "image_url": signed_url_response['signedURL'],
             "student_id": student_id,
             "date": session_date
         }, status=201)
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+    
+
+    
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_images(request):
