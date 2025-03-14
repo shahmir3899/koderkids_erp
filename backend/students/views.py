@@ -946,30 +946,37 @@ def upload_student_image(request):
     
 
 
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_images(request):
-    """
-    Fetch images for a student for a specific session date.
-    Used in the Session Page.
-    """
     student_id = request.GET.get('student_id')
-    session_date = request.GET.get('session_date')  # Single Date
+    session_date = request.GET.get('session_date')
 
     if not student_id or not session_date:
         return Response({"error": "student_id and session_date are required"}, status=400)
 
     try:
-        # Fetch images from the database for a single session date
-        images = StudentImage.objects.filter(
-            student_id=student_id,
-            session_date=session_date
-        ).values_list('image_url', flat=True)
+        # Get all images for the student from Supabase storage
+        folder_path = f"{student_id}/"
+        response = supabase.storage.from_("student-images").list(folder_path)
 
-        return Response({"images": list(images)})
+        if "error" in response:
+            return Response({"error": response["error"]["message"]}, status=500)
+
+        # Generate signed URLs for each file
+        images = [
+            supabase.storage.from_("student-images").create_signed_url(f"{folder_path}{file['name']}", 604800)
+            for file in response if session_date in file['name']
+        ]
+
+        return Response({"images": images})
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+
 
 @api_view(['GET'])
 def students_progress(request):
