@@ -18,7 +18,17 @@ load_dotenv()
 #print("DATABASE_URL Loaded:", os.getenv("DATABASE_URL"))
 
 DATABASES = {
-    'default': dj_database_url.config(default=os.getenv("DATABASE_URL"), conn_max_age=600)
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',  # Supabase default DB name
+        'USER': 'postgres.vjulyxmuswlktvlvdhhi',  # Your Supabase username
+        'PASSWORD': os.getenv("DB_PASSWORD"),  # Securely load from Render ENV variables
+        'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',  # Supabase host
+        'PORT': '6543',  # Supabase port
+        'OPTIONS': {
+            'sslmode': 'require',  # Required for Supabase security
+        },
+    }
 }
 
 
