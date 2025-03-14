@@ -1,11 +1,10 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import "./App.css";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import AdminDashboard from "./pages/AdminDashboard";
 import StudentsPage from "./pages/StudentsPage";
 import FeePage from "./pages/FeePage";
 import SchoolsPage from "./pages/SchoolsPage";
-//import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
@@ -18,26 +17,51 @@ import StudentReport from "./components/StudentReport";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import TransactionsPage from "./pages/TransactionsPage";
-import { ClipLoader } from "react-spinners";
-import { ToastContainer } from "react-toastify"; // Import ToastContainer
-import "react-toastify/dist/ReactToastify.css"; // Import react-toastify CSS
+import { ToastContainer } from "react-toastify"; 
+import "react-toastify/dist/ReactToastify.css"; 
+import { logout } from "./api"; 
 
 export const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
+const AutoLogout = () => {
+    const timeoutRef = useRef(null);
+
+    const resetTimer = () => {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+            alert("Session expired! Logging out.");
+            logout();
+        }, 30 * 60 * 1000); 
+    };
+
+    useEffect(() => {
+        const events = ["mousemove", "keypress", "click", "scroll"];
+        events.forEach((event) => window.addEventListener(event, resetTimer));
+        
+        resetTimer(); 
+
+        return () => {
+            clearTimeout(timeoutRef.current);
+            events.forEach((event) => window.removeEventListener(event, resetTimer));
+        };
+    }, []);
+
+    return null;
+};
+
 function App() {
-    const role = localStorage.getItem("role"); // Get role from localStorage
+    const role = localStorage.getItem("role"); 
 
     return (
         <Router>
+            <AutoLogout /> 
             <div className="flex m-0">
                 <Sidebar />
                 <div className="ml-64 w-full p-2 bg-gray-100 min-h-screen">
                     <Routes>
-                        {/* Public Pages */}
                         <Route path="/register" element={<RegisterPage />} />
                         <Route path="/login" element={<LoginPage />} />
 
-                        {/* 🔒 Protected Routes Based on Role */}
                         {(role === "Admin" || role === "Teacher") && (
                             <>
                                 <Route path="/students" element={<ProtectedRoute element={<StudentsPage />} />} />
@@ -46,7 +70,6 @@ function App() {
                                 <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} />} />
                                 <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboard />} />} />
                                 <Route path="/reports" element={<ReportsPage />} />
-                                {/* Route for viewing student report */}
                                 <Route path="/student-report/:studentId" element={<StudentReport />} />
                             </>
                         )}
@@ -72,11 +95,9 @@ function App() {
                             <Route path="/profile" element={<ProtectedRoute element={<LoginPage />} />} />
                         )}
 
-                        {/* Redirect all unknown routes */}
                         <Route path="*" element={<Navigate to="/login" />} />
                     </Routes>
                 </div>
-                {/* Add ToastContainer globally */}
                 <ToastContainer
                     position="top-right"
                     autoClose={3000}

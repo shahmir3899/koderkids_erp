@@ -949,32 +949,25 @@ def upload_student_image(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_images(request):
-    """Fetch all images for a student from Supabase Storage"""
+    """Fetch all images for a student between start_date and end_date"""
     student_id = request.GET.get('student_id')
-    session_date = request.GET.get('session_date')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
 
-    if not student_id or not session_date:
-        return Response({"error": "Student ID and Date are required"}, status=400)
+    if not student_id or not start_date or not end_date:
+        return Response({"error": "Student ID, start_date, and end_date are required"}, status=400)
 
     try:
-        # List files in the bucket
-        response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(student_id)
+        # Get all images for the student in the given date range
+        images = StudentImage.objects.filter(
+            student_id=student_id,
+            session_date__range=[start_date, end_date]
+        ).values_list('image_url', flat=True)
 
-        if "error" in response:
-            return Response({"error": response["error"]["message"]}, status=500)
-
-        # Generate signed URLs for all images
-        image_urls = [
-            supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(f"{student_id}/{file['name']}", 604800)
-            for file in response
-            if session_date in file["name"]  # Filter by session date
-        ]
-
-        return Response({"images": image_urls})
+        return Response({"images": list(images)})
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
-
 
 
 @api_view(['GET'])

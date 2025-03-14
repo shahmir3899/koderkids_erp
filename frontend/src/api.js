@@ -29,6 +29,19 @@ export const getClassImageCount = async (schoolId) => {
     }
 };
 
+export const logout = () => {
+    // ✅ Clear stored authentication data
+    localStorage.clear();  
+    sessionStorage.clear();  
+
+    // ✅ Clear browser cache
+    caches.keys().then((names) => {
+        names.forEach((name) => caches.delete(name));
+    });
+
+    // ✅ Redirect to login page
+    window.location.href = "/login";
+};
 
 
 export const getStudents = async (schoolName = "", studentClass = "") => {

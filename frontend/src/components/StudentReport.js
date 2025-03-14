@@ -14,6 +14,7 @@ const StudentReport = () => {
     const reportRef = useRef(null);
     const month = location.state?.month || "2025-02";
     const [isDataLoaded, setIsDataLoaded] = useState(false);
+    
 
     const getMonthDates = (month) => {
         const [year, monthNumber] = month.split("-");
@@ -33,7 +34,14 @@ const StudentReport = () => {
             const lessonsRes = await axios.get(
                 `${process.env.REACT_APP_API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`
             );
-            const imagesRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/student-progress-images/?student_id=${studentId}&month=${month}`);
+            const imagesRes = await axios.get(
+                `${process.env.REACT_APP_API_URL}/api/student-images/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem("access_token")}`
+                    }
+                }
+            );
 
             setStudentData(studentRes.data);
             setAttendanceData(attendanceRes.data);
