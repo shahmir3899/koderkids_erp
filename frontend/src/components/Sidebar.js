@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import LogoutButton from "../components/LogoutButton";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faHome,
@@ -13,20 +12,24 @@ import {
   faExchangeAlt,
   faLock,
 } from "@fortawesome/free-solid-svg-icons";
+import LogoutButton from "./LogoutButton"; // Assuming this is a custom component
 
 function Sidebar() {
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Sidebar toggle state
+  // State for sidebar and collapsible sections
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
+  const [studentsOpen, setStudentsOpen] = useState(false); // New state for Students & Fee
   const username = localStorage.getItem("username") || "Unknown User";
   const role = localStorage.getItem("role") || "Not Assigned";
   const location = useLocation();
 
-  // Auto-collapse submenus when sidebar is collapsed
+  // Close all submenus when sidebar collapses
   useEffect(() => {
     if (!sidebarOpen) {
       setFinanceOpen(false);
       setProgressOpen(false);
+      setStudentsOpen(false);
     }
   }, [sidebarOpen]);
 
@@ -57,7 +60,7 @@ function Sidebar() {
       )}
 
       <ul>
-        {/* 🔹 Dashboard */}
+        {/* Dashboard */}
         <li
           className={`mb-2 p-2 hover:bg-gray-700 rounded ${
             location.pathname.includes("dashboard") ? "bg-gray-700" : ""
@@ -78,19 +81,49 @@ function Sidebar() {
           </Link>
         </li>
 
-        {/* 🔹 Admin & Teacher Section */}
+        {/* Admin & Teacher Section */}
         {(role === "Admin" || role === "Teacher") && (
           <>
+            {/* Students & Fee (Collapsible) */}
             <li
-              className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                location.pathname === "/students" ? "bg-gray-700" : ""
-              }`}
+              className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
+              onClick={() => {
+                if (sidebarOpen) {
+                  setStudentsOpen(!studentsOpen);
+                }
+              }}
+              aria-expanded={studentsOpen}
             >
-              <Link to="/students" className="flex items-center">
-                <FontAwesomeIcon icon={faUsers} className="mr-2" />
-                {sidebarOpen && <span>Students</span>}
-              </Link>
+              <FontAwesomeIcon icon={faUsers} className="mr-2" />
+              {sidebarOpen && <span className="flex-1">Students & Fee</span>}
+              {sidebarOpen && <span>{studentsOpen ? "⇨" : "⇩"}</span>}
             </li>
+            {studentsOpen && (
+              <ul className="pl-4">
+                <li
+                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
+                    location.pathname === "/students" ? "bg-gray-700" : ""
+                  }`}
+                >
+                  <Link to="/students" className="flex items-center">
+                    <FontAwesomeIcon icon={faUsers} className="mr-2" />
+                    {sidebarOpen && <span>Students</span>}
+                  </Link>
+                </li>
+                <li
+                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
+                    location.pathname === "/fee" ? "bg-gray-700" : ""
+                  }`}
+                >
+                  <Link to="/fee" className="flex items-center">
+                    <FontAwesomeIcon icon={faWallet} className="mr-2" />
+                    {sidebarOpen && <span>Fee</span>}
+                  </Link>
+                </li>
+              </ul>
+            )}
+
+            {/* Schools */}
             <li
               className={`mb-2 p-2 hover:bg-gray-700 rounded ${
                 location.pathname === "/schools" ? "bg-gray-700" : ""
@@ -102,15 +135,21 @@ function Sidebar() {
               </Link>
             </li>
 
-            {/* 🔹 Progress, Lessons & Reports (Collapsible) */}
+            {/* Progress, Lessons & Reports (Collapsible) */}
             <li
               className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
-              onClick={() => setProgressOpen(!progressOpen)}
+              onClick={() => {
+                if (sidebarOpen) {
+                  setProgressOpen(!progressOpen);
+                }
+              }}
               aria-expanded={progressOpen}
             >
               <FontAwesomeIcon icon={faChartLine} className="mr-2" />
-              {sidebarOpen && <span className="flex-1">Progress, Lessons & Reports</span>}
-              <span>{progressOpen ? "⇨" : "⇩"}</span>
+              {sidebarOpen && (
+                <span className="flex-1">Progress, Lessons & Reports</span>
+              )}
+              {sidebarOpen && <span>{progressOpen ? "⇨" : "⇩"}</span>}
             </li>
             {progressOpen && (
               <ul className="pl-4">
@@ -149,18 +188,22 @@ function Sidebar() {
           </>
         )}
 
-        {/* 🔹 Admin Only Section */}
+        {/* Admin Only Section */}
         {role === "Admin" && (
           <>
-            {/* 🔹 Finance (Collapsible) */}
+            {/* Finance (Collapsible) */}
             <li
               className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
-              onClick={() => setFinanceOpen(!financeOpen)}
+              onClick={() => {
+                if (sidebarOpen) {
+                  setFinanceOpen(!financeOpen);
+                }
+              }}
               aria-expanded={financeOpen}
             >
               <FontAwesomeIcon icon={faWallet} className="mr-2" />
               {sidebarOpen && <span className="flex-1">Finance</span>}
-              <span>{financeOpen ? "⇨" : "⇩"}</span>
+              {sidebarOpen && <span>{financeOpen ? "⇨" : "⇩"}</span>}
             </li>
             {financeOpen && (
               <ul className="pl-4">
@@ -176,7 +219,9 @@ function Sidebar() {
                 </li>
                 <li
                   className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                    location.pathname === "/finance/transactions" ? "bg-gray-700" : ""
+                    location.pathname === "/finance/transactions"
+                      ? "bg-gray-700"
+                      : ""
                   }`}
                 >
                   <Link to="/finance/transactions" className="flex items-center">
@@ -189,7 +234,7 @@ function Sidebar() {
           </>
         )}
 
-        {/* 🔹 Logout Button */}
+        {/* Logout Button */}
         <li className="mb-2 p-2 hover:bg-gray-700 rounded flex items-center">
           <FontAwesomeIcon icon={faLock} className="mr-2" />
           {sidebarOpen && <LogoutButton />}

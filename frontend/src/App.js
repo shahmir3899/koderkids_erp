@@ -13,7 +13,7 @@ import Sidebar from "./components/Sidebar";
 import ProgressPage from "./pages/ProgressPage";
 import LessonsPage from "./pages/LessonsPage";
 import ReportsPage from "./pages/ReportsPage";
-import StudentReport from "./components/StudentReport";
+import StudentReport from "./components/StudentReportModal";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import TransactionsPage from "./pages/TransactionsPage";

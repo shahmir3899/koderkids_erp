@@ -979,6 +979,7 @@ def get_student_images(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def students_progress(request):
     school_id = request.GET.get('school_id')
     student_class = request.GET.get('class_id')
@@ -1030,6 +1031,8 @@ def students_progress(request):
     })
 
 # API for reports
+
+@permission_classes([IsAuthenticated])
 def get_student_details(request):
     student_id = request.GET.get('student_id')
 
@@ -1048,7 +1051,7 @@ def get_student_details(request):
     except Student.DoesNotExist:
         return JsonResponse({"error": "Student not found"}, status=404)
 
-
+@permission_classes([IsAuthenticated])
 def get_attendance_count(request):
     student_id = request.GET.get('student_id')
     start_date = request.GET.get('start_date')
@@ -1072,43 +1075,58 @@ def get_attendance_count(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_lessons_achieved(request):
-    student_id = request.GET.get('student_id')
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
+    student_id = request.GET.get("student_id")
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
 
     if not student_id or not start_date or not end_date:
-        return JsonResponse({"error": "student_id, start_date, and end_date are required"}, status=400)
+        return Response({"error": "student_id, start_date, and end_date are required"}, status=400)
 
     try:
-        # Get student's school & class
+        # 1️⃣ Fetch the student's class and school
         student = Student.objects.get(id=student_id)
-        student_school = student.school
         student_class = student.student_class
+        student_school = student.school
 
-        # 1️⃣ Fetch **Planned Lessons** from `LessonPlan` (for class)
+        # 2️⃣ Fetch Planned Lessons from LessonPlan
         planned_lessons = LessonPlan.objects.filter(
             session_date__range=[start_date, end_date],
             school=student_school,
             student_class=student_class
-        ).values_list('planned_topic', flat=True)
+        ).values("session_date", "planned_topic")
 
-        # 2️⃣ Fetch **Achieved Lessons** from `Attendance` (for this student)
+        # Convert planned lessons to dictionary {date: topic}
+        planned_dict = {lesson["session_date"]: lesson["planned_topic"] for lesson in planned_lessons}
+
+        # 3️⃣ Fetch Achieved Topics from Attendance (for this student)
         achieved_lessons = Attendance.objects.filter(
             session_date__range=[start_date, end_date],
             student=student
-        ).values_list('achieved_topic', flat=True)
+        ).values("session_date", "achieved_topic")
 
-        return JsonResponse({
-            "planned_lessons": list(planned_lessons),
-            "achieved_lessons": list(achieved_lessons)
-        })
+        # Convert achieved lessons to dictionary {date: topic}
+        achieved_dict = {lesson["session_date"]: lesson["achieved_topic"] for lesson in achieved_lessons}
+
+        # 4️⃣ Combine Planned & Achieved Topics by Date
+        lessons = []
+        for session_date in sorted(planned_dict.keys()):  # Ensure chronological order
+            lessons.append({
+                "date": session_date,
+                "planned_topic": planned_dict[session_date],
+                "achieved_topic": achieved_dict.get(session_date, "N/A")  # Default to "N/A" if missing
+            })
+
+        return Response({"lessons": lessons}, status=200)
 
     except Student.DoesNotExist:
-        return JsonResponse({"error": "Student not found"}, status=404)
+        return Response({"error": "Student not found"}, status=404)
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        return Response({"error": str(e)}, status=500)
+
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
