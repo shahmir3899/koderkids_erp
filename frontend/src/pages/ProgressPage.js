@@ -37,6 +37,7 @@ const ProgressPage = () => {
     const [error, setError] = useState(null);
     const [isRetrying, setIsRetrying] = useState(false);
     const [isUserLoading, setIsUserLoading] = useState(true); // Add this state
+    const [selectedFiles, setSelectedFiles] = useState({});
 
     // Fetch assigned schools for the logged-in teacher
     useEffect(() => {
@@ -111,43 +112,53 @@ const ProgressPage = () => {
         }
     };
 
-    const handleFileSelect = (event) => {
+    const handleFileSelect = (event, studentId) => {
+        if (!event.target.files.length) return;  // Ensure a file is selected
+    
         const file = event.target.files[0];
-        if (!file) return;
-        setSelectedFile(file);
+    
+        setSelectedFiles(prev => ({
+            ...prev,
+            [studentId]: file
+        }));
+    
+        console.log(`✅ File selected for student ${studentId}:`, file.name);
     };
+    
+    
 
     const handleFileUpload = async (studentId) => {
-        if (!selectedFile) {
+        if (!selectedFiles[studentId]) {
             toast.error("Please select a file first.");
             return;
         }
-
-        setIsUploading(prev => ({ ...prev, [studentId]: true }));
+    
+        setIsUploading(prev => ({ ...prev, [studentId]: true }));  // Set Uploading state
         const formData = new FormData();
-        formData.append("image", selectedFile);
+        formData.append("image", selectedFiles[studentId]);
         formData.append("student_id", studentId);
         formData.append("session_date", sessionDate);
-
+    
         try {
             const response = await axios.post(`${API_URL}/api/upload-student-image/`, formData, {
                 headers: { "Content-Type": "multipart/form-data", ...getAuthHeaders() },
             });
-            console.log("Uploaded image URL:", response.data.image_url);
-            console.log("Uploading image with params:", { studentId, sessionDate });
+    
             setUploadedImages(prev => ({
                 ...prev,
                 [studentId]: response.data.image_url
             }));
-
+    
             toast.success("Image uploaded successfully!");
         } catch (error) {
             console.error("❌ Error uploading image:", error.response?.data || error.message);
             toast.error("Failed to upload image.");
         } finally {
-            setIsUploading(prev => ({ ...prev, [studentId]: false }));
+            setIsUploading(prev => ({ ...prev, [studentId]: false }));  // Reset Uploading state
         }
     };
+    
+    
 
     const handleFileDelete = (studentId) => {
         setUploadedImages(prev => {
@@ -495,7 +506,7 @@ const ProgressPage = () => {
                                                     accept="image/*"
                                                     ref={(el) => (fileInputRefs.current[student.id] = el)}
                                                     className="hidden"
-                                                    onChange={(event) => handleFileSelect(event)}
+                                                    onChange={(event) => handleFileSelect(event, student.id)}
                                                 />
                                                 <button
                                                     className="button action-button browse"
@@ -504,15 +515,20 @@ const ProgressPage = () => {
                                                     Browse
                                                 </button>
                                                 <button
-                                                    className="button action-button upload"
+                                                    className={`button action-button upload ${selectedFiles[student.id] ? 'enabled' : 'disabled'}`}
                                                     onClick={() => handleFileUpload(student.id)}
-                                                    disabled={isUploading[student.id] || !selectedFile}
+                                                    disabled={!selectedFiles[student.id] || isUploading[student.id]}
                                                 >
                                                     {isUploading[student.id] ? "Uploading..." : "Upload"}
                                                 </button>
                                                 {uploadedImages[student.id] && (
                                                     <>
-                                                        <img src={uploadedImages[student.id]} alt="Uploaded" className="w-20 h-20 rounded-lg" />
+                                                        <img 
+                                                            src={typeof uploadedImages[student.id] === "object" ? uploadedImages[student.id].signedURL : uploadedImages[student.id]} 
+                                                            alt="Uploaded" 
+                                                            className="w-20 h-20 rounded-lg border border-gray-300 object-cover"
+                                                            onError={(e) => e.target.style.display = "none"} // Hide if image fails to load
+                                                        />
                                                         <button
                                                             className="button action-button delete"
                                                             onClick={() => handleFileDelete(student.id)}
@@ -521,6 +537,7 @@ const ProgressPage = () => {
                                                         </button>
                                                     </>
                                                 )}
+
                                             </div>
                                         </div>
                                     </div>

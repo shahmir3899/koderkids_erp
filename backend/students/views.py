@@ -1141,8 +1141,8 @@ def update_planned_topic(request, lesson_plan_id):
 @permission_classes([IsAuthenticated])
 def get_student_progress_images(request):
     """
-    Fetch all stored images for a student within a given month.
-    Used in the Report Generation.
+    Fetch all stored images for a student within a given month from Supabase Storage.
+    Used in Report Generation.
     """
     student_id = request.GET.get('student_id')
     month = request.GET.get('month')  # Format: YYYY-MM
@@ -1150,19 +1150,21 @@ def get_student_progress_images(request):
     if not student_id or not month:
         return JsonResponse({"error": "student_id and month are required"}, status=400)
 
-    # Define the correct folder path
-    student_folder = os.path.join(settings.MEDIA_ROOT, f"uploads/students/{student_id}/")
-
-    if not os.path.exists(student_folder):
-        return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
-
     try:
-        matching_images = []
-        for filename in os.listdir(student_folder):
-            if filename.startswith(month):  # ✅ Match files with YYYY-MM format
-                image_path = f"uploads/students/{student_id}/{filename}"
-                image_url = request.build_absolute_uri(settings.MEDIA_URL + image_path)
-                matching_images.append(image_url)
+        # Define the folder path inside the Supabase bucket
+        folder_path = f"{student_id}/"
+
+        # Fetch all files from the student's folder in Supabase
+        response = supabase.storage.from_("student-images").list(folder_path)
+
+        if not response or "error" in response:
+            return JsonResponse({"error": "Failed to fetch files from Supabase"}, status=500)
+
+        # Filter files that start with the requested month (YYYY-MM)
+        matching_images = [
+            supabase.storage.from_("student-images").create_signed_url(f"{folder_path}{file['name']}", 604800)
+            for file in response if file["name"].startswith(month)
+        ]
 
         if not matching_images:
             return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
@@ -1171,6 +1173,9 @@ def get_student_progress_images(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+
 
 @api_view(["GET"])
 def debug_cors(request):
