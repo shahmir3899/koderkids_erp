@@ -162,7 +162,15 @@ function TransactionsPage() {
                 return;
             }
         }
-    
+        if (activeTab === "income") {
+            payload.to_account = formData.to_account;
+            if (!payload.to_account) {
+                toast.error("Please select an account for the income transaction.");
+                setIsSubmitting(false);
+                return;
+            }
+        }
+        
         console.log("Sending payload:", JSON.stringify(payload, null, 2)); // Detailed logging
         try {
             await axios.post(`${API_URL}/api/${activeTab}/`, payload, { headers: getAuthHeaders() });

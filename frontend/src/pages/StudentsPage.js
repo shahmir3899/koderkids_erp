@@ -49,7 +49,14 @@ function StudentsPage() {
                 console.error("❌ Error: Expected an array but received:", response);
                 return;
             }
+            console.log("✅ Raw Student Data from Backend:", response); // Debugging: See what's received
 
+            // Check if school is being received as a string
+        response.forEach(student => {
+            if (typeof student.school === "string") {
+                console.warn(`⚠️ Student ${student.name} has school as a string: ${student.school}`);
+            }
+        });
             setStudents(response);
             setShowResults(true);
         } catch (error) {
@@ -223,26 +230,60 @@ function StudentsPage() {
     };
 
     const handleSaveChanges = async () => {
-        setIsSubmitting(true); // Set submitting state
+        console.log("🔍 Updating student:", selectedStudent); // Debug log
+    
+        if (!selectedStudent.student_class) {
+            toast.error("⚠️ Please select a valid class.");
+            return;
+        }
+    
+        setIsSubmitting(true);
         try {
-            const updatedStudent = await updateStudent(selectedStudent.id, selectedStudent);
+            const studentData = {
+                ...selectedStudent,
+                school_id: Number(selectedStudent.school), // ✅ Ensure school_id is a number
+                student_class: String(selectedStudent.student_class), // ✅ Ensure class is a string
+            };
+    
+            console.log("📡 Sending update request with:", studentData); // Debug log
+    
+            const updatedStudent = await updateStudent(selectedStudent.id, studentData);
+    
             setStudents(students.map(student =>
                 student.id === updatedStudent.id ? updatedStudent : student
             ));
             setIsEditing(false);
-            toast.success("✅ Student updated successfully!"); // Use toast instead of alert
+            toast.success("✅ Student updated successfully!");
         } catch (error) {
-            console.error("Error updating student:", error);
-            toast.error("⚠️ Failed to update student.");
+            console.error("❌ Error updating student:", error);
+    
+            if (error.response) {
+                console.log("🚨 Backend Error Response:", error.response.data);
+                toast.error(`⚠️ Update Failed: ${error.response.data.error || "Unknown Error"}`);
+            } else {
+                toast.error("⚠️ Failed to update student.");
+            }
         } finally {
-            setIsSubmitting(false); // Reset submitting state
+            setIsSubmitting(false);
         }
     };
+    
+    
+    
+    
+    
+    
+    
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setSelectedStudent(prev => ({ ...prev, [name]: value }));
+    
+        setSelectedStudent((prev) => ({
+            ...prev,
+            [name]: name === "school" ? Number(value) : value, // ✅ Convert school to a number (ID)
+        }));
     };
+    
 
     const handleAddNewStudent = () => {
         console.log("🆕 Opening Add Student Popup...");
@@ -441,14 +482,19 @@ function StudentsPage() {
                                     </div>
                                     <div>
                                         <label className="block text-gray-700">School:</label>
-                                        <input
-                                            type="text"
+                                        <select
                                             name="school"
-                                            value={selectedStudent.school}
+                                            value={selectedStudent.school} // ✅ Ensure school ID is set
                                             onChange={handleInputChange}
                                             className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                                        />
+                                        >
+                                            <option value="">Select a School</option>
+                                            {schools.map((school) => (
+                                                <option key={school.id} value={school.id}>{school.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
+
                                     <div>
                                         <label className="block text-gray-700">Class:</label>
                                         <input

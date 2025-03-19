@@ -27,13 +27,28 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
   const fetchReportData = useCallback(async () => {
     try {
       const studentRes = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/student-details/?student_id=${studentId}`
+        `${process.env.REACT_APP_API_URL}/api/student-details/?student_id=${studentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access")}`
+          }
+        }
       );
       const attendanceRes = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/attendance-count/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`
+        `${process.env.REACT_APP_API_URL}/api/attendance-count/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access")}`
+          }
+        }
       );
       const lessonsRes = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`
+        `${process.env.REACT_APP_API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access")}`
+          }
+        }
       );
       const imagesRes = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/student-progress-images/?student_id=${studentId}&month=${month}`,
@@ -89,6 +104,12 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
     },
     [selectedImages]
   );
+
+  const formattedMonth = new Date(`${month}-01`).toLocaleString("en-US", {
+    month: "short", // "Feb"
+    year: "numeric" // "2025"
+  });
+
 
   const handleImageError = (e, img) => {
     console.error(`Failed to load image: ${img}, Error: ${e.target.error || 'Unknown error'}`);
@@ -406,7 +427,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                 <p><strong>📄 Registration Number:</strong> {studentData?.reg_num || "Loading..."}</p>
                 <p><strong>🏫 School:</strong> {studentData?.school || "Loading..."}</p>
                 <p><strong>📚 Class:</strong> {studentData?.class || "Loading..."}</p>
-                <p><strong>🗓️ Month:</strong> {month}</p>
+                <p><strong>🗓️ Month:</strong> {formattedMonth}</p>
               </div>
 
               <div style={{ padding: "5mm", borderBottom: "1px solid #ccc" }}>
@@ -424,30 +445,37 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                 }}
               >
                 <h3 style={{ marginBottom: "8mm", fontSize: "16px" }}>📖 Lessons Overview</h3>
+                {lessonsData?.lessons?.length === 0 ? (
+                <p style={{ textAlign: "center", fontWeight: "bold", color: "red" }}>
+                  📌 No lessons found for the selected date range.
+                </p>
+              ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                   <thead>
                     <tr style={{ background: "#f2f2f2", borderBottom: "2px solid #ccc" }}>
                       <th style={{ padding: "4px", border: "1px solid #ccc" }}>📅 Date</th>
                       <th style={{ padding: "4px", border: "1px solid #ccc" }}>📖 Planned Topic</th>
-                      <th style={{ padding: "4px", border: "1px solid #ccc" }}>✅ Covered Topic</th>
+                      <th style={{ padding: "4px", border: "1px solid #ccc" }}>✅ Achieved Topic</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {lessonsData?.planned_lessons?.slice(0, 5).map((lesson, index) => (
+                    {lessonsData?.lessons?.map((lesson, index) => (
                       <tr key={index} style={{ borderBottom: "1px solid #ccc" }}>
                         <td style={{ padding: "4px", border: "1px solid #ccc" }}>
-                          {lesson.date || "No Date"}
+                          {lesson.date || "N/A"}
                         </td>
                         <td style={{ padding: "4px", border: "1px solid #ccc" }}>
                           {lesson.planned_topic || "N/A"}
                         </td>
                         <td style={{ padding: "4px", border: "1px solid #ccc" }}>
-                          {lessonsData?.achieved_lessons?.[index] || "N/A"}
+                          {lesson.achieved_topic || "N/A"}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              )}
+
               </div>
 
               <div

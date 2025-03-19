@@ -50,8 +50,8 @@ function FinanceDashboard() {
         if (active && payload && payload.length) {
             return (
                 <div className="bg-white p-2 border border-gray-300 rounded shadow">
-                    <p className="text-gray-700">{`Income: $${payload[0].value.toLocaleString()}`}</p>
-                    <p className="text-gray-700">{`Expenses: $${payload[1].value.toLocaleString()}`}</p>
+                    <p className="text-gray-700">{`Income: Rs ${payload[0].value.toLocaleString()}`}</p>
+                    <p className="text-gray-700">{`Expenses: Rs ${payload[1].value.toLocaleString()}`}</p>
                 </div>
             );
         }

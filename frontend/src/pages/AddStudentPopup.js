@@ -90,7 +90,7 @@ function AddStudentPopup({ onClose }) {
 
                 const nextNumber = allRegNums.length > 0 
                     ? Math.max(...allRegNums) + 1
-                    : 1 + 32;
+                    : 1 ;
                 const paddedNumber = String(nextNumber).padStart(3, "0");
                 const newRegNum = `${baseRegNum}${paddedNumber}`;
 

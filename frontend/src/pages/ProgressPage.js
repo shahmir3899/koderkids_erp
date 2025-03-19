@@ -6,6 +6,8 @@ import { ClipLoader } from "react-spinners";
 import { toast } from "react-toastify";
 import { useAuth } from "../auth";
 
+
+
 const API_URL = process.env.REACT_APP_API_URL;
 console.log("API URL:", process.env.REACT_APP_API_URL);
 
@@ -37,7 +39,15 @@ const ProgressPage = () => {
     const [error, setError] = useState(null);
     const [isRetrying, setIsRetrying] = useState(false);
     const [isUserLoading, setIsUserLoading] = useState(true); // Add this state
+    const [loadingStudent, setLoadingStudent] = useState(""); 
     const [selectedFiles, setSelectedFiles] = useState({});
+    const [currentPage, setCurrentPage] = useState(1);
+    const studentsPerPage = 5; // Number of students per page
+    const indexOfLastStudent = currentPage * studentsPerPage;
+    const indexOfFirstStudent = indexOfLastStudent - studentsPerPage;
+    const currentStudents = students.slice(indexOfFirstStudent, indexOfLastStudent);
+    
+
 
     // Fetch assigned schools for the logged-in teacher
     useEffect(() => {
@@ -179,27 +189,30 @@ const ProgressPage = () => {
         }
     
         setIsSearching(true);
+        toast.info("Fetching student and lesson data...");
+    
         try {
-            // Clear previous state to avoid stale data
+            // Clear previous state
             setAttendanceData({});
             setAchievedLessons({});
             setStudents([]);
             setLessonPlan(null);
             setShowTable(false);
-            setUploadedImages({}); // Clear previous images
+            setUploadedImages({});
+            setPlannedTopic(""); // Reset previous topic
+            setLoadingStudent(""); // Reset student name display
     
-            // Debug the raw sessionDate value
             console.log("Raw sessionDate (YYYY-MM-DD):", sessionDate);
     
-            // Reformat sessionDate from YYYY-MM-DD to MM/DD/YYYY for students-prog API
-            const [year, month, day] = sessionDate.split('-');
+            // Format date for API (MM/DD/YYYY format)
+            const [year, month, day] = sessionDate.split("-");
             if (!year || !month || !day) {
                 throw new Error("Invalid date format in sessionDate. Expected YYYY-MM-DD.");
             }
-            const formattedDate = `${month}/${day}/${year}`; // e.g., "03/12/2025"
+            const formattedDate = `${month}/${day}/${year}`;
             console.log("Formatted sessionDate (MM/DD/YYYY):", formattedDate);
     
-            // Fetch student data
+            // 🔹 Fetch Student Data
             const response = await axios.get(`${API_URL}/api/students-prog/`, {
                 params: {
                     school_id: selectedSchool,
@@ -218,21 +231,57 @@ const ProgressPage = () => {
             // Process attendance and achieved lessons
             const newAttendanceData = {};
             const newAchievedLessons = {};
-            fetchedStudents.forEach(student => {
-                console.log(`Processing student ${student.id}: status=${student.status}`);
-                if (student.status && student.status !== "N/A") {
-                    newAttendanceData[student.id] = { status: student.status };
-                }
-                if (student.achieved_topic) {
-                    newAchievedLessons[student.id] = student.achieved_topic;
-                }
+            fetchedStudents.forEach((student, index) => {
+                setTimeout(() => {
+                    setLoadingStudent(student.name); // Update UI with current student name
+            
+                    toast.info(`Loading data for ${student.name}...`, {
+                        autoClose: 1000, // Message disappears after 1s
+                        toastId: `student-${student.id}`, // Prevent duplicate toasts
+                    });
+            
+                    // Process attendance & achieved lessons
+                    if (student.status && student.status !== "N/A") {
+                        newAttendanceData[student.id] = { status: student.status };
+                    }
+                    if (student.achieved_topic) {
+                        newAchievedLessons[student.id] = student.achieved_topic;
+                    }
+            
+                    // If last student, clear loading message
+                    if (index === fetchedStudents.length - 1) {
+                        setTimeout(() => setLoadingStudent(""), 1000);
+                    }
+                }, index * 500); // Stagger messages so they appear one by one
             });
+            
     
-            console.log("New Attendance Data:", newAttendanceData);
             setAttendanceData(newAttendanceData);
             setAchievedLessons(newAchievedLessons);
     
-            // Fetch images for each student using YYYY-MM-DD format
+            // 🔹 Fetch the Planned Topic from the Lesson Table
+            try {
+                const lessonResponse = await axios.get(`${API_URL}/api/lesson-plan/${sessionDate}/${selectedSchool}/${studentClass}/`, {
+                    headers: getAuthHeaders(),
+                });
+                
+    
+                console.log("Lesson Plan API Response:", lessonResponse.data);
+    
+                if (lessonResponse.data.lessons.length > 0) {
+                    setPlannedTopic(lessonResponse.data.lessons[0].planned_topic);
+                    console.log("✅ Planned Topic Set:", lessonResponse.data.lessons[0].planned_topic);
+                } else {
+                    setPlannedTopic("No topic planned for this date.");
+                    console.log("❌ No Lesson Plan Found, setting default message.");
+                }
+                
+            } catch (error) {
+                console.error("❌ Error fetching planned topic:", error.response?.data || error.message);
+                setPlannedTopic("Failed to fetch planned topic.");
+            }
+    
+            // 🔹 Fetch Student Images
             const newUploadedImages = {};
             for (const student of fetchedStudents) {
                 try {
@@ -243,10 +292,8 @@ const ProgressPage = () => {
                         },
                         headers: getAuthHeaders(),
                     });
-                    console.log(`Images for student ${student.id}:`, imageResponse.data);
+    
                     if (imageResponse.data.images && imageResponse.data.images.length > 0) {
-                        // Assuming the API returns { images: ["url1", "url2", ...] }
-                        // For simplicity, we'll take the first image
                         newUploadedImages[student.id] = imageResponse.data.images[0];
                     }
                 } catch (error) {
@@ -254,11 +301,12 @@ const ProgressPage = () => {
                 }
             }
     
-            console.log("Fetched Uploaded Images:", newUploadedImages);
             setUploadedImages(newUploadedImages);
     
+            // 🔹 Show the Table if Data Exists
             if (fetchedStudents.length > 0) {
                 setShowTable(true);
+                toast.success("Data loaded successfully.");
             } else {
                 setShowTable(false);
                 toast.info("No students found for the selected criteria.");
@@ -271,6 +319,7 @@ const ProgressPage = () => {
             setIsSearching(false);
         }
     };
+    
 
     const handleAttendanceChange = (studentId, status) => {
         setAttendanceData({
@@ -439,13 +488,18 @@ const ProgressPage = () => {
                 </div>
 
                 <button
-                    onClick={handleSearch}
-                    className="button bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors self-end"
-                    disabled={isUserLoading || isSearching}
-                >
-                    {isSearching ? "Searching..." : "Search"}
-                </button>
+    onClick={handleSearch}
+    className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+    disabled={isSearching}
+>
+    {isSearching ? "🔍 Searching..." : "🔍 Fetch Lessons"}
+</button>
             </div>
+            {loadingStudent && (
+                <div className="text-center text-blue-500 font-semibold my-2">
+                    🔄 Loading data for <span className="font-bold">{loadingStudent}</span>...
+                </div>
+            )}
 
             {showTable && (
                 <>
@@ -460,7 +514,7 @@ const ProgressPage = () => {
                     </div>
 
                     <div className="accordion">
-                        {students.map(student => (
+                        {/* {students.map(student => (
                             <div className="accordion-item" key={student.id}>
                                 <div className="accordion-header" onClick={() => toggleAccordion(student.id)}>
                                     <div className="flex items-center justify-between w-full">
@@ -543,7 +597,105 @@ const ProgressPage = () => {
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                        ))} */}
+                        {currentStudents.map(student => (
+    <div className="accordion-item" key={student.id}>
+        <div className="accordion-header" onClick={() => toggleAccordion(student.id)}>
+            <div className="flex items-center justify-between w-full">
+                <div className="w-[300px] truncate text-gray-600 font-medium" title={student.name}>
+                    {student.name}
+                </div>
+                <div className="flex items-center gap-4">
+                    <button
+                        className={`button attendance-button ${
+                            attendanceData[student.id]?.status === "Present" ? "present" : "absent"
+                        }`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleAttendanceChange(student.id, attendanceData[student.id]?.status === "Present" ? "Absent" : "Present");
+                        }}
+                    >
+                        {attendanceData[student.id]?.status || "Set Attendance"}
+                    </button>
+                    <span className="accordion-toggle">
+                        {expandedStudent === student.id ? "▼" : "▶"}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {expandedStudent === student.id && (
+            <div className="accordion-content">
+                <div className="flex flex-col gap-4 max-w-md">
+                    <div>
+                        <label className="block font-bold mb-2 text-gray-700">Achieved Lesson:</label>
+                        <textarea
+                            value={achievedLessons[student.id] || ""}
+                            onChange={(e) => handleAchievedChange(student.id, e.target.value)}
+                            rows="3"
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors resize-vertical"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block font-bold mb-2 text-gray-700">Upload Image:</label>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={(el) => (fileInputRefs.current[student.id] = el)}
+                                className="hidden"
+                                onChange={(event) => handleFileSelect(event, student.id)}
+                            />
+                            <button className="button action-button browse" onClick={() => openFileDialog(student.id)}>
+                                Browse
+                            </button>
+                            <button
+                                className={`button action-button upload ${selectedFiles[student.id] ? "enabled" : "disabled"}`}
+                                onClick={() => handleFileUpload(student.id)}
+                                disabled={!selectedFiles[student.id] || isUploading[student.id]}
+                            >
+                                {isUploading[student.id] ? "Uploading..." : "Upload"}
+                            </button>
+
+                            {uploadedImages[student.id] && (
+                                <>
+                                    <img
+                                        src={typeof uploadedImages[student.id] === "object" ? uploadedImages[student.id].signedURL : uploadedImages[student.id]}
+                                        alt="Uploaded"
+                                        className="w-20 h-20 rounded-lg border border-gray-300 object-cover"
+                                        onError={(e) => (e.target.style.display = "none")}
+                                    />
+                                    <button className="button action-button delete" onClick={() => handleFileDelete(student.id)}>
+                                        Delete
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+    </div>
+))}
+<div className="flex justify-center gap-4 mt-4">
+    <button 
+        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+        disabled={currentPage === 1}
+        className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+    >
+        Previous
+    </button>
+    <span>Page {currentPage} of {Math.ceil(students.length / studentsPerPage)}</span>
+    <button 
+        onClick={() => setCurrentPage(prev => (prev < Math.ceil(students.length / studentsPerPage) ? prev + 1 : prev))}
+        disabled={currentPage === Math.ceil(students.length / studentsPerPage)}
+        className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+    >
+        Next
+    </button>
+</div>
+    
                     </div>
 
                     <div className="mt-6 text-right">

@@ -11,7 +11,9 @@
     "axios": "^1.7.9",
     "cra-template": "1.2.0",
     "date-fns": "^4.1.0",
+    "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.10.3",
+    "jspdf": "^3.0.0",
     "react": "^19.0.0",
     "react-bootstrap": "^2.1.1",
     "react-bootstrap-icons": "^1.6.0",
@@ -22,6 +24,7 @@
     "react-spinners": "^0.15.0",
     "react-to-pdf": "^1.0.1",
     "react-toastify": "^11.0.5",
+    "react-window": "^1.8.11",
     "recharts": "^2.15.1",
     "styled-components": "^6.1.15",
     "web-vitals": "^4.2.4"

@@ -69,6 +69,8 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
     const fetchTeacher = async () => {
       try {
         setLoading(true);
+        toast.info("Loading lesson plan form...", { toastId: "loadingLessonForm", autoClose: false });
+
         const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/user/`, {
           headers: getAuthHeaders(),
         });
@@ -82,6 +84,7 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
         console.error("Error fetching user:", error.response?.data || error.message);
       } finally {
         setLoading(false);
+        toast.dismiss("loadingLessonForm"); // Remove loading toast once done
       }
     };
     if (isOpen) fetchTeacher();
@@ -136,33 +139,43 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
 
   const handleSubmit = async () => {
     if (!selectedSchool || !selectedClass || !teacherId) {
-      toast.error("Please select a school, class, and ensure teacher ID is loaded.");
-      return;
+        toast.error("Please select a school, class, and ensure teacher ID is loaded.");
+        return;
     }
+
     if (newLessons.some((lesson) => !lesson.session_date || !lesson.planned_topic.trim())) {
-      toast.error("Please fill all fields for new lessons before saving.");
-      return;
+        toast.error("Please fill all fields for new lessons before saving.");
+        return;
     }
+
+    let toastId = null; // Declare toastId before the try block
+
     try {
-      setLoading(true);
-      for (const lesson of newLessons) {
-        await addLesson({
-          school_id: selectedSchool,
-          student_class: selectedClass,
-          teacher_id: teacherId,
-          session_date: lesson.session_date,
-          planned_topic: lesson.planned_topic,
-        });
-      }
-      toast.success("New Lessons Added Successfully!");
-      onClose();
+        setLoading(true);
+        toastId = toast.info(`Saving lessons for ${selectedDates[0]} - ${selectedClass}...`, { autoClose: false });
+
+        for (const lesson of newLessons) {
+            await addLesson({
+                school_id: selectedSchool,
+                student_class: selectedClass,
+                teacher_id: teacherId,
+                session_date: lesson.session_date,
+                planned_topic: lesson.planned_topic,
+            });
+        }
+
+        toast.success("Lessons saved successfully!");
+        onClose();
     } catch (error) {
-      toast.error("Failed to add new lessons. Please try again.");
-      console.error("Error adding new lessons:", error.response?.data || error.message);
+        toast.error("Failed to add new lessons. Please try again.");
+        console.error("Error adding new lessons:", error.response?.data || error.message);
     } finally {
-      setLoading(false);
+        setLoading(false);
+        if (toastId) toast.dismiss(toastId); // Dismiss toast safely
     }
-  };
+};
+
+
 
   if (!isOpen) return null;
 

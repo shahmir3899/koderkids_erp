@@ -57,11 +57,13 @@ input:focus, select:focus {
 }
 
 .modal-overlay {
-  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center backdrop-blur-sm;
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center backdrop-blur-sm overflow-y-auto;
 }
+
 
 .modal-container {
   @apply bg-white p-6 rounded-lg w-11/12 max-w-lg shadow-xl max-h-[90vh] overflow-y-auto;
+  min-width: 320px; /* Ensure it doesn't shrink too much */
 }
 
 .modal-title {
@@ -141,12 +143,14 @@ input:focus, select:focus {
 }
 
 .modal-actions {
-  @apply flex justify-end gap-3 mt-4;
+  @apply flex justify-between gap-3 mt-4 flex-wrap;
 }
 
+
 .save-button {
-  @apply bg-green-500 text-white px-4 py-2 rounded font-medium text-sm transition-colors hover:bg-green-600;
+  @apply bg-green-500 text-white px-4 py-2 rounded font-medium text-sm transition-colors hover:bg-green-600 w-full md:w-auto text-center;
 }
+
 
 .cancel-button {
   @apply bg-red-500 text-white px-4 py-2 rounded font-medium text-sm transition-colors hover:bg-red-600;
@@ -162,17 +166,16 @@ input:focus, select:focus {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .App-header {
-    @apply text-2xl;
+  .modal-container {
+    @apply w-[90%] max-w-[400px] p-4;
   }
+}
+
 
   .student-table, .lesson-table {
     @apply w-[95%];
   }
 
-  .modal-container {
-    @apply w-full p-4;
-  }
 
   .modal-title {
     @apply text-xl;
@@ -185,11 +188,11 @@ input:focus, select:focus {
   .save-button, .cancel-button {
     @apply w-full text-center;
   }
-}
+
 
 @media (max-width: 480px) {
   input, select {
-    @apply w-full;
+    @apply w-full p-3 text-base my-2 border border-gray-200 rounded-md transition-all;
   }
 
   .student-table th, .student-table td,
@@ -198,18 +201,7 @@ input:focus, select:focus {
   }
 }
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
+
 .modal {
   background: white;
   padding: 20px;
@@ -510,23 +502,9 @@ input:focus, select:focus {
   background-color: #2d3748;
 }
 
-/* Fetching message */
-.fetching-message {
-  text-align: center;
-  padding: 12px;
-  background-color: #edf2f7;
-  color: #2d3748;
-  margin-bottom: 12px;
-  border-radius: 6px;
-}
+
 
 /* App.css */
-.container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  font-family: Arial, sans-serif;
-}
 
 .title {
   text-align: center;
@@ -670,17 +648,6 @@ input:focus, select:focus {
   background-color: #c82333;
 }
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
 .modal-content {
   background: white;

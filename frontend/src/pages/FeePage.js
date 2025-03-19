@@ -12,6 +12,11 @@ function FeePage() {
   const [error, setError] = useState(null);
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(false); // Added for create button feedback
+  const [allClasses, setAllClasses] = useState([]);
+  const [allSchools, setAllSchools] = useState([]);
+  const [allClassesBySchool, setAllClassesBySchool] = useState({});
+
+
 
   // Fetch fees data from the backend
   async function fetchFees() {
@@ -32,9 +37,42 @@ function FeePage() {
     }
   }
 
+  async function fetchStudents() {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/students/`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("access")}`,
+          "Content-Type": "application/json"
+        }
+      });
+  
+      if (Array.isArray(response.data)) {
+        const uniqueSchools = [...new Set(response.data.map(student => student.school))];
+  
+        // Group classes by school
+        const classesBySchool = {};
+        response.data.forEach(student => {
+          if (!classesBySchool[student.school]) {
+            classesBySchool[student.school] = new Set();
+          }
+          classesBySchool[student.school].add(student.student_class);
+        });
+  
+        setAllSchools(uniqueSchools);
+        setAllClassesBySchool(classesBySchool);  // New state
+      }
+    } catch (error) {
+      console.error("Failed to fetch students:", error);
+    }
+  }
+  
+  
+
+
   // Initial data fetch
   useEffect(() => {
     fetchFees();
+    fetchStudents();
   }, []);
 
   // Handle changes in paid amount
@@ -136,22 +174,29 @@ function FeePage() {
           <div className="filter-item">
             <label className="filter-label">School: </label>
             <select className="filter-select" value={schoolFilter} onChange={(e) => setSchoolFilter(e.target.value)}>
-              <option value="">All Schools</option>
-              {Array.from(new Set(fees.map(fee => fee.school))).map((school, index) => (
-                <option key={index} value={school}>{school}</option>
-              ))}
+            <option value="">All Schools</option>
+            {allSchools.map((school, index) => (
+              <option key={index} value={school}>{school}</option>
+            ))}
             </select>
+
           </div>
           <div className="filter-item">
             <label className="filter-label">Class: </label>
             <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-              <option value="">All Classes</option>
-              {Array.from(new Set(fees.map(fee => fee.student_class)))
-                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-                .map((student_class, index) => (
+            <option value="">All Classes</option>
+            {schoolFilter && allClassesBySchool[schoolFilter] 
+              ? Array.from(allClassesBySchool[schoolFilter])
+                  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                  .map((student_class, index) => (
+                    <option key={index} value={student_class}>{student_class}</option>
+                  ))
+              : Object.values(allClassesBySchool).flat().map((student_class, index) => (
                   <option key={index} value={student_class}>{student_class}</option>
-                ))}
-            </select>
+                ))
+            }
+          </select>
+
           </div>
           <div className="filter-item">
             <label className="filter-label">Month: </label>
