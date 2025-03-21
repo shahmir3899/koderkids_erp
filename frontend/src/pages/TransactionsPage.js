@@ -50,6 +50,9 @@ function TransactionsPage() {
     const [error, setError] = useState(null);
     const [isRetrying, setIsRetrying] = useState(false);
     const [isAccountsLoading, setIsAccountsLoading] = useState(false);
+    const [sortBy, setSortBy] = useState(null);
+    const [sortOrder, setSortOrder] = useState("asc");
+
 
     // Fetch Functions
     const fetchAccounts = async () => {
@@ -135,6 +138,7 @@ function TransactionsPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return; // ✅ Prevent multiple submissions
         setIsSubmitting(true);
     
         if (!formData.amount || !formData.category) {
@@ -170,14 +174,32 @@ function TransactionsPage() {
                 return;
             }
         }
-        
-        console.log("Sending payload:", JSON.stringify(payload, null, 2)); // Detailed logging
+    
         try {
-            await axios.post(`${API_URL}/api/${activeTab}/`, payload, { headers: getAuthHeaders() });
-            toast.success("Transaction saved successfully!");
+            if (isEditing && selectedTransaction) {
+                // ✅ Send an update request instead of creating a new one
+                await axios.put(`${API_URL}/api/${activeTab}/${selectedTransaction.id}/`, payload, { headers: getAuthHeaders() });
+                toast.success("Transaction updated successfully!");
+            } else {
+                await axios.post(`${API_URL}/api/${activeTab}/`, payload, { headers: getAuthHeaders() });
+                toast.success("Transaction saved successfully!");
+            }
+    
             fetchTransactions();
             fetchAccounts();
-            setFormData({ ...formData, amount: "", category: "", notes: "", from_account: null, to_account: null });
+            setIsEditing(false); // ✅ Exit edit mode
+            setFormData({
+                date: new Date().toISOString().split("T")[0],
+                transaction_type: "income",
+                amount: "",
+                category: "",
+                notes: "",
+                from_account: null,
+                to_account: null,
+                received_from: null,
+                paid_to: null,
+                school: null,
+            });
         } catch (error) {
             console.error("API Error:", error.response?.data || error.message);
             toast.error(error.response?.data?.message || "Failed to save transaction.");
@@ -185,12 +207,14 @@ function TransactionsPage() {
             setIsSubmitting(false);
         }
     };
+    
 
     const handleEdit = (trx) => {
         setIsEditing(true);
         setSelectedTransaction(trx);
+        console.log("Editing Transaction Date:", trx.date);
         setFormData({
-            date: trx.date,
+            date: trx.date ? trx.date.split("T")[0] : "", // ✅ Fix here
             transaction_type: activeTab,
             amount: trx.amount,
             category: trx.category,
@@ -202,6 +226,17 @@ function TransactionsPage() {
             school: trx.school || null,
         });
     };
+
+    const handleSort = (column) => {
+        if (sortBy === column) {
+            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+        } else {
+            setSortBy(column);
+            setSortOrder("asc");
+        }
+    };
+    
+
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this transaction?")) return;
@@ -239,6 +274,27 @@ function TransactionsPage() {
         setIsRetrying(false);
     };
 
+    const sortedTransactions = [...transactions].sort((a, b) => {
+        if (!sortBy) return 0;
+    
+        let valA = a[sortBy];
+        let valB = b[sortBy];
+    
+        if (sortBy === "date") {
+            valA = new Date(valA);
+            valB = new Date(valB);
+        }
+    
+        if (typeof valA === "string") valA = valA.toLowerCase();
+        if (typeof valB === "string") valB = valB.toLowerCase();
+    
+        if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+    });
+    
+    
+    
     const currentCategories =
         activeTab === "income"
             ? incomeCategories
@@ -503,10 +559,18 @@ function TransactionsPage() {
             <table className="table">
                 <thead>
                     <tr>
-                        <th className="table-header">Date</th>
+                    <th className="table-header cursor-pointer" onClick={() => handleSort("date")}>
+                        Date {sortBy === "date" ? (sortOrder === "asc" ? "▲" : "▼") : ""} </th>
+
+
                         <th className="table-header">Type</th>
-                        <th className="table-header">Amount</th>
-                        <th className="table-header">Category</th>
+                       
+                        <th className="table-header cursor-pointer" onClick={() => handleSort("amount")}>
+                            Amount {sortBy === "amount" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+                        </th>
+                        <th className="table-header cursor-pointer" onClick={() => handleSort("category")}>
+                            Category {sortBy === "category" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+                        </th>
                         <th className="table-header">Account</th>
                         <th className="table-header">School</th>
                         <th className="table-header">Notes</th>
@@ -514,7 +578,7 @@ function TransactionsPage() {
                     </tr>
                 </thead>
                 <tbody>
-                    {transactions.map((trx) => (
+                    {sortedTransactions.map((trx) => (
                         <tr key={trx.id}>
                             <td className="table-cell">{trx.date}</td>
                             <td className="table-cell">{trx.transaction_type}</td>

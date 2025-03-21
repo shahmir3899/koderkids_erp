@@ -68,7 +68,8 @@ class Transaction(models.Model):
         ('Transfer', 'Transfer'),
     ]
 
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField(null=True, blank=True)  # ✅ Allows custom date, no auto overwrite
+
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     category = models.CharField(max_length=100)
