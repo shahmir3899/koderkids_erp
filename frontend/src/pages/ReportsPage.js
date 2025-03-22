@@ -87,7 +87,7 @@ const ReportsPage = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">📊 Monthly Reports</h2>
+      <h2 className="heading-primary">📊 Monthly Reports</h2>
 
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex flex-col flex-1 min-w-[200px]">

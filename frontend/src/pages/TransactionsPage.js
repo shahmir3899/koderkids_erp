@@ -535,7 +535,7 @@ function TransactionsPage() {
     
                 <div className="form-group">
                     <label>Notes:</label>
-                    <textarea
+                    <textarea className="textbox"
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     />

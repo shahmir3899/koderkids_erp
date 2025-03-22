@@ -6,8 +6,9 @@ from django.db.models import Sum, Q
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
-from .models import Transaction,  Loan, Account
-from .serializers import TransactionSerializer,  LoanSerializer, AccountSerializer
+from rest_framework.decorators import api_view, permission_classes
+from .models import Transaction,  Loan, Account, TransactionCategory
+from .serializers import TransactionCategorySerializer, TransactionSerializer,  LoanSerializer, AccountSerializer
 
 
 #Finance View.py
@@ -103,6 +104,25 @@ def finance_summary(request):
         "accounts": list(accounts),
     })
 
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def transaction_categories(request):
+    if request.method == 'GET':
+        category_type = request.GET.get('type')
+        if category_type not in ['income', 'expense']:
+            return Response({"error": "Invalid or missing type (income/expense)"}, status=400)
+
+        categories = TransactionCategory.objects.filter(category_type=category_type).order_by('name')
+        serializer = TransactionCategorySerializer(categories, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = TransactionCategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
 
 
 @api_view(["GET"])

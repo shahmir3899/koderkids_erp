@@ -447,7 +447,7 @@ const ProgressPage = () => {
 
     return (
         <div className="container p-6 bg-gray-50 min-h-screen">
-            <h2 className="title text-3xl font-bold text-gray-800 mb-8">Session Progress</h2>
+            <h1 class="heading-primary">SESSION PROGRESS</h1>
 
             <div className="flex items-center gap-4 mb-8">
                 <div className="form-group flex flex-col flex-1 min-w-[200px]">
@@ -492,7 +492,7 @@ const ProgressPage = () => {
     className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
     disabled={isSearching}
 >
-    {isSearching ? "🔍 Searching..." : "🔍 Fetch Lessons"}
+    {isSearching ? "🔍 Searching..." : "🔍 Fetch Students"}
 </button>
             </div>
             {loadingStudent && (

@@ -166,7 +166,7 @@ function FeePage() {
 
   return (
     <div className="fee-page">
-      <h1 className="page-header">Fee Management</h1>
+      <h1 className="heading-primary">Fee Management</h1>
 
       {/* Filter Section */}
       <div className="filter-card">

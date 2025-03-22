@@ -83,7 +83,7 @@ function FinanceDashboard() {
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen" role="main" aria-label="Finance Dashboard">
-            <h1 className="text-3xl font-bold text-gray-800 mb-8">Finance Dashboard</h1>
+            <h1 className="heading-primary">Finance Dashboard</h1>
 
             {isLoading && (
                 <div className="text-center text-gray-700" role="alert">

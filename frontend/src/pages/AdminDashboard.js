@@ -149,7 +149,7 @@ const sortData = (key) => {
                 <header className="bg-white text-black py-3 flex items-center justify-between px-2 mb-6 shadow-md">
                     <div className="flex items-center">
                         <img src="/logo.png" alt="Koder Kids Logo" className="h-12 w-auto mr-2" />
-                        <h1 className="text-2xl font-bold ">Koder Kids Admin Dashboard</h1>
+                        <h1 className="heading-primary">Koder Kids Admin Dashboard</h1>
                     </div>
                 </header>
     
