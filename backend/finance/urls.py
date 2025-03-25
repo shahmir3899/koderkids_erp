@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import ExpenseViewSet, IncomeViewSet,  LoanViewSet, AccountViewSet, TransferViewSet, account_balances, finance_summary, loan_summary, transaction_categories
+from .views import ExpenseViewSet, IncomeViewSet,  LoanViewSet, AccountViewSet, TransferViewSet, account_balances, category_entries, finance_summary, loan_summary
 
 router = DefaultRouter()
 router.register(r'income', IncomeViewSet, basename='income')
@@ -19,6 +19,7 @@ urlpatterns = [
     path('loan-summary/', loan_summary, name='loan-summary'),
     path('account-balances/', account_balances, name='account-balances'),
     path('finance-summary/', finance_summary, name='finance-summary'),
-    path('api/categories/', transaction_categories, name='transaction-categories'),
+    path('api/categories/', category_entries, name='category-entries'),
+    
 ]
 

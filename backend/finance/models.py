@@ -141,13 +141,13 @@ class Loan(FinanceModelBase):
     class Meta:
         ordering = ['-due_date']
 
-class TransactionCategory(models.Model):
+class CategoryEntry(models.Model):
     CATEGORY_TYPES = (
         ('income', 'Income'),
         ('expense', 'Expense'),
     )
 
-    name = models.CharField(max_length=100, verbose_name="Category Name")
+    name = models.CharField(max_length=100)
     category_type = models.CharField(max_length=10, choices=CATEGORY_TYPES)
     created_by = models.ForeignKey(get_user_model(), on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

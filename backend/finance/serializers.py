@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Transaction, Loan, Account, TransactionCategory
+from .models import Transaction, Loan, Account, CategoryEntry
+
 
 # ✅ Transaction Serializer: Ensures correct account selection
 class TransactionSerializer(serializers.ModelSerializer):
@@ -111,7 +112,7 @@ class AccountSerializer(serializers.ModelSerializer):
 
         return transaction
 
-class TransactionCategorySerializer(serializers.ModelSerializer):
+class CategoryEntrySerializer(serializers.ModelSerializer):
     class Meta:
-        model = TransactionCategory
+        model = CategoryEntry
         fields = ['id', 'name', 'category_type']
