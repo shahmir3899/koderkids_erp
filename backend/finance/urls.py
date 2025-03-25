@@ -19,7 +19,7 @@ urlpatterns = [
     path('loan-summary/', loan_summary, name='loan-summary'),
     path('account-balances/', account_balances, name='account-balances'),
     path('finance-summary/', finance_summary, name='finance-summary'),
-    path('api/categories/', category_entries, name='category-entries'),
+    path('categories/', category_entries, name='category-entries'),
     
 ]
 

@@ -10,22 +10,9 @@ function TransactionsPage() {
     const [transactions, setTransactions] = useState([]);
     const [accounts, setAccounts] = useState([]);
     const [schools, setSchools] = useState([]);
-    const [incomeCategories, setIncomeCategories] = useState([
-        "School Invoice",
-        "Books",
-        "Donations",
-        "Loan Received",
-        "Other Income",
-    ]);
-    const [expenseCategories, setExpenseCategories] = useState([
-        "Salaries",
-        "Books",
-        "Rent",
-        "Utilities",
-        "Loan Paid",
-        "Marketing",
-        "Other Expense",
-    ]);
+    const [incomeCategories, setIncomeCategories] = useState([]);
+    const [expenseCategories, setExpenseCategories] = useState([]);
+
     const [transferCategories] = useState(["Bank Transfer", "Cash Transfer"]);
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split("T")[0],
@@ -68,6 +55,19 @@ function TransactionsPage() {
     };
 
     const fetchInitialData = async () => {
+        const fetchCategories = async () => {
+            try {
+                const [incomeRes, expenseRes] = await Promise.all([
+                    axios.get(`${API_URL}/api/categories/?type=income`, { headers: getAuthHeaders() }),
+                    axios.get(`${API_URL}/api/categories/?type=expense`, { headers: getAuthHeaders() })
+                ]);
+                setIncomeCategories(incomeRes.data.map(c => c.name));
+                setExpenseCategories(expenseRes.data.map(c => c.name));
+            } catch (error) {
+                toast.error("Failed to load categories.");
+            }
+        };
+    
         setLoading(true);
         setError(null);
         try {
@@ -75,6 +75,7 @@ function TransactionsPage() {
             setSchools(schoolsResponse.data);
             await fetchAccounts();
             await fetchTransactions();
+            await fetchCategories(); // ✅ ADD THIS LINE
         } catch (error) {
             const errorMessage = error.response?.data?.message || error.message || "Failed to load initial data.";
             setError(errorMessage);
@@ -83,6 +84,7 @@ function TransactionsPage() {
             setLoading(false);
         }
     };
+    
 
     const fetchTransactions = async () => {
         setIsFetchingTransactions(true);
@@ -126,15 +128,30 @@ function TransactionsPage() {
         });
     };
 
-    const handleAddCategory = () => {
+    const handleAddCategory = async () => {
         if (!newCategory.trim()) return;
-        if (activeTab === "income") {
-            setIncomeCategories([...incomeCategories, newCategory.trim()]);
-        } else if (activeTab === "expense") {
-            setExpenseCategories([...expenseCategories, newCategory.trim()]);
+    
+        const payload = {
+            name: newCategory.trim(),
+            category_type: activeTab
+        };
+    
+        try {
+            await axios.post(`${API_URL}/api/categories/`, payload, { headers: getAuthHeaders() });
+            toast.success("Category added!");
+    
+            if (activeTab === "income") {
+                setIncomeCategories(prev => [...prev, payload.name]);
+            } else if (activeTab === "expense") {
+                setExpenseCategories(prev => [...prev, payload.name]);
+            }
+    
+            setNewCategory("");
+        } catch (err) {
+            toast.error("Could not add category.");
         }
-        setNewCategory("");
     };
+    
 
     const handleSubmit = async (e) => {
         e.preventDefault();
