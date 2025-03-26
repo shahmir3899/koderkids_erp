@@ -251,17 +251,17 @@ def get_classes(request):
 
 
 
+
 logger = logging.getLogger(__name__)
 
-@api_view(['GET', 'POST'])  # ✅ Allow both GET and POST requests
+
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def get_students(request):
     print(f"🔍 Backend Request: School={request.GET.get('school', '')}, Class={request.GET.get('class', '')}")
-
-    """Return students for GET, add a new student for POST"""
     user = request.user
 
-    if request.method == 'POST':  # ✅ Handle student creation
+    if request.method == 'POST':
         try:
             data = request.data
             school_id = data.get("school")
@@ -274,10 +274,19 @@ def get_students(request):
             except School.DoesNotExist:
                 return Response({"error": "Invalid school ID"}, status=400)
 
-            # ✅ Create new student
+            # ✅ Auto-generate unique reg_num
+            school_code = ''.join(school.name.split()[-3:]).upper()[:6]
+            year = datetime.now().year % 100
+            existing_count = Student.objects.filter(school=school).count() + 1
+            reg_num = f"{year:02d}-KK-{school_code}-{existing_count:03d}"
+
+            while Student.objects.filter(reg_num=reg_num).exists():
+                existing_count += 1
+                reg_num = f"{year:02d}-KK-{school_code}-{existing_count:03d}"
+
             student = Student.objects.create(
                 name=data.get("name"),
-                reg_num=data.get("reg_num"),
+                reg_num=reg_num,
                 school=school,
                 student_class=data.get("student_class"),
                 monthly_fee=data.get("monthly_fee"),
@@ -285,7 +294,11 @@ def get_students(request):
                 date_of_registration=data.get("date_of_registration")
             )
 
-            return Response({"message": "Student added successfully", "id": student.id}, status=201)
+            return Response({
+                "message": "Student added successfully",
+                "id": student.id,
+                "reg_num": student.reg_num
+            }, status=201)
 
         except Exception as e:
             logger.error(f"❌ Error adding student: {str(e)}")

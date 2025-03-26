@@ -53,60 +53,61 @@ function AddStudentPopup({ onClose }) {
         fetchSchools();
     }, []);
 
-    useEffect(() => {
-        async function fetchStudentsAndGenerateRegNum() {
-            if (!formData.school) {
-                setFormData(prev => ({ ...prev, reg_num: "" }));
-                return;
-            }
+    // useEffect(() => {
+    //     async function fetchStudentsAndGenerateRegNum() {
+    //         //if (!formData.school || schools.length === 0) return;  // ✅ Wait for schools to be ready
+    //         if (!formData.school || schools.length === 0) {
+    //             setFormData(prev => ({ ...prev, reg_num: "" }));
+    //             return;
+    //         }
 
-            setLoading(true);
-            setError(null);
-            try {
-                const token = localStorage.getItem("access");
-                if (!token) {
-                    setError("Authentication token missing. Please log in again.");
-                    return;
-                }
+    //         setLoading(true);
+    //         setError(null);
+    //         try {
+    //             const token = localStorage.getItem("access");
+    //             if (!token) {
+    //                 setError("Authentication token missing. Please log in again.");
+    //                 return;
+    //             }
 
-                const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/students/`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                    params: { school: formData.school }
-                });
+    //             const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/students/`, {
+    //                 headers: { Authorization: `Bearer ${token}` },
+    //                 params: { school: formData.school }
+    //             });
 
-                const studentList = response.data.students || response.data || [];
-                setStudents(studentList);
+    //             const studentList = response.data.students || response.data || [];
+    //             setStudents(studentList);
 
-                const year = new Date().getFullYear().toString().slice(-2);
-                const kkPrefix = "KK";
-                const selectedSchool = schools.find(s => s.id === parseInt(formData.school));
-                const schoolInitials = selectedSchool ? getSchoolInitials(selectedSchool.name) : "";
-                const baseRegNum = `${year}-${kkPrefix}-${schoolInitials}-`;
+    //             const year = new Date().getFullYear().toString().slice(-2);
+    //             const kkPrefix = "KK";
+    //             const selectedSchool = schools.find(s => s.id === parseInt(formData.school));
+    //             const schoolInitials = selectedSchool ? getSchoolInitials(selectedSchool.name) : "";
+    //             const baseRegNum = `${year}-${kkPrefix}-${schoolInitials}-`;
 
-                const allRegNums = studentList
-                    .map(student => student.reg_num)
-                    .filter(reg => reg && reg.includes(`-${kkPrefix}-${schoolInitials}-`))
-                    .map(reg => parseInt(reg.split("-").pop(), 10) || 0);
+    //             const allRegNums = studentList
+    //                 .map(student => student.reg_num)
+    //                 .filter(reg => reg && reg.includes(`-${kkPrefix}-${schoolInitials}-`))
+    //                 .map(reg => parseInt(reg.split("-").pop(), 10) || 0);
 
-                const nextNumber = allRegNums.length > 0 
-                    ? Math.max(...allRegNums) + 1
-                    : 1 ;
-                const paddedNumber = String(nextNumber).padStart(3, "0");
-                const newRegNum = `${baseRegNum}${paddedNumber}`;
+    //             const nextNumber = allRegNums.length > 0 
+    //                 ? Math.max(...allRegNums) + 1
+    //                 : 1 ;
+    //             const paddedNumber = String(nextNumber).padStart(3, "0");
+    //             const newRegNum = `${baseRegNum}${paddedNumber}`;
 
-                setFormData(prev => ({ ...prev, reg_num: newRegNum }));
-            } catch (err) {
-                setError("Failed to fetch students. Using default reg_num.");
-                console.error("Error fetching students:", err.response?.data || err.message);
-                const selectedSchool = schools.find(s => s.id === parseInt(formData.school));
-                const schoolInitials = selectedSchool ? getSchoolInitials(selectedSchool.name) : "";
-                setFormData(prev => ({ ...prev, reg_num: `25-KK-${schoolInitials}-033` }));
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchStudentsAndGenerateRegNum();
-    }, [formData.school, schools]);
+    //             setFormData(prev => ({ ...prev, reg_num: newRegNum }));
+    //         } catch (err) {
+    //             setError("Failed to fetch students. Using default reg_num.");
+    //             console.error("Error fetching students:", err.response?.data || err.message);
+    //             const selectedSchool = schools.find(s => s.id === parseInt(formData.school));
+    //             const schoolInitials = selectedSchool ? getSchoolInitials(selectedSchool.name) : "";
+    //             setFormData(prev => ({ ...prev, reg_num: `25-KK-${schoolInitials}-033` }));
+    //         } finally {
+    //             setLoading(false);
+    //         }
+    //     }
+    //     fetchStudentsAndGenerateRegNum();
+    // }, [formData.school, schools]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -114,17 +115,17 @@ function AddStudentPopup({ onClose }) {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const getSchoolInitials = (schoolName) => {
-        if (!schoolName) return "";
-        const words = schoolName.trim().split(" ");
-        if (words.length === 1) {
-            return words[0].toUpperCase();
-        }
-        return words
-            .map(word => word.charAt(0).toUpperCase())
-            .join("")
-            .slice(0, 5);
-    };
+    // const getSchoolInitials = (schoolName) => {
+    //     if (!schoolName) return "";
+    //     const words = schoolName.trim().split(" ");
+    //     if (words.length === 1) {
+    //         return words[0].toUpperCase();
+    //     }
+    //     return words
+    //         .map(word => word.charAt(0).toUpperCase())
+    //         .join("")
+    //         .slice(0, 5);
+    // };
 
     const handleSubmit = async () => {
         setIsSubmitting(true); // Set submitting state to true
@@ -151,21 +152,23 @@ function AddStudentPopup({ onClose }) {
                 return;
             }
 
-            const studentData = {
+            const { reg_num, ...studentData } = {
                 ...formData,
                 school: parseInt(formData.school),
                 date_of_registration: formData.date_of_registration || new Date().toISOString().split('T')[0]
-            };
+              };
+              
 
             console.log("Sending to backend:", studentData);
-            await axios.post(`${process.env.REACT_APP_API_URL}/api/students/`, studentData, {
+            const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/students/`, studentData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json"
                 }
             });
 
-            toast.success("Student added successfully!", {
+            toast.success(`Student added successfully! Reg#: ${response.data?.reg_num}`, {
+
                 position: "top-right",
                 autoClose: 3000,
             });
@@ -213,7 +216,7 @@ function AddStudentPopup({ onClose }) {
                     <input
                         name="reg_num"
                         type="text"
-                        value={formData.reg_num}
+                        value={"Auto Generated by system"}
                         disabled
                         placeholder="Auto-generated"
                         className="input"
