@@ -275,7 +275,7 @@ def get_students(request):
                 return Response({"error": "Invalid school ID"}, status=400)
 
             # ✅ Auto-generate unique reg_num
-            school_code = ''.join(school.name.split()[-3:]).upper()[:6]
+            school_code = ''.join(word[0].upper() for word in school.name.strip().split())
             year = datetime.now().year % 100
             existing_count = Student.objects.filter(school=school).count() + 1
             reg_num = f"{year:02d}-KK-{school_code}-{existing_count:03d}"
