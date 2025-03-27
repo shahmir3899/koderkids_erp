@@ -74,7 +74,9 @@ urlpatterns = [
     path('api/student-progress-images/', get_student_progress_images, name='get_student_progress_images'),
     # Teacher dahbord
     path('api/teacher-dashboard-lessons/', get_teacher_dashboard_lessons, name='teacher_dashboard_lessons'),
+     # ✅ Includes robot chat APIs
 
+    path("api/", include("robotchat.urls")), 
 
 
     # DRF Router URLs (For ViewSets)

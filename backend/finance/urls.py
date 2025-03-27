@@ -21,5 +21,6 @@ urlpatterns = [
     path('finance-summary/', finance_summary, name='finance-summary'),
     path('categories/', category_entries, name='category-entries'),
     
+    
 ]
 
