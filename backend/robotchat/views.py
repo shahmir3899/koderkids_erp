@@ -2,7 +2,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import requests
 import os
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
 # ✅ Add Your Hugging Face API Key
 HF_API_KEY = os.getenv("HF_API_KEY")
 
