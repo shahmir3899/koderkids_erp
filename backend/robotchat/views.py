@@ -1,34 +1,44 @@
-from django.shortcuts import render
-
-# Create your views here.
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
+import requests
 
-# Load model and tokenizer once
-# Switch to DialoGPT-medium for better replies
-tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-medium")
-model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-medium")
+# ✅ Add Your Hugging Face API Key
+HF_API_KEY = "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"
 
+# ✅ Use Hugging Face Inference API (BlenderBot Model)
+HF_API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"
 
-# Keep track of conversation history (optional)
-chat_history_ids = None
+def get_hf_reply(user_input):
+    """Send message to Hugging Face API and get the reply."""
+    headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+    payload = {"inputs": user_input}
+
+    try:
+        response = requests.post(HF_API_URL, headers=headers, json=payload)
+
+        if response.status_code == 200:
+            # Get reply from the API response
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0 and "generated_text" in result[0]:
+                return result[0]["generated_text"]
+            else:
+                return "I'm sorry, I couldn't process that."
+        else:
+            return "Error: Unable to get a response from Hugging Face API."
+    except Exception as e:
+        print(f"❌ Hugging Face API error: {e}")
+        return "Sorry, something went wrong."
 
 @api_view(['POST'])
 def robot_reply(request):
-    global chat_history_ids
+    """Handle user messages and return robot reply."""
     user_input = request.data.get("message", "")
 
-    if not user_input:
+    if not user_input.strip():
         return Response({"reply": "Please say something."}, status=400)
 
-    # Encode user input and append to history (if any)
-    new_input_ids = tokenizer.encode(user_input + tokenizer.eos_token, return_tensors='pt')
-    input_ids = torch.cat([chat_history_ids, new_input_ids], dim=-1) if chat_history_ids is not None else new_input_ids
+    # 🎯 Get AI response from Hugging Face API
+    reply = get_hf_reply(user_input)
 
-    # Generate response
-    chat_history_ids = model.generate(input_ids, max_length=1000, pad_token_id=tokenizer.eos_token_id)
-    reply = tokenizer.decode(chat_history_ids[:, input_ids.shape[-1]:][0], skip_special_tokens=True)
-
+    # Return the generated response
     return Response({"reply": reply})
