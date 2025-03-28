@@ -349,3 +349,17 @@ export const getSchoolsWithClasses = async () => {
         throw error;
     }
 };
+
+
+// 🎯 Send Message to Backend
+export const sendMessageToRobot = async (message) => {
+    try {
+        const response = await axios.post(`${API_URL}/api/robot-reply/`, {
+        message: message,
+      });
+      return response.data.reply;
+    } catch (error) {
+      console.error("Error sending message:", error);
+      return "Sorry, something went wrong.";
+    }
+  };

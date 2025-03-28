@@ -229,11 +229,16 @@ function Sidebar() {
                     {sidebarOpen && <span>Transactions</span>}
                   </Link>
                 </li>
+                <li>
+        <a href="/robot-chat" className="sidebar-link">
+          🤖 Robot Chat
+        </a>
+      </li>
               </ul>
             )}
           </>
         )}
-
+     
         {/* Logout Button */}
         <li className="mb-2 p-2 hover:bg-gray-700 rounded flex items-center">
           <FontAwesomeIcon icon={faLock} className="mr-2" />

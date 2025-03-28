@@ -7,8 +7,10 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
 # Load model and tokenizer once
-tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-small")
-model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-small")
+# Switch to DialoGPT-medium for better replies
+tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-medium")
+model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-medium")
+
 
 # Keep track of conversation history (optional)
 chat_history_ids = None

@@ -19,6 +19,8 @@ import FinanceDashboard from "./pages/FinanceDashboard";
 import TransactionsPage from "./pages/TransactionsPage";
 import { ToastContainer } from "react-toastify"; 
 import "react-toastify/dist/ReactToastify.css"; 
+import RobotChat from "./components/RobotChat";
+
 import { logout } from "./api"; 
 
 export const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -71,6 +73,8 @@ function App() {
                                 <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboard />} />} />
                                 <Route path="/reports" element={<ReportsPage />} />
                                 <Route path="/student-report/:studentId" element={<StudentReport />} />
+                                 {/* Define route for Robot Chat */}
+                                <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} />} />
                             </>
                         )}
 
