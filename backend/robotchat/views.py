@@ -8,8 +8,8 @@ import torch
 
 # Load model and tokenizer once
 # Switch to DialoGPT-medium for better replies
-tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-medium")
-model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-medium")
+tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-small")
+model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-small")
 
 
 # Keep track of conversation history (optional)
