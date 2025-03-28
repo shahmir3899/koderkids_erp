@@ -3,7 +3,6 @@ from django.shortcuts import render
 # Create your views here.
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-<<<<<<< HEAD
 import requests
 import os
 from dotenv import load_dotenv
@@ -13,15 +12,6 @@ load_dotenv()
 # ✅ Add Your Hugging Face API Key
 HF_API_KEY = os.getenv("HF_API_KEY")
 
-=======
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
-
-# Load model and tokenizer once
-# Switch to DialoGPT-medium for better replies
-tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-medium")
-model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-medium")
->>>>>>> parent of 3088246 (Hugging face API)
 
 
 # Keep track of conversation history (optional)
