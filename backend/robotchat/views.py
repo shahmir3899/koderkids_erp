@@ -1,9 +1,11 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import requests
+import os
 
 # ✅ Add Your Hugging Face API Key
-HF_API_KEY = "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"
+HF_API_KEY = os.getenv("HF_API_KEY")
+
 
 # ✅ Use Hugging Face Inference API (BlenderBot Model)
 HF_API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"
