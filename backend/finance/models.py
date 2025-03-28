@@ -86,28 +86,44 @@ class Transaction(models.Model):
         super().save(*args, **kwargs)
 
         # Debug logs
-        print(f"Saving Transaction: {self.transaction_type} | Amount: {self.amount} | Category: {self.category}")
+        print(f"✅ Saving Transaction: {self.transaction_type} | Amount: {self.amount} | Category: {self.category}")
 
-        # ✅ If it's Loan Received, update both accounts
-        if self.category == "Loan Received" and self.to_account and self.from_account:
-            print(f"Updating balances: From {self.from_account.account_name} → To {self.to_account.account_name}")
+        # ✅ Validate Loan Received - Ensure from_account is present
+        if self.category == "Loan Received":
+            if not self.from_account:
+                raise ValueError("❌ Loan Received transactions must have a lender (from_account is required).")
+            
+            print(f"🔄 Updating balances: From {self.from_account.account_name} → To {self.to_account.account_name}")
             self.from_account.update_balance()
             self.to_account.update_balance()
 
-        # ✅ If it's Loan Paid, update both accounts
+        # ✅ Validate Loan Paid - Ensure both accounts are updated
         elif self.category == "Loan Paid" and self.from_account and self.to_account:
-            print(f"Updating balances: From {self.from_account.account_name} → To {self.to_account.account_name}")
+            print(f"🔄 Updating balances: From {self.from_account.account_name} → To {self.to_account.account_name}")
             self.from_account.update_balance()
             self.to_account.update_balance()
 
-        # ✅ Existing logic for other transactions
+        # ✅ Handle Income Transactions
         elif self.transaction_type == "Income" and self.to_account:
+            print(f"💰 Income - Updating balance for: {self.to_account.account_name}")
             self.to_account.update_balance()
+
+        # ✅ Handle Expense Transactions
         elif self.transaction_type == "Expense" and self.from_account:
+            print(f"💸 Expense - Updating balance for: {self.from_account.account_name}")
             self.from_account.update_balance()
+
+        # ✅ Handle Transfer Transactions
         elif self.transaction_type == "Transfer" and self.from_account and self.to_account:
+            print(f"🔀 Transfer - Updating balances: From {self.from_account.account_name} → To {self.to_account.account_name}")
             self.from_account.update_balance()
             self.to_account.update_balance()
+
+        # ✅ Handle any unexpected scenarios
+        else:
+            print(f"⚠️ Warning: Unknown transaction type or missing account info!")
+
+
 
     def delete(self, *args, **kwargs):
         from_account = self.from_account
