@@ -76,29 +76,37 @@ class AccountViewSet(ModelViewSet):
 
 @api_view(["GET"])
 def finance_summary(request):
-    """Provides a summary of actual income (excluding loans), expenses, loans, and account balances."""
+    """Provides a summary of actual income (excluding loans and transfers), expenses, loans, and account balances."""
 
-    # Total Income
-    total_income = Transaction.objects.filter(transaction_type="Income").aggregate(total=Sum("amount"))["total"] or 0
-    
-    # Loan Received (to subtract from income)
-    total_loans_received = Transaction.objects.filter(transaction_type="Income", category="Loan Received").aggregate(Sum("amount"))["amount__sum"] or 0
+    # ✅ Corrected Income Calculation (Excluding Transfers)
+    total_income = Transaction.objects.filter(
+        transaction_type="Income"
+    ).exclude(category="Transfer").aggregate(total=Sum("amount"))["total"] or 0
 
-    # Actual Income (excluding loans)
+    # ✅ Corrected Loan Received (Still Excluded as Before)
+    total_loans_received = Transaction.objects.filter(
+        transaction_type="Income", category="Loan Received"
+    ).aggregate(Sum("amount"))["amount__sum"] or 0
+
+    # ✅ Actual Income (excluding loans and transfers)
     income = total_income - total_loans_received
 
-    # Total Expenses
-    expenses = Transaction.objects.filter(transaction_type="Expense").aggregate(total=Sum("amount"))["total"] or 0
+    # ✅ Corrected Expense Calculation (Excluding Transfers)
+    expenses = Transaction.objects.filter(
+        transaction_type="Expense"
+    ).exclude(category="Transfer").aggregate(total=Sum("amount"))["total"] or 0
 
-    # Total Loans Outstanding
-    total_loans_paid = Transaction.objects.filter(transaction_type="Payment", category="Loan").aggregate(Sum("amount"))["amount__sum"] or 0
+    # ✅ Correct Loan Paid Logic
+    total_loans_paid = Transaction.objects.filter(
+        transaction_type="Expense", category="Loan Paid"
+    ).aggregate(Sum("amount"))["amount__sum"] or 0
     loans = total_loans_received - total_loans_paid  # Outstanding loan balance
 
-    # Account Balances
+    # ✅ Updated Account Balances (No change needed here)
     accounts = Account.objects.values("account_name", "current_balance")
 
     return Response({
-        "income": income,  # Adjusted income
+        "income": income,
         "expenses": expenses,
         "loans": loans,
         "accounts": list(accounts),
@@ -129,8 +137,14 @@ def category_entries(request):
 def account_balances(request):
     """Returns the current balance for all accounts."""
     accounts = Account.objects.all()
+
+    for account in accounts:
+        # Recalculate balance to exclude Transfer-related errors
+        account.update_balance()
+
     serializer = AccountSerializer(accounts, many=True)
     return Response(serializer.data)
+
 
 
 @api_view(['GET'])
