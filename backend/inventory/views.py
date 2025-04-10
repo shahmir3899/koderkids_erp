@@ -22,12 +22,10 @@ class InventoryItemViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Optional filtering: e.g. by school or assigned teacher.
-        """
-        queryset = super().get_queryset()
         school_id = self.request.query_params.get('school')
         assigned_to = self.request.query_params.get('assigned_to')
+
+        queryset = InventoryItem.objects.select_related("school", "assigned_to", "category").order_by('-last_updated')
 
         if school_id:
             queryset = queryset.filter(school_id=school_id)
@@ -35,4 +33,5 @@ class InventoryItemViewSet(ModelViewSet):
             queryset = queryset.filter(assigned_to_id=assigned_to)
 
         return queryset
+
 
