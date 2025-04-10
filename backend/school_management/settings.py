@@ -97,6 +97,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'students',
     'finance',
+    'inventory',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]
