@@ -610,32 +610,18 @@ def delete_student(request, pk):
 def new_registrations(request):
     """Fetch newly registered students from the last month"""
     
-    last_month = now().month  # Get the current month
+    last_month = now().month
     current_year = now().year
-
-    print(f"🔍 Fetching new registrations for month: {last_month}, year: {current_year}")
 
     students = Student.objects.filter(
         date_of_registration__month=last_month,
         date_of_registration__year=current_year
-    ).values('id', 'name', 'school_id', 'date_of_registration')
+    )
 
-    print(f"✅ Retrieved {students.count()} students")  # Debugging
+    serializer = StudentSerializer(students, many=True)
+    return Response(serializer.data)
 
-    # Convert school_id to school name
-    formatted_data = []
-    for student in students:
-        school_name = student['school_id']  # Debugging line
-        print(f"Processing student {student['name']} - School ID: {school_name}")
 
-        formatted_data.append({
-            "id": student['id'],
-            "name": student['name'],
-            "school": school_name,  # Temporarily keeping school_id for debugging
-            "date_of_registration": student['date_of_registration']
-        })
-
-    return Response(formatted_data)
 
 @api_view(['POST'])
 def create_new_month_fees(request):

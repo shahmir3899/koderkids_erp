@@ -227,7 +227,10 @@ const sortData = (key) => {
                                         <tr key={index} className={index % 2 === 0 ? "bg-gray-200" : "bg-gray-50"}>
                                             <td className="border p-3 text-center w-1/12">{student.id}</td>
                                             <td className="border p-3 text-center w-3/12">{student.name}</td>
-                                            <td className="border p-3 text-center w-3/12">{student.school}</td>
+                                            <td className="border p-3 text-center w-3/12">
+  {student.school_name} ({student.school})
+</td>
+
                                             <td className="border p-3 text-center w-5/12">{student.date_of_registration}</td>
                                         </tr>
                                     ))
