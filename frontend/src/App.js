@@ -20,6 +20,7 @@ import TransactionsPage from "./pages/TransactionsPage";
 import { ToastContainer } from "react-toastify"; 
 import "react-toastify/dist/ReactToastify.css"; 
 import RobotChat from "./components/RobotChat";
+import InventoryPage from './pages/InventoryPage';
 
 import { logout } from "./api"; 
 
@@ -75,6 +76,7 @@ function App() {
                                 <Route path="/student-report/:studentId" element={<StudentReport />} />
                                  {/* Define route for Robot Chat */}
                                 <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} />} />
+                                <Route path="/inventory" element={<InventoryPage />} />
                             </>
                         )}
 
