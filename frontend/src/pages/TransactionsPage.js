@@ -184,13 +184,24 @@ function TransactionsPage() {
             }
         }
         if (activeTab === "income") {
-            payload.to_account = formData.to_account;
-            if (!payload.to_account) {
-                toast.error("Please select an account for the income transaction.");
-                setIsSubmitting(false);
-                return;
+            if (formData.category === "Loan Received") {
+                payload.received_from = formData.received_from;
+                payload.to_account = formData.to_account;
+                if (!payload.received_from || !payload.to_account) {
+                    toast.error("Please select both lender (Received From) and To Account for Loan Received.");
+                    setIsSubmitting(false);
+                    return;
+                }
+            } else {
+                payload.to_account = formData.to_account;
+                if (!payload.to_account) {
+                    toast.error("Please select a To Account for the income transaction.");
+                    setIsSubmitting(false);
+                    return;
+                }
             }
         }
+        
     
         try {
             if (isEditing && selectedTransaction) {

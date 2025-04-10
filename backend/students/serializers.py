@@ -3,6 +3,8 @@ from .models import Student, Fee, School, Attendance, LessonPlan
 
 class StudentSerializer(serializers.ModelSerializer):
     school_id = serializers.PrimaryKeyRelatedField(queryset=School.objects.all())  # ✅ Fix school_id reference
+    school_name = serializers.CharField(source='school.name', read_only=True)
+
     class Meta:
         model = Student
         fields = '__all__'
