@@ -77,6 +77,9 @@ urlpatterns = [
      # ✅ Includes robot chat APIs
 
     path("api/", include("robotchat.urls")), 
+    # main_project/urls.py or root urls.py
+
+    path('api/inventory/', include('inventory.urls')),
 
 
     # DRF Router URLs (For ViewSets)

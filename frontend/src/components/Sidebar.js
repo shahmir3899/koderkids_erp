@@ -15,16 +15,14 @@ import {
 import LogoutButton from "./LogoutButton"; // Assuming this is a custom component
 
 function Sidebar() {
-  // State for sidebar and collapsible sections
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
-  const [studentsOpen, setStudentsOpen] = useState(false); // New state for Students & Fee
+  const [studentsOpen, setStudentsOpen] = useState(false);
   const username = localStorage.getItem("username") || "Unknown User";
   const role = localStorage.getItem("role") || "Not Assigned";
   const location = useLocation();
 
-  // Close all submenus when sidebar collapses
   useEffect(() => {
     if (!sidebarOpen) {
       setFinanceOpen(false);
@@ -39,7 +37,6 @@ function Sidebar() {
         sidebarOpen ? "w-64" : "w-16"
       }`}
     >
-      {/* Sidebar Toggle Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="text-white text-xl p-2 focus:outline-none"
@@ -48,10 +45,8 @@ function Sidebar() {
         {sidebarOpen ? "⬅" : "➲"}
       </button>
 
-      {/* Navigation Title */}
       {sidebarOpen && <h2 className="text-lg font-bold">Menu</h2>}
 
-      {/* User Info */}
       {sidebarOpen && (
         <>
           <p className="text-lg font-bold">👤 {username}</p>
@@ -87,11 +82,7 @@ function Sidebar() {
             {/* Students & Fee (Collapsible) */}
             <li
               className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
-              onClick={() => {
-                if (sidebarOpen) {
-                  setStudentsOpen(!studentsOpen);
-                }
-              }}
+              onClick={() => sidebarOpen && setStudentsOpen(!studentsOpen)}
               aria-expanded={studentsOpen}
             >
               <FontAwesomeIcon icon={faUsers} className="mr-2" />
@@ -135,14 +126,10 @@ function Sidebar() {
               </Link>
             </li>
 
-            {/* Progress, Lessons & Reports (Collapsible) */}
+            {/* Progress, Lessons & Reports */}
             <li
               className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
-              onClick={() => {
-                if (sidebarOpen) {
-                  setProgressOpen(!progressOpen);
-                }
-              }}
+              onClick={() => sidebarOpen && setProgressOpen(!progressOpen)}
               aria-expanded={progressOpen}
             >
               <FontAwesomeIcon icon={faChartLine} className="mr-2" />
@@ -191,14 +178,10 @@ function Sidebar() {
         {/* Admin Only Section */}
         {role === "Admin" && (
           <>
-            {/* Finance (Collapsible) */}
+            {/* Finance Section */}
             <li
               className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
-              onClick={() => {
-                if (sidebarOpen) {
-                  setFinanceOpen(!financeOpen);
-                }
-              }}
+              onClick={() => sidebarOpen && setFinanceOpen(!financeOpen)}
               aria-expanded={financeOpen}
             >
               <FontAwesomeIcon icon={faWallet} className="mr-2" />
@@ -229,17 +212,24 @@ function Sidebar() {
                     {sidebarOpen && <span>Transactions</span>}
                   </Link>
                 </li>
-                <li>
-        <a href="/robot-chat" className="sidebar-link">
-          🤖 Robot Chat
-        </a>
-      </li>
               </ul>
             )}
           </>
         )}
-     
-        {/* Logout Button */}
+
+        {/* 🤖 Robot Chat (Independent) */}
+        <li
+          className={`mb-2 p-2 hover:bg-gray-700 rounded ${
+            location.pathname === "/robot-chat" ? "bg-gray-700" : ""
+          }`}
+        >
+          <Link to="/robot-chat" className="flex items-center">
+            <span className="mr-2">🤖</span>
+            {sidebarOpen && <span>Robot Chat</span>}
+          </Link>
+        </li>
+
+        {/* 🔐 Logout */}
         <li className="mb-2 p-2 hover:bg-gray-700 rounded flex items-center">
           <FontAwesomeIcon icon={faLock} className="mr-2" />
           {sidebarOpen && <LogoutButton />}
