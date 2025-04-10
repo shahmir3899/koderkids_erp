@@ -2,8 +2,19 @@
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
-from .models import InventoryItem
-from .serializers import InventoryItemSerializer
+from .models import InventoryCategory, InventoryItem
+from .serializers import InventoryCategorySerializer, InventoryItemSerializer
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def inventory_categories(request):
+    categories = InventoryCategory.objects.all().order_by("name")
+    serializer = InventoryCategorySerializer(categories, many=True)
+    return Response(serializer.data)
 
 class InventoryItemViewSet(ModelViewSet):
     queryset = InventoryItem.objects.all().order_by('-last_updated')
@@ -24,3 +35,4 @@ class InventoryItemViewSet(ModelViewSet):
             queryset = queryset.filter(assigned_to_id=assigned_to)
 
         return queryset
+
