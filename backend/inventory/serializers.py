@@ -18,6 +18,6 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'unique_id', 'description', 'school', 'school_name',
             'assigned_to', 'assigned_to_name', 'status', 'purchase_value',
-            'purchase_date', 'category', 'last_updated',
+            'purchase_date', 'category', 'category_name', 'last_updated',
         ]
         read_only_fields = ['last_updated', 'unique_id']

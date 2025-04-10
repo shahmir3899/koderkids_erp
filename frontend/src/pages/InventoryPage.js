@@ -8,6 +8,8 @@ function InventoryPage() {
   const [schools, setSchools] = useState([]);
   const [selectedSchool, setSelectedSchool] = useState(null);
   const [selectedItems, setSelectedItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -20,6 +22,7 @@ function InventoryPage() {
 
   useEffect(() => {
     fetchSchools();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
@@ -27,6 +30,18 @@ function InventoryPage() {
       fetchInventory(selectedSchool);
     }
   }, [selectedSchool]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/inventory/categories/`, {
+        headers: getAuthHeaders(),
+      });
+      setCategories(res.data);
+    } catch {
+      toast.error("Failed to load categories.");
+    }
+  };
+
 
   const fetchSchools = async () => {
     try {
@@ -83,6 +98,7 @@ function InventoryPage() {
         purchase_value: "",
         purchase_date: "",
         status: "Available",
+        category: "",
       });
       fetchInventory(selectedSchool);
     } catch {
@@ -92,50 +108,67 @@ function InventoryPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Inventory Management</h1>
-
-      <div className="mb-6">
-        <label>School:</label>
-        <select
-          className="w-full p-2 border"
-          value={selectedSchool || ""}
-          onChange={(e) => setSelectedSchool(e.target.value)}
-        >
-          <option value="" disabled>
-            Select School
-          </option>
-          {schools.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <form
-        className="bg-gray-100 p-4 mb-6 rounded"
-        onSubmit={handleCreateItem}
-      >
-        <h2 className="text-lg font-semibold mb-2">Add Inventory Item</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <h1 className="text-3xl font-bold mb-6">Inventory Management System</h1>
+  
+      {/* Section: Add New Inventory */}
+      <h2 className="text-xl font-semibold mb-4">Add New Inventory</h2>
+      <form className="bg-gray-100 p-4 rounded mb-6" onSubmit={handleCreateItem}>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">School</label>
+            <select
+              className="w-full p-2 border"
+              value={selectedSchool || ""}
+              onChange={(e) => setSelectedSchool(e.target.value)}
+            >
+              <option value="" disabled>
+                Select School
+              </option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+  
+          <div>
+            <label className="block text-sm font-medium mb-1">Category</label>
+            <select
+              className="w-full p-2 border"
+              value={formData.category}
+              onChange={(e) =>
+                setFormData({ ...formData, category: e.target.value })
+              }
+            >
+              <option value="">Select Category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+  
           <input
             className="p-2 border"
             type="text"
             placeholder="Item Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
-          <input
-            className="p-2 border"
-            type="text"
-            placeholder="Unique ID"
-            value={formData.unique_id}
             onChange={(e) =>
-              setFormData({ ...formData, unique_id: e.target.value })
+              setFormData({ ...formData, name: e.target.value })
             }
             required
           />
+  
+          <input
+            className="p-2 border bg-gray-200 text-gray-500"
+            type="text"
+            placeholder="Unique ID (auto)"
+            value={"Generated Automatically"}
+            disabled
+          />
+  
           <input
             className="p-2 border"
             type="text"
@@ -145,6 +178,7 @@ function InventoryPage() {
               setFormData({ ...formData, description: e.target.value })
             }
           />
+  
           <input
             className="p-2 border"
             type="number"
@@ -154,6 +188,7 @@ function InventoryPage() {
               setFormData({ ...formData, purchase_value: e.target.value })
             }
           />
+  
           <input
             className="p-2 border"
             type="date"
@@ -163,6 +198,7 @@ function InventoryPage() {
               setFormData({ ...formData, purchase_date: e.target.value })
             }
           />
+  
           <select
             className="p-2 border"
             value={formData.status}
@@ -177,14 +213,17 @@ function InventoryPage() {
             <option value="Disposed">Disposed</option>
           </select>
         </div>
+  
         <button
           type="submit"
-          className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
         >
           Add Item
         </button>
       </form>
-
+  
+      {/* Section: Inventory Table */}
+      <h2 className="text-xl font-semibold mb-3">List of Available Inventory</h2>
       <table className="min-w-full bg-white border">
         <thead>
           <tr>
@@ -225,6 +264,7 @@ function InventoryPage() {
       </table>
     </div>
   );
+  
 }
 
 export default InventoryPage;
