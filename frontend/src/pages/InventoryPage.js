@@ -9,6 +9,7 @@ function InventoryPage() {
   const [selectedSchool, setSelectedSchool] = useState(null);
   const [selectedItems, setSelectedItems] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [availableUsers, setAvailableUsers] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -23,6 +24,12 @@ function InventoryPage() {
   useEffect(() => {
     fetchSchools();
     fetchCategories();
+    const storedSchool = localStorage.getItem("selected_school");
+  if (storedSchool) {
+    setSelectedSchool(storedSchool);
+    fetchInventory(storedSchool);
+    fetchUsersForSchool(storedSchool);
+  }
   }, []);
 
   // useEffect(() => {
@@ -31,6 +38,36 @@ function InventoryPage() {
   //   }
   // }, [selectedSchool]);
 
+  const fetchUsersForSchool = async (schoolId) => {
+    try {
+      const res = await axios.get(`${API_URL}/api/inventory/assigned-users/?school=${schoolId}`, {
+        headers: getAuthHeaders(),
+      });
+  
+      const users = res.data;
+      setAvailableUsers(users);
+  
+      if (users.length === 1) {
+        // ✅ Auto-assign the only user
+        setFormData((prev) => ({ ...prev, assigned_to: users[0].id }));
+      } else if (users.length > 1) {
+        // ❌ More than 1 user: raise error
+        toast.error("Multiple users assigned to this school. Please resolve in backend.");
+        setFormData((prev) => ({ ...prev, assigned_to: "" }));
+      } else {
+        // ❌ No users found: also an error
+        toast.error("No user assigned to this school.");
+        setFormData((prev) => ({ ...prev, assigned_to: "" }));
+      }
+  
+    } catch {
+      toast.error("Failed to load assigned users.");
+    }
+  };
+  
+  
+  
+  
   const fetchCategories = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/inventory/categories/`, {
@@ -87,7 +124,8 @@ function InventoryPage() {
     try {
       await axios.post(
         `${API_URL}/api/inventory/items/`,
-        { ...formData, school: selectedSchool },
+        { ...formData, school: selectedSchool, category: formData.category || null,
+          assigned_to: formData.assigned_to || null, },
         { headers: getAuthHeaders() }
       );
       toast.success("Item added!");
@@ -114,24 +152,29 @@ function InventoryPage() {
       <h2 className="text-xl font-semibold mb-4">Add New Inventory</h2>
       <form className="bg-gray-100 p-4 rounded mb-6" onSubmit={handleCreateItem}>
         <div className="grid grid-cols-2 gap-4 mb-4">
+          {/* School Selection */}
           <div>
             <label className="block text-sm font-medium mb-1">School</label>
             <select
-              className="w-full p-2 border"
-              value={selectedSchool || ""}
-              onChange={(e) => setSelectedSchool(e.target.value)}
-            >
-              <option value="" disabled>
-                Select School
-              </option>
-              {schools.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+  className="w-full p-2 border"
+  value={selectedSchool || ""}
+  onChange={(e) => {
+    const schoolId = e.target.value;
+    setSelectedSchool(schoolId);
+    localStorage.setItem("selected_school", schoolId);
+    fetchInventory(schoolId);
+    fetchUsersForSchool(schoolId);
+  }}
+>
+  <option value="" disabled>Select School</option>
+  {schools.map((s) => (
+    <option key={s.id} value={s.id}>{s.name}</option>
+  ))}
+</select>
+
           </div>
   
+          {/* Category */}
           <div>
             <label className="block text-sm font-medium mb-1">Category</label>
             <select
@@ -150,6 +193,7 @@ function InventoryPage() {
             </select>
           </div>
   
+          {/* Item Name */}
           <input
             className="p-2 border"
             type="text"
@@ -161,6 +205,7 @@ function InventoryPage() {
             required
           />
   
+          {/* Unique ID - Auto */}
           <input
             className="p-2 border bg-gray-200 text-gray-500"
             type="text"
@@ -169,6 +214,7 @@ function InventoryPage() {
             disabled
           />
   
+          {/* Description */}
           <input
             className="p-2 border"
             type="text"
@@ -179,6 +225,7 @@ function InventoryPage() {
             }
           />
   
+          {/* Purchase Value */}
           <input
             className="p-2 border"
             type="number"
@@ -189,6 +236,7 @@ function InventoryPage() {
             }
           />
   
+          {/* Purchase Date */}
           <input
             className="p-2 border"
             type="date"
@@ -199,6 +247,7 @@ function InventoryPage() {
             }
           />
   
+          {/* Status */}
           <select
             className="p-2 border"
             value={formData.status}
@@ -212,6 +261,19 @@ function InventoryPage() {
             <option value="Lost">Lost</option>
             <option value="Disposed">Disposed</option>
           </select>
+  
+          {/* Assigned To (read-only) */}
+          {availableUsers.length === 1 && (
+            <div className="col-span-2">
+              <p className="text-sm text-gray-600">
+                Assigned To: <strong>{availableUsers[0].name}</strong>
+              </p>
+              <input
+                type="hidden"
+                value={formData.assigned_to}
+              />
+            </div>
+          )}
         </div>
   
         <button
@@ -264,6 +326,7 @@ function InventoryPage() {
       </table>
     </div>
   );
+  
   
 }
 

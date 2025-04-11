@@ -11,7 +11,7 @@ class InventoryCategorySerializer(serializers.ModelSerializer):
 class InventoryItemSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     school_name = serializers.CharField(source='school.name', read_only=True)
-    assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
+    assigned_to_name = serializers.CharField(source='assigned_to.username', read_only=True)
 
     class Meta:
         model = InventoryItem
