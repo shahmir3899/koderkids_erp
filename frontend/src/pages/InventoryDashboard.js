@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { PieChart, Pie, Tooltip, Cell } from "recharts";
-import { API_URL, getAuthHeaders } from "../utils/api";
+import { API_URL, getAuthHeaders } from "../api";
 
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7f50", "#00c49f", "#ffbb28"];
 

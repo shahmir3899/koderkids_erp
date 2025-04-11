@@ -12,6 +12,6 @@ router.register(r'items', InventoryItemViewSet, basename='inventory-item')
 urlpatterns = [
     path("categories/", inventory_categories),
     path("assigned-users/", users_assigned_to_school),
-    path("inventory/summary/", inventory_summary),
+    path("summary/", inventory_summary),
     path('', include(router.urls)),
 ]
