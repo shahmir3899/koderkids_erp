@@ -25,11 +25,11 @@ function InventoryPage() {
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    if (selectedSchool) {
-      fetchInventory(selectedSchool);
-    }
-  }, [selectedSchool]);
+  // useEffect(() => {
+  //   if (selectedSchool) {
+  //     fetchInventory(selectedSchool);
+  //   }
+  // }, [selectedSchool]);
 
   const fetchCategories = async () => {
     try {
