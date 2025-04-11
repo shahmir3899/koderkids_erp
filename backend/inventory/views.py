@@ -2,13 +2,14 @@
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth import get_user_model
 from .models import InventoryCategory, InventoryItem
 from .serializers import InventoryCategorySerializer, InventoryItemSerializer
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-
+User = get_user_model()
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def inventory_categories(request):
@@ -35,3 +36,22 @@ class InventoryItemViewSet(ModelViewSet):
         return queryset
 
 
+# views.py
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def users_assigned_to_school(request):
+    school_id = request.query_params.get("school")
+
+    if not school_id:
+        return Response([], status=400)
+
+    try:
+        school_id = int(school_id)  # 🔧 convert to int to avoid type mismatch
+    except ValueError:
+        return Response({"error": "Invalid school ID"}, status=400)
+
+    users = User.objects.filter(assigned_schools__id=school_id).distinct()
+    return Response([
+        {"id": u.id, "name": u.get_full_name() or u.username}
+        for u in users
+    ])
