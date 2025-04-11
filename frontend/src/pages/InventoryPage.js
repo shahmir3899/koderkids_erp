@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+
 import axios from "axios";
 import { API_URL, getAuthHeaders } from "../api";
 import { toast } from "react-toastify";
@@ -10,16 +11,25 @@ function InventoryPage() {
   const [selectedItems, setSelectedItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState("name"); // or "purchase_value"
+  const [sortOrder, setSortOrder] = useState("asc"); // or "desc"
+
 
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const initialFormState = {
     name: "",
     unique_id: "",
     description: "",
     purchase_value: "",
     purchase_date: "",
     status: "Available",
-  });
+    category: "",
+    assigned_to: "",
+  };
+  const [formData, setFormData] = useState(initialFormState);
 
   useEffect(() => {
     fetchSchools();
@@ -65,6 +75,64 @@ function InventoryPage() {
     }
   };
   
+  const filteredItems = useMemo(() => {
+    let result = [...items];
+  
+    // 🔍 Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(item =>
+        item.name.toLowerCase().includes(query) ||
+        item.unique_id.toLowerCase().includes(query)
+      );
+    }
+  
+    // 🧃 Filter by status
+    if (statusFilter) {
+      result = result.filter(item => item.status === statusFilter);
+    }
+  
+    // 🔃 Sort by column
+    result.sort((a, b) => {
+      const valA = a[sortBy];
+      const valB = b[sortBy];
+  
+      if (typeof valA === "string") {
+        return sortOrder === "asc"
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA);
+      } else {
+        return sortOrder === "asc" ? valA - valB : valB - valA;
+      }
+    });
+  
+    return result;
+  }, [items, searchQuery, statusFilter, sortBy, sortOrder]);
+  
+
+
+
+  const handleEdit = (item) => {
+    setFormData({
+      ...item,
+      category: item.category || "",
+      assigned_to: item.assigned_to || "",
+    });
+    setEditingItem(item.id);
+  };
+  
+  const handleDelete = async (itemId) => {
+    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    try {
+      await axios.delete(`${API_URL}/api/inventory/items/${itemId}/`, {
+        headers: getAuthHeaders(),
+      });
+      toast.success("Item deleted!");
+      fetchInventory(selectedSchool);
+    } catch {
+      toast.error("Failed to delete item.");
+    }
+  };
   
   
   
@@ -116,33 +184,45 @@ function InventoryPage() {
 
   const handleCreateItem = async (e) => {
     e.preventDefault();
-    if (!selectedSchool) {
-      toast.warning("Select a school first.");
+  
+    if (!selectedSchool || !formData.assigned_to) {
+      toast.warning("School and assigned user are required.");
       return;
     }
-
+  
     try {
-      await axios.post(
-        `${API_URL}/api/inventory/items/`,
-        { ...formData, school: selectedSchool, category: formData.category || null,
-          assigned_to: formData.assigned_to || null, },
-        { headers: getAuthHeaders() }
-      );
-      toast.success("Item added!");
-      setFormData({
-        name: "",
-        unique_id: "",
-        description: "",
-        purchase_value: "",
-        purchase_date: "",
-        status: "Available",
-        category: "",
-      });
+      if (editingItem) {
+        // Update
+        await axios.put(
+          `${API_URL}/api/inventory/items/${editingItem}/`,
+          {
+            ...formData,
+            school: selectedSchool,
+          },
+          { headers: getAuthHeaders() }
+        );
+        toast.success("Item updated!");
+      } else {
+        // Add
+        await axios.post(
+          `${API_URL}/api/inventory/items/`,
+          {
+            ...formData,
+            school: selectedSchool,
+          },
+          { headers: getAuthHeaders() }
+        );
+        toast.success("Item added!");
+      }
+  
+      setEditingItem(null);
+      setFormData({ ...initialFormState }); // reset
       fetchInventory(selectedSchool);
     } catch {
-      toast.error("Failed to add item.");
+      toast.error("Failed to save item.");
     }
   };
+  
 
   return (
     <div className="p-6">
@@ -277,15 +357,59 @@ function InventoryPage() {
         </div>
   
         <button
-          type="submit"
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-        >
-          Add Item
-        </button>
+  type="submit"
+  className={`px-4 py-2 ${editingItem ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded`}
+>
+  {editingItem ? 'Update Item' : 'Add Item'}
+</button>
+
       </form>
   
       {/* Section: Inventory Table */}
       <h2 className="text-xl font-semibold mb-3">List of Available Inventory</h2>
+      <div className="flex flex-wrap items-center gap-3 mb-4 bg-white p-4 rounded shadow-sm">
+  <input
+    type="text"
+    className="p-2 border rounded w-full sm:w-60"
+    placeholder="🔍 Search item name or ID"
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+  />
+
+  <select
+    className="p-2 border rounded"
+    value={statusFilter}
+    onChange={(e) => setStatusFilter(e.target.value)}
+  >
+    <option value="">All Statuses</option>
+    <option value="Available">Available</option>
+    <option value="Assigned">Assigned</option>
+    <option value="Damaged">Damaged</option>
+    <option value="Lost">Lost</option>
+    <option value="Disposed">Disposed</option>
+  </select>
+
+  <select
+    className="p-2 border rounded"
+    value={sortBy}
+    onChange={(e) => setSortBy(e.target.value)}
+  >
+    <option value="name">Name</option>
+    <option value="purchase_value">Value</option>
+  </select>
+
+  <button
+    className="p-2 px-4 bg-gray-100 border rounded hover:bg-gray-200"
+    onClick={() =>
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+    }
+    title="Toggle sort order"
+  >
+    {sortOrder === "asc" ? "⬆️ Asc" : "⬇️ Desc"}
+  </button>
+</div>
+
+
       <table className="min-w-full bg-white border">
         <thead>
           <tr>
@@ -305,7 +429,7 @@ function InventoryPage() {
               </td>
             </tr>
           ) : (
-            items.map((item) => (
+            filteredItems.map((item) => (
               <tr key={item.id}>
                 <td className="p-2 border">
                   <input
@@ -319,6 +443,21 @@ function InventoryPage() {
                 <td className="p-2 border">{item.status}</td>
                 <td className="p-2 border">{item.assigned_to_name || "—"}</td>
                 <td className="p-2 border">{item.purchase_value}</td>
+                <td className="p-2 border">{item.purchase_value}</td>
+<td className="p-2 border flex gap-2">
+  <button
+    onClick={() => handleEdit(item)}
+    className="text-blue-600 hover:underline"
+  >
+    Edit
+  </button>
+  <button
+    onClick={() => handleDelete(item.id)}
+    className="text-red-600 hover:underline"
+  >
+    Delete
+  </button>
+</td>
               </tr>
             ))
           )}

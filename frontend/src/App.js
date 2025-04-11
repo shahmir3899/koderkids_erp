@@ -9,6 +9,7 @@ import SettingsPage from "./pages/SettingsPage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import InventoryDashboard from './pages/InventoryDashboard';
 import Sidebar from "./components/Sidebar";
 import ProgressPage from "./pages/ProgressPage";
 import LessonsPage from "./pages/LessonsPage";
@@ -76,6 +77,7 @@ function App() {
                                 <Route path="/student-report/:studentId" element={<StudentReport />} />
                                  {/* Define route for Robot Chat */}
                                 <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} />} />
+                                <Route path="/inventory-dashboard" element={<InventoryDashboard />} />
                                 <Route path="/inventory" element={<InventoryPage />} />
                             </>
                         )}

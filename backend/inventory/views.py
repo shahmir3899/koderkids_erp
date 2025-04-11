@@ -8,6 +8,7 @@ from .serializers import InventoryCategorySerializer, InventoryItemSerializer
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Count
 
 User = get_user_model()
 @api_view(["GET"])
@@ -55,3 +56,19 @@ def users_assigned_to_school(request):
         {"id": u.id, "name": u.get_full_name() or u.username}
         for u in users
     ])
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def inventory_summary(request):
+    school_id = request.query_params.get("school")
+    items = InventoryItem.objects.all()
+
+    if school_id:
+        items = items.filter(school_id=school_id)
+
+    summary = {
+        "total": items.count(),
+        "by_status": items.values("status").annotate(count=Count("id")),
+        "by_category": items.values("category__name").annotate(count=Count("id")),
+    }
+
+    return Response(summary)
