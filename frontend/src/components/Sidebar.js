@@ -170,6 +170,14 @@ function Sidebar() {
                     {sidebarOpen && <span>Reports</span>}
                   </Link>
                 </li>
+                <li>
+  <Link to="/inventory">📦 Inventory Management</Link>
+</li>
+<li>
+  <Link to="/inventory-dashboard">📊 Inventory Dashboard</Link>
+</li>
+
+
               </ul>
             )}
           </>

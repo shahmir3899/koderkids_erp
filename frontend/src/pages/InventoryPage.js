@@ -1,8 +1,12 @@
 import React, { useEffect, useState, useMemo } from "react";
-
 import axios from "axios";
 import { API_URL, getAuthHeaders } from "../api";
 import { toast } from "react-toastify";
+import html2pdf from "html2pdf.js";
+import QRCode from "react-qr-code";
+
+
+
 
 function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -16,6 +20,8 @@ function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [sortBy, setSortBy] = useState("name"); // or "purchase_value"
   const [sortOrder, setSortOrder] = useState("asc"); // or "desc"
+  const [showQR, setShowQR] = useState(false);
+
 
 
   const [loading, setLoading] = useState(false);
@@ -48,6 +54,40 @@ function InventoryPage() {
   //   }
   // }, [selectedSchool]);
 
+  const handleExportPDF = () => {
+    const table = document.getElementById("inventoryTableExport");
+  
+    if (!table) {
+      toast.error("Inventory table not found.");
+      return;
+    }
+  
+    toast.info("Generating PDF...");
+  
+    const options = {
+      margin: 10,
+      filename: `Inventory_Report_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        onclone: (doc) => {
+          const cloned = doc.getElementById("inventoryTableExport");
+          cloned.style.display = "table";
+        },
+      },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    };
+  
+    html2pdf().set(options).from(table).save().then(() => {
+      toast.success("PDF downloaded!");
+    }).catch(() => {
+      toast.error("Failed to generate PDF.");
+    });
+  };
+  
+  
+  
+  
   const fetchUsersForSchool = async (schoolId) => {
     try {
       const res = await axios.get(`${API_URL}/api/inventory/assigned-users/?school=${schoolId}`, {
@@ -222,6 +262,35 @@ function InventoryPage() {
       toast.error("Failed to save item.");
     }
   };
+
+  const handleDownloadQRAsPDF = () => {
+    const qrSection = document.getElementById("qr-pdf-content");
+  
+    // Temporarily show for rendering
+    qrSection.style.position = "static";
+    qrSection.style.left = "0";
+  
+    const options = {
+      margin: 10,
+      filename: `QR_Codes_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    };
+  
+    html2pdf()
+      .set(options)
+      .from(qrSection)
+      .save()
+      .then(() => {
+        // Hide again after export
+        qrSection.style.position = "absolute";
+        qrSection.style.left = "-9999px";
+      });
+  };
+  
+  
+
   
 
   return (
@@ -236,22 +305,21 @@ function InventoryPage() {
           <div>
             <label className="block text-sm font-medium mb-1">School</label>
             <select
-  className="w-full p-2 border"
-  value={selectedSchool || ""}
-  onChange={(e) => {
-    const schoolId = e.target.value;
-    setSelectedSchool(schoolId);
-    localStorage.setItem("selected_school", schoolId);
-    fetchInventory(schoolId);
-    fetchUsersForSchool(schoolId);
-  }}
->
-  <option value="" disabled>Select School</option>
-  {schools.map((s) => (
-    <option key={s.id} value={s.id}>{s.name}</option>
-  ))}
-</select>
-
+              className="w-full p-2 border"
+              value={selectedSchool || ""}
+              onChange={(e) => {
+                const schoolId = e.target.value;
+                setSelectedSchool(schoolId);
+                localStorage.setItem("selected_school", schoolId);
+                fetchInventory(schoolId);
+                fetchUsersForSchool(schoolId);
+              }}
+            >
+              <option value="" disabled>Select School</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
           </div>
   
           {/* Category */}
@@ -357,59 +425,89 @@ function InventoryPage() {
         </div>
   
         <button
-  type="submit"
-  className={`px-4 py-2 ${editingItem ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded`}
->
-  {editingItem ? 'Update Item' : 'Add Item'}
-</button>
-
+          type="submit"
+          className={`px-4 py-2 ${editingItem ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded`}
+        >
+          {editingItem ? 'Update Item' : 'Add Item'}
+        </button>
       </form>
   
       {/* Section: Inventory Table */}
       <h2 className="text-xl font-semibold mb-3">List of Available Inventory</h2>
+  
+      {/* Filter Controls */}
       <div className="flex flex-wrap items-center gap-3 mb-4 bg-white p-4 rounded shadow-sm">
-  <input
-    type="text"
-    className="p-2 border rounded w-full sm:w-60"
-    placeholder="🔍 Search item name or ID"
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-  />
-
-  <select
-    className="p-2 border rounded"
-    value={statusFilter}
-    onChange={(e) => setStatusFilter(e.target.value)}
-  >
-    <option value="">All Statuses</option>
-    <option value="Available">Available</option>
-    <option value="Assigned">Assigned</option>
-    <option value="Damaged">Damaged</option>
-    <option value="Lost">Lost</option>
-    <option value="Disposed">Disposed</option>
-  </select>
-
-  <select
-    className="p-2 border rounded"
-    value={sortBy}
-    onChange={(e) => setSortBy(e.target.value)}
-  >
-    <option value="name">Name</option>
-    <option value="purchase_value">Value</option>
-  </select>
-
-  <button
-    className="p-2 px-4 bg-gray-100 border rounded hover:bg-gray-200"
-    onClick={() =>
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-    }
-    title="Toggle sort order"
-  >
-    {sortOrder === "asc" ? "⬆️ Asc" : "⬇️ Desc"}
-  </button>
-</div>
-
-
+        <input
+          type="text"
+          className="p-2 border rounded w-full sm:w-60"
+          placeholder="🔍 Search item name or ID"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+  
+        <select
+          className="p-2 border rounded"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="">All Statuses</option>
+          <option value="Available">Available</option>
+          <option value="Assigned">Assigned</option>
+          <option value="Damaged">Damaged</option>
+          <option value="Lost">Lost</option>
+          <option value="Disposed">Disposed</option>
+        </select>
+  
+        <select
+          className="p-2 border rounded"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+        >
+          <option value="name">Name</option>
+          <option value="purchase_value">Value</option>
+        </select>
+  
+        <button
+          className="p-2 px-4 bg-gray-100 border rounded hover:bg-gray-200"
+          onClick={() =>
+            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+          }
+          title="Toggle sort order"
+        >
+          {sortOrder === "asc" ? "⬆️ Asc" : "⬇️ Desc"}
+        </button>
+      </div>
+  
+      {/* Hidden Table for PDF Export */}
+      <div className="absolute -left-[9999px] top-0">
+        <table id="inventoryTableExport" className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="p-2 border">Name</th>
+              <th className="p-2 border">Unique ID</th>
+              <th className="p-2 border">Status</th>
+              <th className="p-2 border">Assigned To</th>
+              <th className="p-2 border">Value</th>
+              <th className="p-2 border">Purchase Date</th>
+              <th className="p-2 border">Category</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredItems.map((item) => (
+              <tr key={item.id}>
+                <td className="p-2 border">{item.name}</td>
+                <td className="p-2 border">{item.unique_id}</td>
+                <td className="p-2 border">{item.status}</td>
+                <td className="p-2 border">{item.assigned_to_name || "—"}</td>
+                <td className="p-2 border">{item.purchase_value}</td>
+                <td className="p-2 border">{item.purchase_date}</td>
+                <td className="p-2 border">{item.category_name || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+  
       <table className="min-w-full bg-white border">
         <thead>
           <tr>
@@ -419,12 +517,28 @@ function InventoryPage() {
             <th className="text-left p-2 border">Status</th>
             <th className="text-left p-2 border">Assigned To</th>
             <th className="text-left p-2 border">Value</th>
+            <th className="text-left p-2 border">Actions</th>
           </tr>
         </thead>
         <tbody>
+        {showQR && (
+  <div className="my-6">
+    <h2 className="text-lg font-bold mb-4">QR Codes for Filtered Items</h2>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 print:grid-cols-3">
+      {filteredItems.map((item) => (
+        <div key={item.id} className="border p-4 rounded shadow bg-white text-center">
+          <QRCode value={item.unique_id} size={128} />
+          <p className="mt-2 font-semibold text-sm">{item.name}</p>
+          <p className="text-xs text-gray-500">{item.unique_id}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
           {loading ? (
             <tr>
-              <td colSpan="6" className="text-center p-4">
+              <td colSpan="7" className="text-center p-4">
                 Loading...
               </td>
             </tr>
@@ -443,28 +557,64 @@ function InventoryPage() {
                 <td className="p-2 border">{item.status}</td>
                 <td className="p-2 border">{item.assigned_to_name || "—"}</td>
                 <td className="p-2 border">{item.purchase_value}</td>
-                <td className="p-2 border">{item.purchase_value}</td>
-<td className="p-2 border flex gap-2">
-  <button
-    onClick={() => handleEdit(item)}
-    className="text-blue-600 hover:underline"
-  >
-    Edit
-  </button>
-  <button
-    onClick={() => handleDelete(item.id)}
-    className="text-red-600 hover:underline"
-  >
-    Delete
-  </button>
-</td>
+                <td className="p-2 border flex gap-2">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))
           )}
         </tbody>
       </table>
+      <div id="qr-pdf-content" className="absolute top-0 left-[-9999px] bg-white p-4 print:block">
+  <h2 className="text-xl font-bold mb-4">QR Codes for Filtered Inventory</h2>
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+    {filteredItems.map((item) => (
+      <div
+        key={item.id}
+        className="border p-4 rounded shadow bg-white text-center w-[170px]"
+      >
+        <QRCode value={item.unique_id} size={128} />
+        <p className="mt-2 font-semibold text-sm">{item.name}</p>
+        <p className="text-xs text-gray-500">{item.unique_id}</p>
+      </div>
+    ))}
+  </div>
+</div>
+
+      {/* Export Button placed after table */}
+      <button
+        onClick={handleExportPDF}
+        className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+      >
+        📄 Export PDF
+      </button>
+      <button
+  onClick={() => setShowQR(true)}
+  className="mt-4 ml-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+>
+  🎯 Generate QR Codes
+</button>
+
+<button
+  onClick={handleDownloadQRAsPDF}
+  className="mt-4 ml-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+>
+  📥 Download QR PDF
+</button>
     </div>
   );
+  
   
   
 }

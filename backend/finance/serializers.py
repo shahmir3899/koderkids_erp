@@ -36,6 +36,12 @@ class TransactionSerializer(serializers.ModelSerializer):
         # Validation for Expense transactions
         if transaction_type == "Expense" and not from_account:
             raise serializers.ValidationError({"from_account": "From Account is required for Expense transactions."})
+        # ✅ Validate required fields for transfers
+        if transaction_type == "Transfer":
+            if not from_account:
+                raise serializers.ValidationError({"from_account": "Transfer must have a source account (from_account)."})
+            if not to_account:
+                raise serializers.ValidationError({"to_account": "Transfer must have a destination account (to_account)."})
 
         # Validation for Loan Received (existing logic moved here)
         if category == "Loan Received":
@@ -50,24 +56,19 @@ class TransactionSerializer(serializers.ModelSerializer):
 
         return data
 
+    
     def create(self, validated_data):
         """
         Ensure transactions correctly link accounts and update balances.
         """
-        # Extract necessary fields
-        transaction_type = validated_data.get("transaction_type")
-        category = validated_data.get("category")
-        from_account = validated_data.get("from_account", None)
-        to_account = validated_data.get("to_account", None)
+     
+       
 
         # Save transaction with validated data
         transaction = super().create(validated_data)
-
-        # Update balances after transaction creation
-        if transaction.from_account:
-            transaction.from_account.update_balance()
-        if transaction.to_account:
-            transaction.to_account.update_balance()
+        transaction.save()
+      
+      
 
         return transaction
 
