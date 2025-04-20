@@ -155,7 +155,7 @@ function TransactionsPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (isSubmitting) return; // ✅ Prevent multiple submissions
+        if (isSubmitting) return;
         setIsSubmitting(true);
     
         if (!formData.amount || !formData.category) {
@@ -164,7 +164,12 @@ function TransactionsPage() {
             return;
         }
     
-        let transactionType = activeTab === "expense" ? "Expense" : activeTab === "income" ? "Income" : "Transfer";
+        // Normalize transaction type
+        const transactionType =
+            activeTab === "expense" ? "Expense" :
+            activeTab === "income" ? "Income" :
+            activeTab === "transfers" ? "Transfer" : "";
+    
         let payload = {
             date: formData.date,
             transaction_type: transactionType,
@@ -183,6 +188,7 @@ function TransactionsPage() {
                 return;
             }
         }
+    
         if (activeTab === "income") {
             if (formData.category === "Loan Received") {
                 payload.received_from = formData.received_from;
@@ -201,21 +207,34 @@ function TransactionsPage() {
                 }
             }
         }
-        
+    
+        if (activeTab === "transfers") {
+            payload.from_account = formData.from_account;
+            payload.to_account = formData.to_account;
+            if (!payload.from_account || !payload.to_account) {
+                toast.error("Please select both From and To accounts for transfer.");
+                setIsSubmitting(false);
+                return;
+            }
+        }
     
         try {
             if (isEditing && selectedTransaction) {
-                // ✅ Send an update request instead of creating a new one
-                await axios.put(`${API_URL}/api/${activeTab}/${selectedTransaction.id}/`, payload, { headers: getAuthHeaders() });
+                await axios.put(`${API_URL}/api/${activeTab}/${selectedTransaction.id}/`, payload, {
+                    headers: getAuthHeaders(),
+                });
                 toast.success("Transaction updated successfully!");
             } else {
-                await axios.post(`${API_URL}/api/${activeTab}/`, payload, { headers: getAuthHeaders() });
+                await axios.post(`${API_URL}/api/${activeTab}/`, payload, {
+                    headers: getAuthHeaders(),
+                });
                 toast.success("Transaction saved successfully!");
             }
     
             fetchTransactions();
             fetchAccounts();
-            setIsEditing(false); // ✅ Exit edit mode
+    
+            setIsEditing(false);
             setFormData({
                 date: new Date().toISOString().split("T")[0],
                 transaction_type: "income",
@@ -236,14 +255,21 @@ function TransactionsPage() {
         }
     };
     
+    
 
     const handleEdit = (trx) => {
+        // Fix: map backend "Transfer" to frontend "transfers"
+        const normalizedType = trx.transaction_type.toLowerCase();
+        const tab = normalizedType === "transfer" ? "transfers" : normalizedType;
+        setActiveTab(tab);
+    
         setIsEditing(true);
         setSelectedTransaction(trx);
         console.log("Editing Transaction Date:", trx.date);
+    
         setFormData({
-            date: trx.date ? trx.date.split("T")[0] : "", // ✅ Fix here
-            transaction_type: activeTab,
+            date: trx.date ? trx.date.split("T")[0] : "",
+            transaction_type: normalizedType,
             amount: trx.amount,
             category: trx.category,
             notes: trx.notes,
@@ -254,6 +280,7 @@ function TransactionsPage() {
             school: trx.school || null,
         });
     };
+    
 
     const handleSort = (column) => {
         if (sortBy === column) {

@@ -6,6 +6,7 @@ from .models import Transaction, Loan, Account, CategoryEntry
 class TransactionSerializer(serializers.ModelSerializer):
     from_account_name = serializers.CharField(source='from_account.account_name', read_only=True)
     to_account_name = serializers.CharField(source='to_account.account_name', read_only=True)
+    school_id = serializers.IntegerField(source='school.id', read_only=True)
 
     class Meta:
         model = Transaction
@@ -20,6 +21,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             "to_account",
             "to_account_name",    # Include account names
             "school",
+            "school_id",
             "notes"
         ]
 

@@ -11,6 +11,8 @@ import {
   faWallet,
   faExchangeAlt,
   faLock,
+  faBoxesPacking,
+  faChartBar,
 } from "@fortawesome/free-solid-svg-icons";
 import LogoutButton from "./LogoutButton"; // Assuming this is a custom component
 
@@ -19,6 +21,8 @@ function Sidebar() {
   const [financeOpen, setFinanceOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [studentsOpen, setStudentsOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+
   const username = localStorage.getItem("username") || "Unknown User";
   const role = localStorage.getItem("role") || "Not Assigned";
   const location = useLocation();
@@ -28,6 +32,7 @@ function Sidebar() {
       setFinanceOpen(false);
       setProgressOpen(false);
       setStudentsOpen(false);
+      setInventoryOpen(false);
     }
   }, [sidebarOpen]);
 
@@ -170,16 +175,47 @@ function Sidebar() {
                     {sidebarOpen && <span>Reports</span>}
                   </Link>
                 </li>
-                <li>
-  <Link to="/inventory">📦 Inventory Management</Link>
-</li>
-<li>
-  <Link to="/inventory-dashboard">📊 Inventory Dashboard</Link>
-</li>
+                
 
 
               </ul>
             )}
+            {/* Inventory Section */}
+<li
+  className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
+  onClick={() => sidebarOpen && setInventoryOpen(!inventoryOpen)}
+  aria-expanded={inventoryOpen}
+>
+  <FontAwesomeIcon icon={faBoxesPacking} className="mr-2" />
+  {sidebarOpen && <span className="flex-1">Inventory</span>}
+  {sidebarOpen && <span>{inventoryOpen ? "⇨" : "⇩"}</span>}
+</li>
+{inventoryOpen && (
+  <ul className="pl-4">
+    <li
+      className={`mb-2 p-2 hover:bg-gray-700 rounded ${
+        location.pathname === "/inventory" ? "bg-gray-700" : ""
+      }`}
+    >
+     <Link to="/inventory-dashboard" className="flex items-center">
+        <FontAwesomeIcon icon={faChartBar} className="mr-2" />
+        {sidebarOpen && <span>Inventory Dashboard</span>}
+      </Link>
+    </li>
+    <li
+      className={`mb-2 p-2 hover:bg-gray-700 rounded ${
+        location.pathname === "/inventory-dashboard" ? "bg-gray-700" : ""
+      }`}
+    >
+      
+      <Link to="/inventory" className="flex items-center">
+        <FontAwesomeIcon icon={faBoxesPacking} className="mr-2" />
+        {sidebarOpen && <span>Inventory Mgmt</span>}
+      </Link>
+    </li>
+  </ul>
+)}
+
           </>
         )}
 
