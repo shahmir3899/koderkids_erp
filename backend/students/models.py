@@ -2,6 +2,8 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from students.models import School  # at the top
+
 
 
 class School(models.Model):
@@ -81,7 +83,7 @@ class Student(models.Model):
 class Fee(models.Model):
     student_id = models.BigIntegerField()  # Keep student ID
     student_name = models.CharField(max_length=100, default="Unknown")  # New Field
-    school = models.CharField(max_length=200, default="Unknown")  # New Field
+    school = models.ForeignKey(School, on_delete=models.SET_NULL, null=True)
     student_class = models.CharField(max_length=50, default="Unknown")  # New Field
     monthly_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # New Field
 
