@@ -586,7 +586,7 @@ def get_fees(request):
         "id": fee.id,
         "student_name": fee.student_name,
         "school": fee.school,
-        "school_id": fee.school_id,
+        "school": fee.school.name if fee.school else "",  # ✅ FIXED HERE
         "student_class": fee.student_class,
         "monthly_fee": fee.monthly_fee,
         "month": fee.month,
