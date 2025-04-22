@@ -657,7 +657,7 @@ def create_new_month_fees(request):
         fee = Fee(
             student_id=student.id,
             student_name=student.name,
-            school_id=student.school_id,  # ✅ FIX: use school_id to avoid lazy-loading issues
+            school=School.objects.get(id=student.school_id),  # ✅ FIX: use school_id to avoid lazy-loading issues
             student_class=student.student_class,
             monthly_fee=student.monthly_fee,
             month=next_month_str,
