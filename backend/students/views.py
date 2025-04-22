@@ -629,16 +629,15 @@ def create_new_month_fees(request):
 
     # Step 1: Get all Active Students
     active_students = Student.objects.filter(status="Active")
-    
-    print(f"Found {active_students.count()} active students")  # Debugging line
-    
+    print(f"Found {active_students.count()} active students")
+
     if not active_students.exists():
         return Response({"message": "No active students found. Cannot create fee records."}, status=400)
 
     # Step 2: Determine the next month
     latest_fee = Fee.objects.order_by('-id').first()
     if latest_fee:
-        prev_month_str = latest_fee.month  
+        prev_month_str = latest_fee.month  # e.g., "Mar-2025"
         prev_month_date = datetime.strptime(prev_month_str, "%b-%Y")
         next_month = prev_month_date.month + 1
         next_year = prev_month_date.year
@@ -654,29 +653,28 @@ def create_new_month_fees(request):
     for student in active_students:
         last_fee_entry = Fee.objects.filter(student_id=student.id).order_by('-id').first()
         previous_balance = last_fee_entry.balance_due if last_fee_entry else 0
-        
+
         fee = Fee(
             student_id=student.id,
             student_name=student.name,
-            school=student.school,
+            school_id=student.school_id,  # ✅ FIX: use school_id to avoid lazy-loading issues
             student_class=student.student_class,
             monthly_fee=student.monthly_fee,
             month=next_month_str,
             total_fee=previous_balance + student.monthly_fee,
             paid_amount=0.00,
             balance_due=previous_balance + student.monthly_fee,
-            payment_date=f"{datetime.strptime(next_month_str, '%b-%Y').year}-{datetime.strptime(next_month_str, '%b-%Y').month:02d}-15",  # Fix here
+            payment_date=f"{next_year}-{next_month:02d}-15",  # e.g., 2025-04-15
             status="Pending"
         )
-        print(f"Creating Fee for {student.name} - {next_month_str}")  # Debugging line
+        print(f"Creating Fee for {student.name} - {next_month_str}")
         new_fees.append(fee)
-    
+
     # Step 4: Bulk Insert
     Fee.objects.bulk_create(new_fees)
-    
-    print(f"Inserted {len(new_fees)} fee records into the database")  # Debugging line
-    
-    return Response({"message": f"Fee records created for {next_month_str}!"})
+    print(f"Inserted {len(new_fees)} fee records into the database")
+
+    return Response({"message": f"✅ Fee records created for {next_month_str}!"}, status=201)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

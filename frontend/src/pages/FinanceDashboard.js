@@ -6,6 +6,15 @@ import { ClipLoader } from "react-spinners"; // Import ClipLoader
 import "webdatarocks/webdatarocks.min.css";
 import "webdatarocks/webdatarocks.toolbar.min.js";
 import Select from "react-select";
+import { DateRange } from "react-date-range";
+import { enUS } from 'date-fns/locale';
+
+import 'react-date-range/dist/styles.css';
+import 'react-date-range/dist/theme/default.css';
+import Slider from "rc-slider";
+import "rc-slider/assets/index.css";
+import { format, parseISO, addMonths } from "date-fns";
+
 
 
 
@@ -21,9 +30,20 @@ function FinanceDashboard() {
     const [selectedSchool, setSelectedSchool] = useState(null);
     const [selectedSchools, setSelectedSchools] = useState([]);
     const [allDates, setAllDates] = useState(true);  // toggles between full range and custom
-    const [startDate, setStartDate] = useState("");  // YYYY-MM format
-    const [endDate, setEndDate] = useState("");
-    const [selectedCategories, setSelectedCategories] = useState([]);
+    const [dateRange, setDateRange] = useState([
+      {
+        startDate: new Date(new Date().getFullYear(), 0, 1), // Jan 1 this year
+        endDate: new Date(),
+        key: 'selection'
+      }
+    ]);
+    const [dateMin] = useState(new Date(2024, 0, 1)); // Jan 2020
+    const [dateMax] = useState(new Date(2025, 11, 31)); // Dec 2025
+    const [sliderRange, setSliderRange] = useState([
+      dateMin.getTime(),
+      dateMax.getTime()
+    ]);
+        const [selectedCategories, setSelectedCategories] = useState([]);
     const [searchTriggered, setSearchTriggered] = useState(false);
     const [searchParams, setSearchParams] = useState(null);
 
@@ -119,11 +139,8 @@ function FinanceDashboard() {
 
       
         useEffect(() => {
-          if (
-              !searchParams ||
-              !searchParams.selectedSchools.length ||
-              transactions.length === 0
-          ) return;
+          if (!searchParams || transactions.length === 0) return;
+
       
         const {
             selectedSchools: filterSchools,
@@ -144,29 +161,41 @@ function FinanceDashboard() {
             }
           });
       
-        const filteredData = transactions
-        .filter(tx => filterSchools.includes(String(tx.school_id)))
-
-          .filter(tx => tx.transaction_type === transactionType)
-          .filter(tx =>
-            allDates || (
-              startDate && endDate &&
-              new Date(tx.date) >= new Date(`${startDate}-01`) &&
-              new Date(tx.date) <= new Date(`${endDate}-31`)
-            )
-          )
-          .filter(tx =>
-            selectedCategories.length === 0 || selectedCategories.includes(tx.category)
-          )
-          .map(tx => ({
+          const filteredData = transactions
+          .filter((tx) => {
+            // ✅ Filter by school only if any selected
+            const passesSchool = filterSchools.length === 0 || filterSchools.includes(String(tx.school_id));
+            return passesSchool;
+          })
+          .filter((tx) => {
+            // ✅ Filter by transaction type
+            return tx.transaction_type === transactionType;
+          })
+          .filter((tx) => {
+            // ✅ Filter by date only if allDates is false
+            if (allDates) return true;
+            const txDate = new Date(tx.date);
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            return txDate >= start && txDate <= end;
+          })
+          .filter((tx) => {
+            // ✅ Filter by categories if any selected
+            return selectedCategories.length === 0 || selectedCategories.includes(tx.category);
+          })
+          .map((tx) => ({
+            id: tx.id,
             date: tx.date,
             transaction_type: tx.transaction_type,
             amount: tx.amount,
             category: tx.category,
-            school_id: tx.school_id,
-            from_account_id: tx.from_account_id,
-            to_account_id: tx.to_account_id,
+            school: tx.school_name || "Unknown",
+            from_account: tx.from_account_name || "—",
+            to_account: tx.to_account_name || "—",
+            notes: tx.notes || ""
           }));
+        
+
       
         if (filteredData.length === 0) {
           console.warn("Pivot skipped: No data after filtering.");
@@ -192,17 +221,31 @@ function FinanceDashboard() {
                   { uniqueName: "transaction_type" },
                   { uniqueName: "date", levelName: "Month" }
                 ],
-                measures: [{ uniqueName: "amount", aggregation: "sum" }]
+                measures: [{ uniqueName: "amount", aggregation: "sum", format: "PKRFormat" }]
               },
+              formats: [ // ✅ insert here
+                {
+                  name: "PKRFormat",
+                  thousandsSeparator: ",",
+                  decimalSeparator: ".",
+                  decimalPlaces: 0,
+                  currencySymbol: "PKR ",
+                  currencySymbolAlign: "left",
+                  nullValue: "-",
+                  textAlign: "right"
+                }
+              ],
               mapping: {
-                school_id: { caption: "School" },
-                from_account_id: { caption: "From Account" },
-                to_account_id: { caption: "To Account" },
+                school: { caption: "School" },
+                from_account: { caption: "From Account" },
+                to_account: { caption: "To Account" },
                 transaction_type: { caption: "Transaction Type" },
                 date: { caption: "Date" },
                 amount: { caption: "Amount" },
-                category: { caption: "Category" }
+                category: { caption: "Category" },
+                notes: { caption: "Notes" }
               },
+              
               options: {
                 grid: {
                   showFilter: true,
@@ -234,17 +277,33 @@ function FinanceDashboard() {
                       { uniqueName: "transaction_type" },
                       { uniqueName: "date", levelName: "Month" }
                     ],
-                    measures: [{ uniqueName: "amount", aggregation: "sum" }]
+                    formats: [
+                  {
+                    name: "PKRFormat",
+                    thousandsSeparator: ",",
+                    decimalSeparator: ".",
+                    decimalPlaces: 0,
+                    currencySymbol: "PKR ",
+                    currencySymbolAlign: "left",
+                    nullValue: "-",
+                    textAlign: "right"
+                  }
+                ],
+
+                    measures: [{ uniqueName: "amount", aggregation: "sum", format: "PKRFormat" }]
                   },
                   mapping: {
-                    school_id: { caption: "School" },
-                    from_account_id: { caption: "From Account" },
-                    to_account_id: { caption: "To Account" },
+                    school: { caption: "School" },
+                    from_account: { caption: "From Account" },
+                    to_account: { caption: "To Account" },
                     transaction_type: { caption: "Transaction Type" },
                     date: { caption: "Date" },
                     amount: { caption: "Amount" },
-                    category: { caption: "Category" }
-                  },
+                    category: { caption: "Category" },
+                    notes: { caption: "Notes" }
+                  }
+                  ,
+                  
                   options: {
                     grid: {
                       showFilter: true,
@@ -284,7 +343,7 @@ function FinanceDashboard() {
               console.log("Total transactions:", transactions.length);
             console.log("Selected schools:", selectedSchools);
             console.log("Transaction type:", transactionType);
-            console.log("Start:", startDate, "End:", endDate, "AllDates?", allDates);
+            //console.log("Start:", startDate, "End:", endDate, "AllDates?", allDates);
             console.log("Selected categories:", selectedCategories);
 
           
@@ -405,15 +464,10 @@ function FinanceDashboard() {
                     <h2 className="text-xl font-semibold text-gray-700 mb-4 text-center">Interactive Transaction Explorer</h2>
                     <div className="flex flex-col gap-2 mb-4">
 
-                    {selectedSchools.length > 0 ? (
+                    
                     
                     <div ref={pivotRef}></div>
-                    ) : (
-                    <div className="text-center text-gray-500 p-4 border rounded bg-white shadow">
-                        Please select a school to view the transactions.
-                    </div>
                     
-                    )}
                                     <label className="text-gray-700 font-medium">Select School(s):</label>
                 <Select
                     options={schoolOptions}
@@ -422,37 +476,23 @@ function FinanceDashboard() {
                     placeholder="Choose one or more schools"
                 />
                 </div>
-<div className="flex flex-col gap-2 mb-4">
+<div className="mb-4">
+  <label className="text-gray-700 font-medium mb-2 block">Select Date Range:</label>
   <div className="flex items-center gap-4">
-    <label className="text-gray-700 font-medium">Select Date Range:</label>
-    <input
-      type="month"
-      value={startDate}
-      onChange={(e) => setStartDate(e.target.value)}
-      disabled={allDates}
-      className="border px-2 py-1 rounded"
+    <span>{format(new Date(sliderRange[0]), "MMM yyyy")}</span>
+    <Slider
+      range
+      min={dateMin.getTime()}
+      max={dateMax.getTime()}
+      step={30 * 24 * 60 * 60 * 1000} // ~1 month
+      value={sliderRange}
+      onChange={setSliderRange}
+      allowCross={false}
     />
-    <span className="text-gray-600">to</span>
-    <input
-      type="month"
-      value={endDate}
-      onChange={(e) => setEndDate(e.target.value)}
-      disabled={allDates}
-      className="border px-2 py-1 rounded"
-    />
-  </div>
-
-  <div>
-    <button
-      onClick={() => setAllDates(!allDates)}
-      className={`px-3 py-1 rounded ${
-        allDates ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"
-      }`}
-    >
-      {allDates ? "Using All Dates" : "Limit to Selected Range"}
-    </button>
+    <span>{format(new Date(sliderRange[1]), "MMM yyyy")}</span>
   </div>
 </div>
+
 <div className="flex flex-col gap-2 mb-4">
   <label className="text-gray-700 font-medium">Transaction Type:</label>
   <div className="flex gap-3">
@@ -505,10 +545,9 @@ function FinanceDashboard() {
       selectedSchools: [...selectedSchools],
       transactionType,
       selectedCategories: [...selectedCategories],
-      allDates,
-      startDate,
-      endDate,
-    });
+      startDate: new Date(sliderRange[0]).toISOString().split("T")[0],
+      endDate: new Date(sliderRange[1]).toISOString().split("T")[0],
+        });
   }}
   
 >
