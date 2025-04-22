@@ -569,23 +569,34 @@ def schools_list(request):
 @api_view(['GET'])
 def get_fees(request):
     fees = Fee.objects.all()
-    fee_list = []
 
-    for fee in fees:
-        fee_list.append({
-            "id": fee.id,
-            "student_name": fee.student_name,
-            "school": fee.school,
-            "student_class": fee.student_class,
-            "monthly_fee": fee.monthly_fee,
-            "month": fee.month,
-            "total_fee": fee.total_fee,
-            "paid_amount": fee.paid_amount,
-            "balance_due": fee.balance_due,
-            "payment_date": fee.payment_date,
-            "status": fee.status,
-            "student_id": fee.student_id
-        })
+    # Use school_id, class, and month filters
+    school_id = request.GET.get("school_id")
+    student_class = request.GET.get("class")
+    month = request.GET.get("month")
+
+    if school_id:
+        fees = fees.filter(school_id=school_id)
+    if student_class:
+        fees = fees.filter(student_class=student_class)
+    if month:
+        fees = fees.filter(month=month)
+
+    fee_list = [{
+        "id": fee.id,
+        "student_name": fee.student_name,
+        "school": fee.school,
+        "school_id": fee.school_id,
+        "student_class": fee.student_class,
+        "monthly_fee": fee.monthly_fee,
+        "month": fee.month,
+        "total_fee": fee.total_fee,
+        "paid_amount": fee.paid_amount,
+        "balance_due": fee.balance_due,
+        "payment_date": fee.payment_date,
+        "status": fee.status,
+        "student_id": fee.student_id
+    } for fee in fees]
 
     return Response(fee_list)
 
