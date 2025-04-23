@@ -642,15 +642,15 @@ def create_new_month_fees(request):
         return Response({"error": "Missing school_id in request."}, status=400)
 
     try:
-        school = School.objects.get(id=school_id)
+        school_instance = School.objects.get(id=school_id)
     except School.DoesNotExist:
         return Response({"error": "Invalid school_id provided."}, status=400)
 
-    active_students = Student.objects.filter(status="Active", school_id=school_id).select_related('school')
-    print(f"Found {active_students.count()} active students in school {school.name}")
+    active_students = Student.objects.filter(status="Active", school_id=school_id)
+    print(f"Found {active_students.count()} active students in school {school_instance.name}")
 
     if not active_students.exists():
-        return Response({"message": f"No active students found in {school.name}"}, status=400)
+        return Response({"message": f"No active students found in {school_instance.name}"}, status=400)
 
     # Determine next month string
     latest_fee = Fee.objects.filter(school_id=school_id).order_by('-id').first()
@@ -665,9 +665,9 @@ def create_new_month_fees(request):
     else:
         next_month_str = "Dec-2024"
 
-    # Pre-fetch last fees for students
-    last_fees_map = {}
+    # Pre-fetch last fees
     fee_qs = Fee.objects.filter(student_id__in=active_students.values_list("id", flat=True)).order_by('student_id', '-id')
+    last_fees_map = {}
     for fee in fee_qs:
         if fee.student_id not in last_fees_map:
             last_fees_map[fee.student_id] = fee
@@ -680,7 +680,7 @@ def create_new_month_fees(request):
         new_fees.append(Fee(
             student_id=student.id,
             student_name=student.name,
-            school=school,
+            school=school_instance,  # ✅ explicitly set
             student_class=student.student_class,
             monthly_fee=student.monthly_fee,
             month=next_month_str,
@@ -692,10 +692,9 @@ def create_new_month_fees(request):
         ))
 
     Fee.objects.bulk_create(new_fees)
-    print(f"✅ Inserted {len(new_fees)} fee records for {school.name} - {next_month_str}")
+    print(f"✅ Inserted {len(new_fees)} fee records for {school_instance.name} - {next_month_str}")
 
-    return Response({"message": f"✅ Fee records created for {school.name} - {next_month_str}!"}, status=201)
-
+    return Response({"message": f"✅ Fee records created for {school_instance.name} - {next_month_str}!"}, status=201)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
