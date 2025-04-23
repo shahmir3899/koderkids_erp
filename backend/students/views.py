@@ -652,7 +652,7 @@ def create_new_month_fees(request):
     if not active_students.exists():
         return Response({"message": f"No active students found in {school_instance.name}"}, status=400)
 
-    # Determine the next month string
+    # Determine next month string
     latest_fee = Fee.objects.filter(school_id=school_id).order_by('-id').first()
     if latest_fee:
         prev_month_date = datetime.strptime(latest_fee.month, "%b-%Y")
@@ -666,16 +666,16 @@ def create_new_month_fees(request):
         now = datetime.now()
         next_month_str = now.strftime("%b-%Y")
 
-    # Get last fee record for each student
+    # Map of last fees by student
     fee_qs = Fee.objects.filter(student_id__in=active_students.values_list("id", flat=True)).order_by('student_id', '-id')
     last_fees_map = {}
     for fee in fee_qs:
         if fee.student_id not in last_fees_map:
             last_fees_map[fee.student_id] = fee
 
-    # Prepare Fee objects
+    # Prepare Fee entries
     new_fees = []
-    now = datetime.now()  # Current date for payment date
+    now = datetime.now()
 
     for student in active_students:
         last_fee = last_fees_map.get(student.id)
@@ -691,19 +691,11 @@ def create_new_month_fees(request):
             paid_amount=0.00,
             balance_due=prev_balance + student.monthly_fee,
             payment_date=f"{now.year}-{now.month:02d}-15",
-            status="Pending"
+            status="Pending",
+            school=school_instance  # ✅ Assign full object now that DB is fixed
         )
-        fee.school_id = school_instance.id  # ✅ Direct assignment
         new_fees.append(fee)
 
-    # Sanity check
-    for fee in new_fees:
-        if not fee.school_id:
-            print(f"❌ Missing school ID for {fee.student_name} (ID {fee.student_id})")
-        else:
-            print(f"✅ Ready: {fee.student_name} → School ID: {fee.school_id}")
-
-    # Insert into DB
     Fee.objects.bulk_create(new_fees)
     print(f"✅ Inserted {len(new_fees)} fee records for {school_instance.name} - {next_month_str}")
 
@@ -711,6 +703,7 @@ def create_new_month_fees(request):
         "message": f"✅ Fee records created for {school_instance.name} - {next_month_str}!",
         "records_created": len(new_fees)
     }, status=201)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
