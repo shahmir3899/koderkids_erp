@@ -1,6 +1,9 @@
+// FeePage.js - Fully updated with school ID logic and full JSX preserved
+
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import html2pdf from "html2pdf.js";
+import { API_URL, getAuthHeaders } from "../api";
 import { getSchoolsWithClasses } from "../api";
 import {
   useReactTable,
@@ -10,134 +13,118 @@ import {
   createColumnHelper,
 } from '@tanstack/react-table';
 
-
-
 function FeePage() {
-  // State declarations
   const [fees, setFees] = useState([]);
-  const [schoolFilter, setSchoolFilter] = useState("");
+  const [schoolFilter, setSchoolFilter] = useState(null); // Now stores ID
   const [classFilter, setClassFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
   const [editingRow, setEditingRow] = useState(null);
   const [modifiedFees, setModifiedFees] = useState({});
   const [error, setError] = useState(null);
   const [showResults, setShowResults] = useState(false);
-  const [loading, setLoading] = useState(false); // Added for create button feedback
-  const [allClasses, setAllClasses] = useState([]);
-  const [allSchools, setAllSchools] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [allClassesBySchool, setAllClassesBySchool] = useState({});
+  const [schoolOptions, setSchoolOptions] = useState([]);
   const [schoolDetails, setSchoolDetails] = useState(null);
 
-  const [allClassesBySchool, setAllClassesBySchool] = useState({});
-
-
-
-  // Fetch fees data from the backend
-  async function fetchFees() {
+  const fetchSchools = async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/fees/`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("access")}`,
-          "Content-Type": "application/json"
-        }
-      });
-      if (Array.isArray(response.data)) {
-        setFees(response.data);
-      } else {
-        setFees([]);
-      }
+      const schools = await getSchoolsWithClasses(); // this is already response.data
+      const schoolsCleaned = schools.map(s => ({ id: s.id, name: s.name.trim() }));
+      setSchoolOptions(schoolsCleaned);
     } catch (error) {
+      console.error("Failed to load schools:", error);
+    }
+  };
+  
+
+  const fetchFees = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (schoolFilter) params.append("school_id", schoolFilter);
+      if (classFilter) params.append("class", classFilter);
+      if (monthFilter && monthFilter !== "All Months") params.append("month", monthFilter);
+
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/fees/?${params.toString()}`,
+        {
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          }
+        }
+      );
+      
+
+      setFees(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error("Failed to fetch fees:", error);
       setError("Failed to fetch fees. Please try again.");
     }
-  }
+  };
 
-  async function fetchStudents() {
+  const fetchStudents = async () => {
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/students/`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("access")}`,
-          "Content-Type": "application/json"
-        }
+        headers: getAuthHeaders(),
       });
-  
       if (Array.isArray(response.data)) {
-        const uniqueSchools = [...new Set(response.data.map(student => student.school))];
-  
-        // Group classes by school
-        const classesBySchool = {};
+        const grouped = {};
         response.data.forEach(student => {
-          if (!classesBySchool[student.school]) {
-            classesBySchool[student.school] = new Set();
-          }
-          classesBySchool[student.school].add(student.student_class);
+          if (!grouped[student.school]) grouped[student.school] = new Set();
+          grouped[student.school].add(student.student_class);
         });
-  
-        setAllSchools(uniqueSchools);
-        setAllClassesBySchool(classesBySchool);  // New state
+        setAllClassesBySchool(grouped);
       }
     } catch (error) {
       console.error("Failed to fetch students:", error);
     }
-  }
-  
-  
+  };
 
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchFees();
-    fetchStudents();
-    const loadSchoolDetails = async () => {
-      try {
-        const schools = await getSchoolsWithClasses();
-        if (schoolFilter) {
-          const matched = schools.find(s => s.name === schoolFilter);
-          setSchoolDetails(matched || null);
-        }
-      } catch (error) {
-        console.error("Failed to load school info for PDF receipt:", error);
-      }
-    };
-  
-    loadSchoolDetails();
-  }, [schoolFilter]);
-  
-
-  // Handle changes in paid amount
-  function handlePaidAmountChange(id, amount) {
-    const updatedFees = fees.map(fee =>
-      fee.id === id ? {
-        ...fee,
-        paid_amount: parseFloat(amount) || 0,
-        balance_due: fee.total_fee - (parseFloat(amount) || 0)
-      } : fee
-    );
-    setFees(updatedFees);
-    setModifiedFees(prev => ({ ...prev, [id]: true }));
-  }
-
-  // Handle changes in total fee
-  function handleTotalFeeChange(id, amount) {
-    const updatedFees = fees.map(fee =>
-      fee.id === id ? { ...fee, total_fee: amount } : fee
-    );
-    setFees(updatedFees);
-    setModifiedFees(prev => ({ ...prev, [id]: true }));
-  }
-
-  // Handle changes in status
-  function handleStatusChange(id, newStatus) {
-    const updatedFees = fees.map(fee =>
-      fee.id === id ? { ...fee, status: newStatus } : fee
-    );
-    setFees(updatedFees);
-    setModifiedFees(prev => ({ ...prev, [id]: true }));
-  }
-
-  // Save modified fees to the backend
-  async function savePaidAmounts() {
+  const loadSchoolDetails = async () => {
     try {
-      const modifiedData = fees.filter(fee => modifiedFees[fee.id]);
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/fees/update/`, { fees: modifiedData });
+      const schools = await getSchoolsWithClasses();
+      if (schoolFilter) {
+        const matched = schools.find(s => s.id === schoolFilter);
+        setSchoolDetails(matched || null);
+      }
+    } catch (error) {
+      console.error("Failed to load school info:", error);
+    }
+  };
+
+  const getSchoolName = (id) => {
+    const found = schoolOptions.find(s => s.id === id);
+    return found ? found.name : id;
+  };
+
+  const handlePaidAmountChange = (id, amount) => {
+    const updated = fees.map(fee => fee.id === id ? {
+      ...fee,
+      paid_amount: parseFloat(amount) || 0,
+      balance_due: fee.total_fee - (parseFloat(amount) || 0)
+    } : fee);
+    setFees(updated);
+    setModifiedFees(prev => ({ ...prev, [id]: true }));
+  };
+
+  const handleTotalFeeChange = (id, amount) => {
+    const updated = fees.map(fee => fee.id === id ? { ...fee, total_fee: amount } : fee);
+    setFees(updated);
+    setModifiedFees(prev => ({ ...prev, [id]: true }));
+  };
+
+  const handleStatusChange = (id, status) => {
+    const updated = fees.map(fee => fee.id === id ? { ...fee, status } : fee);
+    setFees(updated);
+    setModifiedFees(prev => ({ ...prev, [id]: true }));
+  };
+
+  const savePaidAmounts = async () => {
+    try {
+      const modified = fees.filter(fee => modifiedFees[fee.id]);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/fees/update/`, { fees: modified });
       if (response.status === 200) {
         alert("✅ Payments updated successfully!");
         fetchFees();
@@ -148,40 +135,24 @@ function FeePage() {
     } catch (error) {
       alert("Failed to update payments!");
     }
-  }
+  };
 
-  // Adjusted "Create New Month Records" functionality
-  async function createNextMonthRecords() {
-    const uniqueMonths = [...new Set(fees.map(fee => fee.month))];
-    let nextMonthString;
-
-    // Determine the next month based on existing data or current month if no data exists
-    if (uniqueMonths.length === 0) {
-      const now = new Date();
-      nextMonthString = now.toLocaleString('default', { month: 'long' }) + " " + now.getFullYear();
-    } else {
-      const dates = uniqueMonths.map(month => Date.parse(month.replace(" ", " 1, ")));
-      const latestTimestamp = Math.max(...dates);
-      const latestDate = new Date(latestTimestamp);
-      const nextMonthDate = new Date(latestDate.getFullYear(), latestDate.getMonth() + 1, 1);
-      nextMonthString = nextMonthDate.toLocaleString('default', { month: 'long' }) + " " + nextMonthDate.getFullYear();
+  const filteredFees = useMemo(() => {
+    return fees.filter(fee =>
+      (schoolFilter === null || fee.school_id === schoolFilter) &&
+      (classFilter === "" || fee.student_class === classFilter) &&
+      (monthFilter === "" || fee.month === monthFilter)
+    );
+  }, [fees, schoolFilter, classFilter, monthFilter]);
+  
+  const sortedFees = [...filteredFees].sort((a, b) => {
+    if (a.student_class !== b.student_class) {
+      return a.student_class.localeCompare(b.student_class, undefined, { numeric: true });
     }
+    return a.student_name.localeCompare(b.student_name);
+  });
 
-    // Show confirmation dialog with the calculated next month
-    if (window.confirm(`This will create records for ${nextMonthString}. Proceed?`)) {
-      try {
-        setLoading(true);
-        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/fees/create/`, {});
-        alert(response.data.message || `Records created for ${nextMonthString}`);
-        fetchFees(); // Refresh data after creation
-      } catch (error) {
-        alert("Failed to create new month records.");
-      } finally {
-        setLoading(false);
-      }
-    }
-  }
-  function generatePDFReceipt() {
+  const generatePDFReceipt = () => {
     if (!schoolFilter || !monthFilter) {
       alert("Please select both School and Month to generate the receipt.");
       return;
@@ -192,15 +163,13 @@ function FeePage() {
       return;
     }
   
-    // Temporarily show the div to let html2pdf read it
     const element = document.getElementById("pdf-receipt");
-    element.style.display = "block"; // 👈 Show it
+    element.style.display = "block";
   
-    // Wait a moment so the DOM is ready
     setTimeout(() => {
       const options = {
         margin: 10,
-        filename: `${schoolFilter}_${monthFilter}_Receipt.pdf`,
+        filename: `Receipt_${monthFilter}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
@@ -211,64 +180,67 @@ function FeePage() {
         .set(options)
         .save()
         .then(() => {
-          element.style.display = "none"; // 👈 Hide again after generation
+          element.style.display = "none";
         });
     }, 300);
-  }
-  
-  
-  // Filter fees based on selected filters
-  const filteredFees = useMemo(() => {
-    return fees.filter(fee =>
-      (schoolFilter === "" || fee.school === schoolFilter) &&
-      (classFilter === "" || fee.student_class === classFilter) &&
-      (monthFilter === "" || fee.month === monthFilter)
-    );
-  }, [fees, schoolFilter, classFilter, monthFilter]);
-  const columnHelper = createColumnHelper();
+  };
 
-  const columns = [
-    columnHelper.accessor('student_class', {
-      header: 'Class',
-      cell: info => info.getValue(),
-      footer: info => null,
-      enableGrouping: true,
-    }),
-    columnHelper.accessor('student_name', {
-      header: 'Student',
-      cell: info => info.getValue(),
-    }),
-    columnHelper.accessor('monthly_fee', {
-      header: 'Current Fee',
-      cell: info => `Rs. ${info.getValue()}`,
-    }),
-    columnHelper.accessor('paid_amount', {
-      header: 'Paid',
-      cell: info => `Rs. ${info.getValue()}`,
-    }),
-    columnHelper.accessor('balance_due', {
-      header: 'Balance',
-      cell: info => `Rs. ${info.getValue()}`,
-    }),
-    columnHelper.accessor('status', {
-      header: 'Status',
-      cell: info => info.getValue(),
-    }),
-  ];
-
-  const table = useReactTable({
-    data: filteredFees,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getGroupedRowModel: getGroupedRowModel(),
-    state: {},
-  });
-  const sortedFees = [...filteredFees].sort((a, b) => {
-    if (a.student_class !== b.student_class) {
-      return a.student_class.localeCompare(b.student_class, undefined, { numeric: true });
+  const createNextMonthRecords = async () => {
+    const uniqueMonths = [...new Set(fees.map(fee => fee.month))];
+    let nextMonthString;
+  
+    if (uniqueMonths.length === 0) {
+      const now = new Date();
+      nextMonthString = now.toLocaleString('default', { month: 'long' }) + " " + now.getFullYear();
+    } else {
+      const dates = uniqueMonths.map(month => Date.parse(month.replace(" ", " 1, ")));
+      const latestTimestamp = Math.max(...dates);
+      const latestDate = new Date(latestTimestamp);
+      const nextMonthDate = new Date(latestDate.getFullYear(), latestDate.getMonth() + 1, 1);
+      nextMonthString = nextMonthDate.toLocaleString('default', { month: 'long' }) + " " + nextMonthDate.getFullYear();
     }
-    return a.student_name.localeCompare(b.student_name);
-  });
+  
+    if (window.confirm(`This will create records for ${nextMonthString}. Proceed?`)) {
+      try {
+        setLoading(true);
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/fees/create/`, {});
+        alert(response.data.message || `Records created for ${nextMonthString}`);
+        fetchFees();
+      } catch (error) {
+        alert("Failed to create new month records.");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchFees();
+    fetchStudents();
+    fetchSchools();
+  }, []); // ← empty dependency array = only runs on page load
+
+  useEffect(() => {
+    const loadSchoolDetails = async () => {
+      try {
+        const schools = await getSchoolsWithClasses();
+        if (schoolFilter) {
+          const matched = schools.find(s => s.id === schoolFilter);
+          setSchoolDetails(matched || null);
+        }
+      } catch (error) {
+        console.error("Failed to load school info:", error);
+      }
+    };
+  
+    loadSchoolDetails();
+  }, [schoolFilter]); // ← triggers ONLY when user changes school
+  
+ 
+  
+  
+  
+  
   
   return (
     <div className="fee-page">
@@ -279,7 +251,7 @@ function FeePage() {
     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
       <div>
         <p><strong>MONTH:</strong> {monthFilter}</p>
-        <p><strong>INVOICE NO:</strong> KK-{monthFilter.slice(0, 3).toUpperCase()}-{schoolFilter.replace(/\s/g, "")}</p>
+        <p><strong>INVOICE NO:</strong> KK-{monthFilter.slice(0, 3).toUpperCase()}-{getSchoolName(schoolFilter).replace(/\s/g, "")}       </p>
         <p><strong>INVOICE TO:</strong> {schoolDetails.name}</p>
         <p>{schoolDetails.address}</p>
       </div>
@@ -386,12 +358,21 @@ function FeePage() {
         <div className="filter-container">
           <div className="filter-item">
             <label className="filter-label">School: </label>
-            <select className="filter-select" value={schoolFilter} onChange={(e) => setSchoolFilter(e.target.value)}>
+            <select
+            className="filter-select"
+            value={schoolFilter || ""}
+            onChange={(e) =>
+              setSchoolFilter(e.target.value ? parseInt(e.target.value) : null)
+            }
+          >
             <option value="">All Schools</option>
-            {allSchools.map((school, index) => (
-              <option key={index} value={school}>{school}</option>
+            {schoolOptions.map((school) => (
+              <option key={school.id} value={school.id}>
+                {school.name}
+              </option>
             ))}
-            </select>
+          </select>
+
 
           </div>
           <div className="filter-item">
@@ -402,7 +383,7 @@ function FeePage() {
               ? Array.from(allClassesBySchool[schoolFilter])
                   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
                   .map((student_class, index) => (
-                    <option key={index} value={student_class}>{student_class}</option>
+                    <option key={student_class} value={student_class}>{student_class}</option>
                   ))
               : Object.values(allClassesBySchool).flat().map((student_class, index) => (
                   <option key={index} value={student_class}>{student_class}</option>
@@ -420,7 +401,10 @@ function FeePage() {
               ))}
             </select>
           </div>
-          <button className="btn btn-primary" onClick={() => setShowResults(true)}>
+          <button className="btn btn-primary" onClick={() => {
+  setShowResults(true);
+  fetchFees();
+}}>
             🔍 Search
           </button>
         </div>
@@ -543,7 +527,8 @@ function FeePage() {
               {sortedFees.map((fee, index) => (
                 <tr key={fee.id}>
                   <td>{fee.student_name}</td>
-                  <td>{fee.school}</td>
+                  <td>{getSchoolName(fee.school_id)}</td>
+
                   <td>{fee.student_class}</td>
                   <td>{fee.month}</td>
                   <td>{fee.monthly_fee}</td>

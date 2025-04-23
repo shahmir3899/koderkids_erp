@@ -635,21 +635,27 @@ def new_registrations(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_new_month_fees(request):
-    """Creates fee records for all active students for the next month"""
+    school_id = request.data.get("school_id")
+    if not school_id:
+        return Response({"error": "Missing school_id in request."}, status=400)
 
-    # Step 1: Get all Active Students
-    active_students = Student.objects.filter(status="Active")
-    print(f"Found {active_students.count()} active students")
+    try:
+        school = School.objects.get(id=school_id)
+    except School.DoesNotExist:
+        return Response({"error": "Invalid school_id provided."}, status=400)
+
+    active_students = Student.objects.filter(status="Active", school_id=school_id).select_related('school')
+    print(f"Found {active_students.count()} active students in school {school.name}")
 
     if not active_students.exists():
-        return Response({"message": "No active students found. Cannot create fee records."}, status=400)
+        return Response({"message": f"No active students found in {school.name}"}, status=400)
 
-    # Step 2: Determine the next month
-    latest_fee = Fee.objects.order_by('-id').first()
+    # Determine next month string
+    latest_fee = Fee.objects.filter(school_id=school_id).order_by('-id').first()
     if latest_fee:
-        prev_month_str = latest_fee.month  # e.g., "Mar-2025"
-        prev_month_date = datetime.strptime(prev_month_str, "%b-%Y")
+        prev_month_date = datetime.strptime(latest_fee.month, "%b-%Y")
         next_month = prev_month_date.month + 1
         next_year = prev_month_date.year
         if next_month > 12:
@@ -659,33 +665,37 @@ def create_new_month_fees(request):
     else:
         next_month_str = "Dec-2024"
 
-    # Step 3: Create Fee Records
+    # Pre-fetch last fees for students
+    last_fees_map = {}
+    fee_qs = Fee.objects.filter(student_id__in=active_students.values_list("id", flat=True)).order_by('student_id', '-id')
+    for fee in fee_qs:
+        if fee.student_id not in last_fees_map:
+            last_fees_map[fee.student_id] = fee
+
     new_fees = []
     for student in active_students:
-        last_fee_entry = Fee.objects.filter(student_id=student.id).order_by('-id').first()
-        previous_balance = last_fee_entry.balance_due if last_fee_entry else 0
+        last_fee = last_fees_map.get(student.id)
+        prev_balance = last_fee.balance_due if last_fee else 0
 
-        fee = Fee(
+        new_fees.append(Fee(
             student_id=student.id,
             student_name=student.name,
-            school=School.objects.get(id=student.school_id),  # ✅ FIX: use school_id to avoid lazy-loading issues
+            school=student.school,
             student_class=student.student_class,
             monthly_fee=student.monthly_fee,
             month=next_month_str,
-            total_fee=previous_balance + student.monthly_fee,
+            total_fee=prev_balance + student.monthly_fee,
             paid_amount=0.00,
-            balance_due=previous_balance + student.monthly_fee,
-            payment_date=f"{next_year}-{next_month:02d}-15",  # e.g., 2025-04-15
+            balance_due=prev_balance + student.monthly_fee,
+            payment_date=f"{next_year}-{next_month:02d}-15",
             status="Pending"
-        )
-        print(f"Creating Fee for {student.name} - {next_month_str}")
-        new_fees.append(fee)
+        ))
 
-    # Step 4: Bulk Insert
     Fee.objects.bulk_create(new_fees)
-    print(f"Inserted {len(new_fees)} fee records into the database")
+    print(f"✅ Inserted {len(new_fees)} fee records for {school.name} - {next_month_str}")
 
-    return Response({"message": f"✅ Fee records created for {next_month_str}!"}, status=201)
+    return Response({"message": f"✅ Fee records created for {school.name} - {next_month_str}!"}, status=201)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
