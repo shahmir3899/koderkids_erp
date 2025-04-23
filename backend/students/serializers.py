@@ -11,10 +11,25 @@ class StudentSerializer(serializers.ModelSerializer):
 
 class FeeSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)  # Get student name
-
+    school_name = serializers.CharField(source='school.name', read_only=True)
     class Meta:
         model = Fee
-        fields = ['id', 'student', 'student_name', 'month', 'total_fee', 'paid_amount', 'balance_due', 'payment_date', 'status']
+        fields = [
+            'id',
+            'student_id',
+            'student_name',
+            'school',
+            'school_name',  # ✅ Add this to output
+            'student_class',
+            'month',
+            'monthly_fee',
+            'total_fee',
+            'paid_amount',
+            'balance_due',
+            'payment_date',
+            'status'
+        ]
+
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
