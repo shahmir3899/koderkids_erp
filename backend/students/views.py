@@ -680,7 +680,7 @@ def create_new_month_fees(request):
         new_fees.append(Fee(
             student_id=student.id,
             student_name=student.name,
-            school=student.school,
+            school=school,
             student_class=student.student_class,
             monthly_fee=student.monthly_fee,
             month=next_month_str,
