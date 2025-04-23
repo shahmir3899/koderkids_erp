@@ -652,7 +652,7 @@ def create_new_month_fees(request):
     if not active_students.exists():
         return Response({"message": f"No active students found in {school_instance.name}"}, status=400)
 
-    # Determine next month
+    # Determine the next month string
     latest_fee = Fee.objects.filter(school_id=school_id).order_by('-id').first()
     if latest_fee:
         prev_month_date = datetime.strptime(latest_fee.month, "%b-%Y")
@@ -663,22 +663,25 @@ def create_new_month_fees(request):
             next_year += 1
         next_month_str = datetime(next_year, next_month, 1).strftime("%b-%Y")
     else:
-        next_month_str = "Dec-2024"
+        now = datetime.now()
+        next_month_str = now.strftime("%b-%Y")
 
-    # Prepare map of last fees
+    # Get last fee record for each student
     fee_qs = Fee.objects.filter(student_id__in=active_students.values_list("id", flat=True)).order_by('student_id', '-id')
     last_fees_map = {}
     for fee in fee_qs:
         if fee.student_id not in last_fees_map:
             last_fees_map[fee.student_id] = fee
 
+    # Prepare Fee objects
     new_fees = []
+    now = datetime.now()  # Current date for payment date
+
     for student in active_students:
         last_fee = last_fees_map.get(student.id)
         prev_balance = last_fee.balance_due if last_fee else 0
 
-        # Create fee object without school
-        new_fee = Fee(
+        fee = Fee(
             student_id=student.id,
             student_name=student.name,
             student_class=student.student_class,
@@ -687,22 +690,20 @@ def create_new_month_fees(request):
             total_fee=prev_balance + student.monthly_fee,
             paid_amount=0.00,
             balance_due=prev_balance + student.monthly_fee,
-            payment_date=f"{next_year}-{next_month:02d}-15",
+            payment_date=f"{now.year}-{now.month:02d}-15",
             status="Pending"
         )
+        fee.school_id = school_instance.id  # ✅ Direct assignment
+        new_fees.append(fee)
 
-        # ✅ Assign school explicitly
-        new_fee.school = school_instance
-        new_fees.append(new_fee)
-
-    # Debug: check all fees before inserting
+    # Sanity check
     for fee in new_fees:
-        if fee.school is None:
-            print(f"❌ Fee missing school for {fee.student_name} (student ID {fee.student_id})")
+        if not fee.school_id:
+            print(f"❌ Missing school ID for {fee.student_name} (ID {fee.student_id})")
         else:
-            print(f"✅ Ready: {fee.student_name} → School: {fee.school.name}")
+            print(f"✅ Ready: {fee.student_name} → School ID: {fee.school_id}")
 
-    # Insert in bulk
+    # Insert into DB
     Fee.objects.bulk_create(new_fees)
     print(f"✅ Inserted {len(new_fees)} fee records for {school_instance.name} - {next_month_str}")
 
@@ -710,7 +711,6 @@ def create_new_month_fees(request):
         "message": f"✅ Fee records created for {school_instance.name} - {next_month_str}!",
         "records_created": len(new_fees)
     }, status=201)
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
