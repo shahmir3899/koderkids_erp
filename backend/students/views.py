@@ -187,7 +187,8 @@ def get_schools(request):
         schools_data.append({
             "id": school.id,
             "name": school.name,
-            "classes": list(classes)
+            "classes": list(classes),
+            "address": school.location,
         })
 
     print(f"✅ Schools Response: {schools_data}")  # Debugging output

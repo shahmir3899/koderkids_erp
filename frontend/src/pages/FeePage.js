@@ -1,603 +1,562 @@
-// FeePage.js - Fully updated with school ID logic and full JSX preserved
-
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import html2pdf from "html2pdf.js";
 import { API_URL, getAuthHeaders } from "../api";
-import { getSchoolsWithClasses } from "../api";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getGroupedRowModel,
-  flexRender,
-  createColumnHelper,
-} from '@tanstack/react-table';
+import html2pdf from "html2pdf.js";
+import { format } from "date-fns";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import debounce from "lodash/debounce";
+
 
 function FeePage() {
   const [fees, setFees] = useState([]);
-  const [schoolFilter, setSchoolFilter] = useState(null); // Now stores ID
-  const [classFilter, setClassFilter] = useState("");
-  const [monthFilter, setMonthFilter] = useState("");
-  const [editingRow, setEditingRow] = useState(null);
-  const [modifiedFees, setModifiedFees] = useState({});
-  const [error, setError] = useState(null);
-  const [showResults, setShowResults] = useState(false);
+  const [filteredFees, setFilteredFees] = useState([]);
+  const [schools, setSchools] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [schoolId, setSchoolId] = useState("");
+  const [studentClass, setStudentClass] = useState("");
+  const [month, setMonth] = useState(new Date());
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [allClassesBySchool, setAllClassesBySchool] = useState({});
-  const [schoolOptions, setSchoolOptions] = useState([]);
-  const [schoolDetails, setSchoolDetails] = useState(null);
+  const [editingFeeId, setEditingFeeId] = useState(null);
+  const [editedPaidAmount, setEditedPaidAmount] = useState("");
+  const [error, setError] = useState(null);
 
+  // Fetch schools and extract unique classes
   const fetchSchools = async () => {
+    setLoading(true);
     try {
-      const schools = await getSchoolsWithClasses(); // this is already response.data
-      const schoolsCleaned = schools.map(s => ({ id: s.id, name: s.name.trim() }));
-      setSchoolOptions(schoolsCleaned);
-    } catch (error) {
-      console.error("Failed to load schools:", error);
-    }
-  };
-  
-
-  const fetchFees = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (schoolFilter) params.append("school_id", schoolFilter);
-      if (classFilter) params.append("class", classFilter);
-      if (monthFilter && monthFilter !== "All Months") params.append("month", monthFilter);
-
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/fees/?${params.toString()}`,
-        {
-          headers: {
-            ...getAuthHeaders(),
-            "Content-Type": "application/json",
-            Accept: "application/json"
-          }
-        }
-      );
-      
-
-      setFees(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error("Failed to fetch fees:", error);
-      setError("Failed to fetch fees. Please try again.");
-    }
-  };
-
-  const fetchStudents = async () => {
-    try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/students/`, {
+      const response = await axios.get(`${API_URL}/api/schools/`, {
         headers: getAuthHeaders(),
       });
-      if (Array.isArray(response.data)) {
-        const grouped = {};
-        response.data.forEach(student => {
-          if (!grouped[student.school]) grouped[student.school] = new Set();
-          grouped[student.school].add(student.student_class);
-        });
-        setAllClassesBySchool(grouped);
-      }
+      setSchools(response.data);
+      const allClasses = new Set();
+      response.data.forEach((school) => {
+        if (school.classes) {
+          school.classes.forEach((cls) => allClasses.add(cls));
+        }
+      });
+      setClasses(Array.from(allClasses).sort());
+      setError(null);
     } catch (error) {
-      console.error("Failed to fetch students:", error);
+      console.error("Error fetching schools:", error);
+      setError("Failed to load schools. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadSchoolDetails = async () => {
+  // Fetch fees with filters
+  const fetchFees = async () => {
+    setLoading(true);
     try {
-      const schools = await getSchoolsWithClasses();
-      if (schoolFilter) {
-        const matched = schools.find(s => s.id === schoolFilter);
-        setSchoolDetails(matched || null);
-      }
+      const response = await axios.get(`${API_URL}/api/fees/`, {
+        headers: getAuthHeaders(),
+        params: {
+          school_id: schoolId || undefined,
+          class: studentClass || undefined,
+          month: month
+            ? month.toLocaleString("default", { month: "short" }) +
+              "-" +
+              month.getFullYear()
+            : undefined,
+        },
+      });
+      setFees(response.data);
+      setError(null);
     } catch (error) {
-      console.error("Failed to load school info:", error);
+      console.error("Failed to fetch fees:", error);
+      setError("Failed to load fees. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getSchoolName = (id) => {
-    const found = schoolOptions.find(s => s.id === id);
-    return found ? found.name : id;
-  };
-
-  const handlePaidAmountChange = (id, amount) => {
-    const updated = fees.map(fee => fee.id === id ? {
-      ...fee,
-      paid_amount: parseFloat(amount) || 0,
-      balance_due: fee.total_fee - (parseFloat(amount) || 0)
-    } : fee);
-    setFees(updated);
-    setModifiedFees(prev => ({ ...prev, [id]: true }));
-  };
-
-  const handleTotalFeeChange = (id, amount) => {
-    const updated = fees.map(fee => fee.id === id ? { ...fee, total_fee: amount } : fee);
-    setFees(updated);
-    setModifiedFees(prev => ({ ...prev, [id]: true }));
-  };
-
-  const handleStatusChange = (id, status) => {
-    const updated = fees.map(fee => fee.id === id ? { ...fee, status } : fee);
-    setFees(updated);
-    setModifiedFees(prev => ({ ...prev, [id]: true }));
-  };
-
-  const savePaidAmounts = async () => {
+  // Update fee via API
+  const updateFee = async (feeId, paidAmount) => {
+    setLoading(true);
     try {
-      const modified = fees.filter(fee => modifiedFees[fee.id]);
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/fees/update/`, { fees: modified });
-      if (response.status === 200) {
-        alert("✅ Payments updated successfully!");
-        fetchFees();
-        setModifiedFees({});
-      } else {
-        alert("⚠️ Failed to update payments.");
+      const headers = getAuthHeaders();
+      if (!headers.Authorization) {
+        throw new Error("Authentication token missing");
       }
+      await axios.post(
+        `${API_URL}/api/fees/update/`,
+        { fees: [{ id: feeId, paid_amount: paidAmount.toString() }] }, // Stringify paid_amount
+        { headers }
+      );
+      setFees((prevFees) =>
+        prevFees.map((fee) =>
+          fee.id === feeId
+            ? {
+                ...fee,
+                paid_amount: paidAmount,
+                balance_due: parseFloat(fee.total_fee) - paidAmount,
+                status: parseFloat(fee.total_fee) - paidAmount === 0 ? "Paid" : "Pending",
+              }
+            : fee
+        )
+      );
+      setEditingFeeId(null);
+      setError(null);
     } catch (error) {
-      alert("Failed to update payments!");
+      console.error("Failed to update fee:", error.response?.data, error.response?.status);
+      setError(`Failed to update fee: ${error.response?.data?.error || error.message || "Unknown error"}`);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredFees = useMemo(() => {
-    return fees.filter(fee =>
-      (schoolFilter === null || fee.school_id === schoolFilter) &&
-      (classFilter === "" || fee.student_class === classFilter) &&
-      (monthFilter === "" || fee.month === monthFilter)
-    );
-  }, [fees, schoolFilter, classFilter, monthFilter]);
-  
-  const sortedFees = [...filteredFees].sort((a, b) => {
-    if (a.student_class !== b.student_class) {
-      return a.student_class.localeCompare(b.student_class, undefined, { numeric: true });
-    }
-    return a.student_name.localeCompare(b.student_name);
-  });
+  // Debounced search
+  const debouncedSetSearchTerm = useCallback(
+    debounce((value) => {
+      setSearchTerm(value);
+    }, 300),
+    []
+  );
 
-  const generatePDFReceipt = () => {
-    if (!schoolFilter || !monthFilter) {
-      alert("Please select both School and Month to generate the receipt.");
-      return;
-    }
-  
-    if (filteredFees.length === 0) {
-      alert("No fee records found for selected school and month.");
-      return;
-    }
-  
-    const element = document.getElementById("pdf-receipt");
-    element.style.display = "block";
-  
-    setTimeout(() => {
-      const options = {
-        margin: 10,
-        filename: `Receipt_${monthFilter}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-      };
-  
-      html2pdf()
-        .from(element)
-        .set(options)
-        .save()
-        .then(() => {
-          element.style.display = "none";
-        });
-    }, 300);
-  };
+  // Initial data fetch
+  useEffect(() => {
+    fetchSchools();
+  }, []);
 
-  const createNextMonthRecords = async () => {
-    const uniqueMonths = [...new Set(fees.map(fee => fee.month))];
-    let nextMonthString;
-  
-    if (uniqueMonths.length === 0) {
-      const now = new Date();
-      nextMonthString = now.toLocaleString('default', { month: 'long' }) + " " + now.getFullYear();
-    } else {
-      const dates = uniqueMonths.map(month => Date.parse(month.replace(" ", " 1, ")));
-      const latestTimestamp = Math.max(...dates);
-      const latestDate = new Date(latestTimestamp);
-      const nextMonthDate = new Date(latestDate.getFullYear(), latestDate.getMonth() + 1, 1);
-      nextMonthString = nextMonthDate.toLocaleString('default', { month: 'long' }) + " " + nextMonthDate.getFullYear();
-    }
-  
-    if (window.confirm(`This will create records for ${nextMonthString}. Proceed?`)) {
-      try {
-        setLoading(true);
-        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/fees/create/`, {});
-        alert(response.data.message || `Records created for ${nextMonthString}`);
-        fetchFees();
-      } catch (error) {
-        alert("Failed to create new month records.");
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
+  // Fetch fees on filter change
   useEffect(() => {
     fetchFees();
-    fetchStudents();
-    fetchSchools();
-  }, []); // ← empty dependency array = only runs on page load
+  }, [schoolId, studentClass, month]);
 
+  // Filter fees based on search term
   useEffect(() => {
-    const loadSchoolDetails = async () => {
-      try {
-        const schools = await getSchoolsWithClasses();
-        if (schoolFilter) {
-          const matched = schools.find(s => s.id === schoolFilter);
-          setSchoolDetails(matched || null);
-        }
-      } catch (error) {
-        console.error("Failed to load school info:", error);
-      }
+    const filtered = fees.filter((fee) =>
+      fee.student_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredFees(filtered);
+  }, [fees, searchTerm]);
+
+  // Handle inline editing
+  const handleEditClick = (fee) => {
+    setEditingFeeId(fee.id);
+    setEditedPaidAmount(fee.paid_amount);
+  };
+
+  const handleSaveEdit = async (feeId, totalFee) => {
+    const parsedAmount = parseFloat(editedPaidAmount);
+    if (isNaN(parsedAmount) || parsedAmount < 0 || parsedAmount > totalFee) {
+      setError("Invalid amount. Must be between 0 and total fee.");
+      return;
+    }
+    const originalFee = fees.find((fee) => fee.id === feeId);
+    setFees((prevFees) =>
+      prevFees.map((fee) =>
+        fee.id === feeId
+          ? {
+              ...fee,
+              paid_amount: parsedAmount,
+              balance_due: parseFloat(fee.total_fee) - parsedAmount,
+              status:
+                parseFloat(fee.total_fee) - parsedAmount === 0
+                  ? "Paid"
+                  : "Pending",
+            }
+          : fee
+      )
+    );
+    try {
+      await updateFee(feeId, parsedAmount);
+    } catch {
+      setFees((prevFees) =>
+        prevFees.map((fee) =>
+          fee.id === feeId ? { ...fee, ...originalFee } : fee
+        )
+      );
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingFeeId(null);
+    setEditedPaidAmount("");
+    setError(null);
+  };
+
+  // PDF export with header, body, footer
+  const exportToPDF = () => {
+    const printable = document.createElement("div");
+    printable.innerHTML = document.getElementById("pdf-template").innerHTML;
+  
+    document.body.appendChild(printable);
+  
+    const opt = {
+      margin: [5, 5, 5, 5],
+      filename: `FeeReport_${format(new Date(), "yyyy-MM-dd")}.pdf`,
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["css", "legacy"], avoid: "tr", before: ".page-break" },
     };
   
-    loadSchoolDetails();
-  }, [schoolFilter]); // ← triggers ONLY when user changes school
+    html2pdf()
+      .set(opt)
+      .from(printable)
+      .save()
+      .then(() => document.body.removeChild(printable)); // Cleanup
+  };
   
- 
-  
-  
-  
-  
-  
+
+  // Status color mapping
+  const statusColors = {
+    Paid: "text-green-600",
+    Pending: "text-yellow-600",
+    Overdue: "text-red-600",
+    default: "text-gray-800",
+  };
+
+  const getStatusColor = (status) => statusColors[status] || statusColors.default;
+
+  // Calculate totals
+  const totalSummary = filteredFees.reduce(
+    (acc, fee) => {
+      acc.total_fee += parseFloat(fee.total_fee);
+      acc.paid_amount += parseFloat(fee.paid_amount);
+      acc.balance_due += parseFloat(fee.balance_due);
+      return acc;
+    },
+    { total_fee: 0, paid_amount: 0, balance_due: 0 }
+  );
+
+  // Group fees by student_class with subtotals
+  const getGroupedFees = (fees) => {
+    const grouped = fees.reduce((acc, fee) => {
+      const cls = fee.student_class || "Unknown";
+      if (!acc[cls]) acc[cls] = [];
+      acc[cls].push(fee);
+      return acc;
+    }, {});
+    return Object.keys(grouped)
+      .sort()
+      .map((cls) => ({
+        class: cls,
+        fees: grouped[cls],
+        subtotals: grouped[cls].reduce(
+          (acc, fee) => {
+            acc.total_fee += parseFloat(fee.total_fee);
+            acc.paid_amount += parseFloat(fee.paid_amount);
+            acc.balance_due += parseFloat(fee.balance_due);
+            return acc;
+          },
+          { total_fee: 0, paid_amount: 0, balance_due: 0 }
+        ),
+      }));
+  };
+  const schoolName = schools.find((s) => s.id === parseInt(schoolId))?.name || "AllSchools";
+  const invoiceNo = `KK-${format(month, "MMM")}-${schoolName.replace(/\s/g, "")}`;
   return (
-    <div className="fee-page">
-      <h1 className="heading-primary">Fee Management</h1>
-      {schoolDetails && (
-  <div id="pdf-receipt" style={{ display: "none", fontFamily: "Arial", fontSize: "12px", padding: "20px" }}>
-    {/* Header Row */}
-    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
-      <div>
-        <p><strong>MONTH:</strong> {monthFilter}</p>
-        <p><strong>INVOICE NO:</strong> KK-{monthFilter.slice(0, 3).toUpperCase()}-{getSchoolName(schoolFilter).replace(/\s/g, "")}       </p>
-        <p><strong>INVOICE TO:</strong> {schoolDetails.name}</p>
-        <p>{schoolDetails.address}</p>
+    <div className="p-4">
+      <h1 className="text-xl font-bold mb-4">Fee Management</h1>
+
+      {/* Error Message */}
+      {error && (
+        <div
+          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 mb-4">
+        <select
+          value={schoolId}
+          onChange={(e) => setSchoolId(e.target.value)}
+          className="border p-2 rounded"
+          aria-label="Select school"
+        >
+          <option value="">All Schools</option>
+          {schools.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={studentClass}
+          onChange={(e) => setStudentClass(e.target.value)}
+          className="border p-2 rounded"
+          aria-label="Select class"
+        >
+          <option value="">All Classes</option>
+          {classes.map((cls, index) => (
+            <option key={index} value={cls}>
+              {cls}
+            </option>
+          ))}
+        </select>
+
+        <DatePicker
+          selected={month}
+          onChange={(date) => setMonth(date)}
+          dateFormat="MMM-yyyy"
+          showMonthYearPicker
+          className="border p-2 rounded"
+          aria-label="Select month"
+        />
+
+        <input
+          type="text"
+          onChange={(e) => debouncedSetSearchTerm(e.target.value)}
+          placeholder="Search by Name"
+          className="border p-2 rounded flex-1"
+          aria-label="Search by student name"
+        />
+
+        <button
+          onClick={exportToPDF}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-green-400"
+          disabled={loading || filteredFees.length === 0}
+        >
+          Export PDF
+        </button>
       </div>
-      <div style={{ textAlign: "right" }}>
-        <img src="/logo192.png" alt="Logo" width="60" />
-        <p><strong>Koder Kids</strong></p>
-        <p>G-15 Markaz, Islamabad</p>
-        <p>0316-7394390</p>
-        <p>koderkids24@gmail.com</p>
-      </div>
-    </div>
 
-    {/* Invoice Table */}
-    <table border="1" cellPadding="6" style={{ borderCollapse: "collapse", width: "100%" }}>
-      <thead style={{ backgroundColor: "#f0f0f0" }}>
-        <tr>
-          <th>Student</th>
-          <th>Class</th>
-          <th>Previous Fee</th>
-          <th>Current Fee</th>
-          <th>Total Fee</th>
-          <th>Remarks</th>
-        </tr>
-      </thead>
-      <tbody>
-  {(() => {
-    const grouped = {};
-
-    // Group fees by student_class
-    filteredFees.forEach(fee => {
-      const cls = fee.student_class || "Unspecified";
-      if (!grouped[cls]) grouped[cls] = [];
-      grouped[cls].push(fee);
-    });
-
-    // Render grouped rows with class headings and subtotals
-    return Object.entries(grouped).flatMap(([student_class, classFees], index) => {
-      const classTotal = classFees.reduce((sum, f) => sum + Number(f.monthly_fee || 0), 0);
-
-      return [
-        // Class Header Row
-        <tr key={`class-${student_class}`} style={{ backgroundColor: "#e0e0e0", fontWeight: "bold" }}>
-          <td colSpan="6">Class: {student_class}</td>
-        </tr>,
-
-        // Student Rows
-        ...classFees.map((fee, i) => {
-          const previous = 0;
-          const current = Number(fee.monthly_fee || 0);
-          const total = previous + current;
-          const paid = Number(fee.paid_amount || 0);
-          const status = paid === 0 ? "Unpaid" : paid < total ? "Partial" : "Paid";
-
-          return (
-            <tr key={`fee-${student_class}-${i}`}>
-              <td>{fee.student_name}</td>
-              <td>{fee.student_class}</td>
-              <td>Rs. {previous}</td>
-              <td>Rs. {current}</td>
-              <td>Rs. {total}</td>
-              <td>{status}</td>
-            </tr>
-          );
-        }),
-
-        // Subtotal Row
-        <tr key={`subtotal-${student_class}`} style={{ fontWeight: "bold", borderTop: "2px solid black" }}>
-          <td colSpan="3">Subtotal for {student_class}</td>
-          <td colSpan="3">Rs. {classTotal}</td>
-        </tr>
-      ];
-    });
-  })()}
-</tbody>
-
-    </table>
-
-    {/* Totals */}
-    <table style={{ width: "100%", marginTop: "20px" }}>
-      <tbody>
-        <tr>
-          <td><strong>Total Previous Fee:</strong> Rs. 0</td>
-          <td><strong>Total Current Fee:</strong> Rs. {filteredFees.reduce((sum, f) => sum + Number(f.monthly_fee || 0), 0)}</td>
-          <td><strong>Total Fee:</strong> Rs. {filteredFees.reduce((sum, f) => sum + Number(f.monthly_fee || 0), 0)}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    {/* Footer */}
-    <div style={{ marginTop: "40px", display: "flex", justifyContent: "space-between" }}>
-      <div>
-        <p><strong>Authorized Signature</strong></p>
-        <p>_________________________</p>
-      </div>
-    </div>
-    <p style={{ marginTop: "30px", fontStyle: "italic", fontSize: "11px" }}>
-      This is a system-generated document and does not require a physical signature.
-    </p>
-  </div>
-)}
-
-      {/* Filter Section */}
-      <div className="filter-card">
-        <div className="filter-container">
-          <div className="filter-item">
-            <label className="filter-label">School: </label>
-            <select
-            className="filter-select"
-            value={schoolFilter || ""}
-            onChange={(e) =>
-              setSchoolFilter(e.target.value ? parseInt(e.target.value) : null)
-            }
+      {/* Table with Loading and Empty States */}
+      <div className="overflow-x-auto">
+        {loading && <div className="text-center py-4">Loading...</div>}
+        {!loading && filteredFees.length === 0 && (
+          <div className="text-center py-4">No fees found.</div>
+        )}
+        {!loading && filteredFees.length > 0 && (
+          <table
+            id="fee-table"
+            className="min-w-full bg-white border border-gray-300"
           >
-            <option value="">All Schools</option>
-            {schoolOptions.map((school) => (
-              <option key={school.id} value={school.id}>
-                {school.name}
-              </option>
-            ))}
-          </select>
-
-
-          </div>
-          <div className="filter-item">
-            <label className="filter-label">Class: </label>
-            <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-            <option value="">All Classes</option>
-            {schoolFilter && allClassesBySchool[schoolFilter] 
-              ? Array.from(allClassesBySchool[schoolFilter])
-                  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-                  .map((student_class, index) => (
-                    <option key={student_class} value={student_class}>{student_class}</option>
-                  ))
-              : Object.values(allClassesBySchool).flat().map((student_class, index) => (
-                  <option key={index} value={student_class}>{student_class}</option>
-                ))
-            }
-          </select>
-
-          </div>
-          <div className="filter-item">
-            <label className="filter-label">Month: </label>
-            <select className="filter-select" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
-              <option value="">All Months</option>
-              {Array.from(new Set(fees.map(fee => fee.month))).map((month, index) => (
-                <option key={index} value={month}>{month}</option>
-              ))}
-            </select>
-          </div>
-          <button className="btn btn-primary" onClick={() => {
-  setShowResults(true);
-  fetchFees();
-}}>
-            🔍 Search
-          </button>
-        </div>
-      </div>
-
-      {/* Create New Month Records Button */}
-      <button
-        className={`btn btn-info ${loading ? 'btn-loading' : ''}`}
-        onClick={createNextMonthRecords}
-        disabled={loading}
-        title="Creates records for the next month based on existing data"
-      >
-        {loading ? "Creating..." : "➕ Create Next Month Records"}
-      </button>
-      <div id="pdf-receipt" style={{ display: "none", padding: "20px", fontSize: "12px", fontFamily: "Arial" }}>
-      <h2 style={{ textAlign: "center" }}>Koder Kids Fee System</h2>
-      <p style={{ textAlign: "center", margin: 0 }}>G-15 Markaz, Islamabd, Pakistan | Phone: 0316-7394390</p>
-      <p style={{ textAlign: "center", marginBottom: "20px" }}>Official School Fee Invoice</p>
-
-      <table style={{ width: "100%", marginBottom: "10px" }}>
-        <tbody>
-          <tr>
-            <td><strong>Invoice No:</strong> INV-{Date.now().toString().slice(-5)}</td>
-            <td><strong>Date:</strong> {new Date().toLocaleDateString()}</td>
-          </tr>
-          <tr>
-            <td><strong>School:</strong> {schoolFilter}</td>
-            <td><strong>Month:</strong> {monthFilter}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <table border="1" cellPadding="6" style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead style={{ backgroundColor: "#f0f0f0" }}>
-          <tr>
-            <th>Student Name</th>
-            <th>Description</th>
-            <th>Quantity</th>
-            <th>Unit Fee</th>
-            <th>Discount</th>
-            <th>Tax</th>
-            <th>Total</th>
-            <th>Paid</th>
-            <th>Balance</th>
-            <th>Status</th>
-            <th>Method</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedFees.map((fee, index) => {
-            const total = Number(fee.monthly_fee || 0);
-            const paid = Number(fee.paid_amount || 0);
-            const balance = Number(fee.balance_due || 0);
-            const status = paid === 0 ? "Unpaid" : balance === 0 ? "Paid" : "Partial";
-
-            return (
-              <tr key={index}>
-                <td>{fee.student_name}</td>
-                <td>Monthly Tuition</td>
-                <td>1</td>
-                <td>{fee.monthly_fee}</td>
-                <td>0</td>
-                <td>0</td>
-                <td>{total}</td>
-                <td>{paid}</td>
-                <td>{balance}</td>
-                <td>{status}</td>
-                <td>{fee.payment_method || "N/A"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      <table style={{ width: "100%", marginTop: "20px" }}>
-        <tbody>
-          <tr>
-            <td><strong>Total Payable:</strong> Rs. {filteredFees.reduce((sum, f) => sum + Number(f.monthly_fee || 0), 0)}</td>
-            <td><strong>Total Paid:</strong> Rs. {filteredFees.reduce((sum, f) => sum + Number(f.paid_amount || 0), 0)}</td>
-            <td><strong>Outstanding:</strong> Rs. {filteredFees.reduce((sum, f) => sum + Number(f.balance_due || 0), 0)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div style={{ marginTop: "40px", display: "flex", justifyContent: "space-between" }}>
-        <div>
-          <p><strong>Authorized Signature</strong></p>
-          <p>_________________________</p>
-        </div>
-        <div>
-          <p><strong>Stamp</strong></p>
-          <p style={{ border: "1px dashed #000", width: "100px", height: "60px" }}></p>
-        </div>
-      </div>
-
-      <p style={{ marginTop: "30px", fontStyle: "italic", fontSize: "11px" }}>
-        Note: This is a system-generated document and does not require a physical signature.
-      </p>
-    </div>
-
-      {/* Fee Table */}
-      {showResults && (
-        <div className="table-container">
-          <table className="fee-table">
             <thead>
-              <tr>
-                <th>Student Name</th>
-                <th>School</th>
-                <th>Class</th>
-                <th>Month</th>
-                <th>Monthly Fee</th>
-                <th>Total Fee</th>
-                <th>Paid Amount</th>
-                <th>Balance Due</th>
-                <th>Payment Date</th>
-                <th>Status</th>
+              <tr className="bg-gray-100">
+                <th className="border px-4 py-2">Name</th>
+                
+                <th className="border px-4 py-2">Class</th>
+                <th className="border px-4 py-2">Month</th>
+                <th className="border px-4 py-2">Total Fee</th>
+                <th className="border px-4 py-2">Paid</th>
+                <th className="border px-4 py-2">Balance</th>
+                <th className="border px-4 py-2">Status</th>
               </tr>
             </thead>
             <tbody>
-              {sortedFees.map((fee, index) => (
-                <tr key={fee.id}>
-                  <td>{fee.student_name}</td>
-                  <td>{getSchoolName(fee.school_id)}</td>
-
-                  <td>{fee.student_class}</td>
-                  <td>{fee.month}</td>
-                  <td>{fee.monthly_fee}</td>
-                  <td className="total-fee-cell">
-                    {editingRow === fee.id ? (
-                      <>
-                        <input
-                          type="number"
-                          value={fee.total_fee}
-                          onChange={(e) => handleTotalFeeChange(fee.id, e.target.value)}
-                          className="total-fee-input"
-                        />
-                        <button onClick={() => setEditingRow(null)} className="save-edit-button">
-                          ✅
-                        </button>
-                      </>
-                    ) : (
-                      <div className="fee-value-container">
-                        {fee.total_fee}
-                        <button onClick={() => setEditingRow(fee.id)} className="edit-button">
-                          ✏️
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      value={fee.paid_amount}
-                      onChange={(e) => handlePaidAmountChange(fee.id, e.target.value)}
-                      className="paid-amount-input"
-                    />
-                  </td>
-                  <td>{fee.balance_due}</td>
-                  <td>{fee.payment_date || "N/A"}</td>
-                  <td>
-                    <select
-                      value={fee.status}
-                      onChange={(e) => handleStatusChange(fee.id, e.target.value)}
-                      className="status-select"
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Paid">Paid</option>
-                      <option value="Overdue">Overdue</option>
-                    </select>
-                  </td>
-                </tr>
+              {getGroupedFees(filteredFees).map((group) => (
+                <React.Fragment key={group.class}>
+                  <tr className="bg-gray-200">
+                    <td className="border px-4 py-2 font-semibold" colSpan="8">
+                      Class: {group.class}
+                    </td>
+                  </tr>
+                  {group.fees.map((fee) => (
+                    <tr key={fee.id} className="text-center">
+                      <td className="border px-4 py-2">{fee.student_name}</td>
+                     
+                      <td className="border px-4 py-2">{fee.student_class}</td>
+                      <td className="border px-4 py-2">{fee.month}</td>
+                      <td className="border px-4 py-2">{fee.total_fee}</td>
+                      <td className="border px-4 py-2">
+                        {editingFeeId === fee.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={editedPaidAmount}
+                              onChange={(e) => setEditedPaidAmount(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter")
+                                  handleSaveEdit(fee.id, fee.total_fee);
+                                if (e.key === "Escape") handleCancelEdit();
+                              }}
+                              className="border p-1 rounded w-20"
+                              min="0"
+                              max={fee.total_fee}
+                              aria-label={`Edit paid amount for ${fee.student_name}`}
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleSaveEdit(fee.id, fee.total_fee)}
+                              className="text-green-600 hover:text-green-800"
+                              aria-label="Save"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="text-red-600 hover:text-red-800"
+                              aria-label="Cancel"
+                            >
+                              ✗
+                            </button>
+                          </div>
+                        ) : (
+                          <span
+                            onClick={() => handleEditClick(fee)}
+                            className="cursor-pointer hover:bg-gray-100 p-1 rounded"
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleEditClick(fee)
+                            }
+                            aria-label={`Edit paid amount ${fee.paid_amount} for ${fee.student_name}`}
+                          >
+                            {fee.paid_amount}
+                          </span>
+                        )}
+                      </td>
+                      <td className="border px-4 py-2">{fee.balance_due}</td>
+                      <td
+                        className={`border px-4 py-2 font-semibold ${getStatusColor(
+                          fee.status
+                        )}`}
+                      >
+                        {fee.status}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="font-semibold bg-gray-100">
+                    <td className="border px-4 py-2 text-right" colSpan="4">
+                      Subtotal for {group.class}:
+                    </td>
+                    <td className="border px-4 py-2">
+                      {group.subtotals.total_fee.toFixed(2)}
+                    </td>
+                    <td className="border px-4 py-2">
+                      {group.subtotals.paid_amount.toFixed(2)}
+                    </td>
+                    <td className="border px-4 py-2">
+                      {group.subtotals.balance_due.toFixed(2)}
+                    </td>
+                    <td className="border px-4 py-2"></td>
+                  </tr>
+                </React.Fragment>
               ))}
+              <tr className="font-bold bg-gray-50">
+                <td className="border px-4 py-2 text-right" colSpan="4">
+                  Total:
+                </td>
+                <td className="border px-4 py-2">
+                  {totalSummary.total_fee.toFixed(2)}
+                </td>
+                <td className="border px-4 py-2">
+                  {totalSummary.paid_amount.toFixed(2)}
+                </td>
+                <td className="border px-4 py-2">
+                  {totalSummary.balance_due.toFixed(2)}
+                </td>
+                <td className="border px-4 py-2"></td>
+              </tr>
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Save Payments Button */}
-      <button className="btn btn-success" onClick={savePaidAmounts}>
-        💾 Save Payments
-      </button>
-      <button className="btn btn-secondary" onClick={generatePDFReceipt}>
-        📄 Generate PDF Receipt
-      </button>
-      {/* Error Message */}
-      {error && (
-        <div className="error-message">
-          {error}
-          <button className="btn btn-danger" onClick={fetchFees}>
-            🔄 Retry
-          </button>
-        </div>
-      )}
+      {/* Hidden PDF Template */}
+      <div id="pdf-template" style={{ display: "none" }}>
+  {/* Header */}
+  <div className="flex justify-between items-center mb-2 border-b pb-2">
+  <div>
+    <p><strong>MONTH:</strong> {month ? format(month, "MMM-yyyy") : "N/A"}</p>
+    <p><strong>INVOICE NO:</strong> {invoiceNo}</p>
+    <p><strong>INVOICE TO:</strong> {schoolName}</p>
+    <p>{schoolId && schools.find((s) => s.id === schoolId)?.address || "G-15 Markaz, Islamabad"}</p>
+  </div>
+  <div className="flex flex-col items-end">
+  <img src="/logo512.png" alt="Logo" style={{ width: "80px" }} />
+
+    <p className="font-bold">Koder Kids</p>
+    <p>G-15 Markaz, Islamabad</p>
+    <p>0316-7394390</p>
+    <p>koderkids24@gmail.com</p>
+  </div>
+</div>
+
+
+  {/* Body */}
+  <table className="min-w-full border border-gray-300 text-xs" style={{ width: "100%", maxWidth: "190mm" }}>
+    <thead>
+      <tr className="bg-gray-100">
+        <th className=" px-2 py-1">Name</th>
+        <th className=" px-2 py-1">School</th>
+        <th className=" px-2 py-1">Class</th>
+        <th className=" px-2 py-1">Month</th>
+        <th className=" px-2 py-1">Total Fee</th>
+        <th className=" px-2 py-1">Paid</th>
+        <th className=" px-2 py-1">Balance</th>
+        <th className=" px-2 py-1">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {getGroupedFees(filteredFees).map((group) => (
+        <React.Fragment key={group.class}>
+          <tr className="bg-gray-200" style={{ breakInside: "avoid" }}>
+            <td className="border px-2 py-1 font-semibold" colSpan="8">
+              Class: {group.class}
+            </td>
+          </tr>
+          {group.fees.map((fee) => (
+            <tr key={fee.id} className="text-center" style={{ breakInside: "avoid" }}>
+              <td className="border px-2 py-1">{fee.student_name}</td>
+              <td className="border px-2 py-1">{fee.school || ""}</td>
+              <td className="border px-2 py-1">{fee.student_class}</td>
+              <td className="border px-2 py-1">{fee.month}</td>
+              <td className="border px-2 py-1">{fee.total_fee}</td>
+              <td className="border px-2 py-1">{fee.paid_amount}</td>
+              <td className="border px-2 py-1">{fee.balance_due}</td>
+              <td
+                className={`border px-2 py-1 font-semibold ${getStatusColor(
+                  fee.status
+                )}`}
+              >
+                {fee.status}
+              </td>
+            </tr>
+          ))}
+          <tr className="font-semibold bg-gray-100" style={{ breakInside: "avoid" }}>
+            <td className="border px-2 py-1 text-right" colSpan="4">
+              Subtotal for {group.class}:
+            </td>
+            <td className="border px-2 py-1">
+              {group.subtotals.total_fee.toFixed(2)}
+            </td>
+            <td className="border px-2 py-1">
+              {group.subtotals.paid_amount.toFixed(2)}
+            </td>
+            <td className="border px-2 py-1">
+              {group.subtotals.balance_due.toFixed(2)}
+            </td>
+            <td className="border px-2 py-1"></td>
+          </tr>
+        </React.Fragment>
+      ))}
+      <tr className="font-bold bg-gray-50" style={{ breakInside: "avoid" }}>
+        <td className="border px-2 py-1 text-right" colSpan="4">
+          Total:
+        </td>
+        <td className="border px-2 py-1">
+          {totalSummary.total_fee.toFixed(2)}
+        </td>
+        <td className="border px-2 py-1">
+          {totalSummary.paid_amount.toFixed(2)}
+        </td>
+        <td className="border px-2 py-1">
+          {totalSummary.balance_due.toFixed(2)}
+        </td>
+        <td className="border px-2 py-1"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  {/* Footer */}
+  <div className="text-xs text-gray-600 pt-3 mt-4 border-t">
+  <p className="mt-2 font-semibold">Authorized Signature</p>
+  <p>_____________________________</p>
+  <p className="mt-2 italic">This is a system-generated document and does not require a physical signature.</p>
+  <p className="mt-2">Page <span className="pageNumber"></span> of <span className="totalPages"></span></p>
+</div>
+</div>
     </div>
   );
 }
