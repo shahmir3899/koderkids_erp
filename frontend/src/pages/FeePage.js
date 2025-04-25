@@ -6,7 +6,8 @@ import { format } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import debounce from "lodash/debounce";
-
+import ReactPaginate from "react-paginate";
+import { ClipLoader } from "react-spinners"; // Import ClipLoader
 
 function FeePage() {
   const [fees, setFees] = useState([]);
@@ -21,6 +22,14 @@ function FeePage() {
   const [editingFeeId, setEditingFeeId] = useState(null);
   const [editedPaidAmount, setEditedPaidAmount] = useState("");
   const [error, setError] = useState(null);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [selectedFeeIds, setSelectedFeeIds] = useState([]);
+  const [bulkPaidAmount, setBulkPaidAmount] = useState("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
   // Fetch schools and extract unique classes
   const fetchSchools = async () => {
@@ -72,6 +81,31 @@ function FeePage() {
     }
   };
 
+  // Create new month fees
+  const createNewMonthFees = async () => {
+    if (!schoolId) return;
+    setCreateLoading(true);
+    setSuccessMessage("");
+    setError(null);
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/fees/create/`,
+        { school_id: schoolId },
+        { headers: getAuthHeaders() }
+      );
+      setSuccessMessage(response.data.message);
+      await fetchFees(); // Refresh fees after creation
+    } catch (error) {
+      console.error("Failed to create new fees:", error);
+      setError(
+        error.response?.data?.error ||
+          "Failed to create new fee records. Please try again."
+      );
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   // Update fee via API
   const updateFee = async (feeId, paidAmount) => {
     setLoading(true);
@@ -82,7 +116,7 @@ function FeePage() {
       }
       await axios.post(
         `${API_URL}/api/fees/update/`,
-        { fees: [{ id: feeId, paid_amount: paidAmount.toString() }] }, // Stringify paid_amount
+        { fees: [{ id: feeId, paid_amount: paidAmount.toString() }] },
         { headers }
       );
       setFees((prevFees) =>
@@ -108,6 +142,22 @@ function FeePage() {
     }
   };
 
+  // Sort fees
+  const sortFees = (key) => {
+    const direction =
+      sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
+    setSortConfig({ key, direction });
+    setFilteredFees((prevFees) =>
+      [...prevFees].sort((a, b) => {
+        const aValue = a[key] || "";
+        const bValue = b[key] || "";
+        if (aValue < bValue) return direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return direction === "asc" ? 1 : -1;
+        return 0;
+      })
+    );
+  };
+
   // Debounced search
   const debouncedSetSearchTerm = useCallback(
     debounce((value) => {
@@ -115,6 +165,47 @@ function FeePage() {
     }, 300),
     []
   );
+
+  // Bulk update fees
+  const handleBulkUpdate = async () => {
+    if (!bulkPaidAmount || selectedFeeIds.length === 0) return;
+    setLoading(true);
+    try {
+      const updates = selectedFeeIds.map((id) => {
+        const fee = fees.find((f) => f.id === id);
+        const parsedAmount = parseFloat(bulkPaidAmount);
+        if (isNaN(parsedAmount) || parsedAmount < 0 || parsedAmount > fee.total_fee) {
+          throw new Error(`Invalid amount for ${fee.student_name}`);
+        }
+        return { id, paid_amount: parsedAmount.toString() };
+      });
+      await axios.post(
+        `${API_URL}/api/fees/update/`,
+        { fees: updates },
+        { headers: getAuthHeaders() }
+      );
+      setFees((prevFees) =>
+        prevFees.map((fee) =>
+          selectedFeeIds.includes(fee.id)
+            ? {
+                ...fee,
+                paid_amount: parseFloat(bulkPaidAmount),
+                balance_due: parseFloat(fee.total_fee) - parseFloat(bulkPaidAmount),
+                status: parseFloat(fee.total_fee) - parseFloat(bulkPaidAmount) === 0 ? "Paid" : "Pending",
+              }
+            : fee
+        )
+      );
+      setSelectedFeeIds([]);
+      setBulkPaidAmount("");
+      setShowConfirmDialog(false);
+      setError(null);
+    } catch (error) {
+      setError(`Failed to update fees: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Initial data fetch
   useEffect(() => {
@@ -179,13 +270,13 @@ function FeePage() {
     setError(null);
   };
 
-  // PDF export with header, body, footer
+  // PDF export
   const exportToPDF = () => {
     const printable = document.createElement("div");
     printable.innerHTML = document.getElementById("pdf-template").innerHTML;
-  
+
     document.body.appendChild(printable);
-  
+
     const opt = {
       margin: [5, 5, 5, 5],
       filename: `FeeReport_${format(new Date(), "yyyy-MM-dd")}.pdf`,
@@ -194,14 +285,13 @@ function FeePage() {
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: { mode: ["css", "legacy"], avoid: "tr", before: ".page-break" },
     };
-  
+
     html2pdf()
       .set(opt)
       .from(printable)
       .save()
-      .then(() => document.body.removeChild(printable)); // Cleanup
+      .then(() => document.body.removeChild(printable));
   };
-  
 
   // Status color mapping
   const statusColors = {
@@ -248,11 +338,50 @@ function FeePage() {
         ),
       }));
   };
+
   const schoolName = schools.find((s) => s.id === parseInt(schoolId))?.name || "AllSchools";
   const invoiceNo = `KK-${format(month, "MMM")}-${schoolName.replace(/\s/g, "")}`;
+
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">Fee Management</h1>
+
+      {/* Create New Records Section */}
+      <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+        <h2 className="text-lg font-semibold mb-3">Create New Fee Records</h2>
+        <div className="flex gap-4 items-center">
+          <select
+            value={schoolId}
+            onChange={(e) => setSchoolId(e.target.value)}
+            className="border p-2 rounded w-64"
+            aria-label="Select school for new records"
+          >
+            <option value="">Select School</option>
+            {schools.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={createNewMonthFees}
+            disabled={!schoolId || createLoading}
+            className={`px-4 py-2 rounded text-white ${
+              !schoolId || createLoading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+            aria-label="Create new fee records"
+          >
+            {createLoading ? "Creating Records..." : "Create New Records"}
+          </button>
+        </div>
+        {successMessage && (
+          <div className="mt-3 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded">
+            {successMessage}
+          </div>
+        )}
+      </div>
 
       {/* Error Message */}
       {error && (
@@ -315,248 +444,382 @@ function FeePage() {
           onClick={exportToPDF}
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-green-400"
           disabled={loading || filteredFees.length === 0}
+          aria-label="Export to PDF"
         >
           Export PDF
         </button>
       </div>
 
-      {/* Table with Loading and Empty States */}
+      {/* Bulk Action UI */}
+      <div className="mb-4 flex gap-4 items-center">
+        <input
+          type="number"
+          value={bulkPaidAmount}
+          onChange={(e) => setBulkPaidAmount(e.target.value)}
+          placeholder="Enter bulk paid amount"
+          className="border p-2 rounded"
+          min="0"
+          aria-label="Bulk paid amount"
+        />
+        <button
+          onClick={() => setShowConfirmDialog(true)}
+          disabled={selectedFeeIds.length === 0 || !bulkPaidAmount || loading}
+          className={`px-4 py-2 rounded text-white ${
+            selectedFeeIds.length === 0 || !bulkPaidAmount || loading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
+          aria-label="Apply bulk update"
+        >
+          Apply to Selected
+        </button>
+        {showConfirmDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded-lg">
+              <p className="mb-4">
+                Update {selectedFeeIds.length} fees with paid amount {bulkPaidAmount}?
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={handleBulkUpdate}
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                  aria-label="Confirm bulk update"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                  aria-label="Cancel bulk update"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Table with Pagination */}
       <div className="overflow-x-auto">
-        {loading && <div className="text-center py-4">Loading...</div>}
+      {loading && (
+        <div className="text-center py-4">
+          <ClipLoader
+            color="#2563eb" // Blue to match your app’s theme
+            loading={loading}
+            size={50} // 50px spinner
+            aria-label="Loading fees"
+            data-testid="loader"
+          />
+        </div>
+      )}
         {!loading && filteredFees.length === 0 && (
           <div className="text-center py-4">No fees found.</div>
         )}
         {!loading && filteredFees.length > 0 && (
-          <table
-            id="fee-table"
-            className="min-w-full bg-white border border-gray-300"
-          >
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2">Name</th>
-                
-                <th className="border px-4 py-2">Class</th>
-                <th className="border px-4 py-2">Month</th>
-                <th className="border px-4 py-2">Total Fee</th>
-                <th className="border px-4 py-2">Paid</th>
-                <th className="border px-4 py-2">Balance</th>
-                <th className="border px-4 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {getGroupedFees(filteredFees).map((group) => (
-                <React.Fragment key={group.class}>
-                  <tr className="bg-gray-200">
-                    <td className="border px-4 py-2 font-semibold" colSpan="8">
-                      Class: {group.class}
-                    </td>
-                  </tr>
-                  {group.fees.map((fee) => (
-                    <tr key={fee.id} className="text-center">
-                      <td className="border px-4 py-2">{fee.student_name}</td>
-                     
-                      <td className="border px-4 py-2">{fee.student_class}</td>
-                      <td className="border px-4 py-2">{fee.month}</td>
-                      <td className="border px-4 py-2">{fee.total_fee}</td>
-                      <td className="border px-4 py-2">
-                        {editingFeeId === fee.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={editedPaidAmount}
-                              onChange={(e) => setEditedPaidAmount(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter")
-                                  handleSaveEdit(fee.id, fee.total_fee);
-                                if (e.key === "Escape") handleCancelEdit();
-                              }}
-                              className="border p-1 rounded w-20"
-                              min="0"
-                              max={fee.total_fee}
-                              aria-label={`Edit paid amount for ${fee.student_name}`}
-                              autoFocus
-                            />
-                            <button
-                              onClick={() => handleSaveEdit(fee.id, fee.total_fee)}
-                              className="text-green-600 hover:text-green-800"
-                              aria-label="Save"
-                            >
-                              ✓
-                            </button>
-                            <button
-                              onClick={handleCancelEdit}
-                              className="text-red-600 hover:text-red-800"
-                              aria-label="Cancel"
-                            >
-                              ✗
-                            </button>
-                          </div>
-                        ) : (
-                          <span
-                            onClick={() => handleEditClick(fee)}
-                            className="cursor-pointer hover:bg-gray-100 p-1 rounded"
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && handleEditClick(fee)
+          <>
+            {/* Pagination Logic */}
+            {(() => {
+              const pageCount = Math.ceil(filteredFees.length / itemsPerPage);
+              const offset = currentPage * itemsPerPage;
+              const paginatedFees = filteredFees.slice(offset, offset + itemsPerPage);
+              return (
+                <>
+                  <table
+                    id="fee-table"
+                    className="min-w-full bg-white border border-gray-300"
+                  >
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th scope="col" className="border px-4 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedFeeIds.length === filteredFees.length && filteredFees.length > 0}
+                            onChange={(e) =>
+                              setSelectedFeeIds(e.target.checked ? filteredFees.map((f) => f.id) : [])
                             }
-                            aria-label={`Edit paid amount ${fee.paid_amount} for ${fee.student_name}`}
-                          >
-                            {fee.paid_amount}
-                          </span>
-                        )}
-                      </td>
-                      <td className="border px-4 py-2">{fee.balance_due}</td>
-                      <td
-                        className={`border px-4 py-2 font-semibold ${getStatusColor(
-                          fee.status
-                        )}`}
-                      >
-                        {fee.status}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="font-semibold bg-gray-100">
-                    <td className="border px-4 py-2 text-right" colSpan="4">
-                      Subtotal for {group.class}:
-                    </td>
-                    <td className="border px-4 py-2">
-                      {group.subtotals.total_fee.toFixed(2)}
-                    </td>
-                    <td className="border px-4 py-2">
-                      {group.subtotals.paid_amount.toFixed(2)}
-                    </td>
-                    <td className="border px-4 py-2">
-                      {group.subtotals.balance_due.toFixed(2)}
-                    </td>
-                    <td className="border px-4 py-2"></td>
-                  </tr>
-                </React.Fragment>
-              ))}
-              <tr className="font-bold bg-gray-50">
-                <td className="border px-4 py-2 text-right" colSpan="4">
-                  Total:
-                </td>
-                <td className="border px-4 py-2">
-                  {totalSummary.total_fee.toFixed(2)}
-                </td>
-                <td className="border px-4 py-2">
-                  {totalSummary.paid_amount.toFixed(2)}
-                </td>
-                <td className="border px-4 py-2">
-                  {totalSummary.balance_due.toFixed(2)}
-                </td>
-                <td className="border px-4 py-2"></td>
-              </tr>
-            </tbody>
-          </table>
+                            aria-label="Select all fees"
+                          />
+                        </th>
+                        <th
+                          scope="col"
+                          className="border px-4 py-2 cursor-pointer"
+                          onClick={() => sortFees("student_name")}
+                          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && sortFees("student_name")}
+                          aria-label="Sort by Student Name"
+                          tabIndex={0}
+                          role="button"
+                        >
+                          Name {sortConfig.key === "student_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                        </th>
+                        <th scope="col" className="border px-4 py-2" aria-label="Class">
+                          Class
+                        </th>
+                        <th scope="col" className="border px-4 py-2" aria-label="Month">
+                          Month
+                        </th>
+                        <th
+                          scope="col"
+                          className="border px-4 py-2 cursor-pointer"
+                          onClick={() => sortFees("total_fee")}
+                          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && sortFees("total_fee")}
+                          aria-label="Sort by Total Fee"
+                          tabIndex={0}
+                          role="button"
+                        >
+                          Total Fee {sortConfig.key === "total_fee" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                        </th>
+                        <th
+                          scope="col"
+                          className="border px-4 py-2 cursor-pointer"
+                          onClick={() => sortFees("paid_amount")}
+                          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && sortFees("paid_amount")}
+                          aria-label="Sort by Paid Amount"
+                          tabIndex={0}
+                          role="button"
+                        >
+                          Paid {sortConfig.key === "paid_amount" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                        </th>
+                        <th
+                          scope="col"
+                          className="border px-4 py-2 cursor-pointer"
+                          onClick={() => sortFees("balance_due")}
+                          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && sortFees("balance_due")}
+                          aria-label="Sort by Balance Due"
+                          tabIndex={0}
+                          role="button"
+                        >
+                          Balance {sortConfig.key === "balance_due" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                        </th>
+                        <th
+                          scope="col"
+                          className="border px-4 py-2 cursor-pointer"
+                          onClick={() => sortFees("status")}
+                          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && sortFees("status")}
+                          aria-label="Sort by Payment Status"
+                          tabIndex={0}
+                          role="button"
+                        >
+                          Status {sortConfig.key === "status" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getGroupedFees(paginatedFees).map((group) => (
+                        <React.Fragment key={group.class}>
+                          <tr className="bg-gray-200">
+                            <td className="border px-4 py-2 font-semibold" colSpan="8">
+                              Class: {group.class}
+                            </td>
+                          </tr>
+                          {group.fees.map((fee) => (
+                            <tr key={fee.id} className="text-center">
+                              <td className="border px-4 py-2">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedFeeIds.includes(fee.id)}
+                                  onChange={(e) => {
+                                    setSelectedFeeIds((prev) =>
+                                      e.target.checked ? [...prev, fee.id] : prev.filter((id) => id !== fee.id)
+                                    );
+                                  }}
+                                  aria-label={`Select fee for ${fee.student_name}`}
+                                />
+                              </td>
+                              <td className="border px-4 py-2">{fee.student_name}</td>
+                              <td className="border px-4 py-2">{fee.student_class}</td>
+                              <td className="border px-4 py-2">{fee.month}</td>
+                              <td className="border px-4 py-2">{fee.total_fee}</td>
+                              <td className="border px-4 py-2">
+                                {editingFeeId === fee.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      value={editedPaidAmount}
+                                      onChange={(e) => setEditedPaidAmount(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleSaveEdit(fee.id, fee.total_fee);
+                                        if (e.key === "Escape") handleCancelEdit();
+                                      }}
+                                      className="border p-1 rounded w-20"
+                                      min="0"
+                                      max={fee.total_fee}
+                                      aria-label={`Edit paid amount for ${fee.student_name}`}
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => handleSaveEdit(fee.id, fee.total_fee)}
+                                      className="text-green-600 hover:text-green-800"
+                                      aria-label={`Save paid amount for ${fee.student_name}`}
+                                    >
+                                      ✓
+                                    </button>
+                                    <button
+                                      onClick={handleCancelEdit}
+                                      className="text-red-600 hover:text-red-800"
+                                      aria-label={`Cancel editing for ${fee.student_name}`}
+                                    >
+                                      ✗
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span
+                                    onClick={() => handleEditClick(fee)}
+                                    className="cursor-pointer hover:bg-gray-100 p-1 rounded"
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => e.key === "Enter" && handleEditClick(fee)}
+                                    aria-label={`Edit paid amount ${fee.paid_amount} for ${fee.student_name}`}
+                                  >
+                                    {fee.paid_amount}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="border px-4 py-2">{fee.balance_due}</td>
+                              <td className={`border px-4 py-2 font-semibold ${getStatusColor(fee.status)}`}>
+                                {fee.status}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="font-semibold bg-gray-100">
+                            <td className="border px-4 py-2 text-right" colSpan="4">
+                              Subtotal for {group.class}:
+                            </td>
+                            <td className="border px-4 py-2">{group.subtotals.total_fee.toFixed(2)}</td>
+                            <td className="border px-4 py-2">{group.subtotals.paid_amount.toFixed(2)}</td>
+                            <td className="border px-4 py-2">{group.subtotals.balance_due.toFixed(2)}</td>
+                            <td className="border px-4 py-2"></td>
+                          </tr>
+                        </React.Fragment>
+                      ))}
+                      <tr className="font-bold bg-gray-50">
+                        <td className="border px-4 py-2 text-right" colSpan="4">
+                          Total:
+                        </td>
+                        <td className="border px-4 py-2">{totalSummary.total_fee.toFixed(2)}</td>
+                        <td className="border px-4 py-2">{totalSummary.paid_amount.toFixed(2)}</td>
+                        <td className="border px-4 py-2">{totalSummary.balance_due.toFixed(2)}</td>
+                        <td className="border px-4 py-2"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  {/* Pagination Controls */}
+                  <ReactPaginate
+                    previousLabel="Previous"
+                    nextLabel="Next"
+                    pageCount={pageCount}
+                    onPageChange={({ selected }) => setCurrentPage(selected)}
+                    containerClassName="flex justify-center gap-2 mt-4"
+                    pageClassName="px-3 py-1 border rounded hover:bg-gray-100"
+                    activeClassName="bg-blue-600 text-white"
+                    previousClassName="px-3 py-1 border rounded hover:bg-gray-100"
+                    nextClassName="px-3 py-1 border rounded hover:bg-gray-100"
+                    disabledClassName="opacity-50 cursor-not-allowed"
+                  />
+                </>
+              );
+            })()}
+          </>
         )}
       </div>
 
-      {/* Hidden PDF Template */}
-      <div id="pdf-template" style={{ display: "none" }}>
-  {/* Header */}
-  <div className="flex justify-between items-center mb-2 border-b pb-2">
-  <div>
-    <p><strong>MONTH:</strong> {month ? format(month, "MMM-yyyy") : "N/A"}</p>
-    <p><strong>INVOICE NO:</strong> {invoiceNo}</p>
-    <p><strong>INVOICE TO:</strong> {schoolName}</p>
-    <p>{schoolId && schools.find((s) => s.id === schoolId)?.address || "G-15 Markaz, Islamabad"}</p>
-  </div>
-  <div className="flex flex-col items-end">
-  <img src="/logo512.png" alt="Logo" style={{ width: "80px" }} />
+      {/* PDF Template */}
+      <div id="pdf-template" style={{ display: "none", fontFamily: "'Helvetica', sans-serif", color: "#333" }}>
+        {/* Header */}
+        <div className="bg-blue-50 rounded p-4 mb-4 border border-blue-200">
+          <div className="grid grid-cols-2 gap-4 items-start">
+            <div>
+              <h2 className="text-2xl font-bold text-blue-800">Fee Management Report</h2>
+              <div className="text-sm text-gray-700 mt-2">
+                <p><strong>MONTH:</strong> {month ? format(month, "MMM-yyyy") : "N/A"}</p>
+                <p><strong>INVOICE NO:</strong> {invoiceNo}</p>
+                <p><strong>INVOICE TO:</strong> {schoolName}</p>
+                <p>{schools.find((s) => s.id === parseInt(schoolId))?.address || "G-15 Markaz, Islamabad"}</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <img src="/logo512.png" alt="Koder Kids Logo" style={{ width: "80px", marginBottom: "10px" }} />
+              <p className="font-bold text-lg text-blue-800">Koder Kids</p>
+              <p className="text-sm text-gray-700">G-15 Markaz, Islamabad</p>
+              <p className="text-sm text-gray-700">0316-7394390</p>
+              <p className="text-sm text-gray-700">koderkids24@gmail.com</p>
+            </div>
+          </div>
+        </div>
 
-    <p className="font-bold">Koder Kids</p>
-    <p>G-15 Markaz, Islamabad</p>
-    <p>0316-7394390</p>
-    <p>koderkids24@gmail.com</p>
-  </div>
-</div>
-
-
-  {/* Body */}
-  <table className="min-w-full border border-gray-300 text-xs" style={{ width: "100%", maxWidth: "190mm" }}>
-    <thead>
-      <tr className="bg-gray-100">
-        <th className=" px-2 py-1">Name</th>
-        <th className=" px-2 py-1">School</th>
-        <th className=" px-2 py-1">Class</th>
-        <th className=" px-2 py-1">Month</th>
-        <th className=" px-2 py-1">Total Fee</th>
-        <th className=" px-2 py-1">Paid</th>
-        <th className=" px-2 py-1">Balance</th>
-        <th className=" px-2 py-1">Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {getGroupedFees(filteredFees).map((group) => (
-        <React.Fragment key={group.class}>
-          <tr className="bg-gray-200" style={{ breakInside: "avoid" }}>
-            <td className="border px-2 py-1 font-semibold" colSpan="8">
-              Class: {group.class}
-            </td>
-          </tr>
-          {group.fees.map((fee) => (
-            <tr key={fee.id} className="text-center" style={{ breakInside: "avoid" }}>
-              <td className="border px-2 py-1">{fee.student_name}</td>
-              <td className="border px-2 py-1">{fee.school || ""}</td>
-              <td className="border px-2 py-1">{fee.student_class}</td>
-              <td className="border px-2 py-1">{fee.month}</td>
-              <td className="border px-2 py-1">{fee.total_fee}</td>
-              <td className="border px-2 py-1">{fee.paid_amount}</td>
-              <td className="border px-2 py-1">{fee.balance_due}</td>
-              <td
-                className={`border px-2 py-1 font-semibold ${getStatusColor(
-                  fee.status
-                )}`}
-              >
-                {fee.status}
-              </td>
+        {/* Body */}
+        <table className="min-w-full text-sm" style={{ width: "100%", maxWidth: "190mm", borderCollapse: "collapse" }}>
+          <thead>
+            <tr className="bg-blue-100 text-gray-800">
+              <th className="px-3 py-2 font-bold text-left border">Name</th>
+              <th className="px-3 py-2 font-bold text-center border">School</th>
+              <th className="px-3 py-2 font-bold text-center border">Class</th>
+              <th className="px-3 py-2 font-bold text-center border">Month</th>
+              <th className="px-3 py-2 font-bold text-center border">Total Fee</th>
+              <th className="px-3 py-2 font-bold text-center border">Paid</th>
+              <th className="px-3 py-2 font-bold text-center border">Balance</th>
+              <th className="px-3 py-2 font-bold text-center border">Status</th>
             </tr>
-          ))}
-          <tr className="font-semibold bg-gray-100" style={{ breakInside: "avoid" }}>
-            <td className="border px-2 py-1 text-right" colSpan="4">
-              Subtotal for {group.class}:
-            </td>
-            <td className="border px-2 py-1">
-              {group.subtotals.total_fee.toFixed(2)}
-            </td>
-            <td className="border px-2 py-1">
-              {group.subtotals.paid_amount.toFixed(2)}
-            </td>
-            <td className="border px-2 py-1">
-              {group.subtotals.balance_due.toFixed(2)}
-            </td>
-            <td className="border px-2 py-1"></td>
-          </tr>
-        </React.Fragment>
-      ))}
-      <tr className="font-bold bg-gray-50" style={{ breakInside: "avoid" }}>
-        <td className="border px-2 py-1 text-right" colSpan="4">
-          Total:
-        </td>
-        <td className="border px-2 py-1">
-          {totalSummary.total_fee.toFixed(2)}
-        </td>
-        <td className="border px-2 py-1">
-          {totalSummary.paid_amount.toFixed(2)}
-        </td>
-        <td className="border px-2 py-1">
-          {totalSummary.balance_due.toFixed(2)}
-        </td>
-        <td className="border px-2 py-1"></td>
-      </tr>
-    </tbody>
-  </table>
+          </thead>
+          <tbody>
+            {getGroupedFees(filteredFees).map((group, index) => (
+              <React.Fragment key={group.class}>
+                <tr className="bg-blue-200" style={{ breakInside: "avoid" }}>
+                  <td className="px-3 py-2 font-bold text-gray-800 text-left border" colSpan="8">
+                    Class: {group.class}
+                  </td>
+                </tr>
+                {group.fees.map((fee) => (
+                  <tr
+                    key={fee.id}
+                    className={`text-center ${index % 2 === 0 ? "bg-white" : "bg-blue-50"}`}
+                    style={{ breakInside: "avoid" }}
+                  >
+                    <td className="px-3 py-2 text-left border align-middle">{fee.student_name}</td>
+                    <td className="px-3 py-2 border align-middle">{fee.school || ""}</td>
+                    <td className="px-3 py-2 border align-middle">{fee.student_class}</td>
+                    <td className="px-3 py-2 border align-middle">{fee.month}</td>
+                    <td className="px-3 py-2 border align-middle">{fee.total_fee}</td>
+                    <td className="px-3 py-2 border align-middle">{fee.paid_amount}</td>
+                    <td className="px-3 py-2 border align-middle">{fee.balance_due}</td>
+                    <td className={`px-3 py-2 font-semibold border align-middle ${getStatusColor(fee.status)}`}>
+                      {fee.status}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="font-bold bg-blue-100" style={{ breakInside: "avoid" }}>
+                  <td className="px-3 py-2 text-right text-gray-800 border align-middle" colSpan="4">
+                    Subtotal for {group.class}:
+                  </td>
+                  <td className="px-3 py-2 border align-middle">{group.subtotals.total_fee.toFixed(2)}</td>
+                  <td className="px-3 py-2 border align-middle">{group.subtotals.paid_amount.toFixed(2)}</td>
+                  <td className="px-3 py-2 border align-middle">{group.subtotals.balance_due.toFixed(2)}</td>
+                  <td className="px-3 py-2 border align-middle"></td>
+                </tr>
+              </React.Fragment>
+            ))}
+            <tr className="font-bold bg-blue-50" style={{ breakInside: "avoid" }}>
+              <td className="px-3 py-2 text-right text-gray-800 border align-middle" colSpan="4">
+                Total:
+              </td>
+              <td className="px-3 py-2 border align-middle">{totalSummary.total_fee.toFixed(2)}</td>
+              <td className="px-3 py-2 border align-middle">{totalSummary.paid_amount.toFixed(2)}</td>
+              <td className="px-3 py-2 border align-middle">{totalSummary.balance_due.toFixed(2)}</td>
+              <td className="px-3 py-2 border align-middle"></td>
+            </tr>
+          </tbody>
+        </table>
 
-  {/* Footer */}
-  <div className="text-xs text-gray-600 pt-3 mt-4 border-t">
-  <p className="mt-2 font-semibold">Authorized Signature</p>
-  <p>_____________________________</p>
-  <p className="mt-2 italic">This is a system-generated document and does not require a physical signature.</p>
-  <p className="mt-2">Page <span className="pageNumber"></span> of <span className="totalPages"></span></p>
-</div>
-</div>
+        {/* Footer */}
+        <div className="text-center text-sm text-gray-700 pt-4 mt-4 border-t">
+          <p className="font-bold mt-2">Authorized Signature</p>
+          <p className="inline-block w-48 mb-2">_____________________________</p>
+          <p className="italic mb-2">This is a system-generated document and does not require a physical signature.</p>
+          <p className="mt-4">
+            Page <span className="pageNumber"></span> of <span className="totalPages"></span>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

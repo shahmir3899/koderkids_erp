@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import Student, Fee, School, Attendance, LessonPlan
 
+from .models import LessonPlan, StudentImage
+
 class StudentSerializer(serializers.ModelSerializer):
     school_id = serializers.PrimaryKeyRelatedField(queryset=School.objects.all())  # ✅ Fix school_id reference
     school_name = serializers.CharField(source='school.name', read_only=True)
@@ -52,3 +54,37 @@ class LessonPlanSerializer(serializers.ModelSerializer):
         model = LessonPlan
         fields = ['id', 'session_date', 'teacher', 'teacher_name', 'school', 'school_name', 'student_class', 'planned_topic', 'achieved_topic']
         read_only_fields = ['teacher', 'school']
+
+
+#Teacher Dashboard APIs
+
+
+class MonthlyLessonsSerializer(serializers.Serializer):
+    student_class = serializers.CharField()
+    lesson_count = serializers.IntegerField()
+    school_name = serializers.CharField(source='school__name')
+
+class UpcomingLessonsSerializer(serializers.ModelSerializer):
+    school_name = serializers.CharField(source='school.name')
+    class_name = serializers.CharField(source='student_class')  # Match frontend
+    topic = serializers.CharField(source='planned_topic')  # Match frontend
+
+    class Meta:
+        model = LessonPlan
+        fields = ['session_date', 'class_name', 'school_name', 'topic']
+
+class LessonStatusSerializer(serializers.Serializer):
+    student_class = serializers.CharField()
+    planned_lessons = serializers.IntegerField()
+    completed_lessons = serializers.IntegerField()
+    completion_rate = serializers.FloatField()
+
+class SchoolLessonsSerializer(serializers.Serializer):
+    school_name = serializers.CharField(source='school__name')
+    total_lessons = serializers.IntegerField()
+    classes_covered = serializers.ListField(child=serializers.CharField())
+
+class StudentEngagementSerializer(serializers.Serializer):
+    student_class = serializers.CharField(source='student__student_class')
+    image_count = serializers.IntegerField()
+    student_count = serializers.IntegerField()

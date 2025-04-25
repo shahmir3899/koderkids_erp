@@ -25,6 +25,19 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.conf import settings
 from students.models import StudentImage
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+
+from django.db.models import Count, Case, When, IntegerField, FloatField
+from django.db.models.functions import Round
+from django.contrib.postgres.aggregates import ArrayAgg
+from datetime import datetime, timedelta
+from .models import LessonPlan, StudentImage
+from .serializers import (
+    MonthlyLessonsSerializer, UpcomingLessonsSerializer,
+    LessonStatusSerializer, SchoolLessonsSerializer, StudentEngagementSerializer
+)
 
 
 
@@ -1235,6 +1248,7 @@ def debug_cors(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_schools_with_classes(request):
+
     try:
         user = request.user
         logger.info(f"🔍 Fetching schools for user: {user.username}, role: {user.role}")
@@ -1290,3 +1304,124 @@ def get_schools_with_classes(request):
     except Exception as e:
         logger.error(f"❌ Error fetching schools with classes: {str(e)}")
         return Response({"error": "Server error, check logs"}, status=500)
+    
+
+
+
+
+class TeacherLessonsByMonth(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'Teacher':
+            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            month = request.query_params.get('month')  # e.g., "2025-04"
+            if not month:
+                return Response({"error": "Month parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+            year, month = map(int, month.split('-'))
+            lessons = LessonPlan.objects.filter(
+                teacher=request.user,
+                session_date__year=year,
+                session_date__month=month
+            ).values('student_class', 'school__name').annotate(
+                lesson_count=Count('id')
+            ).order_by('student_class')
+            serializer = MonthlyLessonsSerializer(lessons, many=True)
+            return Response(serializer.data)
+        except ValueError:
+            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
+
+class TeacherUpcomingLessons(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'Teacher':
+            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+        today = datetime.today()
+        next_week = today + timedelta(days=7)
+        lessons = LessonPlan.objects.filter(
+            teacher=request.user,
+            session_date__range=[today, next_week]
+        ).select_related('school').order_by('session_date', 'student_class')
+        serializer = UpcomingLessonsSerializer(lessons, many=True)
+        return Response({"lessons": serializer.data})  # Wrap in "lessons" to match existing API
+
+class TeacherLessonStatus(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'Teacher':
+            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+        month = request.query_params.get('month', datetime.today().strftime('%Y-%m'))
+        try:
+            year, month = map(int, month.split('-'))
+            lessons = LessonPlan.objects.filter(
+                teacher=request.user,
+                session_date__year=year,
+                session_date__month=month
+            ).values('student_class').annotate(
+                planned_lessons=Count('id'),
+                completed_lessons=Count(Case(
+                    When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
+                    output_field=IntegerField()
+                )),
+                completion_rate=Round(
+                    (Count(Case(
+                        When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
+                        output_field=IntegerField()
+                    )) * 100.0) / Count('id')
+                )
+            ).order_by('student_class')
+            serializer = LessonStatusSerializer(lessons, many=True)
+            return Response(serializer.data)
+        except ValueError:
+            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
+
+class TeacherLessonsBySchool(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'Teacher':
+            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+        month = request.query_params.get('month')
+        if not month:
+            return Response({"error": "Month parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            year, month = map(int, month.split('-'))
+            lessons = LessonPlan.objects.filter(
+                teacher=request.user,
+                session_date__year=year,
+                session_date__month=month
+            ).values('school__name').annotate(
+                total_lessons=Count('id'),
+                classes_covered=ArrayAgg('student_class', distinct=True)
+            ).order_by('school__name')
+            serializer = SchoolLessonsSerializer(lessons, many=True)
+            return Response(serializer.data)
+        except ValueError:
+            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
+
+class TeacherStudentEngagement(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'Teacher':
+            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+        month = request.query_params.get('month')
+        if not month:
+            return Response({"error": "Month parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            year, month = map(int, month.split('-'))
+            engagement = StudentImage.objects.filter(
+                session_date__year=year,
+                session_date__month=month,
+                student__school__in=request.user.assigned_schools.all()
+            ).values('student__student_class').annotate(
+                image_count=Count('id'),
+                student_count=Count('student_id', distinct=True)
+            ).order_by('student__student_class')
+            serializer = StudentEngagementSerializer(engagement, many=True)
+            return Response(serializer.data)
+        except ValueError:
+            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
