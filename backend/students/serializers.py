@@ -32,6 +32,13 @@ class FeeSerializer(serializers.ModelSerializer):
             'status'
         ]
 
+class FeeSummarySerializer(serializers.Serializer):
+    school_id = serializers.IntegerField()
+    school_name = serializers.CharField()
+    total_fee = serializers.FloatField()
+    paid_amount = serializers.FloatField()
+    balance_due = serializers.FloatField()
+
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School

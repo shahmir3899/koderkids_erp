@@ -27,6 +27,8 @@ from django.conf import settings
 from students.models import StudentImage
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from .models import StudentsFee, StudentsSchool
+from .serializers import FeeSummarySerializer
 
 
 from django.db.models import Count, Case, When, IntegerField, FloatField
@@ -262,7 +264,42 @@ def get_classes(request):
         return Response({"error": str(e)}, status=500)
 
 
+class FeeSummaryView(APIView):
+    def get(self, request):
+        month = request.query_params.get('month')
+        if not month:
+            return Response({"error": "Month parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            # Aggregate fee data by school for the specified month
+            fee_summary = StudentsFee.objects.filter(month=month).values('school_id').annotate(
+                total_fee=Sum('total_fee'),
+                paid_amount=Sum('paid_amount'),
+                balance_due=Sum('balance_due')
+            )
+
+            # Fetch school names
+            schools = StudentsSchool.objects.all()
+            school_map = {school.id: school.name for school in schools}
+
+            # Prepare response data
+            result = []
+            for entry in fee_summary:
+                school_id = entry['school_id']
+                school_name = school_map.get(school_id, f"School {school_id}")
+                result.append({
+                    'school_id': school_id,
+                    'school_name': school_name,
+                    'total_fee': float(entry['total_fee']),
+                    'paid_amount': float(entry['paid_amount']),
+                    'balance_due': float(entry['balance_due'])
+                })
+
+            serializer = FeeSummarySerializer(result, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 

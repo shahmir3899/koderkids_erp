@@ -8,7 +8,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from finance import views as finance_views  # Corrected import
 from students.views import (
     # Authentication
-    CustomTokenObtainPairView, register_user, debug_cors,
+    CustomTokenObtainPairView, FeeSummaryView, register_user, debug_cors,
 
     # Students Management
     StudentViewSet, add_student, submit_attendance, update_student, delete_student, get_students, get_student_details,
@@ -108,11 +108,11 @@ urlpatterns = [
     path('api/teacher-lessons-by-school/', TeacherLessonsBySchool.as_view(), name='teacher-lessons-by-school'),
     path('api/teacher-student-engagement/', TeacherStudentEngagement.as_view(), name='teacher-student-engagement'),
 
-    # New APIs
+    # New yeacher APIs
     path('api/student-attendance-counts/', get_student_attendance_counts, name='student-attendance-counts'),
     path('api/student-achieved-topics-count/', get_student_achieved_topics_count, name='student-achieved-topics-count'),
     path('api/student-image-uploads-count/', get_student_image_uploads_count, name='student-image-uploads-count'),
-
+    path('api/fee-summary/', FeeSummaryView.as_view(), name='fee-summary'),
     # Includes robot chat APIs
     path("api/", include("robotchat.urls")),
 
@@ -121,6 +121,8 @@ urlpatterns = [
 
     # DRF Router URLs (For ViewSets)
     path('api/', include(router.urls)),
+
+    
 ]
 
 # Remove the duplicate router and urlpatterns redefinition
