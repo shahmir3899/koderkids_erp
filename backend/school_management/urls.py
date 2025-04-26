@@ -5,6 +5,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from backend.finance import views
 from students.views import (
     # Authentication
     CustomTokenObtainPairView, register_user, debug_cors,
@@ -155,6 +156,10 @@ urlpatterns = [
     path('api/teacher-lesson-status/', TeacherLessonStatus.as_view(), name='teacher-lesson-status'),
     path('api/teacher-lessons-by-school/', TeacherLessonsBySchool.as_view(), name='teacher-lessons-by-school'),
     path('api/teacher-student-engagement/', TeacherStudentEngagement.as_view(), name='teacher-student-engagement'),
+
+    path('api/student-attendance-counts/', views.get_student_attendance_counts, name='student-attendance-counts'),
+    path('api/student-achieved-topics-count/', views.get_student_achieved_topics_count, name='student-achieved-topics-count'),
+    path('api/student-image-uploads-count/', views.get_student_image_uploads_count, name='student-image-uploads-count'),
 ]
 
 

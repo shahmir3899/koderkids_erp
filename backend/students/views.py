@@ -1406,6 +1406,8 @@ class TeacherStudentEngagement(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+
+
         if request.user.role != 'Teacher':
             return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
         month = request.query_params.get('month')
@@ -1425,3 +1427,184 @@ class TeacherStudentEngagement(APIView):
             return Response(serializer.data)
         except ValueError:
             return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_attendance_counts(request):
+    """
+    Fetch attendance counts (Present, Absent, Not Marked) for students in a given month, school, and class.
+    Parameters: month (YYYY-MM), school_id, student_class
+    """
+    user = request.user
+    month = request.GET.get('month')  # Format: YYYY-MM
+    school_id = request.GET.get('school_id')
+    student_class = request.GET.get('student_class')
+
+    # Validate parameters
+    if not all([month, school_id, student_class]):
+        return Response({"error": "month, school_id, and student_class are required"}, status=400)
+
+    try:
+        # Parse month to get date range
+        year, month_num = map(int, month.split('-'))
+        start_date = datetime(year, month_num, 1).date()
+        end_date = (datetime(year, month_num + 1, 1) - timedelta(days=1)).date() if month_num < 12 else datetime(year, 12, 31).date()
+
+        # Filter students by school and class
+        students = Student.objects.filter(
+            school_id=school_id,
+            student_class=student_class,
+            status="Active"
+        )
+
+        # Restrict to teacher's assigned schools if role is Teacher
+        if user.role == "Teacher":
+            assigned_schools = user.assigned_schools.values_list("id", flat=True)
+            if int(school_id) not in assigned_schools:
+                return Response({"error": "Unauthorized access to this school"}, status=403)
+
+        # Fetch attendance records for the month
+        attendance_records = Attendance.objects.filter(
+            student__in=students,
+            session_date__range=[start_date, end_date]
+        ).values('student_id', 'status').annotate(count=Count('id'))
+
+        # Prepare response data
+        student_data = []
+        for student in students:
+            student_attendance = {entry['status']: entry['count'] for entry in attendance_records if entry['student_id'] == student.id}
+            student_data.append({
+                "student_id": student.id,
+                "name": student.name,
+                "present": student_attendance.get("Present", 0),
+                "absent": student_attendance.get("Absent", 0),
+                "not_marked": student_attendance.get("N/A", 0)
+            })
+
+        return Response(student_data, status=200)
+
+    except ValueError:
+        return Response({"error": "Invalid month format. Use YYYY-MM (e.g., 2025-03)"}, status=400)
+    except Exception as e:
+        logger.error(f"Error in get_student_attendance_counts: {str(e)}")
+        return Response({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_achieved_topics_count(request):
+    """
+    Fetch count of distinct achieved topics for students in a given month, school, and class.
+    Parameters: month (YYYY-MM), school_id, student_class
+    """
+    user = request.user
+    month = request.GET.get('month')  # Format: YYYY-MM
+    school_id = request.GET.get('school_id')
+    student_class = request.GET.get('student_class')
+
+    # Validate parameters
+    if not all([month, school_id, student_class]):
+        return Response({"error": "month, school_id, and student_class are required"}, status=400)
+
+    try:
+        # Parse month to get date range
+        year, month_num = map(int, month.split('-'))
+        start_date = datetime(year, month_num, 1).date()
+        end_date = (datetime(year, month_num + 1, 1) - timedelta(days=1)).date() if month_num < 12 else datetime(year, 12, 31).date()
+
+        # Filter students by school and class
+        students = Student.objects.filter(
+            school_id=school_id,
+            student_class=student_class,
+            status="Active"
+        )
+
+        # Restrict to teacher's assigned schools if role is Teacher
+        if user.role == "Teacher":
+            assigned_schools = user.assigned_schools.values_list("id", flat=True)
+            if int(school_id) not in assigned_schools:
+                return Response({"error": "Unauthorized access to this school"}, status=403)
+
+        # Fetch attendance records with achieved topics for the month
+        achieved_topics = Attendance.objects.filter(
+            student__in=students,
+            session_date__range=[start_date, end_date],
+            achieved_topic__isnull=False,
+            achieved_topic__ne=''  # Exclude empty strings
+        ).values('student_id').annotate(topics_count=Count('achieved_topic', distinct=True))
+
+        # Prepare response data
+        student_data = []
+        for student in students:
+            topics_count = next((item['topics_count'] for item in achieved_topics if item['student_id'] == student.id), 0)
+            student_data.append({
+                "student_id": student.id,
+                "name": student.name,
+                "topics_achieved": topics_count
+            })
+
+        return Response(student_data, status=200)
+
+    except ValueError:
+        return Response({"error": "Invalid month format. Use YYYY-MM (e.g., 2025-03)"}, status=400)
+    except Exception as e:
+        logger.error(f"Error in get_student_achieved_topics_count: {str(e)}")
+        return Response({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_image_uploads_count(request):
+    """
+    Fetch count of images uploaded for students in a given month, school, and class from Supabase.
+    Parameters: month (YYYY-MM), school_id, student_class
+    """
+    user = request.user
+    month = request.GET.get('month')  # Format: YYYY-MM
+    school_id = request.GET.get('school_id')
+    student_class = request.GET.get('student_class')
+
+    # Validate parameters
+    if not all([month, school_id, student_class]):
+        return Response({"error": "month, school_id, and student_class are required"}, status=400)
+
+    try:
+        # Filter students by school and class
+        students = Student.objects.filter(
+            school_id=school_id,
+            student_class=student_class,
+            status="Active"
+        )
+
+        # Restrict to teacher's assigned schools if role is Teacher
+        if user.role == "Teacher":
+            assigned_schools = user.assigned_schools.values_list("id", flat=True)
+            if int(school_id) not in assigned_schools:
+                return Response({"error": "Unauthorized access to this school"}, status=403)
+
+        # Prepare response data
+        student_data = []
+        for student in students:
+            # Fetch images from Supabase for this student
+            folder_path = f"{student.id}/"
+            response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(folder_path)
+
+            if "error" in response:
+                logger.error(f"Error fetching images for student {student.id}: {response['error']['message']}")
+                continue
+
+            # Filter images by month (filename starts with YYYY-MM)
+            image_count = sum(1 for file in response if file['name'].startswith(month))
+
+            student_data.append({
+                "student_id": student.id,
+                "name": student.name,
+                "images_uploaded": image_count
+            })
+
+        return Response(student_data, status=200)
+
+    except ValueError:
+        return Response({"error": "Invalid month format. Use YYYY-MM (e.g., 2025-03)"}, status=400)
+    except Exception as e:
+        logger.error(f"Error in get_student_image_uploads_count: {str(e)}")
+        return Response({"error": str(e)}, status=500)
