@@ -27,7 +27,7 @@ from django.conf import settings
 from students.models import StudentImage
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import StudentsFee, StudentsSchool
+from .models import Fee, School
 from .serializers import FeeSummarySerializer
 
 
@@ -272,14 +272,14 @@ class FeeSummaryView(APIView):
 
         try:
             # Aggregate fee data by school for the specified month
-            fee_summary = StudentsFee.objects.filter(month=month).values('school_id').annotate(
+            fee_summary = Fee.objects.filter(month=month).values('school_id').annotate(
                 total_fee=Sum('total_fee'),
                 paid_amount=Sum('paid_amount'),
                 balance_due=Sum('balance_due')
             )
 
             # Fetch school names
-            schools = StudentsSchool.objects.all()
+            schools = School.objects.all()
             school_map = {school.id: school.name for school in schools}
 
             # Prepare response data
