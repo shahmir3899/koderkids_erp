@@ -1490,6 +1490,7 @@ def get_student_attendance_counts(request):
         logger.error(f"Error in get_student_attendance_counts: {str(e)}")
         return Response({"error": str(e)}, status=500)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_achieved_topics_count(request):
@@ -1529,9 +1530,9 @@ def get_student_achieved_topics_count(request):
         achieved_topics = Attendance.objects.filter(
             student__in=students,
             session_date__range=[start_date, end_date],
-            achieved_topic__isnull=False,
-            achieved_topic__ne=''  # Exclude empty strings
-        ).values('student_id').annotate(topics_count=Count('achieved_topic', distinct=True))
+            achieved_topic__isnull=False,  # Ensure not null
+        ).exclude(achieved_topic='')  # Exclude empty strings directly
+        achieved_topics = achieved_topics.values('student_id').annotate(topics_count=Count('achieved_topic', distinct=True))
 
         # Prepare response data
         student_data = []
