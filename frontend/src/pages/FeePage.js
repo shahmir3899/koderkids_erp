@@ -7,7 +7,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import debounce from "lodash/debounce";
 import ReactPaginate from "react-paginate";
-import { ClipLoader } from "react-spinners"; // Import ClipLoader
+import { ClipLoader } from "react-spinners";
 
 function FeePage() {
   const [fees, setFees] = useState([]);
@@ -45,7 +45,9 @@ function FeePage() {
           school.classes.forEach((cls) => allClasses.add(cls));
         }
       });
-      setClasses(Array.from(allClasses).sort());
+      const classList = Array.from(allClasses).sort();
+      console.log("Classes from schools:", classList);
+      setClasses(classList);
       setError(null);
     } catch (error) {
       console.error("Error fetching schools:", error);
@@ -63,15 +65,19 @@ function FeePage() {
         headers: getAuthHeaders(),
         params: {
           school_id: schoolId || undefined,
-          class: studentClass || undefined,
+          class: studentClass || undefined, // Send as-is (e.g., "1")
           month: month
             ? month.toLocaleString("default", { month: "short" }) +
               "-" +
               month.getFullYear()
             : undefined,
+          sort: "student_class",
         },
       });
-      setFees(response.data);
+      const sortedFees = response.data.sort((a, b) => a.student_class.localeCompare(b.student_class));
+      console.log("Fees response:", response.data);
+      console.log("Unique student_class values:", [...new Set(sortedFees.map(fee => fee.student_class))]);
+      setFees(sortedFees);
       setError(null);
     } catch (error) {
       console.error("Failed to fetch fees:", error);
@@ -94,7 +100,7 @@ function FeePage() {
         { headers: getAuthHeaders() }
       );
       setSuccessMessage(response.data.message);
-      await fetchFees(); // Refresh fees after creation
+      await fetchFees();
     } catch (error) {
       console.error("Failed to create new fees:", error);
       setError(
@@ -111,22 +117,28 @@ function FeePage() {
     setLoading(true);
     try {
       const headers = getAuthHeaders();
+      console.log("Auth Headers:", headers);
       if (!headers.Authorization) {
         throw new Error("Authentication token missing");
       }
-      await axios.post(
+      const response = await axios.post(
         `${API_URL}/api/fees/update/`,
         { fees: [{ id: feeId, paid_amount: paidAmount.toString() }] },
         { headers }
       );
+      console.log("Update Fee Response:", response.data);
+      const updatedFee = response.data.fees.find((f) => f.id === feeId);
+      if (!updatedFee) {
+        throw new Error("Updated fee not found in response");
+      }
       setFees((prevFees) =>
         prevFees.map((fee) =>
           fee.id === feeId
             ? {
                 ...fee,
-                paid_amount: paidAmount,
-                balance_due: parseFloat(fee.total_fee) - paidAmount,
-                status: parseFloat(fee.total_fee) - paidAmount === 0 ? "Paid" : "Pending",
+                paid_amount: parseFloat(updatedFee.paid_amount),
+                balance_due: parseFloat(updatedFee.balance_due),
+                status: updatedFee.status,
               }
             : fee
         )
@@ -179,22 +191,25 @@ function FeePage() {
         }
         return { id, paid_amount: parsedAmount.toString() };
       });
-      await axios.post(
+      const response = await axios.post(
         `${API_URL}/api/fees/update/`,
         { fees: updates },
         { headers: getAuthHeaders() }
       );
+      const updatedFees = response.data.fees;
       setFees((prevFees) =>
-        prevFees.map((fee) =>
-          selectedFeeIds.includes(fee.id)
-            ? {
-                ...fee,
-                paid_amount: parseFloat(bulkPaidAmount),
-                balance_due: parseFloat(fee.total_fee) - parseFloat(bulkPaidAmount),
-                status: parseFloat(fee.total_fee) - parseFloat(bulkPaidAmount) === 0 ? "Paid" : "Pending",
-              }
-            : fee
-        )
+        prevFees.map((fee) => {
+          const updatedFee = updatedFees.find((uf) => uf.id === fee.id);
+          if (updatedFee) {
+            return {
+              ...fee,
+              paid_amount: parseFloat(updatedFee.paid_amount),
+              balance_due: parseFloat(updatedFee.balance_due),
+              status: updatedFee.status,
+            };
+          }
+          return fee;
+        })
       );
       setSelectedFeeIds([]);
       setBulkPaidAmount("");
@@ -237,30 +252,13 @@ function FeePage() {
       setError("Invalid amount. Must be between 0 and total fee.");
       return;
     }
-    const originalFee = fees.find((fee) => fee.id === feeId);
-    setFees((prevFees) =>
-      prevFees.map((fee) =>
-        fee.id === feeId
-          ? {
-              ...fee,
-              paid_amount: parsedAmount,
-              balance_due: parseFloat(fee.total_fee) - parsedAmount,
-              status:
-                parseFloat(fee.total_fee) - parsedAmount === 0
-                  ? "Paid"
-                  : "Pending",
-            }
-          : fee
-      )
-    );
     try {
       await updateFee(feeId, parsedAmount);
-    } catch {
-      setFees((prevFees) =>
-        prevFees.map((fee) =>
-          fee.id === feeId ? { ...fee, ...originalFee } : fee
-        )
-      );
+      setEditingFeeId(null);
+      setEditedPaidAmount("");
+      setError(null);
+    } catch (error) {
+      setError(`Failed to save changes: ${error.message}`);
     }
   };
 
@@ -459,6 +457,7 @@ function FeePage() {
           placeholder="Enter bulk paid amount"
           className="border p-2 rounded"
           min="0"
+          step="0.01"
           aria-label="Bulk paid amount"
         />
         <button
@@ -502,33 +501,65 @@ function FeePage() {
 
       {/* Table with Pagination */}
       <div className="overflow-x-auto">
-      {loading && (
-        <div className="text-center py-4">
-          <ClipLoader
-            color="#2563eb" // Blue to match your app’s theme
-            loading={loading}
-            size={50} // 50px spinner
-            aria-label="Loading fees"
-            data-testid="loader"
-          />
-        </div>
-      )}
+        {loading && (
+          <div className="text-center py-4">
+            <ClipLoader
+              color="#2563eb"
+              loading={loading}
+              size={50}
+              aria-label="Loading fees"
+              data-testid="loader"
+            />
+          </div>
+        )}
         {!loading && filteredFees.length === 0 && (
           <div className="text-center py-4">No fees found.</div>
         )}
         {!loading && filteredFees.length > 0 && (
           <>
-            {/* Pagination Logic */}
             {(() => {
-              const pageCount = Math.ceil(filteredFees.length / itemsPerPage);
+              const groupedFees = getGroupedFees(filteredFees);
+              const totalItems = groupedFees.reduce((acc, group) => acc + group.fees.length, 0);
+              const pageCount = Math.ceil(totalItems / itemsPerPage);
               const offset = currentPage * itemsPerPage;
-              const paginatedFees = filteredFees.slice(offset, offset + itemsPerPage);
+
+              // Calculate paginated groups
+              let currentOffset = 0;
+              const paginatedGroups = [];
+              let itemsProcessed = 0;
+
+              for (const group of groupedFees) {
+                const groupFees = group.fees;
+                if (itemsProcessed + groupFees.length <= offset) {
+                  itemsProcessed += groupFees.length;
+                  continue;
+                }
+
+                const startIndex = Math.max(0, offset - itemsProcessed);
+                const endIndex = Math.min(groupFees.length, startIndex + (itemsPerPage - currentOffset));
+                if (startIndex < groupFees.length) {
+                  paginatedGroups.push({
+                    class: group.class,
+                    fees: groupFees.slice(startIndex, endIndex),
+                    subtotals: group.fees.slice(startIndex, endIndex).reduce(
+                      (acc, fee) => {
+                        acc.total_fee += parseFloat(fee.total_fee);
+                        acc.paid_amount += parseFloat(fee.paid_amount);
+                        acc.balance_due += parseFloat(fee.balance_due);
+                        return acc;
+                      },
+                      { total_fee: 0, paid_amount: 0, balance_due: 0 }
+                    ),
+                  });
+                  currentOffset += endIndex - startIndex;
+                }
+                itemsProcessed += groupFees.length;
+                if (currentOffset >= itemsPerPage) break;
+              }
+
               return (
                 <>
-                  <table
-                    id="fee-table"
-                    className="min-w-full bg-white border border-gray-300"
-                  >
+                  <table id="fee-table" className="min-w-full bg-white border border-gray-300">
                     <thead>
                       <tr className="bg-gray-100">
                         <th scope="col" className="border px-4 py-2">
@@ -605,7 +636,7 @@ function FeePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {getGroupedFees(paginatedFees).map((group) => (
+                      {paginatedGroups.map((group) => (
                         <React.Fragment key={group.class}>
                           <tr className="bg-gray-200">
                             <td className="border px-4 py-2 font-semibold" colSpan="8">
@@ -644,6 +675,7 @@ function FeePage() {
                                       className="border p-1 rounded w-20"
                                       min="0"
                                       max={fee.total_fee}
+                                      step="0.01"
                                       aria-label={`Edit paid amount for ${fee.student_name}`}
                                       autoFocus
                                     />
@@ -703,7 +735,6 @@ function FeePage() {
                       </tr>
                     </tbody>
                   </table>
-                  {/* Pagination Controls */}
                   <ReactPaginate
                     previousLabel="Previous"
                     nextLabel="Next"

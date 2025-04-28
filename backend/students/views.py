@@ -1143,8 +1143,15 @@ def get_attendance_count(request):
         return JsonResponse({"error": "student_id, start_date, and end_date are required"}, status=400)
 
     try:
-        # Total days in the range
-        total_days = Attendance.objects.filter(session_date__range=[start_date, end_date]).values('session_date').distinct().count()
+        # Fetch the student's school
+        student = Student.objects.get(id=student_id)
+        school = student.school
+
+        # Total days in the range for the student's school
+        total_days = Attendance.objects.filter(
+            session_date__range=[start_date, end_date],
+            student__school=school  # Filter by the student's school
+        ).values('session_date').distinct().count()
 
         # Days student was marked as "Present"
         present_days = Attendance.objects.filter(
@@ -1155,9 +1162,12 @@ def get_attendance_count(request):
 
         return JsonResponse({"present_days": present_days, "total_days": total_days})
 
+    except Student.DoesNotExist:
+        return JsonResponse({"error": "Student not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+        
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_lessons_achieved(request):
