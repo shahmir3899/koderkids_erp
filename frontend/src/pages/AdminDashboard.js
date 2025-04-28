@@ -9,10 +9,21 @@ function HomePage() {
   const [feeData, setFeeData] = useState([]);
   const [registrations, setRegistrations] = useState([]);
   const [schools, setSchools] = useState([]);
+  const [feeSummary, setFeeSummary] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [selectedReportMonth, setSelectedReportMonth] = useState("");
+  const [selectedSchoolId, setSelectedSchoolId] = useState("");
+  const [selectedClass, setSelectedClass] = useState("");
+  const [classes, setClasses] = useState([]);
+  const [studentAttendance, setStudentAttendance] = useState([]);
+  const [studentTopics, setStudentTopics] = useState([]);
+  const [studentImages, setStudentImages] = useState([]);
+  const [studentDataLoading, setStudentDataLoading] = useState(false);
 
   // Colors for Treemap (unique for each school)
   const COLORS = [
@@ -29,14 +40,11 @@ function HomePage() {
   ];
 
   const processFeeData = (data, schools = []) => {
-    console.log("Raw Fee Data:", data);
-    console.log("Schools Data:", schools);
     if (!data || !Array.isArray(data) || data.length === 0) {
       console.warn("No valid fee data provided");
       return [];
     }
 
-    // Fallback school mapping
     const defaultSchoolMap = {
       3: "School A",
       5: "School B"
@@ -75,9 +83,87 @@ function HomePage() {
       return row;
     });
 
-    console.log("Processed Fee Data:", chartData);
     return chartData;
   };
+
+  // Fetch classes for selected school
+const fetchClasses = async (schoolId) => {
+  if (!schoolId) return;
+  try {
+    const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/classes/?school=${schoolId}`, {
+      headers: {
+        "Authorization": `Bearer ${localStorage.getItem("access")}`,
+        "Content-Type": "application/json"
+      }
+    });
+    // Remove duplicates by converting to Set and back to array
+    const uniqueClasses = [...new Set(response.data)];
+    setClasses(uniqueClasses);
+  } catch (error) {
+    toast.error("Failed to fetch classes");
+  }
+};
+
+// Fetch student data for reports
+const fetchStudentData = async () => {
+  if (!selectedReportMonth || !selectedSchoolId || !selectedClass) {
+    toast.error("Please select month, school, and class");
+    return;
+  }
+
+  setStudentDataLoading(true);
+  try {
+    const params = `month=${selectedReportMonth}&school_id=${selectedSchoolId}&student_class=${selectedClass}`;
+
+    // Fetch attendance counts
+    const attendanceResponse = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/student-attendance-counts/?${params}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("access")}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    setStudentAttendance(attendanceResponse.data);
+
+    // Fetch achieved topics count
+    const topicsResponse = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/student-achieved-topics-count/?${params}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("access")}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    setStudentTopics(topicsResponse.data);
+
+    // Fetch image uploads count
+    const imagesResponse = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/student-image-uploads-count/?${params}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("access")}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    setStudentImages(imagesResponse.data);
+  } catch (error) {
+    toast.error("Failed to fetch student data");
+  }
+  setStudentDataLoading(false);
+};
+
+// Fetch classes when school changes
+useEffect(() => {
+  fetchClasses(selectedSchoolId);
+}, [selectedSchoolId]);
+
+
+
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -116,12 +202,27 @@ function HomePage() {
         if (!registrationsRes.data || !Array.isArray(registrationsRes.data)) throw new Error("Invalid registrations data");
         if (!schoolsRes.data || !Array.isArray(schoolsRes.data)) throw new Error("Invalid schools data");
 
-        console.log("Fee Data Response:", feeRes.data);
-        console.log("Schools Response:", schoolsRes.data);
         setStudentsData(studentsRes.data);
         setFeeData(processFeeData(feeRes.data, schoolsRes.data));
         setRegistrations(registrationsRes.data);
         setSchools(schoolsRes.data);
+
+        // Extract unique months from fee data in MMM-YYYY format
+        const uniqueMonths = Array.from(new Set(feeRes.data.map(entry => entry.month || "Unknown")))
+          .filter(month => month !== "Unknown")
+          .sort((a, b) => {
+            const [monthA, yearA] = a.split('-');
+            const [monthB, yearB] = b.split('-');
+            if (yearA === yearB) {
+              return new Date(`${monthA} 1, ${yearA}`) - new Date(`${monthB} 1, ${yearB}`);
+            }
+            return yearA - yearB;
+          });
+        setAvailableMonths(uniqueMonths);
+
+        // Set default month to the most recent month in MMM-YYYY format
+        const recentMonth = uniqueMonths.length > 0 ? uniqueMonths[uniqueMonths.length - 1] : "";
+        setSelectedMonth(recentMonth);
       } catch (err) {
         console.error("❌ Error fetching data:", err);
         setError("Failed to fetch data. Please try again or check your authentication.");
@@ -133,6 +234,27 @@ function HomePage() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchFeeSummary = async () => {
+      if (!selectedMonth) return;
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/fee-summary/`, {
+          params: { month: selectedMonth }, // Already in MMM-YYYY format
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem("access")}`,
+            "Content-Type": "application/json"
+          }
+        });
+        setFeeSummary(response.data);
+      } catch (err) {
+        console.error("❌ Error fetching fee summary:", err);
+        toast.error(`Error fetching fee summary: ${err.message}`);
+      }
+    };
+
+    fetchFeeSummary();
+  }, [selectedMonth]);
 
   const sortData = (key) => {
     let direction = "asc";
@@ -226,6 +348,104 @@ function HomePage() {
           </div>
         </div>
 
+        {/* Fee Summary by School */}
+        <div className="border p-4 m-0 rounded-lg shadow-md bg-white mb-6">
+          <h2 className="text-xl font-semibold mb-3 text-gray-700">Fee Summary by School</h2>
+          <div className="mb-4">
+            <label htmlFor="month-selector" className="mr-2 text-gray-700">Select Month:</label>
+            <select
+              id="month-selector"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="border rounded p-2"
+            >
+              {availableMonths.length > 0 ? (
+                availableMonths.map((month) => (
+                  <option key={month} value={month}>{month}</option>
+                ))
+              ) : (
+                <option value="">No Months Available</option>
+              )}
+            </select>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border bg-gray-100 text-gray-700">
+              <thead className="bg-gray-300 text-gray-800">
+                <tr>
+                  <th
+                    className="border p-3 text-center cursor-pointer"
+                    onClick={() => sortData("school_name")}
+                  >
+                    School {sortConfig.key === "school_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="border p-3 text-center cursor-pointer"
+                    onClick={() => sortData("total_fee")}
+                  >
+                    Total Fee {sortConfig.key === "total_fee" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="border p-3 text-center cursor-pointer"
+                    onClick={() => sortData("paid_amount")}
+                  >
+                    Received Fee {sortConfig.key === "paid_amount" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="border p-3 text-center cursor-pointer"
+                    onClick={() => sortData("balance_due")}
+                  >
+                    Pending Fee {sortConfig.key === "balance_due" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const sortedData = [...feeSummary].sort((a, b) => {
+                    if (sortConfig.key === "school_name") {
+                      return sortConfig.direction === "asc"
+                        ? a.school_name.localeCompare(b.school_name)
+                        : b.school_name.localeCompare(a.school_name);
+                    }
+                    if (sortConfig.key === "total_fee") {
+                      return sortConfig.direction === "asc"
+                        ? a.total_fee - b.total_fee
+                        : b.total_fee - a.total_fee;
+                    }
+                    if (sortConfig.key === "paid_amount") {
+                      return sortConfig.direction === "asc"
+                        ? a.paid_amount - b.paid_amount
+                        : b.paid_amount - a.paid_amount;
+                    }
+                    if (sortConfig.key === "balance_due") {
+                      return sortConfig.direction === "asc"
+                        ? a.balance_due - b.balance_due
+                        : b.balance_due - a.balance_due;
+                    }
+                    return 0;
+                  });
+
+                  return sortedData.length > 0 ? (
+                    sortedData.map((entry, index) => (
+                      <tr key={index} className={index % 2 === 0 ? "bg-gray-200" : "bg-gray-50"}>
+                        <td className="border p-3 text-center">{entry.school_name}</td>
+                        <td className="border p-3 text-center">PKR {entry.total_fee.toLocaleString()}</td>
+                        <td className="border p-3 text-center">PKR {entry.paid_amount.toLocaleString()}</td>
+                        <td className="border p-3 text-center">PKR {entry.balance_due.toLocaleString()}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="border p-4 text-center text-gray-500 italic" colSpan="4">
+                        No Fee Summary Available for {selectedMonth}
+                      </td>
+                    </tr>
+                  );
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         {/* New Registrations (Summarized Table) */}
         <div className="border p-4 m-0 rounded-lg shadow-md bg-white">
           <h2 className="text-xl font-semibold mb-3 text-gray-700">New Registrations by School</h2>
@@ -292,6 +512,124 @@ function HomePage() {
             })()}
           </div>
         </div>
+        <div className="border p-4 m-0 rounded-lg shadow-md bg-white mb-6">
+  <h2 className="text-xl font-semibold mb-4 text-gray-700">Student Data Reports</h2>
+  <div className="flex flex-wrap gap-4 mb-4">
+    {/* Month Selector */}
+    <div>
+      <label htmlFor="reportMonth" className="block text-sm font-medium mb-1 text-gray-700">
+        Select Month
+      </label>
+      <input
+        type="month"
+        id="reportMonth"
+        value={selectedReportMonth}
+        onChange={(e) => setSelectedReportMonth(e.target.value)}
+        className="border rounded p-2 w-full max-w-xs"
+        aria-label="Select month for student data reports"
+      />
+    </div>
+
+    {/* School Selector */}
+    <div>
+      <label htmlFor="schoolId" className="block text-sm font-medium mb-1 text-gray-700">
+        Select School
+      </label>
+      <select
+        id="schoolId"
+        value={selectedSchoolId}
+        onChange={(e) => setSelectedSchoolId(e.target.value)}
+        className="border rounded p-2 w-full max-w-xs"
+        aria-label="Select school for student data reports"
+      >
+        <option value="">Select School</option>
+        {schools.map((school) => (
+          <option key={school.id} value={school.id}>
+            {school.name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Class Selector */}
+    <div>
+      <label htmlFor="studentClass" className="block text-sm font-medium mb-1 text-gray-700">
+        Select Class
+      </label>
+      <select
+        id="studentClass"
+        value={selectedClass}
+        onChange={(e) => setSelectedClass(e.target.value)}
+        className="border rounded p-2 w-full max-w-xs"
+        aria-label="Select class for student data reports"
+        disabled={!selectedSchoolId}
+      >
+        <option value="">Select Class</option>
+        {classes.map((cls, index) => (
+          <option key={index} value={cls}>
+            {cls}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Fetch Button */}
+    <div className="flex items-end">
+      <button
+        onClick={fetchStudentData}
+        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+        disabled={studentDataLoading}
+      >
+        {studentDataLoading ? "Loading..." : "Fetch Student Data"}
+      </button>
+    </div>
+  </div>
+
+  {/* Combined Student Data Table */}
+  <div className="mb-6">
+    <h3 className="text-lg font-semibold mb-2 text-gray-700">Student Performance Overview</h3>
+    {studentDataLoading ? (
+      <div className="flex justify-center">
+        <ClipLoader color="#000000" size={50} />
+      </div>
+    ) : studentAttendance.length > 0 ? (
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse border bg-gray-100 text-gray-700">
+          <thead className="bg-gray-300 text-gray-800">
+            <tr>
+              <th className="border p-3 text-center">Student ID</th>
+              <th className="border p-3 text-center">Name</th>
+              <th className="border p-3 text-center bg-blue-100">Present</th>
+              <th className="border p-3 text-center bg-blue-100">Absent</th>
+              <th className="border p-3 text-center bg-blue-100">Not Marked</th>
+              <th className="border p-3 text-center bg-green-100">Topics Achieved</th>
+              <th className="border p-3 text-center bg-yellow-100">Images Uploaded</th>
+            </tr>
+          </thead>
+          <tbody>
+            {studentAttendance.map((attendance, index) => {
+              const topic = studentTopics.find(t => t.student_id === attendance.student_id) || { topics_achieved: 0 };
+              const image = studentImages.find(i => i.student_id === attendance.student_id) || { images_uploaded: 0 };
+              return (
+                <tr key={index} className={index % 2 === 0 ? "bg-gray-200" : "bg-gray-50"}>
+                  <td className="border p-3 text-center">{attendance.student_id}</td>
+                  <td className="border p-3 text-center">{attendance.name}</td>
+                  <td className="border p-3 text-center bg-blue-50">{attendance.present}</td>
+                  <td className="border p-3 text-center bg-blue-50">{attendance.absent}</td>
+                  <td className="border p-3 text-center bg-blue-50">{attendance.not_marked}</td>
+                  <td className="border p-3 text-center bg-green-50">{topic.topics_achieved}</td>
+                  <td className="border p-3 text-center bg-yellow-50">{image.images_uploaded}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <p className="text-gray-500 text-center">No student data available.</p>
+    )}
+  </div>
+</div>
       </div>
     </div>
   );

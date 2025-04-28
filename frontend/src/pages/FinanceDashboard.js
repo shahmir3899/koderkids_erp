@@ -1,283 +1,239 @@
+
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { API_URL, getAuthHeaders } from "../api";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { ClipLoader } from "react-spinners"; // Import ClipLoader
+import { ClipLoader } from "react-spinners";
 import "webdatarocks/webdatarocks.min.css";
 import "webdatarocks/webdatarocks.toolbar.min.js";
 import Select from "react-select";
-import { DateRange } from "react-date-range";
-import { enUS } from 'date-fns/locale';
-
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
-import { format, parseISO, addMonths } from "date-fns";
-
-
-
-
-
+import { format } from "date-fns";
 
 function FinanceDashboard() {
-    const [summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: [] });
-    const [loanSummary, setLoanSummary] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-    const [isRetrying, setIsRetrying] = useState(false); // New state for retry loading
-    const [selectedSchool, setSelectedSchool] = useState(null);
-    const [selectedSchools, setSelectedSchools] = useState([]);
-    const [allDates, setAllDates] = useState(true);  // toggles between full range and custom
-    const [dateRange, setDateRange] = useState([
-      {
-        startDate: new Date(new Date().getFullYear(), 0, 1), // Jan 1 this year
-        endDate: new Date(),
-        key: 'selection'
-      }
-    ]);
-    const [dateMin] = useState(new Date(2024, 0, 1)); // Jan 2020
-    const [dateMax] = useState(new Date(2025, 11, 31)); // Dec 2025
-    const [sliderRange, setSliderRange] = useState([
-      dateMin.getTime(),
-      dateMax.getTime()
-    ]);
-        const [selectedCategories, setSelectedCategories] = useState([]);
-    const [searchTriggered, setSearchTriggered] = useState(false);
-    const [searchParams, setSearchParams] = useState(null);
+  // **State Declarations**
+  const [
 
-    const [transactionType, setTransactionType] = useState("Income");
+summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: [] });
+  const [loanSummary, setLoanSummary] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [schools, setSchools] = useState([]);
+  const [incomeCategories, setIncomeCategories] = useState([]); // New state for Income categories
+  const [expenseCategories, setExpenseCategories] = useState([]); // New state for Expense categories
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [selectedSchools, setSelectedSchools] = useState([]);
+  const [transactionType, setTransactionType] = useState("Income");
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [dateMin] = useState(new Date(2024, 0, 1)); // Jan 2024
+  const [dateMax] = useState(new Date(2025, 11, 31)); // Dec 2025
+  const [sliderRange, setSliderRange] = useState([dateMin.getTime(), dateMax.getTime()]);
+  const [searchParams, setSearchParams] = useState(null);
+  const pivotRef = useRef(null);
 
-
-    const [schools, setSchools] = useState([]);
-
-
-    const schoolOptions = schools.map(school => ({
+  // **Derived Values**
+  const netBalance = summary.income - summary.expenses;
+  const schoolOptions = schools.map((school) => ({
     value: String(school.id),
-    label: school.name
-    }));
+    label: school.name,
+  }));
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+  // Dynamically filter categories based on transactionType
+  const categoryOptions = useMemo(() => {
+    if (transactionType === "Income") {
+      return incomeCategories;
+    } else if (transactionType === "Expense") {
+      return expenseCategories;
+    }
+    return []; // For "Transfer", show no categories (or handle separately if needed)
+  }, [transactionType, incomeCategories, expenseCategories]);
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const [summaryResponse, loanResponse, schoolResponse] = await Promise.all([
-                axios.get(`${API_URL}/api/finance-summary/`, { headers: getAuthHeaders() }),
-                axios.get(`${API_URL}/api/loan-summary/`, { headers: getAuthHeaders() }),
-                axios.get(`${API_URL}/api/schools/`, { headers: getAuthHeaders() }),  // ✅ Add this
-            ]);
-            setSummary(summaryResponse.data);
-            setLoanSummary(loanResponse.data);
-            setSchools(schoolResponse.data); // ✅ Populate schools list
-          
-        } catch (err) {
-            setError("Failed to fetch data. Please try again or check your authentication.");
-        } finally {
-            setIsLoading(false);
-        }
+  // **Fetch Initial Data**
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [summaryResponse, loanResponse, schoolResponse] = await Promise.all([
+        axios.get(`${API_URL}/api/finance-summary/`, { headers: getAuthHeaders() }),
+        axios.get(`${API_URL}/api/loan-summary/`, { headers: getAuthHeaders() }),
+        axios.get(`${API_URL}/api/schools/`, { headers: getAuthHeaders() }),
+      ]);
+      setSummary(summaryResponse.data);
+      setLoanSummary(loanResponse.data);
+      setSchools(schoolResponse.data);
+    } catch (err) {
+      if (err.response && err.response.status === 401) {
+        setError("Authentication failed. Please log in again.");
+      } else if (err.response && err.response.status === 404) {
+        setError("Data not found. Please check the server or try again.");
+      } else {
+        setError("Failed to fetch data. Please try again later.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // **Fetch Transactions and Categories**
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const [incomeRes, expenseRes, transferRes] = await Promise.all([
+          axios.get(`${API_URL}/api/income/`, { headers: getAuthHeaders() }),
+          axios.get(`${API_URL}/api/expense/`, { headers: getAuthHeaders() }),
+          axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
+        ]);
+
+        // Separate Income and Expense transactions
+        const incomeTxs = incomeRes.data.map((tx) => ({ ...tx, transaction_type: "Income" }));
+        const expenseTxs = expenseRes.data.map((tx) => ({ ...tx, transaction_type: "Expense" }));
+        const transferTxs = transferRes.data.map((tx) => ({ ...tx, transaction_type: "Transfer" }));
+
+        // Combine all transactions
+        const allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
+        setTransactions(allTransactions);
+
+        // Extract and set Income categories
+        const incomeCats = Array.from(new Set(incomeTxs.map((tx) => tx.category))).sort();
+        setIncomeCategories(incomeCats);
+
+        // Extract and set Expense categories
+        const expenseCats = Array.from(new Set(expenseTxs.map((tx) => tx.category))).sort();
+        setExpenseCategories(expenseCats);
+      } catch (err) {
+        console.error("Failed to fetch transactions:", err);
+        setError("Failed to load transactions. Some features may be limited.");
+      }
+    };
+    fetchTransactions();
+  }, []);
+
+  // **Pivot Table Setup**
+  useEffect(() => {
+    if (!searchParams || transactions.length === 0) return;
+
+    // Create a mapping of school_id to school_name
+    const schoolMap = schools.reduce((map, school) => {
+      map[school.id] = school.name;
+      return map;
+    }, {});
+
+    const filteredData = transactions
+      .filter(
+        (tx) =>
+          selectedSchools.length === 0 || selectedSchools.includes(String(tx.school_id))
+      )
+      .filter((tx) => tx.transaction_type === searchParams.transactionType)
+      .filter((tx) => {
+        const txDate = new Date(tx.date);
+        const start = new Date(searchParams.startDate);
+        const end = new Date(searchParams.endDate);
+        return txDate >= start && txDate <= end;
+      })
+      .filter(
+        (tx) =>
+          selectedCategories.length === 0 || selectedCategories.includes(tx.category)
+      )
+      .map((tx) => ({
+        id: tx.id,
+        date: new Date(tx.date).toISOString(), // Ensure date is in ISO format
+        transaction_type: tx.transaction_type,
+        amount: tx.amount,
+        category: tx.category,
+        school: schoolMap[tx.school_id] || "Unknown", // Map school_id to school name
+        from_account: tx.from_account_name || "—",
+        to_account: tx.to_account_name || "—",
+        notes: tx.notes || "",
+      }));
+
+    if (filteredData.length === 0) {
+      if (pivotRef.current) {
+        pivotRef.current.innerHTML = `<div class="text-gray-500 text-center p-4">No matching transactions found. Adjust filters and try again.</div>`;
+      }
+      return;
+    }
+
+    const initializePivot = () => {
+      pivotRef.current.innerHTML = "";
+      new window.WebDataRocks({
+        container: pivotRef.current,
+        toolbar: true,
+        height: 430,
+        report: {
+          dataSource: { data: filteredData },
+          slice: {
+            rows: [
+              { uniqueName: "school" }, // Group by school
+              { uniqueName: "category" }, // Group by category
+            ],
+            columns: [
+              { uniqueName: "date", levelName: "Month" }, // Group by month
+            ],
+            measures: [
+              { uniqueName: "amount", aggregation: "sum", format: "PKRFormat" }, // Sum the amounts
+            ],
+          },
+          formats: [
+            {
+              name: "PKRFormat",
+              thousandsSeparator: ",",
+              decimalSeparator: ".",
+              decimalPlaces: 0,
+              currencySymbol: "PKR ",
+              currencySymbolAlign: "left",
+              nullValue: "-",
+              textAlign: "right",
+            },
+          ],
+          mapping: {
+            school: { caption: "School" },
+            from_account: { caption: "From Account" },
+            to_account: { caption: "To Account" },
+            transaction_type: { caption: "Transaction Type" },
+            date: { caption: "Date", type: "date" }, // Specify date type
+            amount: { caption: "Amount" },
+            category: { caption: "Category" },
+            notes: { caption: "Notes" },
+          },
+          options: { grid: { showFilter: true, showHeaders: true } },
+        },
+      });
     };
 
-    // Retry function with loading state
-    const handleRetry = async () => {
-        setIsRetrying(true);
-        await fetchData();
-        setIsRetrying(false);
-    };
-
-    // Bar Chart Data
-    const barChartData = [
-        { name: "Summary", income: summary.income, expenses: summary.expenses },
-    ];
-
-    // Custom Tooltip for Bar Chart
-    const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-white p-2 border border-gray-300 rounded shadow">
-                    <p className="text-gray-700">{`Income: Rs ${payload[0].value.toLocaleString()}`}</p>
-                    <p className="text-gray-700">{`Expenses: Rs ${payload[1].value.toLocaleString()}`}</p>
-                </div>
-            );
-        }
-        return null;
-    };
-
-    // Sort accounts for the table
-    const sortedAccounts = [...summary.accounts].sort((a, b) => {
-        if (sortConfig.key) {
-            const aValue = a[sortConfig.key];
-            const bValue = b[sortConfig.key];
-            if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-            if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        }
-        return 0;
-    });
-
-    // Calculate total balance
-    const totalBalance = summary.accounts.reduce((acc, account) => acc + account.current_balance, 0);
-
-    // Handle table sorting
-    const handleSort = (key) => {
-        let direction = "asc";
-        if (sortConfig.key === key && sortConfig.direction === "asc") {
-            direction = "desc";
-        }
-        setSortConfig({ key, direction });
-    };
-    const [transactions, setTransactions] = useState([]);
-    const categoryOptions = useMemo(() => {
-        return Array.from(new Set(transactions.map(tx => tx.category))).sort();
-      }, [transactions]);
-      
-      
-      const pivotRef = useRef(null);
-
-      
-        useEffect(() => {
-          if (!searchParams || transactions.length === 0) return;
-
-      
-        const {
-            selectedSchools: filterSchools,
-            transactionType,
-            selectedCategories,
-            allDates,
-            startDate,
-            endDate
-          } = searchParams;
-          
-          console.log("🔍 Using filterSchools:", filterSchools);
-          console.log("📦 Raw transactions:", transactions.length);
-          console.log("🧾 Sample transaction:", transactions[0]);
-          console.log("📊 Checking fields in transactions...");
-          transactions.forEach((tx, idx) => {
-            if (!tx.school_id || !tx.transaction_type || !tx.category || !tx.date || !tx.amount) {
-              console.warn(`❌ Incomplete tx at index ${idx}:`, tx);
-            }
-          });
-      
-          const filteredData = transactions
-          .filter((tx) => {
-            // ✅ Filter by school only if any selected
-            const passesSchool = filterSchools.length === 0 || filterSchools.includes(String(tx.school_id));
-            return passesSchool;
-          })
-          .filter((tx) => {
-            // ✅ Filter by transaction type
-            return tx.transaction_type === transactionType;
-          })
-          .filter((tx) => {
-            // ✅ Filter by date only if allDates is false
-            if (allDates) return true;
-            const txDate = new Date(tx.date);
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            return txDate >= start && txDate <= end;
-          })
-          .filter((tx) => {
-            // ✅ Filter by categories if any selected
-            return selectedCategories.length === 0 || selectedCategories.includes(tx.category);
-          })
-          .map((tx) => ({
-            id: tx.id,
-            date: tx.date,
-            transaction_type: tx.transaction_type,
-            amount: tx.amount,
-            category: tx.category,
-            school: tx.school_name || "Unknown",
-            from_account: tx.from_account_name || "—",
-            to_account: tx.to_account_name || "—",
-            notes: tx.notes || ""
-          }));
-        
-
-      
-        if (filteredData.length === 0) {
-          console.warn("Pivot skipped: No data after filtering.");
+    if (window.WebDataRocks && pivotRef.current) {
+      initializePivot();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://cdn.webdatarocks.com/latest/webdatarocks.js";
+      script.onload = () => {
+        setTimeout(() => {
           if (pivotRef.current) {
-            pivotRef.current.innerHTML = `<div class="text-gray-500 text-center p-4">No matching data. Adjust filters and click Search again.</div>`;
-          }
-          return;
-        }
-      
-        if (window.WebDataRocks && pivotRef.current) {
-          pivotRef.current.innerHTML = "";
-          new window.WebDataRocks({
-            container: pivotRef.current,
-            toolbar: true,
-            height: 430,
-            report: {
-              dataSource: {
-                data: filteredData
-              },
-              slice: {
-                rows: [{ uniqueName: "category" }],
-                columns: [
-                  { uniqueName: "transaction_type" },
-                  { uniqueName: "date", levelName: "Month" }
-                ],
-                measures: [{ uniqueName: "amount", aggregation: "sum", format: "PKRFormat" }]
-              },
-              formats: [ // ✅ insert here
-                {
-                  name: "PKRFormat",
-                  thousandsSeparator: ",",
-                  decimalSeparator: ".",
-                  decimalPlaces: 0,
-                  currencySymbol: "PKR ",
-                  currencySymbolAlign: "left",
-                  nullValue: "-",
-                  textAlign: "right"
-                }
-              ],
-              mapping: {
-                school: { caption: "School" },
-                from_account: { caption: "From Account" },
-                to_account: { caption: "To Account" },
-                transaction_type: { caption: "Transaction Type" },
-                date: { caption: "Date" },
-                amount: { caption: "Amount" },
-                category: { caption: "Category" },
-                notes: { caption: "Notes" }
-              },
-              
-              options: {
-                grid: {
-                  showFilter: true,
-                  showHeaders: true
-                }
-              }
-            }
-          });
-          return;
-        }
-      
-        const existing = document.querySelector("script[src*='webdatarocks']");
-        if (existing) return;
-      
-        const script = document.createElement("script");
-        script.src = "https://cdn.webdatarocks.com/latest/webdatarocks.js";
-        script.onload = () => {
-          setTimeout(() => {
-            if (pivotRef.current) {
-              new window.WebDataRocks({
-                container: pivotRef.current,
-                toolbar: true,
-                height: 430,
-                report: {
-                  dataSource: { data: filteredData },
-                  slice: {
-                    rows: [{ uniqueName: "category" }],
-                    columns: [
-                      { uniqueName: "transaction_type" },
-                      { uniqueName: "date", levelName: "Month" }
-                    ],
-                    formats: [
+            new window.WebDataRocks({
+              container: pivotRef.current,
+              toolbar: true,
+              height: 430,
+              report: {
+                dataSource: { data: filteredData },
+                slice: {
+                  rows: [
+                    { uniqueName: "school" }, // Group by school
+                    { uniqueName: "category" }, // Group by category
+                  ],
+                  columns: [
+                    { uniqueName: "date", levelName: "Month" }, // Group by month
+                  ],
+                  measures: [
+                    { uniqueName: "amount", aggregation: "sum", format: "PKRFormat" }, // Sum the amounts
+                  ],
+                },
+                formats: [
                   {
                     name: "PKRFormat",
                     thousandsSeparator: ",",
@@ -286,325 +242,358 @@ function FinanceDashboard() {
                     currencySymbol: "PKR ",
                     currencySymbolAlign: "left",
                     nullValue: "-",
-                    textAlign: "right"
-                  }
-                ],
-
-                    measures: [{ uniqueName: "amount", aggregation: "sum", format: "PKRFormat" }]
+                    textAlign: "right",
                   },
-                  mapping: {
-                    school: { caption: "School" },
-                    from_account: { caption: "From Account" },
-                    to_account: { caption: "To Account" },
-                    transaction_type: { caption: "Transaction Type" },
-                    date: { caption: "Date" },
-                    amount: { caption: "Amount" },
-                    category: { caption: "Category" },
-                    notes: { caption: "Notes" }
-                  }
-                  ,
-                  
-                  options: {
-                    grid: {
-                      showFilter: true,
-                      showHeaders: true
-                    }
-                  }
-                }
-              });
-            }
-          }, 50);
-        };
-        document.body.appendChild(script);
-      }, [searchParams]);
-      
-      
+                ],
+                mapping: {
+                  school: { caption: "School" },
+                  from_account: { caption: "From Account" },
+                  to_account: { caption: "To Account" },
+                  transaction_type: { caption: "Transaction Type" },
+                  date: { caption: "Date", type: "date" }, // Specify date type
+                  amount: { caption: "Amount" },
+                  category: { caption: "Category" },
+                  notes: { caption: "Notes" },
+                },
+                options: { grid: { showFilter: true, showHeaders: true } },
+              },
+            });
+          }
+        }, 50);
+      };
+      document.body.appendChild(script);
+    }
+  }, [searchParams, transactions, selectedSchools, selectedCategories, schools]);
 
-  
-      
-    
+  // **Helper Functions**
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    await fetchData();
+    setIsRetrying(false);
+  };
 
-      
-      useEffect(() => {
-        const fetchTransactions = async () => {
-            console.log("🔍 Trying to fetch all 3 transaction types...");
-          
-            try {
-              const [incomeRes, expenseRes, transferRes] = await Promise.all([
-                axios.get(`${API_URL}/api/income/`, { headers: getAuthHeaders() }),
-                axios.get(`${API_URL}/api/expense/`, { headers: getAuthHeaders() }),
-                axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
-              ]);
-              
+  const handleSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
 
-              console.log("✅ Income fetched:", incomeRes.data.length);
-              console.log("✅ Expense fetched:", expenseRes.data.length);
-              console.log("✅ Transfers fetched:", transferRes.data.length);
-              console.log("Total transactions:", transactions.length);
-            console.log("Selected schools:", selectedSchools);
-            console.log("Transaction type:", transactionType);
-            //console.log("Start:", startDate, "End:", endDate, "AllDates?", allDates);
-            console.log("Selected categories:", selectedCategories);
+  const sortedAccounts = [...summary.accounts].sort((a, b) => {
+    if (sortConfig.key) {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+    }
+    return 0;
+  });
 
-          
-              const allTransactions = [
-                ...incomeRes.data.map(tx => ({ ...tx, transaction_type: "Income" })),
-                ...expenseRes.data.map(tx => ({ ...tx, transaction_type: "Expense" })),
-                ...transferRes.data.map(tx => ({ ...tx, transaction_type: "Transfer" }))
-              ];
-              setTransactions(allTransactions);  // ✅ This should be added
-              console.log("🧾 Total combined transactions:", allTransactions.length);
-          
-              // the rest of your logic to set state...
-            } catch (err) {
-              console.error("❌ Failed to fetch combined transactions:", err.message || err);
-            }
-          };
-          
-          
-      
-        fetchTransactions();
-      }, []);
-      
-      
+  const totalBalance = summary.accounts.reduce((acc, account) => acc + account.current_balance, 0);
 
-    return (
-        <div className="p-6 bg-gray-50 min-h-screen" role="main" aria-label="Finance Dashboard">
-            <h1 className="heading-primary">Finance Dashboard</h1>
+  const barChartData = [{ name: "Summary", income: summary.income, expenses: summary.expenses }];
 
-            {isLoading && (
-                <div className="text-center text-gray-700" role="alert">
-                    <ClipLoader color="#000000" size={50} />
-                </div>
-            )}
-            {error && (
-                <div className="bg-red-100 text-red-700 p-4 rounded mb-6" role="alert">
-                    {error}
-                    <button
-                        className="ml-4 text-blue-600 hover:underline"
-                        onClick={handleRetry}
-                        aria-label="Retry fetching data"
-                        disabled={isRetrying}
-                    >
-                        {isRetrying ? "Retrying..." : "Retry"}
-                    </button>
-                </div>
-            )}
-
-            {!isLoading && !error && (
-                <div className="grid grid-cols-1 gap-6">
-                    {/* Income vs Expenses Bar Chart */}
-                    <div className="bg-white p-6 rounded-lg shadow-lg" role="figure" aria-label="Income vs Expenses Chart">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-6 text-center">Income vs Expenses</h2>
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={barChartData}>
-                                    <XAxis dataKey="name" stroke="#888888" />
-                                    <YAxis stroke="#888888" />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Legend />
-                                    <Bar dataKey="income" fill="#82ca9d" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="expenses" fill="#ff6666" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                    {/* Account Balances Table */}
-                    <div className="bg-white p-6 rounded-lg shadow-lg" role="table" aria-label="Account Balances Table">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-6 text-center">Account Balances</h2>
-                        {summary.accounts.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="w-full border-collapse">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            <th
-                                                className="p-3 text-left text-gray-700 font-semibold cursor-pointer"
-                                                onClick={() => handleSort("account_name")}
-                                                scope="col"
-                                            >
-                                                Account Name {sortConfig.key === "account_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                                            </th>
-                                            <th
-                                                className="p-3 text-left text-gray-700 font-semibold cursor-pointer"
-                                                onClick={() => handleSort("current_balance")}
-                                                scope="col"
-                                            >
-                                                Current Balance {sortConfig.key === "current_balance" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {sortedAccounts.map((account, index) => (
-                                            <tr key={index} className="hover:bg-gray-50 transition-colors" role="row">
-                                                <td className="p-3 border-t border-gray-200 text-gray-600">{account.account_name}</td>
-                                                <td
-                                                    className={`p-3 border-t border-gray-200 ${
-                                                        account.current_balance < 0 ? "text-red-600" : "text-gray-600"
-                                                    }`}
-                                                >
-                                                    {account.current_balance.toLocaleString()}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        <tr className="font-bold bg-gray-100">
-                                            <td className="p-3 text-left text-gray-700">Total</td>
-                                            <td className="p-3 text-left text-gray-700">{totalBalance.toLocaleString()}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="text-center text-gray-500" role="alert">
-                                No accounts available.
-                            </p>
-                        )}
-                    </div>
-                    <div className="bg-white p-6 rounded-lg shadow-lg mt-6">
-                    <h2 className="text-xl font-semibold text-gray-700 mb-4 text-center">Interactive Transaction Explorer</h2>
-                    <div className="flex flex-col gap-2 mb-4">
-
-                    
-                    
-                    <div ref={pivotRef}></div>
-                    
-                                    <label className="text-gray-700 font-medium">Select School(s):</label>
-                <Select
-                    options={schoolOptions}
-                    isMulti
-                    onChange={selected => setSelectedSchools(selected.map(item => item.value))}
-                    placeholder="Choose one or more schools"
-                />
-                </div>
-<div className="mb-4">
-  <label className="text-gray-700 font-medium mb-2 block">Select Date Range:</label>
-  <div className="flex items-center gap-4">
-    <span>{format(new Date(sliderRange[0]), "MMM yyyy")}</span>
-    <Slider
-      range
-      min={dateMin.getTime()}
-      max={dateMax.getTime()}
-      step={30 * 24 * 60 * 60 * 1000} // ~1 month
-      value={sliderRange}
-      onChange={setSliderRange}
-      allowCross={false}
-    />
-    <span>{format(new Date(sliderRange[1]), "MMM yyyy")}</span>
-  </div>
-</div>
-
-<div className="flex flex-col gap-2 mb-4">
-  <label className="text-gray-700 font-medium">Transaction Type:</label>
-  <div className="flex gap-3">
-    <button
-      className={`px-4 py-2 rounded ${
-        transactionType === "Income" ? "bg-blue-600 text-white" : "bg-gray-200"
-      }`}
-      onClick={() => setTransactionType("Income")}
-    >
-      Income
-    </button>
-    <button
-      className={`px-4 py-2 rounded ${
-        transactionType === "Expense" ? "bg-blue-600 text-white" : "bg-gray-200"
-      }`}
-      onClick={() => setTransactionType("Expense")}
-    >
-      Expense
-    </button>
-  </div>
-  <div className="flex flex-col gap-2 mb-4">
-  <label className="text-gray-700 font-medium">Select Categories:</label>
-  <div className="flex flex-wrap gap-4">
-    {categoryOptions.map((category) => (
-      <label key={category} className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          value={category}
-          checked={selectedCategories.includes(category)}
-          onChange={(e) => {
-            const value = e.target.value;
-            setSelectedCategories((prev) =>
-              prev.includes(value)
-                ? prev.filter((c) => c !== value)
-                : [...prev, value]
-            );
-          }}
-        />
-        <span>{category}</span>
-      </label>
-    ))}
-  </div>
-</div>
-
-<div className="mt-4">
-  <button
-  className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition"
-  onClick={() => {
-    setSearchParams({
-      selectedSchools: [...selectedSchools],
-      transactionType,
-      selectedCategories: [...selectedCategories],
-      startDate: new Date(sliderRange[0]).toISOString().split("T")[0],
-      endDate: new Date(sliderRange[1]).toISOString().split("T")[0],
-        });
-  }}
-  
->
-  Search
-</button>
-
-</div>
-
-</div>
-
-
-                    </div>
-
-                    {/* Loan Summary Table */}
-                    <div className="bg-white p-6 rounded-lg shadow-lg" role="table" aria-label="Loan Summary Table">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-6 text-center">Loan Summary</h2>
-                        {loanSummary.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="w-full border-collapse">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            <th className="p-3 text-left text-gray-700 font-semibold" scope="col">
-                                                Person
-                                            </th>
-                                            <th className="p-3 text-left text-gray-700 font-semibold" scope="col">
-                                                Total Loan Received
-                                            </th>
-                                            <th className="p-3 text-left text-gray-700 font-semibold" scope="col">
-                                                Total Loan Repaid
-                                            </th>
-                                            <th className="p-3 text-left text-gray-700 font-semibold" scope="col">
-                                                Balance Outstanding
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {loanSummary.map((loan, index) => (
-                                            <tr key={index} className="hover:bg-gray-50 transition-colors" role="row">
-                                                <td className="p-3 border-t border-gray-200 text-gray-600">{loan.person}</td>
-                                                <td className="p-3 border-t border-gray-200 text-gray-600">{loan.total_received}</td>
-                                                <td className="p-3 border-t border-gray-200 text-gray-600">{loan.total_paid}</td>
-                                                <td className="p-3 border-t border-gray-200 text-gray-600">{loan.balance_outstanding}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="text-center text-gray-500" role="alert">
-                                No loans to display.
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )}
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
+          <p className="text-gray-700 font-medium">{`Income: PKR ${payload[0].value.toLocaleString()}`}</p>
+          <p className="text-gray-700 font-medium">{`Expenses: PKR ${payload[1].value.toLocaleString()}`}</p>
         </div>
-    );
+      );
+    }
+    return null;
+  };
+
+  // **Render UI**
+  return (
+    <div className="p-8 bg-gradient-to-br from-blue-50 to-green-50 min-h-screen font-sans">
+      <h1 className="text-4xl font-bold text-blue-800 mb-8 text-center">Finance Dashboard</h1>
+
+      {/** Loading State */}
+      {isLoading && (
+        <div className="flex justify-center items-center h-64">
+          <ClipLoader color="#1E40AF" size={60} />
+        </div>
+      )}
+
+      {/** Error State */}
+      {error && (
+        <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            onClick={handleRetry}
+            disabled={isRetrying}
+          >
+            {isRetrying ? "Retrying..." : "Retry"}
+          </button>
+        </div>
+      )}
+
+      {/** Main Dashboard Content */}
+      {!isLoading && !error && (
+        <div className="space-y-8">
+          {/** Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-green-100 p-6 rounded-lg shadow-md">
+              <h3 className="text-lg font-semibold text-green-800">Total Income</h3>
+              <p className="text-3xl font-bold text-green-600">PKR {summary.income.toLocaleString()}</p>
+            </div>
+            <div className="bg-red-100 p-6 rounded-lg shadow-md">
+              <h3 className="text-lg font-semibold text-red-800">Total Expenses</h3>
+              <p className="text-3xl font-bold text-red-600">PKR {summary.expenses.toLocaleString()}</p>
+            </div>
+            <div className="bg-blue-100 p-6 rounded-lg shadow-md">
+              <h3 className="text-lg font-semibold text-blue-800">Net Balance</h3>
+              <p className={`text-3xl font-bold ${netBalance < 0 ? "text-red-600" : "text-blue-600"}`}>
+                PKR {netBalance.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/** Chart and Account Balances */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/** Income vs Expenses Chart */}
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h2 className="text-2xl font-semibold text-blue-800 mb-4">Income vs Expenses</h2>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barChartData}>
+                    <XAxis dataKey="name" stroke="#4B5563" />
+                    <YAxis stroke="#4B5563" />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar dataKey="income" fill="#34D399" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expenses" fill="#F87171" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/** Account Balances Table */}
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h2 className="text-2xl font-semibold text-blue-800 mb-4">Account Balances</h2>
+              {summary.accounts.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-blue-100">
+                        <th
+                          className="p-4 text-left text-blue-800 font-semibold cursor-pointer"
+                          onClick={() => handleSort("account_name")}
+                        >
+                          Account Name{" "}
+                          {sortConfig.key === "account_name" &&
+                            (sortConfig.direction === "asc" ? "↑" : "↓")}
+                        </th>
+                        <th
+                          className="p-4 text-left text-blue-800 font-semibold cursor-pointer"
+                          onClick={() => handleSort("current_balance")}
+                        >
+                          Balance{" "}
+                          {sortConfig.key === "current_balance" &&
+                            (sortConfig.direction === "asc" ? "↑" : "↓")}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedAccounts.map((account, index) => (
+                        <tr key={index} className="hover:bg-blue-50 transition-colors">
+                          <td className="p-4 border-t border-blue-200 text-gray-700">
+                            {account.account_name}
+                          </td>
+                          <td
+                            className={`p-4 border-t border-blue-200 ${
+                              account.current_balance < 0 ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            PKR {account.current_balance.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="font-bold bg-blue-100">
+                        <td className="p-4 text-left text-blue-800">Total</td>
+                        <td className="p-4 text-left text-blue-800">
+                          PKR {totalBalance.toLocaleString()}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-center text-gray-500">No accounts available.</p>
+              )}
+            </div>
+          </div>
+
+          {/** Transaction Explorer */}
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold text-blue-800 mb-4">
+              Transaction Explorer
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Schools
+                </label>
+                <Select
+                  isMulti
+                  options={schoolOptions}
+                  onChange={(selected) =>
+                    setSelectedSchools(selected.map((s) => s.value))
+                  }
+                  placeholder="Select schools..."
+                  className="basic-multi-select"
+                  classNamePrefix="select"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date Range
+                </label>
+                <div className="flex items-center gap-4">
+                  <span className="text-gray-600">
+                    {format(new Date(sliderRange[0]), "MMM yyyy")}
+                  </span>
+                  <Slider
+                    range
+                    min={dateMin.getTime()}
+                    max={dateMax.getTime()}
+                    step={30 * 24 * 60 * 60 * 1000}
+                    value={sliderRange}
+                    onChange={setSliderRange}
+                    allowCross={false}
+                    trackStyle={{ backgroundColor: "#1E40AF" }}
+                    handleStyle={{ borderColor: "#1E40AF" }}
+                  />
+                  <span className="text-gray-600">
+                    {format(new Date(sliderRange[1]), "MMM yyyy")}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Transaction Type
+                </label>
+                <div className="flex gap-3">
+                  {["Income", "Expense", "Transfer"].map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => {
+                        setTransactionType(type);
+                        setSelectedCategories([]); // Reset selected categories when type changes
+                      }}
+                      className={`px-4 py-2 rounded-lg font-medium ${
+                        transactionType === type
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Categories
+                </label>
+                {categoryOptions.length > 0 ? (
+                  <div className="flex flex-wrap gap-3">
+                    {categoryOptions.map((category) => (
+                      <div
+                        key={category}
+                        onClick={() => {
+                          setSelectedCategories((prev) =>
+                            prev.includes(category)
+                              ? prev.filter((c) => c !== category)
+                              : [...prev, category]
+                          );
+                        }}
+                        className={`cursor-pointer px-4 py-2 rounded-lg shadow-sm border transition-colors ${
+                          selectedCategories.includes(category)
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-blue-100"
+                        }`}
+                      >
+                        {category}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No categories available for this transaction type.</p>
+                )}
+              </div>
+            </div>
+            <button
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition w-full md:w-auto"
+              onClick={() =>
+                setSearchParams({
+                  selectedSchools,
+                  transactionType,
+                  selectedCategories,
+                  startDate: new Date(sliderRange[0]).toISOString().split("T")[0],
+                  endDate: new Date(sliderRange[1]).toISOString().split("T")[0],
+                })
+              }
+            >
+              Search Transactions
+            </button>
+            <div ref={pivotRef} className="mt-6"></div>
+          </div>
+
+          {/** Loan Summary Table */}
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold text-blue-800 mb-4">Loan Summary</h2>
+            {loanSummary.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-blue-100">
+                      <th className="p-4 text-left text-blue-800 font-semibold">
+                        Person
+                      </th>
+                      <th className="p-4 text-left text-blue-800 font-semibold">
+                        Total Received
+                      </th>
+                      <th className="p-4 text-left text-blue-800 font-semibold">
+                        Total Repaid
+                      </th>
+                      <th className="p-4 text-left text-blue-800 font-semibold">
+                        Balance Outstanding
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loanSummary.map((loan, index) => (
+                      <tr key={index} className="hover:bg-blue-50 transition-colors">
+                        <td className="p-4 border-t border-blue-200 text-gray-700">
+                          {loan.person || "N/A"}
+                        </td>
+                        <td className="p-4 border-t border-blue-200 text-gray-700">
+                          PKR {(loan.total_received || 0).toLocaleString()}
+                        </td>
+                        <td className="p-4 border-t border-blue-200 text-gray-700">
+                          PKR {(loan.total_paid || 0).toLocaleString()}
+                        </td>
+                        <td className="p-4 border-t border-blue-200 text-gray-700">
+                          PKR {(loan.balance_outstanding || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-gray-500">No loans to display.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default FinanceDashboard;

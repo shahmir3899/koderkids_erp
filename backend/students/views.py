@@ -566,6 +566,7 @@ def update_fees(request):
         return Response({"error": "No fee data received"}, status=400)
 
     print(f"✅ Received {len(fees_data)} fee updates")  # Debugging
+    updated_fees = []
 
     for fee_data in fees_data:
         try:
@@ -574,23 +575,41 @@ def update_fees(request):
             # Fetch the fee record from the database
             fee = Fee.objects.get(id=fee_data["id"])
 
-            # ✅ Update the total_fee if present
+            # Update total_fee if present
             if "total_fee" in fee_data:
                 fee.total_fee = Decimal(str(fee_data["total_fee"]))
                 print(f"🛠️ Updated total_fee to: {fee.total_fee}")
 
-            # ✅ Update paid_amount and recalculate balance_due
-            fee.paid_amount = Decimal(str(fee_data.get("paid_amount", 0)))
-            fee.balance_due = fee.total_fee - fee.paid_amount  # Recalculate balance due
+            # Update paid_amount and recalculate balance_due
+            paid_amount = Decimal(str(fee_data.get("paid_amount", 0)))
+            if paid_amount > fee.total_fee:
+                print(f"❌ Paid amount {paid_amount} exceeds total fee {fee.total_fee} for fee ID {fee.id}")
+                return Response({"error": f"Paid amount {paid_amount} exceeds total fee {fee.total_fee} for fee ID {fee.id}"}, status=400)
+            
+            fee.paid_amount = paid_amount
+            fee.balance_due = fee.total_fee - fee.paid_amount
 
-            # ✅ Update status if present
-            fee.status = fee_data.get("status", "Pending")  # Default status if missing
+            # Update status based on balance_due
+            fee.status = "Paid" if fee.balance_due == 0 else "Pending"
 
-            # ✅ Save the updated record
+            # Save the updated record
             fee.save()
 
-            # 🔍 Debugging logs
+            # Debugging logs
             print(f"✅ Updated Fee ID: {fee.id} | Total Fee: {fee.total_fee} | Paid: {fee.paid_amount} | Status: {fee.status} | Balance Due: {fee.balance_due}")
+
+            # Collect updated fee for response
+            updated_fees.append({
+                "id": fee.id,
+                "total_fee": str(fee.total_fee),
+                "paid_amount": str(fee.paid_amount),
+                "balance_due": str(fee.balance_due),
+                "status": fee.status,
+                "student_name": fee.student_name,
+                "student_class": fee.student_class,
+                "month": fee.month,
+                "school": fee.school.name if fee.school else ""
+            })
 
         except Fee.DoesNotExist:
             print(f"❌ Fee ID {fee_data['id']} not found in database")  # Debugging
@@ -600,9 +619,7 @@ def update_fees(request):
             print(f"❌ Error updating fee ID {fee_data['id']}: {e}")  # Debugging
             return Response({"error": str(e)}, status=500)
 
-    return Response({"message": "Fee records updated successfully!"})
-
-
+    return Response({"message": "Fee records updated successfully!", "fees": updated_fees})
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def schools_list(request):
@@ -717,33 +734,23 @@ def create_new_month_fees(request):
         now = datetime.now()
         next_month_str = now.strftime("%b-%Y")
 
-    # Map of last fees by student
-    fee_qs = Fee.objects.filter(student_id__in=active_students.values_list("id", flat=True)).order_by('student_id', '-id')
-    last_fees_map = {}
-    for fee in fee_qs:
-        if fee.student_id not in last_fees_map:
-            last_fees_map[fee.student_id] = fee
-
     # Prepare Fee entries
     new_fees = []
     now = datetime.now()
 
     for student in active_students:
-        last_fee = last_fees_map.get(student.id)
-        prev_balance = last_fee.balance_due if last_fee else 0
-
         fee = Fee(
             student_id=student.id,
             student_name=student.name,
             student_class=student.student_class,
             monthly_fee=student.monthly_fee,
             month=next_month_str,
-            total_fee=prev_balance + student.monthly_fee,
+            total_fee=student.monthly_fee,  # Set total_fee to monthly_fee only
             paid_amount=0.00,
-            balance_due=prev_balance + student.monthly_fee,
+            balance_due=student.monthly_fee,  # Balance due is monthly_fee initially
             payment_date=f"{now.year}-{now.month:02d}-15",
             status="Pending",
-            school=school_instance  # ✅ Assign full object now that DB is fixed
+            school=school_instance
         )
         new_fees.append(fee)
 
@@ -754,8 +761,6 @@ def create_new_month_fees(request):
         "message": f"✅ Fee records created for {school_instance.name} - {next_month_str}!",
         "records_created": len(new_fees)
     }, status=201)
-
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_attendance(request):
