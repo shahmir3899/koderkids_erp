@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
-import html2canvas from "html2canvas"; // Use html2canvas directly for image generation
+import html2canvas from "html2canvas";
 import html2pdf from "html2pdf.js";
 import PropTypes from "prop-types";
 
@@ -30,24 +30,24 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
         `${process.env.REACT_APP_API_URL}/api/student-details/?student_id=${studentId}`,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access")}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("access")}`,
+          },
         }
       );
       const attendanceRes = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/attendance-count/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access")}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("access")}`,
+          },
         }
       );
       const lessonsRes = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access")}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("access")}`,
+          },
         }
       );
       const imagesRes = await axios.get(
@@ -63,11 +63,13 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
       setAttendanceData(attendanceRes.data);
       setLessonsData(lessonsRes.data);
 
-      const progressImages = (imagesRes.data.progress_images || []).map(img => {
-        if (typeof img === "string") return img;
-        if (img && typeof img === "object" && img.signedURL) return img.signedURL;
-        return null;
-      }).filter(Boolean);
+      const progressImages = (imagesRes.data.progress_images || [])
+        .map((img) => {
+          if (typeof img === "string") return img;
+          if (img && typeof img === "object" && img.signedURL) return img.signedURL;
+          return null;
+        })
+        .filter(Boolean);
 
       console.log("Processed progressImages:", progressImages);
 
@@ -106,13 +108,12 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
   );
 
   const formattedMonth = new Date(`${month}-01`).toLocaleString("en-US", {
-    month: "short", // "Feb"
-    year: "numeric" // "2025"
+    month: "short",
+    year: "numeric",
   });
 
-
   const handleImageError = (e, img) => {
-    console.error(`Failed to load image: ${img}, Error: ${e.target.error || 'Unknown error'}`);
+    console.error(`Failed to load image: ${img}, Error: ${e.target.error || "Unknown error"}`);
     e.target.src = "/placeholder.png";
     e.target.alt = "Image failed to load";
   };
@@ -141,20 +142,22 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
     }
 
     html2canvas(element, {
-      scale: 4,
+      scale: 2,
       useCORS: true,
       allowTaint: true,
       logging: true,
       width: element.scrollWidth,
       height: element.scrollHeight,
-    }).then((canvas) => {
-      const link = document.createElement("a");
-      link.download = `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.png`;
-      link.href = canvas.toDataURL("image/png", 1.0);
-      link.click();
-      window.open(canvas.toDataURL("image/png", 1.0), "_blank");
-      onClose();
-    }).catch((error) => console.error("Error generating HD image:", error));
+    })
+      .then((canvas) => {
+        const link = document.createElement("a");
+        link.download = `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.png`;
+        link.href = canvas.toDataURL("image/png", 1.0);
+        link.click();
+        window.open(canvas.toDataURL("image/png", 1.0), "_blank");
+        onClose();
+      })
+      .catch((error) => console.error("Error generating HD image:", error));
   };
 
   const generatePDF = () => {
@@ -234,6 +237,12 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
 
   const imageSlots = [...selectedImages, ...Array(4 - selectedImages.length).fill(null)];
   console.log("imageSlots:", imageSlots);
+
+  // Calculate attendance percentage for status indicator (Improvement 4)
+  const attendancePercentage = attendanceData?.total_days > 0
+    ? (attendanceData.present_days / attendanceData.total_days) * 100
+    : 0;
+  const attendanceStatusColor = attendancePercentage > 80 ? "green" : attendancePercentage < 60 ? "red" : "orange";
 
   return (
     <div
@@ -353,24 +362,24 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
           </div>
         )}
 
+        {/* Report Section with Fixed Layout (Improvements 1-9) */}
         <div
           ref={reportRef}
           id="student-report"
           style={{
-            width: "210mm",
-            height: "297mm",
-            padding: "10mm",
-            margin: "auto",
-            fontSize: "12px",
-            position: "relative",
-            background: "white",
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+            width: "210mm", // A4 width (Improvement 8)
+            minHeight: "297mm", // A4 height (Improvement 8)
+            padding: "10mm", // Consistent padding (Improvement 8)
+            backgroundColor: "#f9f9f9", // Off-white background (Improvement 8)
+            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)", // Subtle shadow (Improvement 8)
+            fontFamily: "'Roboto', sans-serif", // Consistent font (Improvement 2)
+            color: "#333", // Dark gray text for contrast (Improvement 9)
             boxSizing: "border-box",
-            overflow: "hidden",
-            border: "1px solid #ddd",
-            fontFamily: "'Helvetica', 'Arial', sans-serif",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
+          {/* Watermark (retained from original) */}
           <div
             style={{
               position: "absolute",
@@ -388,133 +397,233 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
             {studentData?.school}
           </div>
 
+          {/* Header (Improvement 1) */}
           <div
             style={{
-              maxHeight: "260mm",
+              background: "linear-gradient(90deg, #4A90E2, #ffffff)", // Blue-to-white gradient
+              padding: "10mm",
+              borderRadius: "5px",
               display: "flex",
-              flexDirection: "column",
               justifyContent: "space-between",
-              height: "100%",
+              alignItems: "center",
+              marginBottom: "10mm",
             }}
           >
-            <div>
-              <div
+            <h2
+              style={{
+                fontFamily: "'Montserrat', sans-serif", // Bolder font for title
+                fontSize: "24px", // Larger size
+                fontWeight: "bold",
+                color: "#333",
+                margin: 0,
+              }}
+            >
+              Monthly Student Report
+            </h2>
+            <img
+              src={process.env.PUBLIC_URL + "/logo.png"} // Keep existing logo source
+              alt="School Logo"
+              style={{ height: "40px", borderRadius: "5px", objectFit: "contain" }}
+            />
+          </div>
+
+          {/* Main Content Area */}
+          <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", gap: "10mm" }}>
+            {/* Student Information (Improvements 2, 3, 4) */}
+            <div
+              style={{
+                padding: "5mm",
+                borderBottom: "2px solid #4A90E2", // Blue divider (Improvement 3)
+                lineHeight: "1.6", // Increased line spacing (Improvement 2)
+              }}
+            >
+              <h3
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  background: "#dfdfdf",
-                  color: "white",
-                  padding: "0mm",
-                  borderRadius: "5px 5px 0 0",
+                  fontFamily: "'Montserrat', sans-serif", // Consistent font (Improvement 2)
+                  fontSize: "18px", // Hierarchy (Improvement 2)
+                  fontWeight: "bold",
+                  color: "#4A90E2", // Blue color (Improvement 3)
+                  marginBottom: "5px",
                 }}
               >
-                <h2 style={{ margin: 0, fontSize: "18px" }}>📊 Monthly Student Report</h2>
-                <img
-                  src={process.env.PUBLIC_URL + "/logo.png"}
-                  alt="School Logo"
+                <span style={{ fontSize: "20px", marginRight: "5px" }}>📚</span> Student Details
+              </h3>
+              <p style={{ margin: "3px 0", fontSize: "14px" }}>
+                <strong>Student Name:</strong> {studentData?.name || "Loading..."}
+              </p>
+              <p style={{ margin: "3px 0", fontSize: "14px" }}>
+                <strong>Registration Number:</strong> {studentData?.reg_num || "Loading..."}
+              </p>
+              <p style={{ margin: "3px 0", fontSize: "14px" }}>
+                <strong>School:</strong> {studentData?.school || "Loading..."}
+              </p>
+              <p style={{ margin: "3px 0", fontSize: "14px" }}>
+                <strong>Class:</strong> {studentData?.class || "Loading..."}
+              </p>
+              <p style={{ margin: "3px 0", fontSize: "14px" }}>
+                <strong>Month:</strong> {formattedMonth}
+              </p>
+            </div>
+
+            {/* Attendance (Improvements 3, 4) */}
+            <div
+              style={{
+                padding: "5mm",
+                backgroundColor: "rgba(46, 204, 113, 0.1)", // Light green background (Improvement 3)
+                borderRadius: "5px",
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)", // Subtle shadow (Improvement 3)
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              <span style={{ fontSize: "20px", color: "#2ECC71" }}>✅</span>
+              <div>
+                <h3
                   style={{
-                    height: "50px",
-                    minWidth: "50px",
-                    borderRadius: "3px",
-                    objectFit: "contain",
-                  }}
-                />
-              </div>
-
-              <div style={{ padding: "5mm", borderBottom: "1px solid #ccc" }}>
-                <p><strong>👤 Student Name:</strong> {studentData?.name || "Loading..."}</p>
-                <p><strong>📄 Registration Number:</strong> {studentData?.reg_num || "Loading..."}</p>
-                <p><strong>🏫 School:</strong> {studentData?.school || "Loading..."}</p>
-                <p><strong>📚 Class:</strong> {studentData?.class || "Loading..."}</p>
-                <p><strong>🗓️ Month:</strong> {formattedMonth}</p>
-              </div>
-
-              <div style={{ padding: "5mm", borderBottom: "1px solid #ccc" }}>
-                <p>
-                  <strong>✅ Attendance:</strong> {attendanceData?.present_days}/
-                  {attendanceData?.total_days} days
-                </p>
-              </div>
-
-              <div
-                style={{
-                  padding: "5mm",
-                  borderBottom: "1px solid #ccc",
-                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
-                }}
-              >
-                <h3 style={{ marginBottom: "8mm", fontSize: "16px" }}>📖 Lessons Overview</h3>
-                {lessonsData?.lessons?.length === 0 ? (
-                <p style={{ textAlign: "center", fontWeight: "bold", color: "red" }}>
-                  📌 No lessons found for the selected date range.
-                </p>
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                  <thead>
-                    <tr style={{ background: "#f2f2f2", borderBottom: "2px solid #ccc" }}>
-                      <th style={{ padding: "4px", border: "1px solid #ccc" }}>📅 Date</th>
-                      <th style={{ padding: "4px", border: "1px solid #ccc" }}>📖 Planned Topic</th>
-                      <th style={{ padding: "4px", border: "1px solid #ccc" }}>✅ Achieved Topic</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lessonsData?.lessons?.map((lesson, index) => (
-                      <tr key={index} style={{ borderBottom: "1px solid #ccc" }}>
-                        <td style={{ padding: "4px", border: "1px solid #ccc" }}>
-                          {lesson.date || "N/A"}
-                        </td>
-                        <td style={{ padding: "4px", border: "1px solid #ccc" }}>
-                          {lesson.planned_topic || "N/A"}
-                        </td>
-                        <td style={{ padding: "4px", border: "1px solid #ccc" }}>
-                          {lesson.achieved_topic || "N/A"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
-              </div>
-
-              <div
-                style={{
-                  padding: "5mm",
-                  textAlign: "center",
-                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
-                }}
-              >
-                <h3 style={{ marginBottom: "8mm", fontSize: "16px" }}>🖼️ Progress Images</h3>
-                {progressImages.length === 0 && (
-                  <p style={{ color: "red", marginBottom: "10px" }}>
-                    No progress images available for this student.
-                  </p>
-                )}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, 1fr)",
-                    gridTemplateRows: "repeat(2, 120px)", // Increased height
-                    gap: "8mm", // Increased gap
+                    fontFamily: "'Montserrat', sans-serif",
+                    fontSize: "16px",
+                    fontWeight: "bold",
+                    color: "#4A90E2",
+                    marginBottom: "3px",
                   }}
                 >
-                  {imageSlots.map((img, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        width: "100%",
-                        height: "120px",
-                        border: "1px solid #ccc",
-                        borderRadius: "3px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: "#f9f9f9",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {img ? (
+                  Attendance
+                </h3>
+                <p style={{ margin: 0, fontSize: "14px" }}>
+                  {attendanceData?.total_days === 0
+                    ? "No school days recorded"
+                    : `${attendanceData?.present_days}/${attendanceData?.total_days} days (${attendancePercentage.toFixed(2)}%)`}
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "50%",
+                      backgroundColor: attendanceStatusColor, // Status dot (Improvement 4)
+                      marginLeft: "5px",
+                    }}
+                  />
+                </p>
+              </div>
+            </div>
+
+            {/* Lessons Overview (Improvement 5) */}
+            <div style={{ flex: "1 1 auto", overflow: "auto" }}>
+              <h3
+                style={{
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  color: "#4A90E2",
+                  marginBottom: "5px",
+                }}
+              >
+                <span style={{ fontSize: "20px", marginRight: "5px" }}>📖</span> Lessons Overview
+              </h3>
+              {lessonsData?.lessons?.length === 0 ? (
+                <p style={{ color: "#666", fontStyle: "italic", fontSize: "14px", textAlign: "center" }}>
+                  No lessons found for the selected date range.
+                </p>
+              ) : (
+                <div style={{ maxHeight: "80mm", overflowY: "auto" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)", // Box shadow (Improvement 5)
+                      borderRadius: "5px", // Rounded corners (Improvement 5)
+                      overflow: "hidden",
+                    }}
+                    aria-label="Lessons achieved for the month" // Accessibility (Improvement 9)
+                  >
+                    <thead>
+                      <tr style={{ backgroundColor: "#4A90E2", color: "white" }}>
+                        <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>📅 Date</th>
+                        <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>Planned Topic</th>
+                        <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>Achieved Topic</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lessonsData?.lessons?.map((lesson, index) => (
+                        <tr
+                          key={index}
+                          style={{
+                            backgroundColor: index % 2 === 0 ? "#f5f5f5" : "white", // Alternating colors (Improvement 5)
+                          }}
+                        >
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>
+                            {new Date(lesson.date).toLocaleDateString("en-US", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }) || "N/A"}
+                          </td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>
+                            {lesson.planned_topic || "N/A"}
+                          </td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>
+                            {lesson.achieved_topic || "N/A"}
+                            {lesson.planned_topic === lesson.achieved_topic && lesson.achieved_topic && (
+                              <span style={{ color: "green", marginLeft: "5px" }}>✓</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Images (Improvement 6) */}
+            <div>
+              <h3
+                style={{
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  color: "#4A90E2",
+                  marginBottom: "5px",
+                  textAlign: "center",
+                }}
+              >
+                <span style={{ fontSize: "20px", marginRight: "5px" }}>🖼️</span> Progress Images
+              </h3>
+              {progressImages.length === 0 && (
+                <p style={{ color: "red", marginBottom: "10px", textAlign: "center" }}>
+                  No progress images available for this student.
+                </p>
+              )}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)", // 2x2 grid
+                  gridTemplateRows: "repeat(2, 60mm)", // Adjusted height to fit better
+                  gap: "8mm", // Consistent spacing
+                  padding: "5mm",
+                  backgroundColor: "white",
+                  borderRadius: "5px",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
+                }}
+              >
+                {imageSlots.map((img, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      border: "1px solid #ddd", // Borders (Improvement 6)
+                      borderRadius: "5px", // Rounded corners (Improvement 6)
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: "#f5f5f5", // Placeholder background (Improvement 6)
+                      overflow: "hidden",
+                    }}
+                  >
+                    {img ? (
+                      <div style={{ textAlign: "center", width: "100%" }}>
                         <img
                           src={img}
                           alt={`Progress ${index + 1}`}
@@ -522,44 +631,52 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                           style={{
                             maxWidth: "100%",
                             maxHeight: "100%",
-                            objectFit: "contain", // Use 'contain' for better fit
+                            objectFit: "contain",
+                            borderRadius: "5px",
                           }}
                         />
-                      ) : (
-                        <span style={{ fontSize: "28px", color: "#999", fontStyle: "italic" }}>
-                          📷 No Image
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  marginTop: "10mm",
-                  textAlign: "center",
-                  padding: "5mm",
-                  borderTop: "2px solid black",
-                }}
-              >
-                <p style={{ fontSize: "16px", fontWeight: "bold", color: "#333" }}>
-                  📌 Teacher’s Signature
-                </p>
+                        <p style={{ fontSize: "10px", color: "#666", margin: "3px 0" }}>
+                          Image {index + 1} {/* Replace with actual date/caption if available */}
+                        </p>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: "28px", color: "#999", fontStyle: "italic" }}>
+                        📷 No Image
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
+          </div>
 
-            <div
-              style={{
-                textAlign: "center",
-                padding: "0mm",
-                background: "#e9ecef",
-                borderRadius: "5px",
-                fontSize: "10px",
-                marginTop: "auto",
-              }}
-            >
-              <p style={{ margin: "0", color: "#666" }}>Powered By: {studentData?.school}</p>
+          {/* Footer (Improvement 7) */}
+          <div
+            style={{
+              borderTop: "1px solid #ddd",
+              paddingTop: "5mm",
+              fontSize: "10px",
+              color: "#666",
+              marginTop: "10mm",
+              flexShrink: 0, // Prevent footer from shrinking
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ margin: "0 0 5px 0" }}>
+                  Teacher’s Signature: <span style={{ borderBottom: "1px dotted #666", display: "inline-block", width: "100px" }}></span>
+                </p>
+                <p style={{ margin: 0 }}>Generated on: Apr 28, 2025</p>
+              </div>
+              <div
+                style={{
+                  backgroundColor: "#e5e5e5",
+                  padding: "3px 10px",
+                  borderRadius: "3px",
+                }}
+              >
+                Powered by {studentData?.school || "School Name"}
+              </div>
             </div>
           </div>
         </div>

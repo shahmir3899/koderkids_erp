@@ -761,6 +761,8 @@ def create_new_month_fees(request):
         "message": f"✅ Fee records created for {school_instance.name} - {next_month_str}!",
         "records_created": len(new_fees)
     }, status=201)
+# views.py (Updated sections only)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_attendance(request):
@@ -785,20 +787,25 @@ def mark_attendance(request):
         try:
             student = Student.objects.get(id=student_id, status="Active")  # Only active students
 
-            # ✅ Fetch the correct lesson plan for this student
+            # Fetch the correct lesson plan for this student
             lesson_plan = LessonPlan.objects.filter(
                 session_date=session_date,
                 student_class=student.student_class,
                 school_id=student.school_id
             ).first()
 
+            # Update the lesson plan's achieved_topic if it exists
+            if lesson_plan and achieved_topic:
+                lesson_plan.achieved_topic = achieved_topic
+                lesson_plan.save()
+
             attendance, created = Attendance.objects.update_or_create(
                 student=student, session_date=session_date,
                 defaults={
                     "status": status,
                     "teacher": teacher,
-                    "achieved_topic": achieved_topic,  # ✅ Ensure achieved_topic is saved
-                    "lesson_plan": lesson_plan if lesson_plan else None  # ✅ Ensure lesson_plan_id is linked
+                    "achieved_topic": achieved_topic,
+                    "lesson_plan": lesson_plan if lesson_plan else None
                 }
             )
             created_entries.append(attendance)
@@ -809,6 +816,8 @@ def mark_attendance(request):
             return Response({"error": "Duplicate attendance record detected."}, status=400)
 
     return Response({"message": "Attendance recorded successfully!", "data": AttendanceSerializer(created_entries, many=True).data})
+
+
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -1419,10 +1428,16 @@ class TeacherLessonStatus(APIView):
                     output_field=IntegerField()
                 )),
                 completion_rate=Round(
-                    (Count(Case(
-                        When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                        output_field=IntegerField()
-                    )) * 100.0) / Count('id')
+                    Case(
+                        When(planned_lessons__gt=0, then=(
+                            Count(Case(
+                                When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
+                                output_field=IntegerField()
+                            )) * 100.0) / Count('id')
+                        ),
+                        default=0.0,
+                        output_field=FloatField()
+                    )
                 )
             ).order_by('student_class')
             serializer = LessonStatusSerializer(lessons, many=True)

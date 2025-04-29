@@ -44,20 +44,28 @@ function HomePage() {
       console.warn("No valid fee data provided");
       return [];
     }
-
+  
     const defaultSchoolMap = {
       3: "School A",
       5: "School B"
     };
-
+  
     const schoolMap = schools.length > 0
       ? schools.reduce((acc, school) => {
           acc[school.id] = school.name || `School ${school.id}`;
           return acc;
         }, {})
       : defaultSchoolMap;
-
-    const months = Array.from(new Set(data.map(entry => entry.month || "Unknown"))).slice(-3);
+  
+    // 📅 Get the last 3 calendar months (even if API didn't send them)
+    const today = new Date();
+    const last3Months = [];
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      last3Months.push(d.toLocaleString('default', { month: 'short' }) + '-' + d.getFullYear());
+    }
+  
+    // 🏫 Calculate total fee per school
     const schoolTotals = {};
     data.forEach(entry => {
       const schoolId = entry.school;
@@ -68,13 +76,15 @@ function HomePage() {
       }
       schoolTotals[schoolName] += total_fee;
     });
-
+  
+    // 🥇 Pick top 3 schools by fee collection
     const topSchools = Object.keys(schoolTotals)
       .filter(school => schoolTotals[school] > 0)
       .sort((a, b) => schoolTotals[b] - schoolTotals[a])
       .slice(0, 3);
-
-    const chartData = months.map(month => {
+  
+    // 📊 Build chart data (even if missing months)
+    const chartData = last3Months.map(month => {
       const row = { month };
       topSchools.forEach(school => {
         const entry = data.find(e => (schoolMap[e.school] || `School ${e.school}`) === school && e.month === month);
@@ -82,9 +92,10 @@ function HomePage() {
       });
       return row;
     });
-
+  
     return chartData;
   };
+  
 
   // Fetch classes for selected school
 const fetchClasses = async (schoolId) => {
