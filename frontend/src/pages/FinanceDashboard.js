@@ -1,26 +1,36 @@
-
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { API_URL, getAuthHeaders } from "../api";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ClipLoader } from "react-spinners";
 import "webdatarocks/webdatarocks.min.css";
-import "webdatarocks/webdatarocks.toolbar.min.js";
 import Select from "react-select";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
 import { format } from "date-fns";
 
+// New function to dynamically load WebDataRocks
+const loadWebDataRocks = () => {
+  return new Promise((resolve) => {
+    if (window.WebDataRocks) {
+      resolve();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://cdn.webdatarocks.com/latest/webdatarocks.js";
+    script.onload = () => resolve();
+    document.body.appendChild(script);
+  });
+};
+
 function FinanceDashboard() {
   // **State Declarations**
-  const [
-
-summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: [] });
+  const [summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: [] });
   const [loanSummary, setLoanSummary] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [schools, setSchools] = useState([]);
-  const [incomeCategories, setIncomeCategories] = useState([]); // New state for Income categories
-  const [expenseCategories, setExpenseCategories] = useState([]); // New state for Expense categories
+  const [incomeCategories, setIncomeCategories] = useState([]);
+  const [expenseCategories, setExpenseCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
@@ -33,6 +43,7 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
   const [sliderRange, setSliderRange] = useState([dateMin.getTime(), dateMax.getTime()]);
   const [searchParams, setSearchParams] = useState(null);
   const pivotRef = useRef(null);
+  const [isWebDataRocksLoaded, setIsWebDataRocksLoaded] = useState(false); // Track WebDataRocks loading
 
   // **Derived Values**
   const netBalance = summary.income - summary.expenses;
@@ -41,14 +52,13 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
     label: school.name,
   }));
 
-  // Dynamically filter categories based on transactionType
   const categoryOptions = useMemo(() => {
     if (transactionType === "Income") {
       return incomeCategories;
     } else if (transactionType === "Expense") {
       return expenseCategories;
     }
-    return []; // For "Transfer", show no categories (or handle separately if needed)
+    return [];
   }, [transactionType, incomeCategories, expenseCategories]);
 
   // **Fetch Initial Data**
@@ -91,20 +101,16 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
           axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
         ]);
 
-        // Separate Income and Expense transactions
         const incomeTxs = incomeRes.data.map((tx) => ({ ...tx, transaction_type: "Income" }));
         const expenseTxs = expenseRes.data.map((tx) => ({ ...tx, transaction_type: "Expense" }));
         const transferTxs = transferRes.data.map((tx) => ({ ...tx, transaction_type: "Transfer" }));
 
-        // Combine all transactions
         const allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
         setTransactions(allTransactions);
 
-        // Extract and set Income categories
         const incomeCats = Array.from(new Set(incomeTxs.map((tx) => tx.category))).sort();
         setIncomeCategories(incomeCats);
 
-        // Extract and set Expense categories
         const expenseCats = Array.from(new Set(expenseTxs.map((tx) => tx.category))).sort();
         setExpenseCategories(expenseCats);
       } catch (err) {
@@ -117,14 +123,21 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
 
   // **Pivot Table Setup**
   useEffect(() => {
-    if (!searchParams || transactions.length === 0) return;
+    if (!searchParams || transactions.length === 0 || !isWebDataRocksLoaded) {
+      // Display placeholder message if no search params or WebDataRocks not loaded
+      if (pivotRef.current) {
+        pivotRef.current.innerHTML = `<div class="text-gray-500 text-center p-4">Select filters and click "Search Transactions" to view the report.</div>`;
+      }
+      return;
+    }
 
-    // Create a mapping of school_id to school_name
+    // Create school name mapping
     const schoolMap = schools.reduce((map, school) => {
       map[school.id] = school.name;
       return map;
     }, {});
 
+    // Filter and map transactions
     const filteredData = transactions
       .filter(
         (tx) =>
@@ -143,11 +156,11 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
       )
       .map((tx) => ({
         id: tx.id,
-        date: new Date(tx.date).toISOString(), // Ensure date is in ISO format
+        date: new Date(tx.date).toISOString(),
         transaction_type: tx.transaction_type,
         amount: tx.amount,
         category: tx.category,
-        school: schoolMap[tx.school_id] || "Unknown", // Map school_id to school name
+        school: schoolMap[tx.school_id] || "Unknown",
         from_account: tx.from_account_name || "—",
         to_account: tx.to_account_name || "—",
         notes: tx.notes || "",
@@ -160,6 +173,7 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
       return;
     }
 
+    // Initialize pivot table
     const initializePivot = () => {
       pivotRef.current.innerHTML = "";
       new window.WebDataRocks({
@@ -170,14 +184,14 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
           dataSource: { data: filteredData },
           slice: {
             rows: [
-              { uniqueName: "school" }, // Group by school
-              { uniqueName: "category" }, // Group by category
+              { uniqueName: "school" },
+              { uniqueName: "category" },
             ],
             columns: [
-              { uniqueName: "date", levelName: "Month" }, // Group by month
+              { uniqueName: "date", levelName: "Month" },
             ],
             measures: [
-              { uniqueName: "amount", aggregation: "sum", format: "PKRFormat" }, // Sum the amounts
+              { uniqueName: "amount", aggregation: "sum", format: "PKRFormat" },
             ],
           },
           formats: [
@@ -197,7 +211,7 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
             from_account: { caption: "From Account" },
             to_account: { caption: "To Account" },
             transaction_type: { caption: "Transaction Type" },
-            date: { caption: "Date", type: "date" }, // Specify date type
+            date: { caption: "Date", type: "date" },
             amount: { caption: "Amount" },
             category: { caption: "Category" },
             notes: { caption: "Notes" },
@@ -207,63 +221,25 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
       });
     };
 
-    if (window.WebDataRocks && pivotRef.current) {
-      initializePivot();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://cdn.webdatarocks.com/latest/webdatarocks.js";
-      script.onload = () => {
-        setTimeout(() => {
-          if (pivotRef.current) {
-            new window.WebDataRocks({
-              container: pivotRef.current,
-              toolbar: true,
-              height: 430,
-              report: {
-                dataSource: { data: filteredData },
-                slice: {
-                  rows: [
-                    { uniqueName: "school" }, // Group by school
-                    { uniqueName: "category" }, // Group by category
-                  ],
-                  columns: [
-                    { uniqueName: "date", levelName: "Month" }, // Group by month
-                  ],
-                  measures: [
-                    { uniqueName: "amount", aggregation: "sum", format: "PKRFormat" }, // Sum the amounts
-                  ],
-                },
-                formats: [
-                  {
-                    name: "PKRFormat",
-                    thousandsSeparator: ",",
-                    decimalSeparator: ".",
-                    decimalPlaces: 0,
-                    currencySymbol: "PKR ",
-                    currencySymbolAlign: "left",
-                    nullValue: "-",
-                    textAlign: "right",
-                  },
-                ],
-                mapping: {
-                  school: { caption: "School" },
-                  from_account: { caption: "From Account" },
-                  to_account: { caption: "To Account" },
-                  transaction_type: { caption: "Transaction Type" },
-                  date: { caption: "Date", type: "date" }, // Specify date type
-                  amount: { caption: "Amount" },
-                  category: { caption: "Category" },
-                  notes: { caption: "Notes" },
-                },
-                options: { grid: { showFilter: true, showHeaders: true } },
-              },
-            });
-          }
-        }, 50);
-      };
-      document.body.appendChild(script);
+    initializePivot();
+  }, [searchParams, transactions, selectedSchools, selectedCategories, schools, isWebDataRocksLoaded]);
+
+  // **Handle Search Button Click**
+  const handleSearch = async () => {
+    // Load WebDataRocks if not already loaded
+    if (!isWebDataRocksLoaded) {
+      await loadWebDataRocks();
+      setIsWebDataRocksLoaded(true);
     }
-  }, [searchParams, transactions, selectedSchools, selectedCategories, schools]);
+    // Set search params to trigger pivot table
+    setSearchParams({
+      selectedSchools,
+      transactionType,
+      selectedCategories,
+      startDate: new Date(sliderRange[0]).toISOString().split("T")[0],
+      endDate: new Date(sliderRange[1]).toISOString().split("T")[0],
+    });
+  };
 
   // **Helper Functions**
   const handleRetry = async () => {
@@ -483,7 +459,7 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
                       key={type}
                       onClick={() => {
                         setTransactionType(type);
-                        setSelectedCategories([]); // Reset selected categories when type changes
+                        setSelectedCategories([]);
                       }}
                       className={`px-4 py-2 rounded-lg font-medium ${
                         transactionType === type
@@ -529,15 +505,7 @@ summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: []
             </div>
             <button
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition w-full md:w-auto"
-              onClick={() =>
-                setSearchParams({
-                  selectedSchools,
-                  transactionType,
-                  selectedCategories,
-                  startDate: new Date(sliderRange[0]).toISOString().split("T")[0],
-                  endDate: new Date(sliderRange[1]).toISOString().split("T")[0],
-                })
-              }
+              onClick={handleSearch}
             >
               Search Transactions
             </button>

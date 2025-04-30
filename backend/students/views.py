@@ -706,6 +706,9 @@ def new_registrations(request):
 @permission_classes([IsAuthenticated])
 def create_new_month_fees(request):
     school_id = request.data.get("school_id")
+    selected_month = request.data.get("month")  # e.g., "Apr-2025"
+    force_overwrite = request.data.get("force_overwrite", False)
+
     if not school_id:
         return Response({"error": "Missing school_id in request."}, status=400)
 
@@ -714,54 +717,57 @@ def create_new_month_fees(request):
     except School.DoesNotExist:
         return Response({"error": "Invalid school_id provided."}, status=400)
 
-    active_students = Student.objects.filter(status="Active", school_id=school_id)
-    print(f"Found {active_students.count()} active students in school {school_instance.name}")
-
-    if not active_students.exists():
-        return Response({"message": f"No active students found in {school_instance.name}"}, status=400)
-
-    # Determine next month string
-    latest_fee = Fee.objects.filter(school_id=school_id).order_by('-id').first()
-    if latest_fee:
-        prev_month_date = datetime.strptime(latest_fee.month, "%b-%Y")
-        next_month = prev_month_date.month + 1
-        next_year = prev_month_date.year
-        if next_month > 12:
-            next_month = 1
-            next_year += 1
-        next_month_str = datetime(next_year, next_month, 1).strftime("%b-%Y")
+    if selected_month:
+        month_str = selected_month
     else:
-        now = datetime.now()
-        next_month_str = now.strftime("%b-%Y")
+        # Default to next month logic (if not supplied)
+        latest_fee = Fee.objects.filter(school_id=school_id).order_by('-id').first()
+        if latest_fee:
+            prev_month_date = datetime.strptime(latest_fee.month, "%b-%Y")
+            next_month = prev_month_date.month + 1
+            next_year = prev_month_date.year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            month_str = datetime(next_year, next_month, 1).strftime("%b-%Y")
+        else:
+            month_str = datetime.now().strftime("%b-%Y")
 
-    # Prepare Fee entries
-    new_fees = []
+    # ❗ Check for existing records
+    existing = Fee.objects.filter(school_id=school_id, month=month_str)
+    if existing.exists() and not force_overwrite:
+        return Response({
+            "warning": f"Records for {month_str} already exist.",
+            "action_required": "Set 'force_overwrite' to True to replace."
+        }, status=409)
+
+    if force_overwrite:
+        existing.delete()
+
+    active_students = Student.objects.filter(status="Active", school_id=school_id)
     now = datetime.now()
+    new_fees = []
 
     for student in active_students:
-        fee = Fee(
+        new_fees.append(Fee(
             student_id=student.id,
             student_name=student.name,
             student_class=student.student_class,
             monthly_fee=student.monthly_fee,
-            month=next_month_str,
-            total_fee=student.monthly_fee,  # Set total_fee to monthly_fee only
+            month=month_str,
+            total_fee=student.monthly_fee,
             paid_amount=0.00,
-            balance_due=student.monthly_fee,  # Balance due is monthly_fee initially
-            payment_date=f"{now.year}-{now.month:02d}-15",
+            balance_due=student.monthly_fee,
+            payment_date=now.strftime("%Y-%m-15"),
             status="Pending",
             school=school_instance
-        )
-        new_fees.append(fee)
+        ))
 
     Fee.objects.bulk_create(new_fees)
-    print(f"✅ Inserted {len(new_fees)} fee records for {school_instance.name} - {next_month_str}")
-
     return Response({
-        "message": f"✅ Fee records created for {school_instance.name} - {next_month_str}!",
+        "message": f"✅ Fee records created for {school_instance.name} - {month_str}",
         "records_created": len(new_fees)
     }, status=201)
-# views.py (Updated sections only)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

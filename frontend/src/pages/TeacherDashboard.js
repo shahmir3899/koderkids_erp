@@ -516,59 +516,12 @@ const TeacherDashboard = () => {
         )}
       </div>
 
-      {/* Student Engagement */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Student Engagement (Image Uploads)</h2>
-          <button
-            onClick={() => toggleSection('engagement')}
-            className="text-blue-600 hover:text-blue-800"
-            aria-label={collapsedSections.engagement ? 'Expand Engagement' : 'Collapse Engagement'}
-          >
-            {collapsedSections.engagement ? 'Expand ▼' : 'Collapse ▲'}
-          </button>
-        </div>
-        {!collapsedSections.engagement && (
-          loading.engagement ? (
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-            </div>
-          ) : engagement.length > 0 ? (
-            <table className="w-full border-collapse border border-gray-300">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border px-4 py-2 cursor-pointer" onClick={() => setEngagement(sortTable(engagement, 'student_class'))}>
-                    Class {sortConfig.key === 'student_class' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
-                  </th>
-                  <th className="border px-4 py-2 cursor-pointer" onClick={() => setEngagement(sortTable(engagement, 'image_count'))}>
-                    Images Uploaded {sortConfig.key === 'image_count' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
-                  </th>
-                  <th className="border px-4 py-2 cursor-pointer" onClick={() => setEngagement(sortTable(engagement, 'student_count'))}>
-                    Students Involved {sortConfig.key === 'student_count' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {engagement.map((summary, index) => (
-                  <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100`}>
-                    <td className="border px-4 py-2">{summary.student_class}</td>
-                    <td className="border px-4 py-2">{summary.image_count}</td>
-                    <td className="border px-4 py-2">{summary.student_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-gray-500">No engagement data for selected month.</p>
-          )
-        )}
-      </div>
+     
 
       {/* Student Data Reports */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Student Data Reports</h2>
+          <h2 className="text-xl font-semibold">Student Reports - Data</h2>
           <button
             onClick={() => toggleSection('studentData')}
             className="text-blue-600 hover:text-blue-800"
@@ -630,12 +583,12 @@ const TeacherDashboard = () => {
                 </button>
               </div>
             </div>
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Student Performance Chart</h3>
               <canvas id="studentDataChart" className="max-w-full"></canvas>
-            </div>
+            </div> */}
             <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">Student Performance Table</h3>
+              <h3 className="text-lg font-semibold mb-2">Student Reports Data Summary</h3>
               {loading.studentData ? (
                 <div className="space-y-2">
                   <div className="h-4 bg-gray-200 rounded animate-pulse"></div>

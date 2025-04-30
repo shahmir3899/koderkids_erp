@@ -39,6 +39,19 @@ function HomePage() {
     "#4DD0E1"
   ];
 
+
+  const [collapsedSections, setCollapsedSections] = useState({
+    studentsPerSchool: false,
+    feePerMonth: false,
+    feeSummary: false,
+    newRegistrations: false,
+    studentDataReports: false,
+  });
+
+
+  const toggleSection = (section) => {
+    setCollapsedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
   const processFeeData = (data, schools = []) => {
     if (!data || !Array.isArray(data) || data.length === 0) {
       console.warn("No valid fee data provided");
@@ -308,158 +321,216 @@ useEffect(() => {
   }
 
   return (
-    <div className="flex">
-      <div className="w-full p-0 bg-gray-100 min-h-screen">
-        <header className="bg-white text-black py-3 flex items-center justify-between px-2 mb-6 shadow-md">
-          <div className="flex items-center">
-            <img src="/logo.png" alt="Koder Kids Logo" className="h-12 w-auto mr-2" />
-            <h1 className="heading-primary">Koder Kids Admin Dashboard</h1>
-          </div>
-        </header>
+  <div className="container mx-auto p-6 bg-gray-100 min-h-screen">
+    <header className="bg-blue-600 text-white p-6 rounded-lg shadow-md mb-6">
+      <div className="flex items-center">
+        <img src="/logo.png" alt="Koder Kids Logo" className="h-12 w-auto mr-4" />
+        <h1 className="text-2xl font-bold">Koder Kids Admin Dashboard</h1>
+      </div>
+    </header>
 
-        <div className="flex flex-wrap justify-center gap-6 w-full mb-6">
-          {/* Students Per School (Treemap) */}
-          <div className="w-full md:w-1/2 border p-4 rounded-lg shadow-md bg-white mb-6">
-            <h2 className="text-xl font-semibold mb-3 text-gray-700 text-center">Students Enrolled Per School</h2>
-            <div className="flex justify-center">
-              <ResponsiveContainer width="100%" height={400}>
-                <Treemap
-                  data={studentsData}
-                  dataKey="total_students"
-                  nameKey="school"
-                  ratio={4 / 3}
-                >
-                  {studentsData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                  <Tooltip formatter={(value) => `${value} students`} />
-                </Treemap>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Fee Received Per Month (Bar Chart) */}
-          <div className="w-full md:w-1/2 border p-4 rounded bg-white shadow-md">
-            <h2 className="text-lg font-semibold text-gray-700 mb-4 text-center">Top 3 Schools - Fee Collection (Last 3 Months)</h2>
-            {feeData.length > 0 && Object.keys(feeData[0]).length > 1 ? (
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={feeData}>
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => `PKR ${value.toLocaleString()}`} />
-                  <Legend />
-                  {Object.keys(feeData[0]).filter(key => key !== "month").map((school, index) => (
-                    <Bar key={index} dataKey={school} fill={["#8884d8", "#82ca9d", "#ffbb28"][index % 3]} />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-gray-500 text-center">No Fee Data Available</p>
-            )}
-          </div>
+    <div className="space-y-6">
+      {/* Students Per School (Treemap) */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-700">Students Enrolled Per School</h2>
+          <button
+            onClick={() => toggleSection("studentsPerSchool")}
+            className="text-blue-600 hover:text-blue-800"
+            aria-label={collapsedSections.studentsPerSchool ? "Expand Students Per School" : "Collapse Students Per School"}
+          >
+            {collapsedSections.studentsPerSchool ? "Expand ▼" : "Collapse ▲"}
+          </button>
         </div>
-
-        {/* Fee Summary by School */}
-        <div className="border p-4 m-0 rounded-lg shadow-md bg-white mb-6">
-          <h2 className="text-xl font-semibold mb-3 text-gray-700">Fee Summary by School</h2>
-          <div className="mb-4">
-            <label htmlFor="month-selector" className="mr-2 text-gray-700">Select Month:</label>
-            <select
-              id="month-selector"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="border rounded p-2"
+        {!collapsedSections.studentsPerSchool && (
+          <ResponsiveContainer width="100%" height={300}>
+            <Treemap
+              data={studentsData}
+              dataKey="total_students"
+              nameKey="school"
+              ratio={4 / 3}
             >
-              {availableMonths.length > 0 ? (
-                availableMonths.map((month) => (
-                  <option key={month} value={month}>{month}</option>
-                ))
-              ) : (
-                <option value="">No Months Available</option>
-              )}
-            </select>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse border bg-gray-100 text-gray-700">
-              <thead className="bg-gray-300 text-gray-800">
-                <tr>
-                  <th
-                    className="border p-3 text-center cursor-pointer"
-                    onClick={() => sortData("school_name")}
-                  >
-                    School {sortConfig.key === "school_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="border p-3 text-center cursor-pointer"
-                    onClick={() => sortData("total_fee")}
-                  >
-                    Total Fee {sortConfig.key === "total_fee" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="border p-3 text-center cursor-pointer"
-                    onClick={() => sortData("paid_amount")}
-                  >
-                    Received Fee {sortConfig.key === "paid_amount" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="border p-3 text-center cursor-pointer"
-                    onClick={() => sortData("balance_due")}
-                  >
-                    Pending Fee {sortConfig.key === "balance_due" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const sortedData = [...feeSummary].sort((a, b) => {
-                    if (sortConfig.key === "school_name") {
-                      return sortConfig.direction === "asc"
-                        ? a.school_name.localeCompare(b.school_name)
-                        : b.school_name.localeCompare(a.school_name);
-                    }
-                    if (sortConfig.key === "total_fee") {
-                      return sortConfig.direction === "asc"
-                        ? a.total_fee - b.total_fee
-                        : b.total_fee - a.total_fee;
-                    }
-                    if (sortConfig.key === "paid_amount") {
-                      return sortConfig.direction === "asc"
-                        ? a.paid_amount - b.paid_amount
-                        : b.paid_amount - a.paid_amount;
-                    }
-                    if (sortConfig.key === "balance_due") {
-                      return sortConfig.direction === "asc"
-                        ? a.balance_due - b.balance_due
-                        : b.balance_due - a.balance_due;
-                    }
-                    return 0;
-                  });
+              {studentsData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+              <Tooltip formatter={(value) => `${value} students`} />
+            </Treemap>
+          </ResponsiveContainer>
+        )}
+      </div>
 
-                  return sortedData.length > 0 ? (
-                    sortedData.map((entry, index) => (
-                      <tr key={index} className={index % 2 === 0 ? "bg-gray-200" : "bg-gray-50"}>
-                        <td className="border p-3 text-center">{entry.school_name}</td>
-                        <td className="border p-3 text-center">PKR {entry.total_fee.toLocaleString()}</td>
-                        <td className="border p-3 text-center">PKR {entry.paid_amount.toLocaleString()}</td>
-                        <td className="border p-3 text-center">PKR {entry.balance_due.toLocaleString()}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="border p-4 text-center text-gray-500 italic" colSpan="4">
-                        No Fee Summary Available for {selectedMonth}
-                      </td>
-                    </tr>
-                  );
-                })()}
-              </tbody>
-            </table>
-          </div>
+      {/* Fee Received Per Month (Bar Chart) */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-700">Top 3 Schools - Fee Collection (Last 3 Months)</h2>
+          <button
+            onClick={() => toggleSection("feePerMonth")}
+            className="text-blue-600 hover:text-blue-800"
+            aria-label={collapsedSections.feePerMonth ? "Expand Fee Per Month" : "Collapse Fee Per Month"}
+          >
+            {collapsedSections.feePerMonth ? "Expand ▼" : "Collapse ▲"}
+          </button>
         </div>
+        {!collapsedSections.feePerMonth && (
+          feeData.length > 0 && Object.keys(feeData[0]).length > 1 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={feeData}>
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip formatter={(value) => `PKR ${value.toLocaleString()}`} />
+                <Legend />
+                {Object.keys(feeData[0]).filter(key => key !== "month").map((school, index) => (
+                  <Bar key={index} dataKey={school} fill={["#8884d8", "#82ca9d", "#ffbb28"][index % 3]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-500 text-center">No Fee Data Available</p>
+          )
+        )}
+      </div>
 
-        {/* New Registrations (Summarized Table) */}
-        <div className="border p-4 m-0 rounded-lg shadow-md bg-white">
-          <h2 className="text-xl font-semibold mb-3 text-gray-700">New Registrations by School</h2>
+      {/* Fee Summary by School */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-700">Fee Summary by School</h2>
+          <button
+            onClick={() => toggleSection("feeSummary")}
+            className="text-blue-600 hover:text-blue-800"
+            aria-label={collapsedSections.feeSummary ? "Expand Fee Summary" : "Collapse Fee Summary"}
+          >
+            {collapsedSections.feeSummary ? "Expand ▼" : "Collapse ▲"}
+          </button>
+        </div>
+        {!collapsedSections.feeSummary && (
+          <>
+            <div className="mb-4">
+              <label htmlFor="month-selector" className="mr-2 text-gray-700">Select Month:</label>
+              <select
+                id="month-selector"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="border rounded p-2"
+              >
+                {availableMonths.length > 0 ? (
+                  availableMonths.map((month) => (
+                    <option key={month} value={month}>{month}</option>
+                  ))
+                ) : (
+                  <option value="">No Months Available</option>
+                )}
+              </select>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border bg-gray-100 text-gray-700">
+                <thead className="bg-gray-300 text-gray-800">
+                  <tr>
+                    <th
+                      className="border px-4 py-2 text-center cursor-pointer"
+                      onClick={() => sortData("school_name")}
+                    >
+                      School {sortConfig.key === "school_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
+                    <th
+                      className="border px-4 py-2 text-center cursor-pointer"
+                      onClick={() => sortData("total_fee")}
+                    >
+                      Total Fee {sortConfig.key === "total_fee" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
+                    <th
+                      className="border px-4 py-2 text-center cursor-pointer"
+                      onClick={() => sortData("paid_amount")}
+                    >
+                      Received Fee {sortConfig.key === "paid_amount" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
+                    <th
+                      className="border px-4 py-2 text-center cursor-pointer"
+                      onClick={() => sortData("balance_due")}
+                    >
+                      Pending Fee {sortConfig.key === "balance_due" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const sortedData = [...feeSummary].sort((a, b) => {
+                      if (sortConfig.key === "school_name") {
+                        return sortConfig.direction === "asc"
+                          ? a.school_name.localeCompare(b.school_name)
+                          : b.school_name.localeCompare(a.school_name);
+                      }
+                      if (sortConfig.key === "total_fee") {
+                        return sortConfig.direction === "asc"
+                          ? a.total_fee - b.total_fee
+                          : b.total_fee - a.total_fee;
+                      }
+                      if (sortConfig.key === "paid_amount") {
+                        return sortConfig.direction === "asc"
+                          ? a.paid_amount - b.paid_amount
+                          : b.paid_amount - a.paid_amount;
+                      }
+                      if (sortConfig.key === "balance_due") {
+                        return sortConfig.direction === "asc"
+                          ? a.balance_due - b.balance_due
+                          : b.balance_due - a.balance_due;
+                      }
+                      return 0;
+                    });
+
+                    const totals = sortedData.reduce(
+                      (acc, entry) => ({
+                        total_fee: acc.total_fee + (Number(entry.total_fee) || 0),
+                        paid_amount: acc.paid_amount + (Number(entry.paid_amount) || 0),
+                        balance_due: acc.balance_due + (Number(entry.balance_due) || 0),
+                      }),
+                      { total_fee: 0, paid_amount: 0, balance_due: 0 }
+                    );
+
+                    return sortedData.length > 0 ? (
+                      <>
+                        {sortedData.map((entry, index) => (
+                          <tr key={index} className={index % 2 === 0 ? "bg-gray-200 hover:bg-gray-100" : "bg-gray-50 hover:bg-gray-100"}>
+                            <td className="border px-4 py-2 text-center">{entry.school_name}</td>
+                            <td className="border px-4 py-2 text-center">PKR {entry.total_fee.toLocaleString()}</td>
+                            <td className="border px-4 py-2 text-center">PKR {entry.paid_amount.toLocaleString()}</td>
+                            <td className="border px-4 py-2 text-center">PKR {entry.balance_due.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-300 font-bold">
+                          <td className="border px-4 py-2 text-center">Total</td>
+                          <td className="border px-4 py-2 text-center">PKR {totals.total_fee.toLocaleString()}</td>
+                          <td className="border px-4 py-2 text-center">PKR {totals.paid_amount.toLocaleString()}</td>
+                          <td className="border px-4 py-2 text-center">PKR {totals.balance_due.toLocaleString()}</td>
+                        </tr>
+                      </>
+                    ) : (
+                      <tr>
+                        <td className="border px-4 py-2 text-center text-gray-500 italic" colSpan="4">
+                          No Fee Summary Available for {selectedMonth}
+                        </td>
+                      </tr>
+                    );
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* New Registrations */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-700">New Registrations by School</h2>
+          <button
+            onClick={() => toggleSection("newRegistrations")}
+            className="text-blue-600 hover:text-blue-800"
+            aria-label={collapsedSections.newRegistrations ? "Expand New Registrations" : "Collapse New Registrations"}
+          >
+            {collapsedSections.newRegistrations ? "Expand ▼" : "Collapse ▲"}
+          </button>
+        </div>
+        {!collapsedSections.newRegistrations && (
           <div className="overflow-x-auto">
             {(() => {
               const summarizedData = registrations.reduce((acc, reg) => {
@@ -489,13 +560,13 @@ useEffect(() => {
                   <thead className="bg-gray-300 text-gray-800">
                     <tr>
                       <th
-                        className="border p-3 text-center cursor-pointer"
+                        className="border px-4 py-2 text-center cursor-pointer"
                         onClick={() => sortData("school")}
                       >
                         School {sortConfig.key === "school" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                       </th>
                       <th
-                        className="border p-3 text-center cursor-pointer"
+                        className="border px-4 py-2 text-center cursor-pointer"
                         onClick={() => sortData("count")}
                       >
                         Number of Admissions {sortConfig.key === "count" && (sortConfig.direction === "asc" ? "↑" : "↓")}
@@ -505,14 +576,14 @@ useEffect(() => {
                   <tbody>
                     {sortedData.length > 0 ? (
                       sortedData.map((entry, index) => (
-                        <tr key={index} className={index % 2 === 0 ? "bg-gray-200" : "bg-gray-50"}>
-                          <td className="border p-3 text-center">{entry.school}</td>
-                          <td className="border p-3 text-center">{entry.count}</td>
+                        <tr key={index} className={index % 2 === 0 ? "bg-gray-200 hover:bg-gray-100" : "bg-gray-50 hover:bg-gray-100"}>
+                          <td className="border px-4 py-2 text-center">{entry.school}</td>
+                          <td className="border px-4 py-2 text-center">{entry.count}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td className="border p-4 text-center text-gray-500 italic" colSpan="2">
+                        <td className="border px-4 py-2 text-center text-gray-500 italic" colSpan="2">
                           No New Registrations Available
                         </td>
                       </tr>
@@ -522,128 +593,135 @@ useEffect(() => {
               );
             })()}
           </div>
+        )}
+      </div>
+
+      {/* Student Data Reports */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-700">Student Data Reports</h2>
+          <button
+            onClick={() => toggleSection("studentDataReports")}
+            className="text-blue-600 hover:text-blue-800"
+            aria-label={collapsedSections.studentDataReports ? "Expand Student Data Reports" : "Collapse Student Data Reports"}
+          >
+            {collapsedSections.studentDataReports ? "Expand ▼" : "Collapse ▲"}
+          </button>
         </div>
-        <div className="border p-4 m-0 rounded-lg shadow-md bg-white mb-6">
-  <h2 className="text-xl font-semibold mb-4 text-gray-700">Student Data Reports</h2>
-  <div className="flex flex-wrap gap-4 mb-4">
-    {/* Month Selector */}
-    <div>
-      <label htmlFor="reportMonth" className="block text-sm font-medium mb-1 text-gray-700">
-        Select Month
-      </label>
-      <input
-        type="month"
-        id="reportMonth"
-        value={selectedReportMonth}
-        onChange={(e) => setSelectedReportMonth(e.target.value)}
-        className="border rounded p-2 w-full max-w-xs"
-        aria-label="Select month for student data reports"
-      />
-    </div>
-
-    {/* School Selector */}
-    <div>
-      <label htmlFor="schoolId" className="block text-sm font-medium mb-1 text-gray-700">
-        Select School
-      </label>
-      <select
-        id="schoolId"
-        value={selectedSchoolId}
-        onChange={(e) => setSelectedSchoolId(e.target.value)}
-        className="border rounded p-2 w-full max-w-xs"
-        aria-label="Select school for student data reports"
-      >
-        <option value="">Select School</option>
-        {schools.map((school) => (
-          <option key={school.id} value={school.id}>
-            {school.name}
-          </option>
-        ))}
-      </select>
-    </div>
-
-    {/* Class Selector */}
-    <div>
-      <label htmlFor="studentClass" className="block text-sm font-medium mb-1 text-gray-700">
-        Select Class
-      </label>
-      <select
-        id="studentClass"
-        value={selectedClass}
-        onChange={(e) => setSelectedClass(e.target.value)}
-        className="border rounded p-2 w-full max-w-xs"
-        aria-label="Select class for student data reports"
-        disabled={!selectedSchoolId}
-      >
-        <option value="">Select Class</option>
-        {classes.map((cls, index) => (
-          <option key={index} value={cls}>
-            {cls}
-          </option>
-        ))}
-      </select>
-    </div>
-
-    {/* Fetch Button */}
-    <div className="flex items-end">
-      <button
-        onClick={fetchStudentData}
-        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-        disabled={studentDataLoading}
-      >
-        {studentDataLoading ? "Loading..." : "Fetch Student Data"}
-      </button>
+        {!collapsedSections.studentDataReports && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label htmlFor="reportMonth" className="block text-sm font-medium mb-1 text-gray-700">
+                  Select Month
+                </label>
+                <input
+                  type="month"
+                  id="reportMonth"
+                  value={selectedReportMonth}
+                  onChange={(e) => setSelectedReportMonth(e.target.value)}
+                  className="border rounded p-2 w-full max-w-xs"
+                  aria-label="Select month for student data reports"
+                />
+              </div>
+              <div>
+                <label htmlFor="schoolId" className="block text-sm font-medium mb-1 text-gray-700">
+                  Select School
+                </label>
+                <select
+                  id="schoolId"
+                  value={selectedSchoolId}
+                  onChange={(e) => setSelectedSchoolId(e.target.value)}
+                  className="border rounded p-2 w-full max-w-xs"
+                  aria-label="Select school for student data reports"
+                >
+                  <option value="">Select School</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="studentClass" className="block text-sm font-medium mb-1 text-gray-700">
+                  Select Class
+                </label>
+                <select
+                  id="studentClass"
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  className="border rounded p-2 w-full max-w-xs"
+                  aria-label="Select class for student data reports"
+                  disabled={!selectedSchoolId}
+                >
+                  <option value="">Select Class</option>
+                  {classes.map((cls, index) => (
+                    <option key={index} value={cls}>
+                      {cls}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={fetchStudentData}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                  disabled={studentDataLoading}
+                >
+                  {studentDataLoading ? "Loading..." : "Fetch Student Data"}
+                </button>
+              </div>
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-700">Student Performance Overview</h3>
+              {studentDataLoading ? (
+                <div className="flex justify-center">
+                  <ClipLoader color="#000000" size={50} />
+                </div>
+              ) : studentAttendance.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse border bg-gray-100 text-gray-700">
+                    <thead className="bg-gray-300 text-gray-800">
+                      <tr>
+                        <th className="border px-4 py-2 text-center">Student ID</th>
+                        <th className="border px-4 py-2 text-center">Name</th>
+                        <th className="border px-4 py-2 text-center bg-blue-100">Present</th>
+                        <th className="border px-4 py-2 text-center bg-blue-100">Absent</th>
+                        <th className="border px-4 py-2 text-center bg-blue-100">Not Marked</th>
+                        <th className="border px-4 py-2 text-center bg-green-100">Topics Achieved</th>
+                        <th className="border px-4 py-2 text-center bg-yellow-100">Images Uploaded</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {studentAttendance.map((attendance, index) => {
+                        const topic = studentTopics.find(t => t.student_id === attendance.student_id) || { topics_achieved: 0 };
+                        const image = studentImages.find(i => i.student_id === attendance.student_id) || { images_uploaded: 0 };
+                        return (
+                          <tr key={index} className={index % 2 === 0 ? "bg-gray-200 hover:bg-gray-100" : "bg-gray-50 hover:bg-gray-100"}>
+                            <td className="border px-4 py-2 text-center">{attendance.student_id}</td>
+                            <td className="border px-4 py-2 text-center">{attendance.name}</td>
+                            <td className="border px-4 py-2 text-center bg-blue-50">{attendance.present}</td>
+                            <td className="border px-4 py-2 text-center bg-blue-50">{attendance.absent}</td>
+                            <td className="border px-4 py-2 text-center bg-blue-50">{attendance.not_marked}</td>
+                            <td className="border px-4 py-2 text-center bg-green-50">{topic.topics_achieved}</td>
+                            <td className="border px-4 py-2 text-center bg-yellow-50">{image.images_uploaded}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center">No student data available.</p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   </div>
-
-  {/* Combined Student Data Table */}
-  <div className="mb-6">
-    <h3 className="text-lg font-semibold mb-2 text-gray-700">Student Performance Overview</h3>
-    {studentDataLoading ? (
-      <div className="flex justify-center">
-        <ClipLoader color="#000000" size={50} />
-      </div>
-    ) : studentAttendance.length > 0 ? (
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border bg-gray-100 text-gray-700">
-          <thead className="bg-gray-300 text-gray-800">
-            <tr>
-              <th className="border p-3 text-center">Student ID</th>
-              <th className="border p-3 text-center">Name</th>
-              <th className="border p-3 text-center bg-blue-100">Present</th>
-              <th className="border p-3 text-center bg-blue-100">Absent</th>
-              <th className="border p-3 text-center bg-blue-100">Not Marked</th>
-              <th className="border p-3 text-center bg-green-100">Topics Achieved</th>
-              <th className="border p-3 text-center bg-yellow-100">Images Uploaded</th>
-            </tr>
-          </thead>
-          <tbody>
-            {studentAttendance.map((attendance, index) => {
-              const topic = studentTopics.find(t => t.student_id === attendance.student_id) || { topics_achieved: 0 };
-              const image = studentImages.find(i => i.student_id === attendance.student_id) || { images_uploaded: 0 };
-              return (
-                <tr key={index} className={index % 2 === 0 ? "bg-gray-200" : "bg-gray-50"}>
-                  <td className="border p-3 text-center">{attendance.student_id}</td>
-                  <td className="border p-3 text-center">{attendance.name}</td>
-                  <td className="border p-3 text-center bg-blue-50">{attendance.present}</td>
-                  <td className="border p-3 text-center bg-blue-50">{attendance.absent}</td>
-                  <td className="border p-3 text-center bg-blue-50">{attendance.not_marked}</td>
-                  <td className="border p-3 text-center bg-green-50">{topic.topics_achieved}</td>
-                  <td className="border p-3 text-center bg-yellow-50">{image.images_uploaded}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    ) : (
-      <p className="text-gray-500 text-center">No student data available.</p>
-    )}
-  </div>
-</div>
-      </div>
-    </div>
-  );
+);
 }
 
 export default HomePage;

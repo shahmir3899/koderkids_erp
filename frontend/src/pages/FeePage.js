@@ -89,28 +89,55 @@ function FeePage() {
 
   // Create new month fees
   const createNewMonthFees = async () => {
-    if (!schoolId) return;
+    if (!schoolId || !month) return;
     setCreateLoading(true);
     setSuccessMessage("");
     setError(null);
+  
+    const formattedMonth = `${month.toLocaleString("default", { month: "short" })}-${month.getFullYear()}`;
+  
     try {
       const response = await axios.post(
         `${API_URL}/api/fees/create/`,
-        { school_id: schoolId },
+        { school_id: schoolId, month: formattedMonth },
         { headers: getAuthHeaders() }
       );
       setSuccessMessage(response.data.message);
       await fetchFees();
     } catch (error) {
-      console.error("Failed to create new fees:", error);
-      setError(
-        error.response?.data?.error ||
+      if (error.response?.status === 409) {
+        const confirmOverwrite = window.confirm(
+          `${error.response.data.warning}\n\nDo you want to overwrite existing records?`
+        );
+        if (confirmOverwrite) {
+          try {
+            const retry = await axios.post(
+              `${API_URL}/api/fees/create/`,
+              { school_id: schoolId, month: formattedMonth, force_overwrite: true },
+              { headers: getAuthHeaders() }
+            );
+            setSuccessMessage(retry.data.message);
+            await fetchFees();
+          } catch (overwriteErr) {
+            setError(
+              overwriteErr.response?.data?.error ||
+                "Overwrite failed. Please try again."
+            );
+          }
+        } else {
+          setError("Fee record creation was cancelled.");
+        }
+      } else {
+        setError(
+          error.response?.data?.error ||
           "Failed to create new fee records. Please try again."
-      );
+        );
+      }
     } finally {
       setCreateLoading(false);
     }
   };
+  
 
   // Update fee via API
   const updateFee = async (feeId, paidAmount) => {
@@ -346,40 +373,49 @@ function FeePage() {
 
       {/* Create New Records Section */}
       <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-        <h2 className="text-lg font-semibold mb-3">Create New Fee Records</h2>
-        <div className="flex gap-4 items-center">
-          <select
-            value={schoolId}
-            onChange={(e) => setSchoolId(e.target.value)}
-            className="border p-2 rounded w-64"
-            aria-label="Select school for new records"
-          >
-            <option value="">Select School</option>
-            {schools.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={createNewMonthFees}
-            disabled={!schoolId || createLoading}
-            className={`px-4 py-2 rounded text-white ${
-              !schoolId || createLoading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
-            aria-label="Create new fee records"
-          >
-            {createLoading ? "Creating Records..." : "Create New Records"}
-          </button>
-        </div>
-        {successMessage && (
-          <div className="mt-3 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded">
-            {successMessage}
-          </div>
-        )}
-      </div>
+  <h2 className="text-lg font-semibold mb-3">Create New Fee Records</h2>
+  <div className="flex flex-wrap gap-4 items-center">
+    <select
+      value={schoolId}
+      onChange={(e) => setSchoolId(e.target.value)}
+      className="border p-2 rounded w-64"
+    >
+      <option value="">Select School</option>
+      {schools.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.name}
+        </option>
+      ))}
+    </select>
+
+    <DatePicker
+      selected={month}
+      onChange={(date) => setMonth(date)}
+      dateFormat="MMM-yyyy"
+      showMonthYearPicker
+      className="border p-2 rounded"
+      placeholderText="Select Month"
+    />
+
+    <button
+      onClick={createNewMonthFees}
+      disabled={!schoolId || !month || createLoading}
+      className={`px-4 py-2 rounded text-white ${
+        !schoolId || !month || createLoading
+          ? "bg-gray-400 cursor-not-allowed"
+          : "bg-blue-600 hover:bg-blue-700"
+      }`}
+    >
+      {createLoading ? "Creating Records..." : "Create New Records"}
+    </button>
+  </div>
+  {successMessage && (
+    <div className="mt-3 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded">
+      {successMessage}
+    </div>
+  )}
+</div>
+
 
       {/* Error Message */}
       {error && (
