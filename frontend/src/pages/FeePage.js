@@ -256,8 +256,11 @@ function FeePage() {
 
   // Fetch fees on filter change
   useEffect(() => {
-    fetchFees();
+    if (schoolId || studentClass) {
+      fetchFees();
+    }
   }, [schoolId, studentClass, month]);
+  
 
   // Filter fees based on search term
   useEffect(() => {

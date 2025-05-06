@@ -3,11 +3,42 @@ import axios from "axios";
 import { getAuthHeaders, getSchools, getClasses, API_URL } from "../api";
 import StudentReportModal from "../components/StudentReportModal";
 
-const getMonthDates = (month) => {
-  const [year, monthNumber] = month.split("-");
-  const firstDay = `${month}-01`;
-  const lastDay = new Date(year, monthNumber, 0).toISOString().split("T")[0];
-  return { firstDay, lastDay };
+// Function to validate YYYY-MM format
+const isValidMonth = (monthStr) => {
+  if (!monthStr) return false;
+  return /^\d{4}-\d{2}$/.test(monthStr) && new Date(`${monthStr}-01`).getFullYear() >= 2000;
+};
+
+// Function to validate date string
+const isValidDate = (dateStr) => {
+  const date = new Date(dateStr);
+  return date instanceof Date && !isNaN(date);
+};
+
+// Function to format to MM/DD/YYYY
+const formatToMMDDYYYY = (dateStr) => {
+  if (!dateStr) return "";
+  try {
+    const [year, month, day] = dateStr.split("-");
+    if (!year || !month) return "";
+    return `${month.padStart(2, "0")}/01/${year}`;
+  } catch (error) {
+    console.error("Error in formatToMMDDYYYY:", error.message);
+    return "";
+  }
+};
+
+// Function to format to YYYY-MM-DD
+const formatToYYYYMMDD = (dateStr) => {
+  if (!dateStr) return "";
+  try {
+    const [year, month, day] = dateStr.split("-");
+    if (!year || !month) return "";
+    return `${year}-${month.padStart(2, "0")}-${day || "01".padStart(2, "0")}`;
+  } catch (error) {
+    console.error("Error in formatToYYYYMMDD:", error.message);
+    return "";
+  }
 };
 
 const ReportsPage = () => {
@@ -19,7 +50,12 @@ const ReportsPage = () => {
   const [classes, setClasses] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [mode, setMode] = useState("month");
+  const [errorMessage, setErrorMessage] = useState("");
 
+  // Fetch schools on component mount
   useEffect(() => {
     const fetchSchoolList = async () => {
       try {
@@ -27,11 +63,13 @@ const ReportsPage = () => {
         setSchools(schoolData);
       } catch (error) {
         console.error("Error loading schools:", error);
+        setErrorMessage("Failed to load schools. Please try again.");
       }
     };
     fetchSchoolList();
   }, []);
 
+  // Fetch classes when selectedSchool changes
   useEffect(() => {
     const fetchClassList = async () => {
       if (!selectedSchool) {
@@ -43,40 +81,90 @@ const ReportsPage = () => {
         setClasses(classData);
       } catch (error) {
         console.error("Error loading classes:", error);
+        setErrorMessage("Failed to load classes. Please try again.");
       }
     };
     fetchClassList();
   }, [selectedSchool]);
 
+  // Validate and fetch students
   const fetchStudents = async () => {
-    if (!selectedMonth || !selectedSchool || !selectedClass) {
-      alert("Please select a month, school, and class before searching.");
-      return;
+    setErrorMessage("");
+    setStudents([]);
+
+    // Validation for month mode
+    if (mode === "month") {
+      if (!selectedMonth || !isValidMonth(selectedMonth)) {
+        setErrorMessage("Please select a valid month (YYYY-MM).");
+        return;
+      }
+      if (!selectedSchool || !selectedClass) {
+        setErrorMessage("Please select a school and class.");
+        return;
+      }
+    }
+
+    // Validation for range mode
+    if (mode === "range") {
+      if (!startDate || !endDate || !isValidDate(startDate) || !isValidDate(endDate)) {
+        setErrorMessage("Please select valid start and end dates.");
+        return;
+      }
+      if (new Date(endDate) < new Date(startDate)) {
+        setErrorMessage("End date must be after start date.");
+        return;
+      }
+      const currentDate = new Date("2025-05-05");
+      if (new Date(startDate) > currentDate || new Date(endDate) > currentDate) {
+        setErrorMessage("Dates cannot be in the future (beyond May 05, 2025).");
+        return;
+      }
+      if (!selectedSchool || !selectedClass) {
+        setErrorMessage("Please select a school and class.");
+        return;
+      }
     }
 
     try {
-      const { firstDay } = getMonthDates(selectedMonth);
-      const [year, month, day] = firstDay.split("-");
-      const formattedDate = `${month}/${day}/${year}`;
+      // Format dates for API
+      const sessionDate = mode === "month"
+        ? formatToMMDDYYYY(`${selectedMonth}-01`)
+        : formatToMMDDYYYY(startDate);
+      const formattedStartDate = mode === "month"
+        ? formatToYYYYMMDD(`${selectedMonth}-01`)
+        : formatToYYYYMMDD(startDate);
+      const formattedEndDate = mode === "month"
+        ? formatToYYYYMMDD(`${selectedMonth}-${new Date(parseInt(selectedMonth.split("-")[0]), parseInt(selectedMonth.split("-")[1]), 0).getDate()}`)
+        : formatToYYYYMMDD(endDate);
+
+      if (!sessionDate || !formattedStartDate || !formattedEndDate) {
+        setErrorMessage("Invalid date format. Please ensure dates are correctly formatted.");
+        return;
+      }
 
       const response = await axios.get(`${API_URL}/api/students-prog/`, {
         headers: getAuthHeaders(),
         params: {
           school_id: selectedSchool,
           class_id: selectedClass,
-          session_date: formattedDate,
+          session_date: sessionDate,
+          start_date: formattedStartDate,
+          end_date: formattedEndDate,
         },
       });
 
-      const studentList = response.data?.students || response.data || [];
+      console.log("Students API response:", response.data);
+
+      const studentList = Array.isArray(response.data?.students) ? response.data.students : Array.isArray(response.data) ? response.data : [];
       if (studentList.length === 0) {
-        alert("No students found for the selected criteria.");
+        setErrorMessage("No students found for the selected criteria.");
       }
       setStudents(studentList);
     } catch (error) {
       console.error("Error fetching students:", error.response?.data || error.message);
-      alert("Failed to fetch students. Please try again.");
-      setStudents([]);
+      setErrorMessage(
+        error.response?.data?.message || "Failed to fetch students. Please try again."
+      );
     }
   };
 
@@ -87,25 +175,90 @@ const ReportsPage = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <h2 className="heading-primary">📊 Monthly Reports</h2>
+      <h2 className="text-2xl font-bold text-gray-700 mb-6">📊 Monthly Reports</h2>
 
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg" role="alert">
+          {errorMessage}
+        </div>
+      )}
+
+      {/* Mode Selection */}
+      <div className="flex gap-4 items-center mb-4">
+        <label className="flex items-center">
+          <input
+            type="radio"
+            value="month"
+            checked={mode === "month"}
+            onChange={() => setMode("month")}
+            className="mr-2"
+          />
+          <span className="text-gray-700">Month</span>
+        </label>
+        <label className="flex items-center">
+          <input
+            type="radio"
+            value="range"
+            checked={mode === "range"}
+            onChange={() => setMode("range")}
+            className="mr-2"
+          />
+          <span className="text-gray-700">Date Range</span>
+        </label>
+      </div>
+
+      {/* Date Inputs */}
       <div className="flex flex-wrap gap-4 mb-6">
-        <div className="flex flex-col flex-1 min-w-[200px]">
-          <label className="font-bold mb-2 text-gray-700">Select Month:</label>
+        {/* Month Selector */}
+        <div className="flex flex-col min-w-[200px]">
+          <label className="font-bold mb-1 text-gray-700">Month:</label>
           <input
             type="month"
+            className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors disabled:opacity-50"
             value={selectedMonth}
+            disabled={mode === "range"}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+            aria-label="Select month"
           />
         </div>
 
+        {/* Start Date */}
+        <div className="flex flex-col min-w-[200px]">
+          <label className="font-bold mb-1 text-gray-700">Start Date:</label>
+          <input
+            type="date"
+            className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors disabled:opacity-50"
+            value={startDate}
+            disabled={mode === "month"}
+            onChange={(e) => setStartDate(e.target.value)}
+            aria-label="Select start date"
+          />
+        </div>
+
+        {/* End Date */}
+        <div className="flex flex-col min-w-[200px]">
+          <label className="font-bold mb-1 text-gray-700">End Date:</label>
+          <input
+            type="date"
+            className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors disabled:opacity-50"
+            value={endDate}
+            disabled={mode === "month"}
+            onChange={(e) => setEndDate(e.target.value)}
+            aria-label="Select end date"
+          />
+        </div>
+      </div>
+
+      {/* School and Class Selection */}
+      <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex flex-col flex-1 min-w-[200px]">
-          <label className="font-bold mb-2 text-gray-700">School:</label>
+          <label className="font-bold mb-1 text-gray-700">School:</label>
           <select
             value={selectedSchool}
             onChange={(e) => setSelectedSchool(e.target.value)}
-            className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+            className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+            aria-label="Select school"
           >
             <option value="">-- Select School --</option>
             {schools.map((school) => (
@@ -117,12 +270,13 @@ const ReportsPage = () => {
         </div>
 
         <div className="flex flex-col flex-1 min-w-[200px]">
-          <label className="font-bold mb-2 text-gray-700">Class:</label>
+          <label className="font-bold mb-1 text-gray-700">Class:</label>
           <select
             value={selectedClass}
             onChange={(e) => setSelectedClass(e.target.value)}
             disabled={!selectedSchool}
-            className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors disabled:opacity-50"
+            className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors disabled:opacity-50"
+            aria-label="Select class"
           >
             <option value="">-- Select Class --</option>
             {classes.map((className, index) => (
@@ -136,13 +290,15 @@ const ReportsPage = () => {
         <div className="flex flex-col flex-1 min-w-[200px]">
           <button
             onClick={fetchStudents}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 mt-7"
+            aria-label="Search students"
           >
             🔍 Search
           </button>
         </div>
       </div>
 
+      {/* Student List */}
       {Array.isArray(students) && students.length > 0 ? (
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h3 className="text-xl font-semibold text-gray-700 mb-4">📋 Student List</h3>
@@ -162,6 +318,7 @@ const ReportsPage = () => {
                       <button
                         onClick={() => handleGenerateReport(student.id)}
                         className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                        aria-label={`Generate report for ${student.name}`}
                       >
                         📄 Generate Report
                       </button>
@@ -173,13 +330,19 @@ const ReportsPage = () => {
           </div>
         </div>
       ) : (
-        <p className="text-center text-gray-500">No students found. Adjust filters and try again.</p>
+        <p className="text-center text-gray-500">
+          {errorMessage || "No students found. Adjust filters and try again."}
+        </p>
       )}
 
+      {/* Student Report Modal */}
       {isModalOpen && (
         <StudentReportModal
           studentId={selectedStudentId}
-          month={selectedMonth}
+          mode={mode}
+          selectedMonth={mode === "month" ? selectedMonth : ""}
+          startDate={mode === "range" ? formatToYYYYMMDD(startDate) : ""}
+          endDate={mode === "range" ? formatToYYYYMMDD(endDate) : ""}
           onClose={() => setIsModalOpen(false)}
         />
       )}

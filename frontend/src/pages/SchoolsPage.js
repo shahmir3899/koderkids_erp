@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { getSchoolsWithClasses } from "../api";
-import { ClipLoader } from "react-spinners"; // Import ClipLoader
-import { toast } from "react-toastify"; // Import toast for notifications
+import { ClipLoader } from "react-spinners";
+import { toast } from "react-toastify";
 
 function SchoolsPage() {
     const [schools, setSchools] = useState([]);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isRetrying, setIsRetrying] = useState(false); // State for retry loading
+    const [isRetrying, setIsRetrying] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
@@ -32,8 +32,8 @@ function SchoolsPage() {
 
     const handleRetry = async () => {
         setIsRetrying(true);
-        setError(null); // Clear error to trigger a re-fetch
-        setLoading(true); // Trigger loading state to re-run useEffect
+        setError(null);
+        setLoading(true);
         setIsRetrying(false);
     };
 
@@ -67,12 +67,12 @@ function SchoolsPage() {
             {schools.length > 0 ? (
                 <div className="space-y-6">
                     {schools.map((school) => {
-                        // Calculate total students for the school
                         const totalStudents = school.classes.reduce((sum, cls) => sum + cls.strength, 0);
 
                         return (
-                            <div key={school.name} className="border p-4 rounded-lg shadow">
+                            <div key={school.id} className="border p-4 rounded-lg shadow">
                                 <h2 className="text-xl font-semibold">{school.name}</h2>
+                                <p className="text-gray-600">ID: {school.id}</p>
                                 <p className="text-gray-600">{school.address}</p>
                                 <p className="text-lg font-medium mt-2">Total Students: {totalStudents}</p>
                                 <h3 className="text-lg font-medium mt-2">Classes & Strength</h3>

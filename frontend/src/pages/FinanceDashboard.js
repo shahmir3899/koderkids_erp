@@ -92,34 +92,34 @@ function FinanceDashboard() {
   };
 
   // **Fetch Transactions and Categories**
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const [incomeRes, expenseRes, transferRes] = await Promise.all([
-          axios.get(`${API_URL}/api/income/`, { headers: getAuthHeaders() }),
-          axios.get(`${API_URL}/api/expense/`, { headers: getAuthHeaders() }),
-          axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
-        ]);
+  // useEffect(() => {
+  //   const fetchTransactions = async () => {
+  //     try {
+  //       const [incomeRes, expenseRes, transferRes] = await Promise.all([
+  //         axios.get(`${API_URL}/api/income/`, { headers: getAuthHeaders() }),
+  //         axios.get(`${API_URL}/api/expense/`, { headers: getAuthHeaders() }),
+  //         axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
+  //       ]);
 
-        const incomeTxs = incomeRes.data.map((tx) => ({ ...tx, transaction_type: "Income" }));
-        const expenseTxs = expenseRes.data.map((tx) => ({ ...tx, transaction_type: "Expense" }));
-        const transferTxs = transferRes.data.map((tx) => ({ ...tx, transaction_type: "Transfer" }));
+  //       const incomeTxs = incomeRes.data.map((tx) => ({ ...tx, transaction_type: "Income" }));
+  //       const expenseTxs = expenseRes.data.map((tx) => ({ ...tx, transaction_type: "Expense" }));
+  //       const transferTxs = transferRes.data.map((tx) => ({ ...tx, transaction_type: "Transfer" }));
 
-        const allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
-        setTransactions(allTransactions);
+  //       const allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
+  //       setTransactions(allTransactions);
 
-        const incomeCats = Array.from(new Set(incomeTxs.map((tx) => tx.category))).sort();
-        setIncomeCategories(incomeCats);
+  //       const incomeCats = Array.from(new Set(incomeTxs.map((tx) => tx.category))).sort();
+  //       setIncomeCategories(incomeCats);
 
-        const expenseCats = Array.from(new Set(expenseTxs.map((tx) => tx.category))).sort();
-        setExpenseCategories(expenseCats);
-      } catch (err) {
-        console.error("Failed to fetch transactions:", err);
-        setError("Failed to load transactions. Some features may be limited.");
-      }
-    };
-    fetchTransactions();
-  }, []);
+  //       const expenseCats = Array.from(new Set(expenseTxs.map((tx) => tx.category))).sort();
+  //       setExpenseCategories(expenseCats);
+  //     } catch (err) {
+  //       console.error("Failed to fetch transactions:", err);
+  //       setError("Failed to load transactions. Some features may be limited.");
+  //     }
+  //   };
+  //   fetchTransactions();
+  // }, []);
 
   // **Pivot Table Setup**
   useEffect(() => {
@@ -231,15 +231,38 @@ function FinanceDashboard() {
       await loadWebDataRocks();
       setIsWebDataRocksLoaded(true);
     }
-    // Set search params to trigger pivot table
-    setSearchParams({
-      selectedSchools,
-      transactionType,
-      selectedCategories,
-      startDate: new Date(sliderRange[0]).toISOString().split("T")[0],
-      endDate: new Date(sliderRange[1]).toISOString().split("T")[0],
-    });
+  
+    try {
+      const [incomeRes, expenseRes, transferRes] = await Promise.all([
+        axios.get(`${API_URL}/api/income/`, { headers: getAuthHeaders() }),
+        axios.get(`${API_URL}/api/expense/`, { headers: getAuthHeaders() }),
+        axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
+      ]);
+  
+      const incomeTxs = incomeRes.data.map((tx) => ({ ...tx, transaction_type: "Income" }));
+      const expenseTxs = expenseRes.data.map((tx) => ({ ...tx, transaction_type: "Expense" }));
+      const transferTxs = transferRes.data.map((tx) => ({ ...tx, transaction_type: "Transfer" }));
+      const allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
+  
+      setTransactions(allTransactions);
+  
+      setIncomeCategories([...new Set(incomeTxs.map((tx) => tx.category))]);
+      setExpenseCategories([...new Set(expenseTxs.map((tx) => tx.category))]);
+  
+      // Set search filters
+      setSearchParams({
+        selectedSchools,
+        transactionType,
+        selectedCategories,
+        startDate: new Date(sliderRange[0]).toISOString().split("T")[0],
+        endDate: new Date(sliderRange[1]).toISOString().split("T")[0],
+      });
+    } catch (err) {
+      console.error("Failed to fetch transactions:", err);
+      setError("Failed to load transactions. Try again.");
+    }
   };
+  
 
   // **Helper Functions**
   const handleRetry = async () => {

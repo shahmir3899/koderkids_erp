@@ -89,7 +89,7 @@ function TransactionsPage() {
     const fetchTransactions = async () => {
         setIsFetchingTransactions(true);
         try {
-            const response = await axios.get(`${API_URL}/api/${activeTab}/`, { headers: getAuthHeaders() });
+            const response = await axios.get(`${API_URL}/api/${activeTab}/?limit=10&ordering=-date`, { headers: getAuthHeaders() });
             const transactions = response.data.map((trx) => ({
                 ...trx,
                 to_account_name: trx.to_account_name || "N/A",

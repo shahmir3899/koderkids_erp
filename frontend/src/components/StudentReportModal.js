@@ -4,7 +4,15 @@ import html2canvas from "html2canvas";
 import html2pdf from "html2pdf.js";
 import PropTypes from "prop-types";
 
-const StudentReportModal = ({ studentId, month, onClose }) => {
+// Utility function to validate date string
+const isValidDate = (dateStr) => {
+  if (!dateStr) return false;
+  const [year, month, day] = dateStr.split("-");
+  const date = new Date(`${year}-${month}-${day}`);
+  return date instanceof Date && !isNaN(date) && date.getFullYear() === parseInt(year);
+};
+
+const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate, endDate }) => {
   const [studentData, setStudentData] = useState(null);
   const [attendanceData, setAttendanceData] = useState(null);
   const [lessonsData, setLessonsData] = useState(null);
@@ -13,85 +21,134 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
   const [selectedImages, setSelectedImages] = useState([]);
   const [showImageSelection, setShowImageSelection] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [loadingMessage, setLoadingMessage] = useState("Loading student details...");
   const reportRef = useRef(null);
 
-  const getMonthDates = (month) => {
-    const [year, monthNumber] = month.split("-");
-    const firstDay = `${month}-01`;
-    const lastDay = new Date(year, monthNumber, 0).toISOString().split("T")[0];
-    return { firstDay, lastDay };
+  const getDateList = () => {
+    const dates = [];
+    if (mode === "month" && selectedMonth && isValidDate(`${selectedMonth}-01`)) {
+      const [year, month] = selectedMonth.split("-").map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        dates.push(new Date(year, month - 1, day));
+      }
+    } else if (mode === "range" && startDate && endDate && isValidDate(startDate) && isValidDate(endDate)) {
+      let current = new Date(startDate);
+      const end = new Date(endDate);
+      if (end < current) {
+        setErrorMessage("End date must be after start date.");
+        return [];
+      }
+      while (current <= end) {
+        dates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+      }
+    }
+    return dates;
   };
 
-  const { firstDay, lastDay } = getMonthDates(month);
+  const dateList = getDateList();
+  const reportData = [];
 
   const fetchReportData = useCallback(async () => {
+    setErrorMessage("");
+    setIsDataLoaded(false);
     try {
-      const studentRes = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/student-details/?student_id=${studentId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access")}`,
-          },
-        }
-      );
-      const attendanceRes = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/attendance-count/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access")}`,
-          },
-        }
-      );
-      const lessonsRes = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${firstDay}&end_date=${lastDay}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access")}`,
-          },
-        }
-      );
-      const imagesRes = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/student-progress-images/?student_id=${studentId}&month=${month}`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("access")}` },
-        }
-      );
+      let fromDate = "";
+      let toDate = "";
+      let reportMonth = "";
 
-      console.log("Raw progress_images response:", imagesRes.data);
-
-      setStudentData(studentRes.data);
-      setAttendanceData(attendanceRes.data);
-      setLessonsData(lessonsRes.data);
-
-      const progressImages = (imagesRes.data.progress_images || [])
-        .map((img) => {
-          if (typeof img === "string") return img;
-          if (img && typeof img === "object" && img.signedURL) return img.signedURL;
-          return null;
-        })
-        .filter(Boolean);
-
-      console.log("Processed progressImages:", progressImages);
-
-      setProgressImages(progressImages);
-      setIsDataLoaded(true);
-
-      if (progressImages.length > 4) {
-        setShowImageSelection(true);
-      } else if (progressImages.length > 0) {
-        setSelectedImages(progressImages);
+      if (mode === "month" && selectedMonth && isValidDate(`${selectedMonth}-01`)) {
+        const [year, monthNum] = selectedMonth.split("-").map(Number);
+        const lastDate = new Date(year, monthNum, 0).getDate();
+        fromDate = `${year}-${String(monthNum).padStart(2, "0")}-01`;
+        toDate = `${year}-${String(monthNum).padStart(2, "0")}-${String(lastDate).padStart(2, "0")}`;
+        reportMonth = selectedMonth;
+      } else if (mode === "range" && startDate && endDate && isValidDate(startDate) && isValidDate(endDate)) {
+        fromDate = startDate;
+        toDate = endDate;
+        reportMonth = new Date(startDate).toISOString().slice(0, 7);
       } else {
-        setErrorMessage("No progress images available for this student.");
+        setErrorMessage("Invalid date selection. Please use YYYY-MM-DD format.");
+        setIsDataLoaded(true);
+        return;
       }
+
+      const headers = {
+        Authorization: `Bearer ${localStorage.getItem("access")}`,
+      };
+
+      const axiosInstance = axios.create();
+
+      // Fetch student details
+      setLoadingMessage("Loading student details...");
+      const studentRes = await axiosInstance.get(
+        `${process.env.REACT_APP_API_URL}/api/student-details/?student_id=${studentId}`,
+        { headers }
+      );
+      if (studentRes.data) {
+        setStudentData(studentRes.data);
+      } else {
+        setErrorMessage((prev) => prev + " Failed to fetch student details. ");
+      }
+
+      // Fetch attendance data
+      setLoadingMessage("Fetching attendance data...");
+      const attendanceRes = await axiosInstance.get(
+        `${process.env.REACT_APP_API_URL}/api/attendance-count/?student_id=${studentId}&start_date=${fromDate}&end_date=${toDate}`,
+        { headers }
+      );
+      if (attendanceRes.data) {
+        setAttendanceData(attendanceRes.data);
+      } else {
+        setErrorMessage((prev) => prev + " Failed to fetch attendance data. ");
+      }
+
+      // Fetch lessons data
+      setLoadingMessage("Fetching lessons data...");
+      const lessonsRes = await axiosInstance.get(
+        `${process.env.REACT_APP_API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${fromDate}&end_date=${toDate}`,
+        { headers }
+      );
+      if (lessonsRes.data) {
+        setLessonsData(lessonsRes.data);
+      } else {
+        setErrorMessage((prev) => prev + " Failed to fetch lessons data. ");
+      }
+
+      // Fetch progress images
+      setLoadingMessage("Fetching progress images...");
+      const imagesRes = await axiosInstance.get(
+        `${process.env.REACT_APP_API_URL}/api/student-progress-images/?student_id=${studentId}&month=${reportMonth}`,
+        { headers }
+      );
+      if (imagesRes.data) {
+        const progressImages = (imagesRes.data.progress_images || [])
+          .map((img) => (typeof img === "string" ? img : img?.signedURL || null))
+          .filter(Boolean);
+        setProgressImages(progressImages);
+        if (progressImages.length > 4) {
+          setShowImageSelection(true);
+        } else if (progressImages.length > 0) {
+          setSelectedImages(progressImages);
+        }
+      } else {
+        setErrorMessage((prev) => prev + " Failed to fetch progress images. ");
+      }
+
+      setIsDataLoaded(true);
     } catch (error) {
-      console.error("Error fetching report data:", error);
-      setErrorMessage("Failed to fetch report data. Please try again.");
+      console.error("Error in fetchReportData:", error.message);
+      setErrorMessage("Failed to fetch report data: " + error.message);
+      setIsDataLoaded(true);
     }
-  }, [studentId, month, firstDay, lastDay]);
+  }, [studentId, mode, selectedMonth, startDate, endDate]);
 
   useEffect(() => {
-    fetchReportData();
-  }, [fetchReportData]);
+    if (studentId) {
+      fetchReportData();
+    }
+  }, [studentId, mode, selectedMonth, startDate, endDate, fetchReportData]);
 
   const toggleImageSelection = useCallback(
     (img) => {
@@ -107,10 +164,11 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
     [selectedImages]
   );
 
-  const formattedMonth = new Date(`${month}-01`).toLocaleString("en-US", {
-    month: "short",
-    year: "numeric",
-  });
+  const formattedMonth = mode === "month" && selectedMonth
+    ? new Date(`${selectedMonth}-01`).toLocaleString("en-US", { month: "short", year: "numeric" })
+    : mode === "range" && startDate && endDate
+    ? `${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`
+    : "";
 
   const handleImageError = (e, img) => {
     console.error(`Failed to load image: ${img}, Error: ${e.target.error || "Unknown error"}`);
@@ -126,7 +184,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
 
   const generateHDImage = () => {
     if (!studentData || !attendanceData || !lessonsData) {
-      alert("Report data is still loading. Please wait.");
+      alert("Report data is still loading or incomplete. Please wait or fix errors.");
       return;
     }
 
@@ -148,21 +206,19 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
       logging: true,
       width: element.scrollWidth,
       height: element.scrollHeight,
-    })
-      .then((canvas) => {
-        const link = document.createElement("a");
-        link.download = `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.png`;
-        link.href = canvas.toDataURL("image/png", 1.0);
-        link.click();
-        window.open(canvas.toDataURL("image/png", 1.0), "_blank");
-        onClose();
-      })
-      .catch((error) => console.error("Error generating HD image:", error));
+    }).then((canvas) => {
+      const link = document.createElement("a");
+      link.download = `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.png`;
+      link.href = canvas.toDataURL("image/png", 1.0);
+      link.click();
+      window.open(canvas.toDataURL("image/png", 1.0), "_blank");
+      onClose();
+    }).catch((error) => console.error("Error generating HD image:", error));
   };
 
   const generatePDF = () => {
     if (!studentData || !attendanceData || !lessonsData) {
-      alert("Report data is still loading. Please wait.");
+      alert("Report data is still loading or incomplete. Please wait or fix errors.");
       return;
     }
 
@@ -183,25 +239,14 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, allowTaint: true },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: {
-        mode: ["css", "legacy"],
-        avoid: ["table", "div"],
-        after: ["#student-report"],
-        strict: true,
-      },
+      pagebreak: { mode: ["css", "legacy"], avoid: ["table", "div"], after: ["#student-report"], strict: "true" },
     };
 
-    html2pdf()
-      .from(element)
-      .set(pdfOptions)
-      .toPdf()
-      .get("pdf")
-      .then((pdf) => {
-        window.open(pdf.output("bloburl"), "_blank");
-        pdf.save(pdfOptions.filename);
-        onClose();
-      })
-      .catch((error) => console.error("Error generating PDF:", error));
+    html2pdf().from(element).set(pdfOptions).toPdf().get("pdf").then((pdf) => {
+      window.open(pdf.output("bloburl"), "_blank");
+      pdf.save(pdfOptions.filename);
+      onClose();
+    }).catch((error) => console.error("Error generating PDF:", error));
   };
 
   if (!isDataLoaded) {
@@ -229,16 +274,15 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
             width: "100%",
           }}
         >
-          <p>Loading report data...</p>
+          <p>{loadingMessage}</p>
         </div>
       </div>
     );
   }
 
   const imageSlots = [...selectedImages, ...Array(4 - selectedImages.length).fill(null)];
-  console.log("imageSlots:", imageSlots);
 
-  // Calculate attendance percentage for status indicator (Improvement 4)
+  // Calculate attendance percentage for status indicator
   const attendancePercentage = attendanceData?.total_days > 0
     ? (attendanceData.present_days / attendanceData.total_days) * 100
     : 0;
@@ -362,24 +406,24 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
           </div>
         )}
 
-        {/* Report Section with Fixed Layout (Improvements 1-9) */}
+        {/* Report Section with Fixed Layout */}
         <div
           ref={reportRef}
           id="student-report"
           style={{
-            width: "210mm", // A4 width (Improvement 8)
-            minHeight: "297mm", // A4 height (Improvement 8)
-            padding: "10mm", // Consistent padding (Improvement 8)
-            backgroundColor: "#f9f9f9", // Off-white background (Improvement 8)
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)", // Subtle shadow (Improvement 8)
-            fontFamily: "'Roboto', sans-serif", // Consistent font (Improvement 2)
-            color: "#333", // Dark gray text for contrast (Improvement 9)
+            width: "210mm",
+            minHeight: "297mm",
+            padding: "10mm",
+            backgroundColor: "#f9f9f9",
+            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+            fontFamily: "'Roboto', sans-serif",
+            color: "#333",
             boxSizing: "border-box",
             display: "flex",
             flexDirection: "column",
           }}
         >
-          {/* Watermark (retained from original) */}
+          {/* Watermark */}
           <div
             style={{
               position: "absolute",
@@ -397,10 +441,10 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
             {studentData?.school}
           </div>
 
-          {/* Header (Improvement 1) */}
+          {/* Header */}
           <div
             style={{
-              background: "linear-gradient(90deg, #4A90E2, #ffffff)", // Blue-to-white gradient
+              background: "linear-gradient(90deg, #4A90E2, #ffffff)",
               padding: "10mm",
               borderRadius: "5px",
               display: "flex",
@@ -411,8 +455,8 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
           >
             <h2
               style={{
-                fontFamily: "'Montserrat', sans-serif", // Bolder font for title
-                fontSize: "24px", // Larger size
+                fontFamily: "'Montserrat', sans-serif",
+                fontSize: "24px",
                 fontWeight: "bold",
                 color: "#333",
                 margin: 0,
@@ -421,7 +465,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
               Monthly Student Report
             </h2>
             <img
-              src={process.env.PUBLIC_URL + "/logo.png"} // Keep existing logo source
+              src={process.env.PUBLIC_URL + "/logo.png"}
               alt="School Logo"
               style={{ height: "40px", borderRadius: "5px", objectFit: "contain" }}
             />
@@ -429,20 +473,20 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
 
           {/* Main Content Area */}
           <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", gap: "10mm" }}>
-            {/* Student Information (Improvements 2, 3, 4) */}
+            {/* Student Information */}
             <div
               style={{
                 padding: "5mm",
-                borderBottom: "2px solid #4A90E2", // Blue divider (Improvement 3)
-                lineHeight: "1.6", // Increased line spacing (Improvement 2)
+                borderBottom: "2px solid #4A90E2",
+                lineHeight: "1.6",
               }}
             >
               <h3
                 style={{
-                  fontFamily: "'Montserrat', sans-serif", // Consistent font (Improvement 2)
-                  fontSize: "18px", // Hierarchy (Improvement 2)
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontSize: "18px",
                   fontWeight: "bold",
-                  color: "#4A90E2", // Blue color (Improvement 3)
+                  color: "#4A90E2",
                   marginBottom: "5px",
                 }}
               >
@@ -465,13 +509,13 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
               </p>
             </div>
 
-            {/* Attendance (Improvements 3, 4) */}
+            {/* Attendance */}
             <div
               style={{
                 padding: "5mm",
-                backgroundColor: "rgba(46, 204, 113, 0.1)", // Light green background (Improvement 3)
+                backgroundColor: "rgba(46, 204, 113, 0.1)",
                 borderRadius: "5px",
-                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)", // Subtle shadow (Improvement 3)
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
                 display: "flex",
                 alignItems: "center",
                 gap: "10px",
@@ -491,16 +535,16 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                   Attendance
                 </h3>
                 <p style={{ margin: 0, fontSize: "14px" }}>
-                  {attendanceData?.total_days === 0
+                  {attendanceData?.total_days === 0 || !attendanceData
                     ? "No school days recorded"
-                    : `${attendanceData?.present_days}/${attendanceData?.total_days} days (${attendancePercentage.toFixed(2)}%)`}
+                    : `${attendanceData?.present_days || 0}/${attendanceData?.total_days || 0} days (${attendancePercentage.toFixed(2)}%)`}
                   <span
                     style={{
                       display: "inline-block",
                       width: "10px",
                       height: "10px",
                       borderRadius: "50%",
-                      backgroundColor: attendanceStatusColor, // Status dot (Improvement 4)
+                      backgroundColor: attendanceStatusColor,
                       marginLeft: "5px",
                     }}
                   />
@@ -508,7 +552,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
               </div>
             </div>
 
-            {/* Lessons Overview (Improvement 5) */}
+            {/* Lessons Overview */}
             <div style={{ flex: "1 1 auto", overflow: "auto" }}>
               <h3
                 style={{
@@ -521,7 +565,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
               >
                 <span style={{ fontSize: "20px", marginRight: "5px" }}>📖</span> Lessons Overview
               </h3>
-              {lessonsData?.lessons?.length === 0 ? (
+              {lessonsData?.lessons?.length === 0 || !lessonsData ? (
                 <p style={{ color: "#666", fontStyle: "italic", fontSize: "14px", textAlign: "center" }}>
                   No lessons found for the selected date range.
                 </p>
@@ -531,11 +575,11 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                     style={{
                       width: "100%",
                       borderCollapse: "collapse",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)", // Box shadow (Improvement 5)
-                      borderRadius: "5px", // Rounded corners (Improvement 5)
+                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
+                      borderRadius: "5px",
                       overflow: "hidden",
                     }}
-                    aria-label="Lessons achieved for the month" // Accessibility (Improvement 9)
+                    aria-label="Lessons achieved for the month"
                   >
                     <thead>
                       <tr style={{ backgroundColor: "#4A90E2", color: "white" }}>
@@ -549,7 +593,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                         <tr
                           key={index}
                           style={{
-                            backgroundColor: index % 2 === 0 ? "#f5f5f5" : "white", // Alternating colors (Improvement 5)
+                            backgroundColor: index % 2 === 0 ? "#f5f5f5" : "white",
                           }}
                         >
                           <td style={{ padding: "8px", border: "1px solid #ddd" }}>
@@ -576,7 +620,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
               )}
             </div>
 
-            {/* Progress Images (Improvement 6) */}
+            {/* Progress Images */}
             <div>
               <h3
                 style={{
@@ -598,9 +642,9 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(2, 1fr)", // 2x2 grid
-                  gridTemplateRows: "repeat(2, 60mm)", // Adjusted height to fit better
-                  gap: "8mm", // Consistent spacing
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gridTemplateRows: "repeat(2, 60mm)",
+                  gap: "8mm",
                   padding: "5mm",
                   backgroundColor: "white",
                   borderRadius: "5px",
@@ -613,12 +657,12 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                     style={{
                       width: "100%",
                       height: "100%",
-                      border: "1px solid #ddd", // Borders (Improvement 6)
-                      borderRadius: "5px", // Rounded corners (Improvement 6)
+                      border: "1px solid #ddd",
+                      borderRadius: "5px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: "#f5f5f5", // Placeholder background (Improvement 6)
+                      backgroundColor: "#f5f5f5",
                       overflow: "hidden",
                     }}
                   >
@@ -636,7 +680,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                           }}
                         />
                         <p style={{ fontSize: "10px", color: "#666", margin: "3px 0" }}>
-                          Image {index + 1} {/* Replace with actual date/caption if available */}
+                          Image {index + 1}
                         </p>
                       </div>
                     ) : (
@@ -650,7 +694,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
             </div>
           </div>
 
-          {/* Footer (Improvement 7) */}
+          {/* Footer */}
           <div
             style={{
               borderTop: "1px solid #ddd",
@@ -658,7 +702,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
               fontSize: "10px",
               color: "#666",
               marginTop: "10mm",
-              flexShrink: 0, // Prevent footer from shrinking
+              flexShrink: 0,
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -666,7 +710,7 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
                 <p style={{ margin: "0 0 5px 0" }}>
                   Teacher’s Signature: <span style={{ borderBottom: "1px dotted #666", display: "inline-block", width: "100px" }}></span>
                 </p>
-                <p style={{ margin: 0 }}>Generated on: Apr 28, 2025</p>
+                <p style={{ margin: 0 }}>Generated on: May 05, 2025</p>
               </div>
               <div
                 style={{
@@ -732,7 +776,10 @@ const StudentReportModal = ({ studentId, month, onClose }) => {
 
 StudentReportModal.propTypes = {
   studentId: PropTypes.string.isRequired,
-  month: PropTypes.string.isRequired,
+  mode: PropTypes.string.isRequired,
+  selectedMonth: PropTypes.string,
+  startDate: PropTypes.string,
+  endDate: PropTypes.string,
   onClose: PropTypes.func.isRequired,
 };
 

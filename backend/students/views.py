@@ -1312,10 +1312,17 @@ def debug_cors(request):
 
 
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.db.models import Count
+import logging
+
+logger = logging.getLogger(__name__)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_schools_with_classes(request):
-
     try:
         user = request.user
         logger.info(f"🔍 Fetching schools for user: {user.username}, role: {user.role}")
@@ -1359,9 +1366,10 @@ def get_schools_with_classes(request):
             total_students = sum(entry["count"] for entry in class_counts)
 
             school_data.append({
+                "id": school.id,  # Include school ID
                 "name": school.name,
                 "address": school.location or "No location available",
-                "total_students": total_students,  # Already added in previous step
+                "total_students": total_students,
                 "classes": classes
             })
 
@@ -1371,8 +1379,6 @@ def get_schools_with_classes(request):
     except Exception as e:
         logger.error(f"❌ Error fetching schools with classes: {str(e)}")
         return Response({"error": "Server error, check logs"}, status=500)
-    
-
 
 
 
