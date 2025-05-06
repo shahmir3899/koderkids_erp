@@ -54,6 +54,7 @@ const ReportsPage = () => {
   const [endDate, setEndDate] = useState("");
   const [mode, setMode] = useState("month");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
   // Fetch schools on component mount
   useEffect(() => {
@@ -91,15 +92,18 @@ const ReportsPage = () => {
   const fetchStudents = async () => {
     setErrorMessage("");
     setStudents([]);
+    setIsSearching(true);
 
     // Validation for month mode
     if (mode === "month") {
       if (!selectedMonth || !isValidMonth(selectedMonth)) {
         setErrorMessage("Please select a valid month (YYYY-MM).");
+        setIsSearching(false);
         return;
       }
       if (!selectedSchool || !selectedClass) {
         setErrorMessage("Please select a school and class.");
+        setIsSearching(false);
         return;
       }
     }
@@ -108,19 +112,23 @@ const ReportsPage = () => {
     if (mode === "range") {
       if (!startDate || !endDate || !isValidDate(startDate) || !isValidDate(endDate)) {
         setErrorMessage("Please select valid start and end dates.");
+        setIsSearching(false);
         return;
       }
       if (new Date(endDate) < new Date(startDate)) {
         setErrorMessage("End date must be after start date.");
+        setIsSearching(false);
         return;
       }
       const currentDate = new Date("2025-05-05");
       if (new Date(startDate) > currentDate || new Date(endDate) > currentDate) {
         setErrorMessage("Dates cannot be in the future (beyond May 05, 2025).");
+        setIsSearching(false);
         return;
       }
       if (!selectedSchool || !selectedClass) {
         setErrorMessage("Please select a school and class.");
+        setIsSearching(false);
         return;
       }
     }
@@ -139,6 +147,7 @@ const ReportsPage = () => {
 
       if (!sessionDate || !formattedStartDate || !formattedEndDate) {
         setErrorMessage("Invalid date format. Please ensure dates are correctly formatted.");
+        setIsSearching(false);
         return;
       }
 
@@ -165,6 +174,8 @@ const ReportsPage = () => {
       setErrorMessage(
         error.response?.data?.message || "Failed to fetch students. Please try again."
       );
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -290,10 +301,40 @@ const ReportsPage = () => {
         <div className="flex flex-col flex-1 min-w-[200px]">
           <button
             onClick={fetchStudents}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 mt-7"
-            aria-label="Search students"
+            className={`bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 mt-7 ${
+              isSearching ? "opacity-75 cursor-not-allowed" : "hover:bg-blue-600"
+            }`}
+            aria-label={isSearching ? "Searching students" : "Search students"}
           >
-            🔍 Search
+            {isSearching ? (
+              <>
+                <svg
+                  className="animate-spin h-5 w-5 mr-2 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Searching...
+              </>
+            ) : (
+              <>
+                🔍 Search
+              </>
+            )}
           </button>
         </div>
       </div>

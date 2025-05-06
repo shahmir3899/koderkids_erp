@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
-#import dj_database_url
 
 # Load environment variables
 # Supabase Storage Configuration
@@ -11,12 +10,17 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 SUPABASE_BUCKET = "student-images"  # Your Supabase bucket name
 
 # Get the BASE_DIR (Project Root)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 # Load .env from the backend folder
 load_dotenv()
-# Check if the DATABASE_URL is loaded (for debugging)
-#print("DATABASE_URL Loaded:", os.getenv("DATABASE_URL"))
 
+# Secret key & Debug mode from environment
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
+DEBUG = True
+DJANGO_DEBUG = True
+
+# Database Configuration
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -31,41 +35,26 @@ DATABASES = {
     }
 }
 
-
-
-
-
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Secret key & Debug mode from environment
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
-DEBUG = True
-
-DJANGO_DEBUG=True
+# Caching Configuration (Django's built-in database cache)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'cache_table',
+    }
+}
 
 # Static Files (CSS, JavaScript, etc.)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-# Media Files (User Uploads)
-MEDIA_URL = '/media/'
-#MEDIA_ROOT = '/var/media/' if not os.getenv("DEBUG", "True") == "True" else os.path.join(BASE_DIR, "media")
-
 # Static Files Directories (Only in Development)
-if os.getenv("DEBUG", "True") == "True":  # Use env variable to determine mode
+if os.getenv("DEBUG", "True") == "True":
     STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 else:
-    STATICFILES_DIRS = []  # Prevents duplicate directories in production
+    STATICFILES_DIRS = []
 
-
-
-
-
-
-
-
-
+# Media Files (User Uploads)
+MEDIA_URL = '/media/'
 
 # Allowed Hosts
 ALLOWED_HOSTS = [
@@ -75,15 +64,12 @@ ALLOWED_HOSTS = [
     'koderkids-erp.onrender.com'
 ]
 
+# CORS Headers
 CORS_ALLOW_HEADERS = [
     'content-type',
     'authorization',
     'x-requested-with',
-    
 ]
-
-
-
 
 # Installed Apps
 INSTALLED_APPS = [
@@ -140,15 +126,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://frontend.koderkids.pk",
     "https://koderkids-erp.onrender.com",
-    
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 CORS_ALLOW_ALL_ORIGINS = False
 CSRF_TRUSTED_ORIGINS = [
     "https://frontend.koderkids.pk",
-     "https://koderkids-erp.onrender.com",
-
+    "https://koderkids-erp.onrender.com",
 ]
 
 # Authentication & JWT
@@ -164,9 +148,3 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Static & Media Files
-
-
-
-

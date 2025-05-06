@@ -12,6 +12,43 @@ const isValidDate = (dateStr) => {
   return date instanceof Date && !isNaN(date) && date.getFullYear() === parseInt(year);
 };
 
+// Utility function to extract date from filename
+const extractDateFromFilename = (filename) => {
+  // Extract filename from URL (remove query params and path)
+  const name = filename.split('/').pop().split('?')[0];
+  // Match YYYYMMDD or YYYY-MM-DD formats
+  const dateMatch = name.match(/(\d{4})(\d{2})(\d{2})|(\d{4})-(\d{2})-(\d{2})/);
+  if (dateMatch) {
+    if (dateMatch[1]) {
+      // YYYYMMDD format
+      const [_, year, month, day] = dateMatch;
+      return `${year}-${month}-${day}`;
+    } else {
+      // YYYY-MM-DD format
+      return dateMatch[4] + '-' + dateMatch[5] + '-' + dateMatch[6];
+    }
+  }
+  return "Unknown Date"; // Fallback if no date is found
+};
+
+// Utility function to get all months between two dates
+const getMonthsBetweenDates = (startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const months = new Set();
+  let current = new Date(start);
+  
+  while (current <= end) {
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    months.add(`${year}-${month}`);
+    current.setMonth(current.getMonth() + 1);
+    current.setDate(1); // Move to first of next month
+  }
+  
+  return Array.from(months);
+};
+
 const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate, endDate }) => {
   const [studentData, setStudentData] = useState(null);
   const [attendanceData, setAttendanceData] = useState(null);
@@ -67,7 +104,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
       } else if (mode === "range" && startDate && endDate && isValidDate(startDate) && isValidDate(endDate)) {
         fromDate = startDate;
         toDate = endDate;
-        reportMonth = new Date(startDate).toISOString().slice(0, 7);
+        // reportMonth is not used directly for images in range mode
       } else {
         setErrorMessage("Invalid date selection. Please use YYYY-MM-DD format.");
         setIsDataLoaded(true);
@@ -118,22 +155,46 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
 
       // Fetch progress images
       setLoadingMessage("Fetching progress images...");
-      const imagesRes = await axiosInstance.get(
-        `${process.env.REACT_APP_API_URL}/api/student-progress-images/?student_id=${studentId}&month=${reportMonth}`,
-        { headers }
-      );
-      if (imagesRes.data) {
-        const progressImages = (imagesRes.data.progress_images || [])
-          .map((img) => (typeof img === "string" ? img : img?.signedURL || null))
-          .filter(Boolean);
-        setProgressImages(progressImages);
-        if (progressImages.length > 4) {
-          setShowImageSelection(true);
-        } else if (progressImages.length > 0) {
-          setSelectedImages(progressImages);
+      let allProgressImages = [];
+      
+      if (mode === "month") {
+        const imagesRes = await axiosInstance.get(
+          `${process.env.REACT_APP_API_URL}/api/student-progress-images/?student_id=${studentId}&month=${reportMonth}`,
+          { headers }
+        );
+        if (imagesRes.data) {
+          const images = (imagesRes.data.progress_images || [])
+            .map((img) => (typeof img === "string" ? img : img?.signedURL || null))
+            .filter(Boolean);
+          allProgressImages = images;
+        } else {
+          setErrorMessage((prev) => prev + " Failed to fetch progress images for month. ");
         }
-      } else {
-        setErrorMessage((prev) => prev + " Failed to fetch progress images. ");
+      } else if (mode === "range") {
+        const months = getMonthsBetweenDates(startDate, endDate);
+        for (const month of months) {
+          const imagesRes = await axiosInstance.get(
+            `${process.env.REACT_APP_API_URL}/api/student-progress-images/?student_id=${studentId}&month=${month}`,
+            { headers }
+          );
+          if (imagesRes.data) {
+            const images = (imagesRes.data.progress_images || [])
+              .map((img) => (typeof img === "string" ? img : img?.signedURL || null))
+              .filter(Boolean);
+            allProgressImages = [...allProgressImages, ...images];
+          } else {
+            setErrorMessage((prev) => prev + ` Failed to fetch progress images for ${month}. `);
+          }
+        }
+        // Deduplicate images based on URL
+        allProgressImages = Array.from(new Set(allProgressImages));
+      }
+
+      setProgressImages(allProgressImages);
+      if (allProgressImages.length > 4) {
+        setShowImageSelection(true);
+      } else if (allProgressImages.length > 0) {
+        setSelectedImages(allProgressImages);
       }
 
       setIsDataLoaded(true);
@@ -346,7 +407,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                     onKeyDown={(e) => e.key === "Enter" && toggleImageSelection(img)}
                     style={{
                       width: "100px",
-                      height: "100px",
+                      height: "130px", // Increased height to accommodate date
                       position: "relative",
                       cursor: "pointer",
                       border: selectedImages.includes(img)
@@ -363,8 +424,11 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                       alt={`Progress ${index + 1}`}
                       onError={(e) => handleImageError(e, img)}
                       loading="lazy"
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      style={{ width: "100%", height: "100px", objectFit: "cover" }}
                     />
+                    <p style={{ fontSize: "10px", color: "#666", margin: "3px 0", textAlign: "center" }}>
+                      {extractDateFromFilename(img)}
+                    </p>
                     {selectedImages.includes(img) && (
                       <span
                         style={{
@@ -710,7 +774,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                 <p style={{ margin: "0 0 5px 0" }}>
                   Teacher’s Signature: <span style={{ borderBottom: "1px dotted #666", display: "inline-block", width: "100px" }}></span>
                 </p>
-                <p style={{ margin: 0 }}>Generated on: May 05, 2025</p>
+                <p style={{ margin: 0 }}>Generated on: May 06, 2025</p>
               </div>
               <div
                 style={{
