@@ -8,11 +8,11 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from finance import views as finance_views  # Corrected import
 from students.views import (
     # Authentication
-    CustomTokenObtainPairView, FeeSummaryView, register_user, debug_cors,
+    CustomTokenObtainPairView, FeeSummaryView, register_user, debug_cors, TeacherLessonsSummary,
 
     # Students Management
     StudentViewSet, add_student, submit_attendance, update_student, delete_student, get_students, get_student_details,
-    get_student_images, get_student_progress_images, students_per_school, new_registrations,
+    get_student_images, get_student_progress_images, students_per_school, new_registrations, 
 
     # Schools and Classes
     get_schools, get_schools_with_classes, get_classes, get_school_details, schools_list,
@@ -88,7 +88,7 @@ urlpatterns = [
     path('api/lesson-plan/update/<int:lesson_plan_id>/', update_achieved_topic, name="update_achieved_topic"),
     path("api/lesson-plan/<str:session_date>/<int:school_id>/<int:student_class>/", get_lesson_plan, name="get_lesson_plan"),
     path('api/lesson-plans/<int:lesson_plan_id>/update-planned-topic/', update_planned_topic, name='update_planned_topic'),
-    path('api/teacher-lessons-summary/', finance_views.views.TeacherLessonsSummary.as_view(), name='teacher-lessons-summary'),
+    path('api/teacher-lessons-summary/', TeacherLessonsSummary, name='teacher-lessons-summary'),
     # Lesson Plan Deletion
     path('api/lesson-plans/<int:lesson_plan_id>/', delete_lesson_plan, name='delete_lesson_plan'),
 
