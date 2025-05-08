@@ -120,22 +120,27 @@ class TeacherLessonStatus(APIView):
                 session_date__month=month_num
             ).values('student_class', 'school__name').annotate(
                 planned_lessons=Count('id', distinct=True),
-                completed_lessons=Count(Case(
-                    When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                    output_field=IntegerField()
-                ), distinct=True),
+                completed_lessons=Count(
+                    Case(
+                        When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
+                        output_field=IntegerField()
+                    ),
+                    distinct=True
+                ),
                 completion_rate=Round(
                     Case(
                         When(planned_lessons__gt=0, then=(
-                            (Cast(Count(Case(
-                                When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                                output_field=IntegerField()
-                            ), output_field=FloatField()) * 100.0) / Cast(Count('id'), output_field=FloatField()))
+                            1.0 * Count(
+                                Case(
+                                    When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
+                                    output_field=IntegerField()
+                                )
+                            ) / Count('id') * 100.0
                         )),
                         default=0.0,
                         output_field=FloatField()
-                    ), 2)
-                
+                    ), 2
+                )
             ).order_by('student_class')
 
             if not lessons.exists():
