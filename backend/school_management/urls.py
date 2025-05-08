@@ -35,6 +35,7 @@ from students.views import (
 
     # New APIs
     get_student_attendance_counts, get_student_achieved_topics_count, get_student_image_uploads_count,
+    delete_lesson_plan,
 )
 
 # Register ViewSet-based routes
@@ -87,6 +88,8 @@ urlpatterns = [
     path('api/lesson-plan/update/<int:lesson_plan_id>/', update_achieved_topic, name="update_achieved_topic"),
     path("api/lesson-plan/<str:session_date>/<int:school_id>/<int:student_class>/", get_lesson_plan, name="get_lesson_plan"),
     path('api/lesson-plans/<int:lesson_plan_id>/update-planned-topic/', update_planned_topic, name='update_planned_topic'),
+    # Lesson Plan Deletion
+    path('api/lesson-plans/<int:lesson_plan_id>/', delete_lesson_plan, name='delete_lesson_plan'),
 
     # Misc
     path('api/classes/', get_classes, name="get_classes"),

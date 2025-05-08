@@ -3,13 +3,15 @@ import axios from "axios";
 import { API_URL, getAuthHeaders } from "../api";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ClipLoader } from "react-spinners";
+import { toast } from "react-toastify";
 import "webdatarocks/webdatarocks.min.css";
 import Select from "react-select";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 
-// New function to dynamically load WebDataRocks
+// Function to dynamically load WebDataRocks
 const loadWebDataRocks = () => {
   return new Promise((resolve) => {
     if (window.WebDataRocks) {
@@ -24,7 +26,7 @@ const loadWebDataRocks = () => {
 };
 
 function FinanceDashboard() {
-  // **State Declarations**
+  // State Declarations
   const [summary, setSummary] = useState({ income: 0, expenses: 0, loans: 0, accounts: [] });
   const [loanSummary, setLoanSummary] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -43,9 +45,9 @@ function FinanceDashboard() {
   const [sliderRange, setSliderRange] = useState([dateMin.getTime(), dateMax.getTime()]);
   const [searchParams, setSearchParams] = useState(null);
   const pivotRef = useRef(null);
-  const [isWebDataRocksLoaded, setIsWebDataRocksLoaded] = useState(false); // Track WebDataRocks loading
+  const [isWebDataRocksLoaded, setIsWebDataRocksLoaded] = useState(false);
 
-  // **Derived Values**
+  // Derived Values
   const netBalance = summary.income - summary.expenses;
   const schoolOptions = schools.map((school) => ({
     value: String(school.id),
@@ -61,7 +63,7 @@ function FinanceDashboard() {
     return [];
   }, [transactionType, incomeCategories, expenseCategories]);
 
-  // **Fetch Initial Data**
+  // Fetch Initial Data (Summary, Loans, Schools)
   useEffect(() => {
     fetchData();
   }, []);
@@ -79,52 +81,24 @@ function FinanceDashboard() {
       setLoanSummary(loanResponse.data);
       setSchools(schoolResponse.data);
     } catch (err) {
+      let errorMessage;
       if (err.response && err.response.status === 401) {
-        setError("Authentication failed. Please log in again.");
+        errorMessage = "Authentication failed. Please log in again.";
       } else if (err.response && err.response.status === 404) {
-        setError("Data not found. Please check the server or try again.");
+        errorMessage = "Data not found. Please check the server or try again.";
       } else {
-        setError("Failed to fetch data. Please try again later.");
+        errorMessage = "Failed to fetch data. Please try again later.";
       }
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // **Fetch Transactions and Categories**
-  // useEffect(() => {
-  //   const fetchTransactions = async () => {
-  //     try {
-  //       const [incomeRes, expenseRes, transferRes] = await Promise.all([
-  //         axios.get(`${API_URL}/api/income/`, { headers: getAuthHeaders() }),
-  //         axios.get(`${API_URL}/api/expense/`, { headers: getAuthHeaders() }),
-  //         axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
-  //       ]);
-
-  //       const incomeTxs = incomeRes.data.map((tx) => ({ ...tx, transaction_type: "Income" }));
-  //       const expenseTxs = expenseRes.data.map((tx) => ({ ...tx, transaction_type: "Expense" }));
-  //       const transferTxs = transferRes.data.map((tx) => ({ ...tx, transaction_type: "Transfer" }));
-
-  //       const allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
-  //       setTransactions(allTransactions);
-
-  //       const incomeCats = Array.from(new Set(incomeTxs.map((tx) => tx.category))).sort();
-  //       setIncomeCategories(incomeCats);
-
-  //       const expenseCats = Array.from(new Set(expenseTxs.map((tx) => tx.category))).sort();
-  //       setExpenseCategories(expenseCats);
-  //     } catch (err) {
-  //       console.error("Failed to fetch transactions:", err);
-  //       setError("Failed to load transactions. Some features may be limited.");
-  //     }
-  //   };
-  //   fetchTransactions();
-  // }, []);
-
-  // **Pivot Table Setup**
+  // Pivot Table Setup
   useEffect(() => {
     if (!searchParams || transactions.length === 0 || !isWebDataRocksLoaded) {
-      // Display placeholder message if no search params or WebDataRocks not loaded
       if (pivotRef.current) {
         pivotRef.current.innerHTML = `<div class="text-gray-500 text-center p-4">Select filters and click "Search Transactions" to view the report.</div>`;
       }
@@ -141,7 +115,7 @@ function FinanceDashboard() {
     const filteredData = transactions
       .filter(
         (tx) =>
-          selectedSchools.length === 0 || selectedSchools.includes(String(tx.school_id))
+          selectedSchools.length === 0 || selectedSchools.includes(String(tx.school))
       )
       .filter((tx) => tx.transaction_type === searchParams.transactionType)
       .filter((tx) => {
@@ -158,9 +132,9 @@ function FinanceDashboard() {
         id: tx.id,
         date: new Date(tx.date).toISOString(),
         transaction_type: tx.transaction_type,
-        amount: tx.amount,
+        amount: parseFloat(tx.amount),
         category: tx.category,
-        school: schoolMap[tx.school_id] || "Unknown",
+        school: tx.school ? schoolMap[tx.school] || "No School" : "No School",
         from_account: tx.from_account_name || "—",
         to_account: tx.to_account_name || "—",
         notes: tx.notes || "",
@@ -224,31 +198,37 @@ function FinanceDashboard() {
     initializePivot();
   }, [searchParams, transactions, selectedSchools, selectedCategories, schools, isWebDataRocksLoaded]);
 
-  // **Handle Search Button Click**
+  // Handle Search Button Click
   const handleSearch = async () => {
     // Load WebDataRocks if not already loaded
     if (!isWebDataRocksLoaded) {
-      await loadWebDataRocks();
-      setIsWebDataRocksLoaded(true);
+      try {
+        await loadWebDataRocks();
+        setIsWebDataRocksLoaded(true);
+      } catch (err) {
+        setError("Failed to load pivot table library. Please try again.");
+        toast.error("Failed to load pivot table library.");
+        return;
+      }
     }
-  
+
     try {
       const [incomeRes, expenseRes, transferRes] = await Promise.all([
         axios.get(`${API_URL}/api/income/`, { headers: getAuthHeaders() }),
         axios.get(`${API_URL}/api/expense/`, { headers: getAuthHeaders() }),
         axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
       ]);
-  
-      const incomeTxs = incomeRes.data.map((tx) => ({ ...tx, transaction_type: "Income" }));
-      const expenseTxs = expenseRes.data.map((tx) => ({ ...tx, transaction_type: "Expense" }));
-      const transferTxs = transferRes.data.map((tx) => ({ ...tx, transaction_type: "Transfer" }));
+
+      const incomeTxs = incomeRes.data.results.map((tx) => ({ ...tx, transaction_type: "Income" }));
+      const expenseTxs = expenseRes.data.results.map((tx) => ({ ...tx, transaction_type: "Expense" }));
+      const transferTxs = transferRes.data.results.map((tx) => ({ ...tx, transaction_type: "Transfer" }));
       const allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
-  
+
       setTransactions(allTransactions);
-  
+
       setIncomeCategories([...new Set(incomeTxs.map((tx) => tx.category))]);
       setExpenseCategories([...new Set(expenseTxs.map((tx) => tx.category))]);
-  
+
       // Set search filters
       setSearchParams({
         selectedSchools,
@@ -258,15 +238,16 @@ function FinanceDashboard() {
         endDate: new Date(sliderRange[1]).toISOString().split("T")[0],
       });
     } catch (err) {
-      console.error("Failed to fetch transactions:", err);
-      setError("Failed to load transactions. Try again.");
+      const errorMessage = "Failed to load transactions. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
-  
 
-  // **Helper Functions**
+  // Helper Functions
   const handleRetry = async () => {
     setIsRetrying(true);
+    setError(null);
     await fetchData();
     setIsRetrying(false);
   };
@@ -305,19 +286,19 @@ function FinanceDashboard() {
     return null;
   };
 
-  // **Render UI**
+  // Render UI
   return (
     <div className="p-8 bg-gradient-to-br from-blue-50 to-green-50 min-h-screen font-sans">
       <h1 className="text-4xl font-bold text-blue-800 mb-8 text-center">Finance Dashboard</h1>
 
-      {/** Loading State */}
+      {/* Loading State */}
       {isLoading && (
         <div className="flex justify-center items-center h-64">
           <ClipLoader color="#1E40AF" size={60} />
         </div>
       )}
 
-      {/** Error State */}
+      {/* Error State */}
       {error && (
         <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6 flex items-center justify-between">
           <span>{error}</span>
@@ -331,10 +312,10 @@ function FinanceDashboard() {
         </div>
       )}
 
-      {/** Main Dashboard Content */}
+      {/* Main Dashboard Content */}
       {!isLoading && !error && (
         <div className="space-y-8">
-          {/** Summary Cards */}
+          {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-green-100 p-6 rounded-lg shadow-md">
               <h3 className="text-lg font-semibold text-green-800">Total Income</h3>
@@ -352,9 +333,9 @@ function FinanceDashboard() {
             </div>
           </div>
 
-          {/** Chart and Account Balances */}
+          {/* Chart and Account Balances */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/** Income vs Expenses Chart */}
+            {/* Income vs Expenses Chart */}
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-2xl font-semibold text-blue-800 mb-4">Income vs Expenses</h2>
               <div className="h-80">
@@ -371,7 +352,7 @@ function FinanceDashboard() {
               </div>
             </div>
 
-            {/** Account Balances Table */}
+            {/* Account Balances Table */}
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-2xl font-semibold text-blue-800 mb-4">Account Balances</h2>
               {summary.accounts.length > 0 ? (
@@ -427,7 +408,7 @@ function FinanceDashboard() {
             </div>
           </div>
 
-          {/** Transaction Explorer */}
+          {/* Transaction Explorer */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold text-blue-800 mb-4">
               Transaction Explorer
@@ -535,7 +516,7 @@ function FinanceDashboard() {
             <div ref={pivotRef} className="mt-6"></div>
           </div>
 
-          {/** Loan Summary Table */}
+          {/* Loan Summary Table */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold text-blue-800 mb-4">Loan Summary</h2>
             {loanSummary.length > 0 ? (
@@ -580,6 +561,16 @@ function FinanceDashboard() {
             ) : (
               <p className="text-center text-gray-500">No loans to display.</p>
             )}
+          </div>
+
+          {/* Navigation to Transactions Page */}
+          <div className="text-center">
+            <Link
+              to="/transactions"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Transactions
+            </Link>
           </div>
         </div>
       )}

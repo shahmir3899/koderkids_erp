@@ -1242,24 +1242,66 @@ def update_planned_topic(request, lesson_plan_id):
     teacher = request.user
 
     if teacher.role != 'Teacher':
-        return Response({"error": "Only teachers can update planned topics."}, status=403)
+        logger.warning(f"Unauthorized attempt to update lesson plan by {teacher.username} (role: {teacher.role})")
+        return Response({"error": "Only teachers can update planned topics."}, status=status.HTTP_403_FORBIDDEN)
 
     try:
         lesson_plan = LessonPlan.objects.get(id=lesson_plan_id)
 
         if lesson_plan.teacher != teacher:
-            return Response({"error": "You can only update your own lesson plans."}, status=403)
+            logger.warning(f"Teacher {teacher.username} attempted to update lesson plan {lesson_plan_id} not assigned to them")
+            return Response({"error": "You can only update your own lesson plans."}, status=status.HTTP_403_FORBIDDEN)
 
         planned_topic = request.data.get('planned_topic')
         if not planned_topic:
-            return Response({"error": "Planned topic cannot be empty."}, status=400)
+            logger.error(f"Empty planned_topic received for lesson plan {lesson_plan_id}")
+            return Response({"error": "Planned topic cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
 
         lesson_plan.planned_topic = planned_topic
         lesson_plan.save()
+        logger.info(f"Lesson plan {lesson_plan_id} updated by {teacher.username}: planned_topic={planned_topic}")
 
-        return Response({"message": "Planned topic updated successfully!", "data": LessonPlanSerializer(lesson_plan).data})
+        return Response({
+            "message": "Planned topic updated successfully!",
+            "data": LessonPlanSerializer(lesson_plan).data
+        }, status=status.HTTP_200_OK)
+
     except LessonPlan.DoesNotExist:
-        return Response({"error": "Lesson plan not found."}, status=404)
+        logger.error(f"Lesson plan {lesson_plan_id} not found")
+        return Response({"error": "Lesson plan not found."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Unexpected error updating lesson plan {lesson_plan_id}: {str(e)}")
+        return Response({"error": f"Failed to update lesson plan: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_lesson_plan(request, lesson_plan_id):
+    """Allows teachers to delete their own lesson plans"""
+    teacher = request.user
+
+    if teacher.role != 'Teacher':
+        logger.warning(f"Unauthorized attempt to delete lesson plan by {teacher.username} (role: {teacher.role})")
+        return Response({"error": "Only teachers can delete lesson plans."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        lesson_plan = LessonPlan.objects.get(id=lesson_plan_id)
+
+        if lesson_plan.teacher != teacher:
+            logger.warning(f"Teacher {teacher.username} attempted to delete lesson plan {lesson_plan_id} not assigned to them")
+            return Response({"error": "You can only delete your own lesson plans."}, status=status.HTTP_403_FORBIDDEN)
+
+        lesson_plan.delete()
+        logger.info(f"Lesson plan {lesson_plan_id} deleted by {teacher.username}")
+
+        return Response({"message": "Lesson plan deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+    except LessonPlan.DoesNotExist:
+        logger.error(f"Lesson plan {lesson_plan_id} not found")
+        return Response({"error": "Lesson plan not found."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Unexpected error deleting lesson plan {lesson_plan_id}: {str(e)}")
+        return Response({"error": f"Failed to delete lesson plan: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
