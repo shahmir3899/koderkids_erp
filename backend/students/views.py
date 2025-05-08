@@ -18,6 +18,7 @@ from django.contrib.auth.hashers import make_password
 from .models import Student, Fee, School, Attendance, LessonPlan, CustomUser
 from .serializers import StudentSerializer, SchoolSerializer, AttendanceSerializer, LessonPlanSerializer
 from django.shortcuts import render
+from django.db.models.functions import Round, Cast
 from django.db.models import Q, Count, Case, When, IntegerField, FloatField
 from django.db.models.functions import Round
 import logging
@@ -102,6 +103,52 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+
+class TeacherLessonStatus(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'Teacher':
+            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+        month = request.query_params.get('month', datetime.today().strftime('%Y-%m'))
+        try:
+            year, month_num = map(int, month.split('-'))
+            lessons = LessonPlan.objects.filter(
+                teacher=request.user,
+                session_date__year=year,
+                session_date__month=month_num
+            ).values('student_class', 'school__name').annotate(
+                planned_lessons=Count('id', distinct=True),
+                completed_lessons=Count(Case(
+                    When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
+                    output_field=IntegerField()
+                ), distinct=True),
+                completion_rate=Round(
+                    Case(
+                        When(planned_lessons__gt=0, then=(
+                            (Cast(Count(Case(
+                                When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
+                                output_field=IntegerField()
+                            ), output_field=FloatField()) * 100.0) / Cast(Count('id'), output_field=FloatField()))
+                        )),
+                        default=0.0,
+                        output_field=FloatField()
+                    ), 2)
+                
+            ).order_by('student_class')
+
+            if not lessons.exists():
+                return Response([], status=status.HTTP_200_OK)
+
+            serializer = LessonStatusSerializer(lessons, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except ValueError:
+            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error processing request: {str(e)}")
+            return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 @api_view(["GET"])
@@ -1494,42 +1541,7 @@ def get_schools_with_classes(request):
         logger.error(f"❌ Error fetching schools with classes: {str(e)}")
         return Response({"error": "Server error, check logs"}, status=500)
 
-class TeacherLessonStatus(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        if request.user.role != 'Teacher':
-            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
-        month = request.query_params.get('month', datetime.today().strftime('%Y-%m'))
-        try:
-            year, month = map(int, month.split('-'))
-            lessons = LessonPlan.objects.filter(
-                teacher=request.user,
-                session_date__year=year,
-                session_date__month=month
-            ).values('student_class', 'school__name').annotate(
-                planned_lessons=Count('id'),
-                completed_lessons=Count(Case(
-                    When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                    output_field=IntegerField()
-                )),
-                completion_rate=Round(
-                    Case(
-                        When(planned_lessons__gt=0, then=(
-                            Count(Case(
-                                When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                                output_field=IntegerField()
-                            )) * 100.0) / Count('id')
-                        ),
-                        default=0.0,
-                        output_field=FloatField()
-                    )
-                )
-            ).order_by('student_class')
-            serializer = LessonStatusSerializer(lessons, many=True)
-            return Response(serializer.data)
-        except ValueError:
-            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
 
 class TeacherLessonsByMonth(APIView):
     permission_classes = [IsAuthenticated]

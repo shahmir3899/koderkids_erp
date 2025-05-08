@@ -82,7 +82,7 @@ class UpcomingLessonsSerializer(serializers.ModelSerializer):
 
 class LessonStatusSerializer(serializers.Serializer):
     student_class = serializers.CharField()
-    school_name = serializers.CharField()
+    school_name = serializers.CharField(source='school__name')
     planned_lessons = serializers.IntegerField()
     completed_lessons = serializers.IntegerField()
     completion_rate = serializers.FloatField()
