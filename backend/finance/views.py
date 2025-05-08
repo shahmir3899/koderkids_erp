@@ -176,6 +176,10 @@ def account_balances(request):
     serializer = AccountSerializer(accounts, many=True)
     return Response(serializer.data)
 
+
+
+
+
 @api_view(['GET'])
 def loan_summary(request):
     """Fetch cached summarized loan data for all lenders."""

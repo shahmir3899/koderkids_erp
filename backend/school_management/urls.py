@@ -88,6 +88,7 @@ urlpatterns = [
     path('api/lesson-plan/update/<int:lesson_plan_id>/', update_achieved_topic, name="update_achieved_topic"),
     path("api/lesson-plan/<str:session_date>/<int:school_id>/<int:student_class>/", get_lesson_plan, name="get_lesson_plan"),
     path('api/lesson-plans/<int:lesson_plan_id>/update-planned-topic/', update_planned_topic, name='update_planned_topic'),
+    path('api/teacher-lessons-summary/', finance_views.views.TeacherLessonsSummary.as_view(), name='teacher-lessons-summary'),
     # Lesson Plan Deletion
     path('api/lesson-plans/<int:lesson_plan_id>/', delete_lesson_plan, name='delete_lesson_plan'),
 

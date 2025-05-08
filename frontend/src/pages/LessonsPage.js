@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import html2canvas from "html2canvas";
 import html2pdf from "html2pdf.js";
 import debounce from "lodash.debounce";
+import { ClipLoader } from "react-spinners";
 
 function LessonsPage() {
     const { user } = useAuth();
@@ -15,6 +16,8 @@ function LessonsPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedSchool, setSelectedSchool] = useState("");
+    const [selectedSchoolName, setSelectedSchoolName] = useState("");
+    const [schoolsLoading, setSchoolsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -24,11 +27,12 @@ function LessonsPage() {
     const [editingLessonId, setEditingLessonId] = useState(null);
     const [editedTopic, setEditedTopic] = useState("");
     const [selectedMonth, setSelectedMonth] = useState("");
-    const [lastFetched, setLastFetched] = useState(null); // Cache for optimization
+    const [lastFetched, setLastFetched] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(null);
+    const [saveLoading, setSaveLoading] = useState(null);
 
     const API_URL = process.env.REACT_APP_API_URL;
 
-    // Helper function to format date
     const formatDateWithDay = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString("en-US", {
@@ -39,7 +43,20 @@ function LessonsPage() {
         });
     };
 
-    // Fetch lessons with debouncing and caching
+    const formatDateRange = (start, end) => {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        return `${startDate.toLocaleDateString("en-US", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        })} - ${endDate.toLocaleDateString("en-US", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        })}`;
+    };
+
     const fetchLessonsForRange = async (startDate, endDate, schoolId, studentClass) => {
         try {
             const endpoint = `${API_URL}/api/lesson-plan-range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
@@ -59,7 +76,6 @@ function LessonsPage() {
                 return;
             }
 
-            // Check if filters are unchanged (cache hit)
             const cacheKey = `${startDate}_${endDate}_${selectedSchool}_${selectedClass}`;
             if (lastFetched === cacheKey) {
                 console.log("📦 Using cached lessons");
@@ -70,7 +86,9 @@ function LessonsPage() {
             setError(null);
             setLessons([]);
 
-            const schoolName = schools.find((s) => s.id === selectedSchool)?.name || "Selected School";
+            const schoolId = parseInt(selectedSchool);
+            const schoolName = schools.find((s) => s.id === schoolId)?.name || "Unknown School";
+            setSelectedSchoolName(schoolName);
             const startMonth = new Date(startDate).toLocaleString("en-US", { month: "long", year: "numeric" });
             setSelectedMonth(startMonth);
 
@@ -84,7 +102,13 @@ function LessonsPage() {
                 const lessonsData = await fetchLessonsForRange(startDate, endDate, selectedSchool, selectedClass);
                 setLessons(lessonsData);
                 setEditingLessonId(null);
-                setLastFetched(cacheKey); // Update cache key
+                setLastFetched(cacheKey);
+
+                if (schoolName === "Unknown School" && lessonsData.length > 0) {
+                    const lessonSchoolName = lessonsData[0]?.school_name || "Unknown School";
+                    setSelectedSchoolName(lessonSchoolName);
+                    console.log("🔍 Fallback: Set school name from lesson data:", lessonSchoolName);
+                }
             } catch (err) {
                 console.error("❌ Error fetching lessons:", err);
                 setError("Failed to fetch lessons.");
@@ -101,9 +125,9 @@ function LessonsPage() {
         debouncedFetchLessons(startDate, endDate, selectedSchool, selectedClass);
     };
 
-    // Delete lesson
     const handleDelete = async (lessonId) => {
         if (!window.confirm("Are you sure you want to delete this lesson?")) return;
+        setDeleteLoading(lessonId);
         try {
             const endpoint = `${API_URL}/api/lesson-plans/${lessonId}/`;
             await axios.delete(endpoint, { headers: getAuthHeaders() });
@@ -112,16 +136,18 @@ function LessonsPage() {
         } catch (err) {
             console.error("❌ Error deleting lesson:", err.response?.data || err.message);
             toast.error(`Failed to delete lesson: ${err.response?.data?.detail || err.message}`);
+        } finally {
+            setDeleteLoading(null);
         }
     };
 
-    // Edit lesson (inline)
     const handleEdit = (lessonId, currentTopic) => {
         setEditingLessonId(lessonId);
         setEditedTopic(currentTopic);
     };
 
     const handleSave = async (lessonId) => {
+        setSaveLoading(lessonId);
         try {
             const endpoint = `${API_URL}/api/lesson-plans/${lessonId}/update-planned-topic/`;
             await axios.put(endpoint, { planned_topic: editedTopic }, { headers: getAuthHeaders() });
@@ -136,10 +162,11 @@ function LessonsPage() {
         } catch (err) {
             console.error("❌ Error updating lesson:", err.response?.data || err.message);
             toast.error(`Failed to update lesson: ${err.response?.data?.detail || err.message}`);
+        } finally {
+            setSaveLoading(null);
         }
     };
 
-    // Download image with dynamic header
     const handleDownloadImage = () => {
         setTimeout(() => {
             const lessonTable = document.getElementById("lessonTableExport");
@@ -156,9 +183,10 @@ function LessonsPage() {
             lessonTable.style.visibility = "visible";
 
             html2canvas(lessonTable, {
+                scale: 2,
                 onclone: (clonedDoc) => {
                     const clonedTable = clonedDoc.getElementById("lessonTableExport");
-                    clonedTable.style.display = "table";
+                    clonedTable.style.display = "block";
                 },
             })
                 .then((canvas) => {
@@ -166,7 +194,7 @@ function LessonsPage() {
                     link.href = canvas.toDataURL("image/png");
                     link.download = `LessonPlan_${selectedSchool}_${selectedClass}_${selectedMonth}.png`;
                     link.click();
-                    toast.success("Image downloaded!");
+                    toast.success("Image downloaded successfully!");
 
                     lessonTable.style.position = "absolute";
                     lessonTable.style.left = "-9999px";
@@ -180,7 +208,6 @@ function LessonsPage() {
         }, 500);
     };
 
-    // Download PDF with dynamic header
     const handleDownloadPdf = () => {
         setTimeout(() => {
             const lessonTable = document.getElementById("lessonTableExport");
@@ -196,16 +223,15 @@ function LessonsPage() {
             lessonTable.style.opacity = "1";
             lessonTable.style.visibility = "visible";
 
-            const schoolName = schools.find((s) => s.id === selectedSchool)?.name || "Selected School";
             const options = {
-                margin: [10, 10, 10, 10],
-                filename: `LessonPlan_${schoolName}_${selectedClass}_${selectedMonth}.pdf`,
+                margin: [15, 10, 15, 10],
+                filename: `LessonPlan_${selectedSchoolName}_${selectedClass}_${selectedMonth}.pdf`,
                 image: { type: "jpeg", quality: 0.98 },
                 html2canvas: {
                     scale: 2,
                     onclone: (clonedDoc) => {
                         const clonedTable = clonedDoc.getElementById("lessonTableExport");
-                        clonedTable.style.display = "table";
+                        clonedTable.style.display = "block";
                     },
                 },
                 jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
@@ -217,7 +243,7 @@ function LessonsPage() {
                 .from(lessonTable)
                 .save()
                 .then(() => {
-                    toast.success("PDF downloaded!");
+                    toast.success("PDF downloaded successfully!");
 
                     lessonTable.style.position = "absolute";
                     lessonTable.style.left = "-9999px";
@@ -231,7 +257,6 @@ function LessonsPage() {
         }, 500);
     };
 
-    // Print with dynamic header
     const handlePrint = () => {
         setTimeout(() => {
             const lessonTable = document.getElementById("lessonTableExport")?.outerHTML;
@@ -240,7 +265,6 @@ function LessonsPage() {
                 return;
             }
 
-            const schoolName = schools.find((s) => s.id === selectedSchool)?.name || "Selected School";
             const printWindow = window.open("", "_blank");
 
             printWindow.document.write(`
@@ -249,16 +273,27 @@ function LessonsPage() {
                         <title>Lesson Plan</title>
                         <style>
                             body {
-                                font-family: Arial, sans-serif;
+                                font-family: 'Arial', sans-serif;
                                 margin: 20mm;
                                 text-align: center;
                             }
+                            .export-container {
+                                width: 100%;
+                                max-width: 800px;
+                                margin: 0 auto;
+                            }
                             .header {
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
                                 margin-bottom: 20px;
                             }
                             .logo {
                                 width: 120px;
-                                margin-bottom: 10px;
+                                margin-right: 20px;
+                            }
+                            .header-text {
+                                text-align: left;
                             }
                             .title {
                                 font-size: 24px;
@@ -274,6 +309,7 @@ function LessonsPage() {
                                 width: 100%;
                                 border-collapse: collapse;
                                 margin-top: 20px;
+                                font-size: 14px;
                             }
                             th, td {
                                 border: 1px solid #ddd;
@@ -283,19 +319,28 @@ function LessonsPage() {
                             th {
                                 background-color: #f4f4f4;
                                 font-weight: bold;
+                                color: #333;
                             }
                             tr:nth-child(even) {
                                 background-color: #f9f9f9;
                             }
+                            tr:hover {
+                                background-color: #f1f1f1;
+                            }
                         </style>
                     </head>
                     <body>
-                        <div class="header">
-                            <img class="logo" src="YOUR_LOGO_URL_HERE" alt="Logo">
-                            <div class="title">Lesson Plan</div>
-                            <div class="subtitle">${schoolName} - Class ${selectedClass} - ${selectedMonth}</div>
+                        <div class="export-container">
+                            <div class="header">
+                                <img class="logo" src="/logo.png" alt="School Logo">
+                                <div class="header-text">
+                                    <div class="title">Lesson Plan</div>
+                                    <div class="subtitle">${selectedSchoolName} - Class ${selectedClass || "Selected Class"}</div>
+                                    <div class="subtitle">${formatDateRange(startDate, endDate)}</div>
+                                </div>
+                            </div>
+                            ${lessonTable}
                         </div>
-                        ${lessonTable}
                         <script>
                             window.onload = function() {
                                 window.print();
@@ -310,12 +355,22 @@ function LessonsPage() {
 
     useEffect(() => {
         const fetchSchoolList = async () => {
+            setSchoolsLoading(true);
             try {
                 const schoolData = await getSchools();
                 console.log("🏫 Fetched Schools:", schoolData);
                 setSchools(schoolData);
+                if (selectedSchool && schoolData.length > 0) {
+                    const schoolId = parseInt(selectedSchool);
+                    const schoolName = schoolData.find((s) => s.id === schoolId)?.name || "Unknown School";
+                    setSelectedSchoolName(schoolName);
+                    console.log("🔍 Updated selectedSchoolName after schools fetch:", schoolName);
+                }
             } catch (error) {
                 console.error("❌ Error loading schools:", error);
+                setError("Failed to load schools.");
+            } finally {
+                setSchoolsLoading(false);
             }
         };
         fetchSchoolList();
@@ -338,19 +393,37 @@ function LessonsPage() {
         fetchClassList();
     }, [selectedSchool]);
 
+    useEffect(() => {
+        console.log("🔍 Schools state:", schools);
+        console.log("🔍 Selected School ID:", selectedSchool, typeof selectedSchool);
+        console.log("🔍 Selected School Name:", selectedSchoolName);
+    }, [schools, selectedSchool, selectedSchoolName]);
+
     if (!user) {
-        return <h2 className="text-center text-xl mt-8">Loading user data...</h2>;
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <ClipLoader color="#000000" size={50} />
+            </div>
+        );
     }
 
     if (!["admin", "teacher"].includes(user.role)) {
         return <h2 className="text-center text-xl mt-8">Access Denied: Only Admins and Teachers can manage lessons.</h2>;
     }
 
+    if (schoolsLoading) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <ClipLoader color="#000000" size={50} />
+                <span className="ml-4 text-gray-600">Loading schools...</span>
+            </div>
+        );
+    }
+
     return (
         <div className="container mx-auto p-4">
             <h1 className="heading-primary">Lesson Management</h1>
 
-            {/* Filters Section */}
             <div className="flex flex-wrap items-end gap-4 mb-8">
                 <div className="flex flex-col flex-1 min-w-[200px]">
                     <label className="font-bold mb-2 text-gray-700">Start Date:</label>
@@ -374,7 +447,14 @@ function LessonsPage() {
                     <label className="font-bold mb-2 text-gray-700">Select School:</label>
                     <select
                         value={selectedSchool}
-                        onChange={(e) => setSelectedSchool(e.target.value)}
+                        onChange={(e) => {
+                            const schoolId = e.target.value;
+                            setSelectedSchool(schoolId);
+                            const schoolIdInt = parseInt(schoolId);
+                            const schoolName = schools.find((s) => s.id === schoolIdInt)?.name || "Unknown School";
+                            setSelectedSchoolName(schoolName);
+                            console.log("🔍 School selected:", { schoolId, schoolIdInt, schoolName });
+                        }}
                         className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                     >
                         <option value="">-- Select School --</option>
@@ -400,23 +480,24 @@ function LessonsPage() {
                             </option>
                         ))}
                     </select>
-           
                 </div>
                 <div className="flex flex-col flex-1 min-w-[200px]">
                     <button
                         onClick={fetchLessons}
                         className="btn btn-primary flex items-center justify-center gap-2"
+                        disabled={loading}
                     >
-                        🔍 Fetch Lessons
+                        {loading ? (
+                            <ClipLoader color="#ffffff" size={20} />
+                        ) : (
+                            "🔍 Fetch Lessons"
+                        )}
                     </button>
                 </div>
             </div>
 
-            {/* Loading and Error States */}
-            {loading && <p className="text-center text-gray-600">Loading...</p>}
             {error && <p className="text-center text-red-500 font-medium">{error}</p>}
 
-            {/* Lessons Table & Export Buttons */}
             {!loading && !error && lessons.length > 0 ? (
                 <>
                     <div className="text-center mb-4">
@@ -464,8 +545,7 @@ function LessonsPage() {
                                                     type="text"
                                                     value={editedTopic}
                                                     onChange={(e) => setEditedTopic(e.target.value)}
-                                                    className="p-2 border border-gray-300 rounded-lg w-fu
-                                                    ll"
+                                                    className="p-2 border border-gray-300 rounded-lg w-full"
                                                 />
                                             ) : (
                                                 lesson.planned_topic
@@ -476,8 +556,13 @@ function LessonsPage() {
                                                 <button
                                                     onClick={() => handleSave(lesson.id)}
                                                     className="btn btn-primary mr-2"
+                                                    disabled={saveLoading === lesson.id}
                                                 >
-                                                    Save
+                                                    {saveLoading === lesson.id ? (
+                                                        <ClipLoader color="#ffffff" size={20} />
+                                                    ) : (
+                                                        "Save"
+                                                    )}
                                                 </button>
                                             ) : (
                                                 <button
@@ -490,8 +575,13 @@ function LessonsPage() {
                                             <button
                                                 onClick={() => handleDelete(lesson.id)}
                                                 className="btn btn-danger"
+                                                disabled={deleteLoading === lesson.id}
                                             >
-                                                Delete
+                                                {deleteLoading === lesson.id ? (
+                                                    <ClipLoader color="#ffffff" size={20} />
+                                                ) : (
+                                                    "Delete"
+                                                )}
                                             </button>
                                         </td>
                                     </tr>
@@ -511,44 +601,60 @@ function LessonsPage() {
                         </button>
                     </div>
                     <div className="absolute -left-[9999px] top-0">
-                        <table id="lessonTableExport" className="w-full border-collapse">
-                            <thead className="bg-gray-100">
-                                <tr>
-                                    <th
-                                        colSpan="2"
-                                        className="p-5 text-center text-xl font-bold bg-gray-200 border border-gray-300"
-                                    >
-                                        Lesson Plan for{" "}
-                                        {schools.find((s) => s.id === selectedSchool)?.name || "Selected School"}{" "}
-                                        - Class {selectedClass || "Selected Class"} - {selectedMonth || "Selected Month"}
-                                    </th>
-                                </tr>
-                                <tr>
-                                    <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">
-                                        Date
-                                    </th>
-                                    <th className="p-3 border border-gray-300 text-left text-gray-700 font-bold">
-                                        Planned Topic
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {lessons.map((lesson) => (
-                                    <tr key={lesson.id}>
-                                        <td className="p-3 border border-gray-300 text-gray-600">
-                                            {formatDateWithDay(lesson.session_date)}
-                                        </td>
-                                        <td className="p-3 border border-gray-300 text-gray-600">
-                                            {lesson.planned_topic}
-                                        </td>
+                        <div id="lessonTableExport" style={{ width: '800px', fontFamily: 'Arial, sans-serif' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+                                <img
+                                    src="/logo.png"
+                                    alt="School Logo"
+                                    style={{ width: '120px', marginRight: '20px' }}
+                                />
+                                <div style={{ textAlign: 'left' }}>
+                                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', margin: 0 }}>
+                                        Lesson Plan
+                                    </h1>
+                                    <p style={{ fontSize: '16px', color: '#666', marginTop: '5px' }}>
+                                        {selectedSchoolName} - Class {selectedClass || "Selected Class"}
+                                    </p>
+                                    <p style={{ fontSize: '16px', color: '#666', marginTop: '5px' }}>
+                                        {formatDateRange(startDate, endDate)}
+                                    </p>
+                                </div>
+                            </div>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left', backgroundColor: '#f4f4f4', fontWeight: 'bold', color: '#333' }}>
+                                            Date
+                                        </th>
+                                        <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left', backgroundColor: '#f4f4f4', fontWeight: 'bold', color: '#333' }}>
+                                            Planned Topic
+                                        </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {lessons.map((lesson) => (
+                                        <tr key={lesson.id}>
+                                            <td style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left', color: '#666' }}>
+                                                {formatDateWithDay(lesson.session_date)}
+                                            </td>
+                                            <td style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left', color: '#666' }}>
+                                                {lesson.planned_topic}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </>
             ) : (
-                <p className="text-center text-gray-600">No lessons found.</p>
+                loading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <ClipLoader color="#000000" size={50} />
+                    </div>
+                ) : (
+                    <p className="text-center text-gray-600">No lessons found.</p>
+                )
             )}
 
             <div className="flex justify-center mt-8">
