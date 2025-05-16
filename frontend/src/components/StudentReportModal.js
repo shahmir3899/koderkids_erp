@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
-import html2canvas from "html2canvas";
-import html2pdf from "html2pdf.js";
 import PropTypes from "prop-types";
+import { saveAs } from "file-saver"; // Import for downloading PDF
 
-// Utility function to validate date string
+// Utility functions
 const isValidDate = (dateStr) => {
   if (!dateStr) return false;
   const [year, month, day] = dateStr.split("-");
@@ -12,28 +11,25 @@ const isValidDate = (dateStr) => {
   return date instanceof Date && !isNaN(date) && date.getFullYear() === parseInt(year);
 };
 
-// Utility function to extract date from filename
 const extractDateFromFilename = (filename) => {
-  const name = filename.split('/').pop().split('?')[0];
+  const name = filename.split("/").pop().split("?")[0];
   const dateMatch = name.match(/(\d{4})(\d{2})(\d{2})|(\d{4})-(\d{2})-(\d{2})/);
   if (dateMatch) {
     if (dateMatch[1]) {
-      const [_, year, month, day] = dateMatch;
+      const [, year, month, day] = dateMatch;
       return `${year}-${month}-${day}`;
     } else {
-      return dateMatch[4] + '-' + dateMatch[5] + '-' + dateMatch[6];
+      return dateMatch[4] + "-" + dateMatch[5] + "-" + dateMatch[6];
     }
   }
   return "Unknown Date";
 };
 
-// Utility function to get all months between two dates
 const getMonthsBetweenDates = (startDate, endDate) => {
   const start = new Date(startDate);
   const end = new Date(endDate);
   const months = new Set();
   let current = new Date(start);
-  
   while (current <= end) {
     const year = current.getFullYear();
     const month = String(current.getMonth() + 1).padStart(2, "0");
@@ -41,13 +37,11 @@ const getMonthsBetweenDates = (startDate, endDate) => {
     current.setMonth(current.getMonth() + 1);
     current.setDate(1);
   }
-  
   return Array.from(months);
 };
 
-// Utility function to split lessons into page-sized chunks
 const splitLessonsIntoPages = (lessons) => {
-  const maxRowsPerPage = 10; // Adjust based on row height (approx 10 rows fit in ~200mm)
+  const maxRowsPerPage = 10;
   const chunks = [];
   for (let i = 0; i < lessons.length; i += maxRowsPerPage) {
     chunks.push(lessons.slice(i, i + maxRowsPerPage));
@@ -67,31 +61,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
   const [loadingMessage, setLoadingMessage] = useState("Loading student details...");
   const [generating, setGenerating] = useState(false);
   const reportRef = useRef(null);
-
-  const getDateList = () => {
-    const dates = [];
-    if (mode === "month" && selectedMonth && isValidDate(`${selectedMonth}-01`)) {
-      const [year, month] = selectedMonth.split("-").map(Number);
-      const daysInMonth = new Date(year, month, 0).getDate();
-      for (let day = 1; day <= daysInMonth; day++) {
-        dates.push(new Date(year, month - 1, day));
-      }
-    } else if (mode === "range" && startDate && endDate && isValidDate(startDate) && isValidDate(endDate)) {
-      let current = new Date(startDate);
-      const end = new Date(endDate);
-      if (end < current) {
-        setErrorMessage("End date must be after start date.");
-        return [];
-      }
-      while (current <= end) {
-        dates.push(new Date(current));
-        current.setDate(current.getDate() + 1);
-      }
-    }
-    return dates;
-  };
-
-  const dateList = getDateList();
 
   const fetchReportData = useCallback(async () => {
     setErrorMessage("");
@@ -127,49 +96,33 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
         `${process.env.REACT_APP_API_URL}/api/student-details/?student_id=${studentId}`,
         { headers }
       );
-      if (studentRes.data) {
-        setStudentData(studentRes.data);
-      } else {
-        setErrorMessage((prev) => prev + " Failed to fetch student details. ");
-      }
+      if (studentRes.data) setStudentData(studentRes.data);
 
       setLoadingMessage("Fetching attendance data...");
       const attendanceRes = await axiosInstance.get(
         `${process.env.REACT_APP_API_URL}/api/attendance-count/?student_id=${studentId}&start_date=${fromDate}&end_date=${toDate}`,
         { headers }
       );
-      if (attendanceRes.data) {
-        setAttendanceData(attendanceRes.data);
-      } else {
-        setErrorMessage((prev) => prev + " Failed to fetch attendance data. ");
-      }
+      if (attendanceRes.data) setAttendanceData(attendanceRes.data);
 
       setLoadingMessage("Fetching lessons data...");
       const lessonsRes = await axiosInstance.get(
         `${process.env.REACT_APP_API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${fromDate}&end_date=${toDate}`,
         { headers }
       );
-      if (lessonsRes.data) {
-        setLessonsData(lessonsRes.data);
-      } else {
-        setErrorMessage((prev) => prev + " Failed to fetch lessons data. ");
-      }
+      if (lessonsRes.data) setLessonsData(lessonsRes.data);
 
       setLoadingMessage("Fetching progress images...");
       let allProgressImages = [];
-      
       if (mode === "month") {
         const imagesRes = await axiosInstance.get(
           `${process.env.REACT_APP_API_URL}/api/student-progress-images/?student_id=${studentId}&month=${reportMonth}`,
           { headers }
         );
         if (imagesRes.data) {
-          const images = (imagesRes.data.progress_images || [])
+          allProgressImages = (imagesRes.data.progress_images || [])
             .map((img) => (typeof img === "string" ? img : img?.signedURL || null))
             .filter(Boolean);
-          allProgressImages = images;
-        } else {
-          setErrorMessage((prev) => prev + " Failed to fetch progress images for month. ");
         }
       } else if (mode === "range") {
         const months = getMonthsBetweenDates(startDate, endDate);
@@ -179,12 +132,12 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
             { headers }
           );
           if (imagesRes.data) {
-            const images = (imagesRes.data.progress_images || [])
-              .map((img) => (typeof img === "string" ? img : img?.signedURL || null))
-              .filter(Boolean);
-            allProgressImages = [...allProgressImages, ...images];
-          } else {
-            setErrorMessage((prev) => prev + ` Failed to fetch progress images for ${month}. `);
+            allProgressImages = [
+              ...allProgressImages,
+              ...(imagesRes.data.progress_images || [])
+                .map((img) => (typeof img === "string" ? img : img?.signedURL || null))
+                .filter(Boolean),
+            ];
           }
         }
         allProgressImages = Array.from(new Set(allProgressImages));
@@ -195,20 +148,14 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
           const img = new Image();
           img.src = url;
           img.onload = resolve;
-          img.onerror = () => {
-            console.error(`Failed to preload image: ${url}`);
-            resolve();
-          };
+          img.onerror = () => resolve();
         });
       });
       await Promise.all(preloadPromises);
 
       setProgressImages(allProgressImages);
-      if (allProgressImages.length > 4) {
-        setShowImageSelection(true);
-      } else if (allProgressImages.length > 0) {
-        setSelectedImages(allProgressImages);
-      }
+      if (allProgressImages.length > 4) setShowImageSelection(true);
+      else if (allProgressImages.length > 0) setSelectedImages(allProgressImages);
 
       setIsDataLoaded(true);
     } catch (error) {
@@ -219,9 +166,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
   }, [studentId, mode, selectedMonth, startDate, endDate]);
 
   useEffect(() => {
-    if (studentId) {
-      fetchReportData();
-    }
+    if (studentId) fetchReportData();
   }, [studentId, mode, selectedMonth, startDate, endDate, fetchReportData]);
 
   const toggleImageSelection = useCallback(
@@ -245,96 +190,16 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
     : "";
 
   const handleImageError = (e, img) => {
-    console.error(`Failed to load image: ${img}, Error: ${e.target.error || "Unknown error"}`);
+    console.error(`Failed to load image: ${img}`);
     e.target.src = "/placeholder.png";
     e.target.alt = "Image failed to load";
   };
 
   const handleConfirmSelection = () => {
-    if (selectedImages.length > 0) {
-      setShowImageSelection(false);
-    }
+    if (selectedImages.length > 0) setShowImageSelection(false);
   };
 
-  const generateHDImage = () => {
-    if (!studentData || !attendanceData || !lessonsData) {
-      alert("Report data is still loading or incomplete. Please wait or fix errors.");
-      return;
-    }
-
-    if (progressImages.length > 4 && showImageSelection) {
-      alert("Please confirm your image selection before generating the image.");
-      return;
-    }
-
-    const element = reportRef.current;
-    if (!element) {
-      console.error("Report container not found!");
-      return;
-    }
-
-    setGenerating(true);
-
-    const hiddenContainer = document.createElement("div");
-    hiddenContainer.style.position = "absolute";
-    hiddenContainer.style.left = "-9999px";
-    hiddenContainer.style.width = "210mm";
-    hiddenContainer.style.height = "auto";
-    const clonedElement = element.cloneNode(true);
-    hiddenContainer.appendChild(clonedElement);
-    document.body.appendChild(hiddenContainer);
-
-    const images = clonedElement.querySelectorAll("img");
-    const loadPromises = Array.from(images).map((img) => {
-      if (img.complete) return Promise.resolve();
-      return new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = () => {
-          console.error(`Failed to load image: ${img.src}`);
-          resolve();
-        };
-      });
-    });
-
-    Promise.all(loadPromises).then(() => {
-      html2canvas(clonedElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: true,
-        width: clonedElement.scrollWidth,
-        height: clonedElement.scrollHeight,
-        windowWidth: clonedElement.scrollWidth,
-        windowHeight: clonedElement.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (doc, cloned) => {
-          console.log("Cloned element dimensions:", {
-            width: cloned.scrollWidth,
-            height: cloned.scrollHeight,
-          });
-        },
-      })
-        .then((canvas) => {
-          console.log("Canvas dimensions:", {
-            width: canvas.width,
-            height: canvas.height,
-          });
-          const link = document.createElement("a");
-          link.download = `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.png`;
-          link.href = canvas.toDataURL("image/png", 1.0);
-          link.click();
-          window.open(canvas.toDataURL("image/png", 1.0), "_blank");
-        })
-        .catch((error) => console.error("Error generating HD image:", error))
-        .finally(() => {
-          document.body.removeChild(hiddenContainer);
-          setGenerating(false);
-        });
-    });
-  };
-
-  const generatePDF = () => {
+  const generatePDF = async () => {
     if (!studentData || !attendanceData || !lessonsData) {
       alert("Report data is still loading or incomplete. Please wait or fix errors.");
       return;
@@ -345,76 +210,59 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
       return;
     }
 
-    const element = reportRef.current;
-    if (!element) {
-      console.error("Report container not found!");
-      return;
-    }
-
     setGenerating(true);
 
-    const hiddenContainer = document.createElement("div");
-    hiddenContainer.style.position = "absolute";
-    hiddenContainer.style.left = "-9999px";
-    hiddenContainer.style.width = "210mm";
-    hiddenContainer.style.height = "auto";
-    const clonedElement = element.cloneNode(true);
-    hiddenContainer.appendChild(clonedElement);
-    document.body.appendChild(hiddenContainer);
-
-    const images = clonedElement.querySelectorAll("img");
-    const loadPromises = Array.from(images).map((img) => {
-      if (img.complete) return Promise.resolve();
-      return new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = () => {
-          console.error(`Failed to load image: ${img.src}`);
-          resolve();
-        };
-      });
-    });
-
-    Promise.all(loadPromises).then(() => {
-      const pdfOptions = {
-        margin: [5, 5, 5, 5],
-        filename: `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          width: clonedElement.scrollWidth,
-          height: clonedElement.scrollHeight,
-          windowWidth: clonedElement.scrollWidth,
-          windowHeight: clonedElement.scrollHeight,
-          scrollX: 0,
-          scrollY: 0,
+    try {
+      console.log("Calling backend /api/generate-pdf/ endpoint..."); // Debug log
+      const payload = {
+        studentData: {
+          name: studentData.name,
+          reg_num: studentData.reg_num,
+          school: studentData.school,
+          class: studentData.class,
         },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: {
-          mode: ["css", "legacy"],
-          avoid: [".image-slot", "tr"], // Prevent breaking images and table rows
-          before: [".section-break-before"],
-          after: [".section-break-after"],
+        attendanceData: {
+          present_days: attendanceData.present_days || 0,
+          total_days: attendanceData.total_days || 0,
         },
+        lessonsData: { lessons: lessonsData.lessons || [] },
+        selectedImages: selectedImages,
+        formattedMonth: formattedMonth,
+        attendancePercentage: attendanceData.total_days > 0 ? (attendanceData.present_days / attendanceData.total_days) * 100 : 0,
+        attendanceStatusColor: attendanceData.total_days > 0
+          ? (attendanceData.present_days / attendanceData.total_days) * 100 > 80
+            ? "green"
+            : (attendanceData.present_days / attendanceData.total_days) * 100 < 60
+            ? "red"
+            : "orange"
+          : "gray",
       };
 
-      html2pdf()
-        .from(clonedElement)
-        .set(pdfOptions)
-        .toPdf()
-        .get("pdf")
-        .then((pdf) => {
-          console.log("PDF page count:", pdf.internal.getNumberOfPages());
-          window.open(pdf.output("bloburl"), "_blank");
-          pdf.save(pdfOptions.filename);
-        })
-        .catch((error) => console.error("Error generating PDF:", error))
-        .finally(() => {
-          document.body.removeChild(hiddenContainer);
-          setGenerating(false);
-        });
-    });
+      const headers = {
+        Authorization: `Bearer ${localStorage.getItem("access")}`,
+        "Content-Type": "application/json",
+      };
+
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/generate-pdf/`,
+        payload,
+        { headers, responseType: "blob" }
+      );
+
+      console.log("Backend response received, initiating download..."); // Debug log
+      const pdfBlob = new Blob([response.data], { type: "application/pdf" });
+      saveAs(pdfBlob, `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Failed to generate PDF: " + error.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const generateHDImage = () => {
+    alert("HD Image generation is currently disabled. Use PDF for now.");
+    return;
   };
 
   if (!isDataLoaded) {
@@ -454,7 +302,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
     : 0;
   const attendanceStatusColor = attendancePercentage > 80 ? "green" : attendancePercentage < 60 ? "red" : "orange";
 
-  // Split lessons into page-sized chunks
   const lessonChunks = lessonsData?.lessons?.length > 0 ? splitLessonsIntoPages(lessonsData.lessons) : [];
 
   return (
@@ -483,7 +330,8 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
           maxWidth: "800px",
           width: "100%",
           height: "auto",
-          overflowY: "visible",
+          overflowY: "auto",
+          maxHeight: "90vh",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -525,9 +373,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                       height: "130px",
                       position: "relative",
                       cursor: "pointer",
-                      border: selectedImages.includes(img)
-                        ? "2px solid blue"
-                        : "2px solid transparent",
+                      border: selectedImages.includes(img) ? "2px solid blue" : "2px solid transparent",
                     }}
                     tabIndex={0}
                     role="checkbox"
@@ -564,9 +410,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                 ))}
               </div>
             )}
-            <p style={{ marginBottom: "10px" }}>
-              {selectedImages.length} / 4 selected
-            </p>
+            <p style={{ marginBottom: "10px" }}>{selectedImages.length} / 4 selected</p>
             <button
               onClick={handleConfirmSelection}
               disabled={selectedImages.length === 0}
@@ -589,296 +433,114 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
           ref={reportRef}
           id="student-report"
           style={{
-            width: "210mm",
-            height: "auto",
+            width: "100%",
+            maxWidth: "210mm",
             padding: "10mm",
-            backgroundColor: "#f9f9f9",
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+            backgroundColor: "#fff",
             fontFamily: "'Roboto', sans-serif",
             color: "#333",
             boxSizing: "border-box",
-            display: "flex",
-            flexDirection: "column",
-            position: "relative",
           }}
         >
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%) rotate(-45deg)",
-              fontSize: "30px",
-              color: "rgba(0, 0, 0, 0.05)",
-              pointerEvents: "none",
-              maxWidth: "150mm",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {studentData?.school}
-          </div>
-
           <div
             style={{
               background: "linear-gradient(90deg, #4A90E2, #ffffff)",
               padding: "10mm",
               borderRadius: "5px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
               marginBottom: "10mm",
+              textAlign: "center",
             }}
           >
-            <h2
-              style={{
-                fontFamily: "'Montserrat', sans-serif",
-                fontSize: "24px",
-                fontWeight: "bold",
-                color: "#333",
-                margin: 0,
-              }}
-            >
+            <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "24px", color: "#333", margin: 0 }}>
               Monthly Student Report
             </h2>
-            <img
-              src={process.env.PUBLIC_URL + "/logo.png"}
-              alt="School Logo"
-              style={{ height: "40px", borderRadius: "5px", objectFit: "contain" }}
-            />
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "10mm" }}>
-            {/* Student Details Section */}
-            <div
-              className="section-break-after"
-              style={{
-                padding: "5mm",
-                borderBottom: "2px solid #4A90E2",
-                lineHeight: "1.6",
-                pageBreakAfter: "always", // Force page break after this section
-              }}
-            >
-              <h3
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: "18px",
-                  fontWeight: "bold",
-                  color: "#4A90E2",
-                  marginBottom: "5px",
-                }}
-              >
-                <span style={{ fontSize: "20px", marginRight: "5px" }}>📚</span> Student Details
+            <div style={{ padding: "5mm", borderBottom: "2px solid #4A90E2" }}>
+              <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "18px", color: "#4A90E2", marginBottom: "5px" }}>
+                Student Details
               </h3>
-              <p style={{ margin: "3px 0", fontSize: "14px" }}>
-                <strong>Student Name:</strong> {studentData?.name || "Loading..."}
-              </p>
-              <p style={{ margin: "3px 0", fontSize: "14px" }}>
-                <strong>Registration Number:</strong> {studentData?.reg_num || "Loading..."}
-              </p>
-              <p style={{ margin: "3px 0", fontSize: "14px" }}>
-                <strong>School:</strong> {studentData?.school || "Loading..."}
-              </p>
-              <p style={{ margin: "3px 0", fontSize: "14px" }}>
-                <strong>Class:</strong> {studentData?.class || "Loading..."}
-              </p>
-              <p style={{ margin: "3px 0", fontSize: "14px" }}>
-                <strong>Month:</strong> {formattedMonth}
+              <p style={{ margin: "3px 0" }}><strong>Name:</strong> {studentData?.name || "Loading..."}</p>
+              <p style={{ margin: "3px 0" }}><strong>Registration Number:</strong> {studentData?.reg_num || "Loading..."}</p>
+              <p style={{ margin: "3px 0" }}><strong>School:</strong> {studentData?.school || "Loading..."}</p>
+              <p style={{ margin: "3px 0" }}><strong>Class:</strong> {studentData?.class || "Loading..."}</p>
+              <p style={{ margin: "3px 0" }}><strong>Month:</strong> {formattedMonth}</p>
+            </div>
+
+            <div style={{ padding: "5mm", backgroundColor: "rgba(46, 204, 113, 0.1)", borderRadius: "5px" }}>
+              <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "16px", color: "#4A90E2", marginBottom: "3px" }}>
+                Attendance
+              </h3>
+              <p style={{ margin: 0 }}>
+                {attendanceData?.total_days === 0 || !attendanceData
+                  ? "No school days recorded"
+                  : `${attendanceData?.present_days || 0}/${attendanceData?.total_days || 0} days (${attendancePercentage.toFixed(2)}%)`}
+                <span style={{ display: "inline-block", width: "10px", height: "10px", borderRadius: "50%", backgroundColor: attendanceStatusColor, marginLeft: "5px" }} />
               </p>
             </div>
 
-            {/* Attendance Section */}
-            <div
-              style={{
-                padding: "5mm",
-                backgroundColor: "rgba(46, 204, 113, 0.1)",
-                borderRadius: "5px",
-                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                pageBreakInside: "avoid", // Prevent breaking this section
-              }}
-            >
-              <span style={{ fontSize: "20px", color: "#2ECC71" }}>✅</span>
-              <div>
-                <h3
-                  style={{
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontSize: "16px",
-                    fontWeight: "bold",
-                    color: "#4A90E2",
-                    marginBottom: "3px",
-                  }}
-                >
-                  Attendance
-                </h3>
-                <p style={{ margin: 0, fontSize: "14px" }}>
-                  {attendanceData?.total_days === 0 || !attendanceData
-                    ? "No school days recorded"
-                    : `${attendanceData?.present_days || 0}/${attendanceData?.total_days || 0} days (${attendancePercentage.toFixed(2)}%)`}
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: "10px",
-                      height: "10px",
-                      borderRadius: "50%",
-                      backgroundColor: attendanceStatusColor,
-                      marginLeft: "5px",
-                    }}
-                  />
-                </p>
-              </div>
-            </div>
-
-            {/* Lessons Overview Section */}
-            <div className="section-break-before" style={{ pageBreakBefore: "always" }}>
-              <h3
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: "16px",
-                  fontWeight: "bold",
-                  color: "#4A90E2",
-                  marginBottom: "5px",
-                }}
-              >
-                <span style={{ fontSize: "20px", marginRight: "5px" }}>📖</span> Lessons Overview
+            <div>
+              <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "16px", color: "#4A90E2", marginBottom: "5px" }}>
+                Lessons Overview
               </h3>
               {lessonChunks.length === 0 || !lessonsData ? (
-                <p style={{ color: "#666", fontStyle: "italic", fontSize: "14px", textAlign: "center" }}>
-                  No lessons found for the selected date range.
-                </p>
+                <p style={{ color: "#666", fontStyle: "italic", textAlign: "center" }}>No lessons found for the selected date range.</p>
               ) : (
                 lessonChunks.map((chunk, chunkIndex) => (
-                  <div
+                  <table
                     key={chunkIndex}
-                    className={chunkIndex > 0 ? "section-break-before" : ""}
-                    style={{
-                      pageBreakBefore: chunkIndex > 0 ? "always" : "auto",
-                      marginBottom: "5mm",
-                    }}
+                    style={{ width: "100%", borderCollapse: "collapse", marginBottom: "10mm", pageBreakBefore: chunkIndex > 0 ? "always" : "auto" }}
                   >
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
-                        borderRadius: "5px",
-                        overflow: "visible",
-                      }}
-                      aria-label={`Lessons achieved for the month - Part ${chunkIndex + 1}`}
-                    >
-                      <thead>
-                        <tr style={{ backgroundColor: "#4A90E2", color: "white" }}>
-                          <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>📅 Date</th>
-                          <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>Planned Topic</th>
-                          <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>Achieved Topic</th>
+                    <thead>
+                      <tr style={{ backgroundColor: "#4A90E2", color: "white" }}>
+                        <th style={{ padding: "8px", textAlign: "left" }}>Date</th>
+                        <th style={{ padding: "8px", textAlign: "left" }}>Planned Topic</th>
+                        <th style={{ padding: "8px", textAlign: "left" }}>Achieved Topic</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {chunk.map((lesson, index) => (
+                        <tr key={index} style={{ backgroundColor: (chunkIndex * 10 + index) % 2 === 0 ? "#f5f5f5" : "white" }}>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>
+                            {new Date(lesson.date).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }) || "N/A"}
+                          </td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>{lesson.planned_topic || "N/A"}</td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>
+                            {lesson.achieved_topic || "N/A"}
+                            {lesson.planned_topic === lesson.achieved_topic && lesson.achieved_topic && <span style={{ color: "green", marginLeft: "5px" }}>✓</span>}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {chunk.map((lesson, index) => (
-                          <tr
-                            key={index}
-                            style={{
-                              backgroundColor: (chunkIndex * 10 + index) % 2 === 0 ? "#f5f5f5" : "white",
-                              pageBreakInside: "avoid", // Prevent row from breaking
-                            }}
-                          >
-                            <td style={{ padding: "8px", border: "1px solid #ddd" }}>
-                              {new Date(lesson.date).toLocaleDateString("en-US", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              }) || "N/A"}
-                            </td>
-                            <td style={{ padding: "8px", border: "1px solid #ddd" }}>
-                              {lesson.planned_topic || "N/A"}
-                            </td>
-                            <td style={{ padding: "8px", border: "1px solid #ddd" }}>
-                              {lesson.achieved_topic || "N/A"}
-                              {lesson.planned_topic === lesson.achieved_topic && lesson.achieved_topic && (
-                                <span style={{ color: "green", marginLeft: "5px" }}>✓</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 ))
               )}
             </div>
 
-            {/* Progress Images Section */}
-            <div className="section-break-before" style={{ pageBreakBefore: "always" }}>
-              <h3
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: "16px",
-                  fontWeight: "bold",
-                  color: "#4A90E2",
-                  marginBottom: "5px",
-                  textAlign: "center",
-                }}
-              >
-                <span style={{ fontSize: "20px", marginRight: "5px" }}>🖼️</span> Progress Images
+            <div>
+              <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "16px", color: "#4A90E2", marginBottom: "5px", textAlign: "center" }}>
+                Progress Images
               </h3>
-              {progressImages.length === 0 && (
-                <p style={{ color: "red", marginBottom: "10px", textAlign: "center" }}>
-                  No progress images available for this student.
-                </p>
-              )}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, 1fr)",
-                  gridTemplateRows: "repeat(2, 50mm)", // Reduced height to fit on one page
-                  gap: "8mm",
-                  padding: "5mm",
-                  backgroundColor: "white",
-                  borderRadius: "5px",
-                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
-                  pageBreakInside: "avoid", // Prevent the entire grid from breaking
-                }}
-              >
+              {progressImages.length === 0 && <p style={{ color: "red", textAlign: "center" }}>No progress images available for this student.</p>}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "8mm", padding: "5mm" }}>
                 {imageSlots.map((img, index) => (
                   <div
                     key={index}
-                    className="image-slot"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      border: "1px solid #ddd",
-                      borderRadius: "5px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: "#f5f5f5",
-                      overflow: "hidden",
-                      pageBreakInside: "avoid", // Prevent individual image slots from breaking
-                    }}
+                    style={{ border: "1px solid #ddd", borderRadius: "5px", textAlign: "center", padding: "5mm" }}
                   >
                     {img ? (
-                      <div style={{ textAlign: "center", width: "100%" }}>
+                      <div>
                         <img
                           src={img}
                           alt={`Progress ${index + 1}`}
                           onError={(e) => handleImageError(e, img)}
-                          style={{
-                            maxWidth: "100%",
-                            maxHeight: "100%",
-                            objectFit: "contain",
-                            borderRadius: "5px",
-                          }}
+                          style={{ maxWidth: "100%", maxHeight: "100px", objectFit: "contain" }}
                         />
-                        <p style={{ fontSize: "10px", color: "#666", margin: "3px 0" }}>
-                          Image {index + 1}
-                        </p>
+                        <p style={{ fontSize: "10px", color: "#666" }}>Image {index + 1}</p>
                       </div>
                     ) : (
-                      <span style={{ fontSize: "28px", color: "#999", fontStyle: "italic" }}>
-                        📷 No Image
-                      </span>
+                      <span style={{ fontSize: "28px", color: "#999", fontStyle: "italic" }}>📷 No Image</span>
                     )}
                   </div>
                 ))}
@@ -886,31 +548,13 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
             </div>
           </div>
 
-          <div
-            style={{
-              borderTop: "1px solid #ddd",
-              paddingTop: "5mm",
-              fontSize: "10px",
-              color: "#666",
-              marginTop: "10mm",
-              flexShrink: 0,
-              pageBreakInside: "avoid",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ borderTop: "1px solid #ddd", paddingTop: "5mm", fontSize: "10px", color: "#666", marginTop: "10mm" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
               <div>
-                <p style={{ margin: "0 0 5px 0" }}>
-                  Teacher’s Signature: <span style={{ borderBottom: "1px dotted #666", display: "inline-block", width: "100px" }}></span>
-                </p>
-                <p style={{ margin: 0 }}>Generated on: May 16, 2025</p>
+                <p style={{ margin: "0 0 5px 0" }}>Teacher’s Signature: <span style={{ borderBottom: "1px dotted #666", width: "100px", display: "inline-block" }}></span></p>
+                <p style={{ margin: "0" }}>Generated on: May 16, 2025, 09:23 PM PKT</p>
               </div>
-              <div
-                style={{
-                  backgroundColor: "#e5e5e5",
-                  padding: "3px 10px",
-                  borderRadius: "3px",
-                }}
-              >
+              <div style={{ backgroundColor: "#e5e5e5", padding: "3px 10px", borderRadius: "3px" }}>
                 Powered by {studentData?.school || "School Name"}
               </div>
             </div>
