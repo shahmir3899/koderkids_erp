@@ -8,7 +8,11 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
 import datetime
+import base64
+import requests
+from io import BytesIO
 
 @api_view(['POST'])
 @csrf_exempt
@@ -35,7 +39,7 @@ def generate_pdf(request):
 
             # Create PDF document
             response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="Student_Report_{student_data.get("name", "Unknown")}_{student_data.get("reg_num", "Unknown")}.pdf"'
+            response['Content-Disposition'] = f'attachment; filename="Student_Report_{student_data.get('name', 'Unknown')}_{student_data.get('reg_num', 'Unknown')}.pdf"'
             doc = SimpleDocTemplate(response, pagesize=A4, rightMargin=inch, leftMargin=inch, topMargin=inch, bottomMargin=inch)
             elements = []
 
@@ -43,21 +47,21 @@ def generate_pdf(request):
             styles = getSampleStyleSheet()
             title_style = ParagraphStyle(name='Title', fontSize=24, textColor=HEADER_BLUE, alignment=1)
             header_style = ParagraphStyle(name='Header', fontSize=18, textColor=HEADER_BLUE, spaceAfter=12)
-            normal_style = ParagraphStyle(name='Normal', fontSize=12, spaceAfter=6)
+            normal_style = ParagraphStyle(name='Normal', fontSize=12, spaceAfter=6, wordWrap='CJK')  # Enable word wrapping
 
             # Header
             elements.append(Paragraph("<b>Monthly Student Report</b>", title_style))
-            elements.append(Spacer(1, 5))
+            elements.append(Spacer(1, 10))
             elements.append(Paragraph("<hr/>", normal_style))
 
             # Basic Data
             elements.append(Paragraph("<b>Student Details</b>", header_style))
             data_table = [
-                ['<b>Name:</b>', student_data.get('name', 'N/A')],
-                ['<b>Registration Number:</b>', student_data.get('reg_num', 'N/A')],
-                ['<b>School:</b>', student_data.get('school', 'N/A')],
-                ['<b>Class:</b>', student_data.get('class', 'N/A')],
-                ['<b>Month/Date Range:</b>', formatted_month],
+                ['<b>Name:</b>', Paragraph(student_data.get('name', 'N/A'), normal_style)],
+                ['<b>Registration Number:</b>', Paragraph(student_data.get('reg_num', 'N/A'), normal_style)],
+                ['<b>School:</b>', Paragraph(student_data.get('school', 'N/A'), normal_style)],
+                ['<b>Class:</b>', Paragraph(student_data.get('class', 'N/A'), normal_style)],
+                ['<b>Month/Date Range:</b>', Paragraph(formatted_month, normal_style)],
             ]
             table = Table(data_table, colWidths=[1.5*inch, 5*inch])
             table.setStyle(TableStyle([
@@ -86,23 +90,24 @@ def generate_pdf(request):
             if lessons_data.get('lessons'):
                 lessons_data_table = [['Date', 'Planned Topic', 'Achieved Topic']]
                 for lesson in lessons_data['lessons']:
-                    achieved_mark = '✓' if lesson.get('planned_topic') == lesson.get('achieved_topic') and lesson.get('achieved_topic') else ''
+                    achieved_mark = '<font color="green">✓</font>' if lesson.get('planned_topic') == lesson.get('achieved_topic') and lesson.get('achieved_topic') else ''
                     lessons_data_table.append([
-                        lesson.get('date', 'N/A'),
-                        lesson.get('planned_topic', 'N/A'),
-                        f"{lesson.get('achieved_topic', 'N/A')} {achieved_mark}"
+                        Paragraph(lesson.get('date', 'N/A'), normal_style),
+                        Paragraph(lesson.get('planned_topic', 'N/A'), normal_style),
+                        Paragraph(f"{lesson.get('achieved_topic', 'N/A')} {achieved_mark}", normal_style)
                     ])
-                lessons_table = Table(lessons_data_table, colWidths=[2*inch, 3*inch, 3*inch])
+                lessons_table = Table(lessons_data_table, colWidths=[1.5*inch, 3.5*inch, 3.5*inch])  # Increased colWidths
                 lessons_table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), TABLE_HEADER),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                     ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 12),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),  # Reduced font size to prevent overflow
                     ('BACKGROUND', (0, 1), (-1, -1), TABLE_ROW_LIGHT),
                     ('GRID', (0, 0), (-1, -1), 1, TABLE_BORDER),
-                    ('LEADING', (0, 0), (-1, -1), 14),
+                    ('LEADING', (0, 0), (-1, -1), 12),
+                    ('WORDWRAP', (0, 0), (-1, -1), True),  # Enable word wrapping
                 ]))
                 elements.append(lessons_table)
             else:
@@ -118,11 +123,19 @@ def generate_pdf(request):
                 for j in range(2):
                     idx = i + j
                     if idx < len(image_slots) and image_slots[idx]:
-                        row.append(Paragraph(f"Image {idx + 1}<br/>(Date: N/A)", normal_style))
+                        # Fetch and encode image (placeholder logic)
+                        try:
+                            response = requests.get(image_slots[idx], timeout=5)
+                            response.raise_for_status()
+                            img_data = BytesIO(response.content)
+                            img = ImageReader(img_data)
+                            row.append(img)
+                        except Exception:
+                            row.append(Paragraph(f"Image {idx + 1}<br/>(Failed to load)", normal_style))
                     else:
                         row.append(Paragraph("No Image", normal_style))
                 image_table_data.append(row)
-            image_table = Table(image_table_data, colWidths=[2.5*inch, 2.5*inch])
+            image_table = Table(image_table_data, colWidths=[2.5*inch, 2.5*inch], rowHeights=1.5*inch)
             image_table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
