@@ -64,21 +64,21 @@ def generate_pdf_view(request):
                 planned_topic = lesson.get('planned_topic', 'N/A')
                 achieved_topic = lesson.get('achieved_topic', 'N/A')
                 achieved_icon = '✓' if planned_topic == achieved_topic and achieved_topic else ''
-                chunk_rows += f'	{lesson_date}	{planned_topic}	{achieved_topic}{achieved_icon}\n'
-            chunk_html = f'	Date	Planned Topic	Achieved Topic\n\n{chunk_rows}\n'
+                chunk_rows += f'{lesson_date}\t{planned_topic}\t{achieved_topic}{achieved_icon}<br>'
+            chunk_html = f'<table><thead><tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr></thead><tbody>{chunk_rows}</tbody></table>'
             lesson_chunks_html += chunk_html
 
         images_html = ''
         for i, img in enumerate(selected_images + [None] * (4 - len(selected_images))):
-            image_content = f'Image {i + 1}\n\n' if img else '[No Image]'
-            images_html += f'{image_content}\n'
+            image_content = f'Image {i + 1}<br>' if img else '[No Image]<br>'
+            images_html += f'{image_content}'
 
         attendance_text = 'No school days recorded' if not attendance_data or attendance_data.get('total_days', 0) == 0 else f"{attendance_data.get('present_days', 0)}/{attendance_data.get('total_days', 0)} days ({attendance_percentage:.2f}%)"
 
         # Temporarily comment out logo to isolate issue
         # logo_url = request.build_absolute_uri('/static/logo.png')
-        # header_html = f'<img src="{logo_url}" alt="Koder Kids Logo" style="width: 100px; height: auto;" />\n\nMonthly Student Report\n\n'
-        header_html = f'Monthly Student Report\n\n'
+        # header_html = f'<img src="{logo_url}" alt="Koder Kids Logo" style="width: 100px; height: auto;" /><br>Monthly Student Report<br>'
+        header_html = 'Monthly Student Report<br>'
 
         html_content = f"""
         <html>
@@ -95,10 +95,10 @@ def generate_pdf_view(request):
             <p>{attendance_text}</p>
 
             <h3>Lessons Overview</h3>
-            <pre>{lesson_chunks_html if lesson_chunks else 'No lessons recorded\n'}</pre>
+            {lesson_chunks_html if lesson_chunks else '<p>No lessons recorded</p>'}
 
             <h3>Progress Images</h3>
-            <pre>{images_html}</pre>
+            <p>{images_html}</p>
         </body>
         </html>
         """
