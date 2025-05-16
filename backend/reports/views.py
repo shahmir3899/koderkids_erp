@@ -13,6 +13,11 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER
 import datetime
 import requests
 from io import BytesIO
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
 @csrf_exempt
@@ -20,13 +25,13 @@ def generate_pdf(request):
     if request.method != 'POST':
         return Response({'error': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    print("Starting PDF generation")
+    logger.info("Starting PDF generation")
     pdf_response = HttpResponse(content_type='application/pdf')
     
     try:
         # Extract data from request
         data = request.data
-        print("Data fetched:", data)
+        logger.info("Data fetched: %s", data)
         student_data = data.get('studentData', {})
         attendance_data = data.get('attendanceData', {})
         lessons_data = data.get('lessonsData', {})
@@ -54,36 +59,38 @@ def generate_pdf(request):
 
         # Styles
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(name='Title', fontSize=22, textColor=HEADER_BLUE, alignment=TA_CENTER, spaceAfter=10)
-        header_style = ParagraphStyle(name='Header', fontSize=16, textColor=HEADER_BLUE, spaceAfter=8)
-        normal_style = ParagraphStyle(name='Normal', fontSize=10, spaceAfter=4, wordWrap='CJK')
-        footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=FOOTER_GRAY, alignment=TA_LEFT)
+        title_style = ParagraphStyle(name='Title', fontSize=22, textColor=HEADER_BLUE, alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
+        header_style = ParagraphStyle(name='Header', fontSize=16, textColor=HEADER_BLUE, spaceAfter=6, fontName='Helvetica-Bold')
+        normal_style = ParagraphStyle(name='Normal', fontSize=10, spaceAfter=4, wordWrap='CJK', fontName='Helvetica')
+        footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=FOOTER_GRAY, alignment=TA_LEFT, leading=12)
 
         # Logo
-        logo_url = 'https://koderkids-erp.onrender.com/static/logo.png'  # Replace with actual logo URL or static file path
+        logo_url = 'https://koderkids-erp.onrender.com/static/logo.png'  # Replace with actual logo URL
         try:
-            logo_response = requests.get(logo_url, timeout=5)
+            logo_response = requests.get(logo_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
             logo_response.raise_for_status()
             logo_data = BytesIO(logo_response.content)
             logo = ImageReader(logo_data)
             logo_width, logo_height = 50*mm, 15*mm
             logo_ratio = logo.getSize()[0] / logo.getSize()[1]
-            if logo.getSize()[0] > logo_width:
+            if logo_ratio > logo_width / logo_height:
                 logo._width, logo._height = logo_width, logo_width / logo_ratio
-            if logo._height > logo_height:
+            else:
                 logo._width, logo._height = logo_height * logo_ratio, logo_height
+            logo.hAlign = 'CENTER'
             elements.append(logo)
         except Exception as e:
-            print(f"Failed to load logo: {e}")
-            elements.append(Paragraph("Logo not available", normal_style))
+            logger.error("Failed to load logo from %s: %s", logo_url, e)
+            elements.append(Paragraph("Mazen Schools Quaid Campus", title_style))  # Fallback to text
+        elements.append(Spacer(1, 10*mm))
 
         # Header
-        elements.append(Paragraph("<b>Monthly Student Report</b>", title_style))
+        elements.append(Paragraph("Monthly Student Report", title_style))
         elements.append(Paragraph("<hr/>", normal_style))
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 10*mm))
 
         # Student Details
-        elements.append(Paragraph("<b>Student Details</b>", header_style))
+        elements.append(Paragraph("Student Details", header_style))
         data_table = [
             ['Name:', Paragraph(student_data.get('name', 'N/A'), normal_style)],
             ['Registration Number:', Paragraph(student_data.get('reg_num', 'N/A'), normal_style)],
@@ -101,20 +108,23 @@ def generate_pdf(request):
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('GRID', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
             ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+            ('BOX', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
         elements.append(table)
-        elements.append(Spacer(1, 12))
+        elements.append(Spacer(1, 10*mm))
 
         # Attendance
-        elements.append(Paragraph("<b>Attendance</b>", header_style))
+        elements.append(Paragraph("Attendance", header_style))
         attendance_text = f"{attendance_data.get('present_days', 0)}/{attendance_data.get('total_days', 0)} days ({attendance_percentage:.2f}%)"
         elements.append(Paragraph(attendance_text, ParagraphStyle(name='Attendance', fontSize=12, textColor=ATTENDANCE_GREEN, alignment=TA_CENTER)))
         status_color = {'green': colors.green, 'orange': colors.orange, 'red': colors.red, 'gray': colors.gray}.get(attendance_status_color, colors.gray)
-        elements.append(Paragraph("<hr color='%s' width='2cm' height='5'/>" % status_color.hexval()[2:], normal_style))
-        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("<hr color='%s' width='20mm' height='5'/>" % status_color.hexval()[2:], normal_style))
+        elements.append(Spacer(1, 10*mm))
 
         # Lessons Table
-        elements.append(Paragraph("<b>Lessons Overview</b>", header_style))
+        elements.append(Paragraph("Lessons Overview", header_style))
         if lessons_data.get('lessons'):
             lessons_data_table = [['Date', 'Planned Topic', 'Achieved Topic']]
             for lesson in lessons_data['lessons']:
@@ -130,7 +140,7 @@ def generate_pdf(request):
                     Paragraph(lesson.get('planned_topic', 'N/A'), normal_style),
                     Paragraph(f"{lesson.get('achieved_topic', 'N/A')} {achieved_mark}", normal_style)
                 ])
-            lessons_table = Table(lessons_data_table, colWidths=[40*mm, 60*mm, 60*mm])
+            lessons_table = Table(lessons_data_table, colWidths=[30*mm, 65*mm, 65*mm])
             lessons_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), TABLE_HEADER),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -143,14 +153,16 @@ def generate_pdf(request):
                 ('GRID', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('WORDWRAP', (0, 0), (-1, -1), True),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
             elements.append(lessons_table)
         else:
             elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
-        elements.append(Spacer(1, 12))
+        elements.append(Spacer(1, 10*mm))
 
         # Image Grid
-        elements.append(Paragraph("<b>Progress Images</b>", header_style))
+        elements.append(Paragraph("Progress Images", header_style))
         image_slots = selected_images + [None] * (4 - len(selected_images))
         image_table_data = []
         for i in range(0, 4, 2):
@@ -159,7 +171,11 @@ def generate_pdf(request):
                 idx = i + j
                 if idx < len(image_slots) and image_slots[idx]:
                     try:
-                        img_response = requests.get(image_slots[idx], timeout=10)
+                        # Validate URL
+                        if not image_slots[idx].startswith(('http://', 'https://')):
+                            raise ValueError("Invalid URL scheme")
+                        logger.info("Fetching image %d: %s", idx + 1, image_slots[idx])
+                        img_response = requests.get(image_slots[idx], timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
                         img_response.raise_for_status()
                         img_data = BytesIO(img_response.content)
                         img = ImageReader(img_data)
@@ -169,9 +185,10 @@ def generate_pdf(request):
                             img._width, img._height = img_width, img_width / img_ratio
                         else:
                             img._width, img._height = img_height * img_ratio, img_height
+                        img.hAlign = 'CENTER'
                         row.append(img)
                     except Exception as e:
-                        print(f"Failed to load image {idx + 1}: {e}")
+                        logger.error("Failed to load image %d from %s: %s", idx + 1, image_slots[idx], e)
                         row.append(Paragraph(f"Image {idx + 1} (Failed to load)", normal_style))
                 else:
                     row.append(Paragraph("No Image", normal_style))
@@ -183,9 +200,11 @@ def generate_pdf(request):
             ('INNERGRID', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
             ('BOX', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
             ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
         elements.append(image_table)
-        elements.append(Spacer(1, 12))
+        elements.append(Spacer(1, 10*mm))
 
         # Footer
         elements.append(Paragraph("<hr/>", normal_style))
@@ -196,11 +215,11 @@ def generate_pdf(request):
         )
         elements.append(Paragraph(footer_text, footer_style))
 
-        print("Building PDF with elements:", len(elements))
+        logger.info("Building PDF with %d elements", len(elements))
         doc.build(elements)
-        print("PDF built successfully")
+        logger.info("PDF built successfully")
         return pdf_response
 
     except Exception as e:
-        print("Exception occurred:", str(e))
+        logger.error("Exception occurred: %s", e)
         return Response({'error': 'Failed to generate PDF', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
