@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import generate_pdf_view
+from .views import generate_pdf
 
 urlpatterns = [
-    path('generate-pdf/', generate_pdf_view, name='generate_pdf'),
+    path('generate-pdf/', generate_pdf, name='generate_pdf'),
 ]
