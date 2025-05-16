@@ -12,9 +12,8 @@ import json
 @permission_classes([IsAuthenticated])
 def generate_pdf_view(request):
     try:
-        report_data = request.POST.dict() if request.POST else request.body
-        if isinstance(report_data, bytes):
-            report_data = json.loads(report_data.decode('utf-8'))
+        # Use request.body directly and parse JSON
+        report_data = json.loads(request.body.decode('utf-8'))
 
         student_data = report_data.get('studentData', {})
         attendance_data = report_data.get('attendanceData', {})
@@ -38,14 +37,14 @@ def generate_pdf_view(request):
                 lesson_date = datetime.datetime.strptime(lesson['date'], '%Y-%m-%d').strftime('%d %b %Y') if lesson.get('date') else 'N/A'
                 planned_topic = lesson.get('planned_topic', 'N/A')
                 achieved_topic = lesson.get('achieved_topic', 'N/A')
-                achieved_icon = '<span style="color: green; margin-left: 5px;">✓</span>' if planned_topic == achieved_topic and achieved_topic else ''
+                achieved_icon = '✓' if planned_topic == achieved_topic and achieved_topic else ''
                 chunk_rows += f'<tr><td>{lesson_date}</td><td>{planned_topic}</td><td>{achieved_topic}{achieved_icon}</td></tr>'
-            chunk_html = f'<div class="lesson-chunk{" first-chunk" if i == 0 else ""}"><table><thead><tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr></thead><tbody>{chunk_rows}</tbody></table></div>'
+            chunk_html = f'<div class="lesson-chunk{' first-chunk' if i == 0 else ''}"><table><thead><tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr></thead><tbody>{chunk_rows}</tbody></table></div>'
             lesson_chunks_html += chunk_html
 
         images_html = ''
         for i, img in enumerate(selected_images + [None] * (4 - len(selected_images))):
-            image_content = f'<div style="text-align: center; width: 100%;"><img src="{img}" alt="Progress {i + 1}" onerror="this.onerror=null; this.parentElement.innerHTML=\'<span class=\\\'placeholder\\\'>[Image Failed to Load]</span>\'"><p>Image {i + 1}</p></div>' if img else '<span class="placeholder">[No Image]</span>'
+            image_content = f'<div><img src="{img}" alt="Progress {i + 1}" onerror="this.onerror=null; this.parentElement.innerHTML=\'[Image Failed to Load]\'"><p>Image {i + 1}</p></div>' if img else '[No Image]'
             images_html += f'<div class="image-slot">{image_content}</div>'
 
         attendance_text = 'No school days recorded' if not attendance_data or attendance_data.get('total_days', 0) == 0 else f"{attendance_data.get('present_days', 0)}/{attendance_data.get('total_days', 0)} days ({attendance_percentage:.2f}%)"
