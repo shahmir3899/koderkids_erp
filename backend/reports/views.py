@@ -6,14 +6,39 @@ from rest_framework.response import Response
 import weasyprint
 import datetime
 import json
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def generate_pdf_view(request):
     try:
-        # Use request.body directly and parse JSON
-        report_data = json.loads(request.body.decode('utf-8'))
+        # Parse and sanitize JSON input
+        logger.info("Received request to generate PDF")
+        try:
+            report_data = json.loads(request.body.decode('utf-8'))
+            logger.debug(f"Raw report_data: {report_data}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {str(e)}")
+            return Response({"error": "Invalid JSON data"}, status=400)
+
+        # Sanitize string fields to ensure UTF-8 compatibility
+        def sanitize_dict(d):
+            for key, value in d.items():
+                if isinstance(value, dict):
+                    sanitize_dict(value)
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict):
+                            sanitize_dict(item)
+                elif isinstance(value, str):
+                    d[key] = value.encode('utf-8', errors='ignore').decode('utf-8')
+
+        sanitize_dict(report_data)
+        logger.debug(f"Sanitized report_data: {report_data}")
 
         student_data = report_data.get('studentData', {})
         attendance_data = report_data.get('attendanceData', {})
@@ -24,6 +49,7 @@ def generate_pdf_view(request):
         attendance_status_color = report_data.get('attendanceStatusColor', 'gray')
 
         if not student_data.get('reg_num'):
+            logger.warning("Missing reg_num in studentData")
             return Response({"error": "studentData.reg_num is required"}, status=400)
 
         max_rows_per_page = 10
@@ -38,87 +64,60 @@ def generate_pdf_view(request):
                 planned_topic = lesson.get('planned_topic', 'N/A')
                 achieved_topic = lesson.get('achieved_topic', 'N/A')
                 achieved_icon = '✓' if planned_topic == achieved_topic and achieved_topic else ''
-                chunk_rows += f'<tr><td>{lesson_date}</td><td>{planned_topic}</td><td>{achieved_topic}{achieved_icon}</td></tr>'
-            chunk_html = f'<div class="lesson-chunk{" first-chunk" if i == 0 else ""}"><table><thead><tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr></thead><tbody>{chunk_rows}</tbody></table></div>'
+                chunk_rows += f'	{lesson_date}	{planned_topic}	{achieved_topic}{achieved_icon}\n'
+            chunk_html = f'	Date	Planned Topic	Achieved Topic\n\n{chunk_rows}\n'
             lesson_chunks_html += chunk_html
 
         images_html = ''
         for i, img in enumerate(selected_images + [None] * (4 - len(selected_images))):
-            image_content = f'<div><img src="{img}" alt="Progress {i + 1}" onerror="this.onerror=null; this.parentElement.innerHTML=\'[Image Failed to Load]\'"><p>Image {i + 1}</p></div>' if img else '[No Image]'
-            images_html += f'<div class="image-slot">{image_content}</div>'
+            image_content = f'Image {i + 1}\n\n' if img else '[No Image]'
+            images_html += f'{image_content}\n'
 
         attendance_text = 'No school days recorded' if not attendance_data or attendance_data.get('total_days', 0) == 0 else f"{attendance_data.get('present_days', 0)}/{attendance_data.get('total_days', 0)} days ({attendance_percentage:.2f}%)"
 
-        logo_url = request.build_absolute_uri('/static/logo.png')
-        header_html = f'<div class="header"><h2>Monthly Student Report</h2><img src="{logo_url}" alt="School Logo" onerror="this.onerror=null; this.src=\'https://via.placeholder.com/40\';"></div>'
+        # Temporarily comment out logo to isolate issue
+        # logo_url = request.build_absolute_uri('/static/logo.png')
+        # header_html = f'<img src="{logo_url}" alt="Koder Kids Logo" style="width: 100px; height: auto;" />\n\nMonthly Student Report\n\n'
+        header_html = f'Monthly Student Report\n\n'
 
         html_content = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Student Report</title>
-            <style>
-                @page {{ size: A4; margin: 5mm; }}
-                body {{ margin: 0; font-family: 'Roboto', sans-serif; color: #333; }}
-                .report-container {{ width: 210mm; padding: 10mm; background-color: #f9f9f9; }}
-                .header {{ padding: 10mm; display: flex; justify-content: space-between; align-items: center; }}
-                .header h2 {{ font-size: 24px; }}
-                .header img {{ height: 40px; border-radius: 5px; }}
-                .student-details {{ padding: 5mm; border-bottom: 2px solid #4A90E2; }}
-                .student-details p {{ margin: 3px 0; font-size: 14px; }}
-                .attendance {{ padding: 5mm; background-color: rgba(46, 204, 113, 0.1); }}
-                .attendance p {{ margin: 3px 0; }}
-                .lessons {{ margin-top: 10mm; }}
-                .lessons table {{ width: 100%; border-collapse: collapse; }}
-                .lessons th, .lessons td {{ padding: 8px; border: 1px solid #ddd; }}
-                .images {{ margin-top: 10mm; }}
-                .images-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm; }}
-                .image-slot {{ border: 1px solid #ddd; padding: 5mm; text-align: center; }}
-                .placeholder {{ font-style: italic; color: #999; }}
-            </style>
-        </head>
+        <html>
         <body>
-            <div class="report-container">
-                {header_html}
-                <div class="student-details">
-                    <h3>Student Details</h3>
-                    <p><strong>Name:</strong> {student_data.get('name', 'N/A')}</p>
-                    <p><strong>Reg Num:</strong> {student_data.get('reg_num', 'N/A')}</p>
-                    <p><strong>School:</strong> {student_data.get('school', 'N/A')}</p>
-                    <p><strong>Class:</strong> {student_data.get('class', 'N/A')}</p>
-                    <p><strong>Month:</strong> {formatted_month or 'N/A'}</p>
-                </div>
-                <div class="attendance">
-                    <h3>Attendance</h3>
-                    <p>{attendance_text} <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {attendance_status_color};"></span></p>
-                </div>
-                <div class="lessons">
-                    <h3>Lessons Overview</h3>
-                    {lesson_chunks_html if lesson_chunks else '<p>No lessons recorded</p>'}
-                </div>
-                <div class="images">
-                    <h3>Progress Images</h3>
-                    <div class="images-grid">
-                        {images_html}
-                    </div>
-                </div>
-            </div>
+            {header_html}
+            <h3>Student Details</h3>
+            <p>Name: {student_data.get('name', 'N/A')}</p>
+            <p>Reg Num: {student_data.get('reg_num', 'N/A')}</p>
+            <p>School: {student_data.get('school', 'N/A')}</p>
+            <p>Class: {student_data.get('class', 'N/A')}</p>
+            <p>Month: {formatted_month or 'N/A'}</p>
+
+            <h3>Attendance</h3>
+            <p>{attendance_text}</p>
+
+            <h3>Lessons Overview</h3>
+            <pre>{lesson_chunks_html if lesson_chunks else 'No lessons recorded\n'}</pre>
+
+            <h3>Progress Images</h3>
+            <pre>{images_html}</pre>
         </body>
         </html>
         """
 
+        logger.debug("Generating PDF with WeasyPrint")
         pdf_file = weasyprint.HTML(string=html_content, base_url=request.build_absolute_uri('/')).write_pdf()
+        logger.info("PDF generated successfully")
 
         name = student_data.get('name', 'Unknown').replace(' ', '_')
         reg_num = student_data.get('reg_num', 'Unknown')
         filename = f"Student_Report_{name}_{reg_num}.pdf"
 
-        response = Response(pdf_file, content_type='application/pdf')
+        # Use HttpResponse to avoid JSON serialization
+        response = HttpResponse(pdf_file, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         response['Content-Length'] = len(pdf_file)
+        logger.info(f"Returning PDF response: {filename}")
         return response
 
     except Exception as e:
+        logger.error(f"Error generating PDF: {str(e)}", exc_info=True)
         return Response({"error": f"Error generating PDF: {str(e)}"}, status=500)
