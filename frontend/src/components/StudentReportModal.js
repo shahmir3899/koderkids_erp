@@ -14,21 +14,17 @@ const isValidDate = (dateStr) => {
 
 // Utility function to extract date from filename
 const extractDateFromFilename = (filename) => {
-  // Extract filename from URL (remove query params and path)
   const name = filename.split('/').pop().split('?')[0];
-  // Match YYYYMMDD or YYYY-MM-DD formats
   const dateMatch = name.match(/(\d{4})(\d{2})(\d{2})|(\d{4})-(\d{2})-(\d{2})/);
   if (dateMatch) {
     if (dateMatch[1]) {
-      // YYYYMMDD format
       const [_, year, month, day] = dateMatch;
       return `${year}-${month}-${day}`;
     } else {
-      // YYYY-MM-DD format
       return dateMatch[4] + '-' + dateMatch[5] + '-' + dateMatch[6];
     }
   }
-  return "Unknown Date"; // Fallback if no date is found
+  return "Unknown Date";
 };
 
 // Utility function to get all months between two dates
@@ -43,10 +39,20 @@ const getMonthsBetweenDates = (startDate, endDate) => {
     const month = String(current.getMonth() + 1).padStart(2, "0");
     months.add(`${year}-${month}`);
     current.setMonth(current.getMonth() + 1);
-    current.setDate(1); // Move to first of next month
+    current.setDate(1);
   }
   
   return Array.from(months);
+};
+
+// Utility function to split lessons into page-sized chunks
+const splitLessonsIntoPages = (lessons) => {
+  const maxRowsPerPage = 10; // Adjust based on row height (approx 10 rows fit in ~200mm)
+  const chunks = [];
+  for (let i = 0; i < lessons.length; i += maxRowsPerPage) {
+    chunks.push(lessons.slice(i, i + maxRowsPerPage));
+  }
+  return chunks;
 };
 
 const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate, endDate }) => {
@@ -59,6 +65,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
   const [showImageSelection, setShowImageSelection] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("Loading student details...");
+  const [generating, setGenerating] = useState(false);
   const reportRef = useRef(null);
 
   const getDateList = () => {
@@ -85,7 +92,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
   };
 
   const dateList = getDateList();
-  const reportData = [];
 
   const fetchReportData = useCallback(async () => {
     setErrorMessage("");
@@ -104,7 +110,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
       } else if (mode === "range" && startDate && endDate && isValidDate(startDate) && isValidDate(endDate)) {
         fromDate = startDate;
         toDate = endDate;
-        // reportMonth is not used directly for images in range mode
       } else {
         setErrorMessage("Invalid date selection. Please use YYYY-MM-DD format.");
         setIsDataLoaded(true);
@@ -117,7 +122,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
 
       const axiosInstance = axios.create();
 
-      // Fetch student details
       setLoadingMessage("Loading student details...");
       const studentRes = await axiosInstance.get(
         `${process.env.REACT_APP_API_URL}/api/student-details/?student_id=${studentId}`,
@@ -129,7 +133,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
         setErrorMessage((prev) => prev + " Failed to fetch student details. ");
       }
 
-      // Fetch attendance data
       setLoadingMessage("Fetching attendance data...");
       const attendanceRes = await axiosInstance.get(
         `${process.env.REACT_APP_API_URL}/api/attendance-count/?student_id=${studentId}&start_date=${fromDate}&end_date=${toDate}`,
@@ -141,7 +144,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
         setErrorMessage((prev) => prev + " Failed to fetch attendance data. ");
       }
 
-      // Fetch lessons data
       setLoadingMessage("Fetching lessons data...");
       const lessonsRes = await axiosInstance.get(
         `${process.env.REACT_APP_API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${fromDate}&end_date=${toDate}`,
@@ -153,7 +155,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
         setErrorMessage((prev) => prev + " Failed to fetch lessons data. ");
       }
 
-      // Fetch progress images
       setLoadingMessage("Fetching progress images...");
       let allProgressImages = [];
       
@@ -186,9 +187,21 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
             setErrorMessage((prev) => prev + ` Failed to fetch progress images for ${month}. `);
           }
         }
-        // Deduplicate images based on URL
         allProgressImages = Array.from(new Set(allProgressImages));
       }
+
+      const preloadPromises = allProgressImages.map((url) => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.src = url;
+          img.onload = resolve;
+          img.onerror = () => {
+            console.error(`Failed to preload image: ${url}`);
+            resolve();
+          };
+        });
+      });
+      await Promise.all(preloadPromises);
 
       setProgressImages(allProgressImages);
       if (allProgressImages.length > 4) {
@@ -260,21 +273,65 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
       return;
     }
 
-    html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      logging: true,
-      width: element.scrollWidth,
-      height: element.scrollHeight,
-    }).then((canvas) => {
-      const link = document.createElement("a");
-      link.download = `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.png`;
-      link.href = canvas.toDataURL("image/png", 1.0);
-      link.click();
-      window.open(canvas.toDataURL("image/png", 1.0), "_blank");
-      onClose();
-    }).catch((error) => console.error("Error generating HD image:", error));
+    setGenerating(true);
+
+    const hiddenContainer = document.createElement("div");
+    hiddenContainer.style.position = "absolute";
+    hiddenContainer.style.left = "-9999px";
+    hiddenContainer.style.width = "210mm";
+    hiddenContainer.style.height = "auto";
+    const clonedElement = element.cloneNode(true);
+    hiddenContainer.appendChild(clonedElement);
+    document.body.appendChild(hiddenContainer);
+
+    const images = clonedElement.querySelectorAll("img");
+    const loadPromises = Array.from(images).map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = () => {
+          console.error(`Failed to load image: ${img.src}`);
+          resolve();
+        };
+      });
+    });
+
+    Promise.all(loadPromises).then(() => {
+      html2canvas(clonedElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: true,
+        width: clonedElement.scrollWidth,
+        height: clonedElement.scrollHeight,
+        windowWidth: clonedElement.scrollWidth,
+        windowHeight: clonedElement.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (doc, cloned) => {
+          console.log("Cloned element dimensions:", {
+            width: cloned.scrollWidth,
+            height: cloned.scrollHeight,
+          });
+        },
+      })
+        .then((canvas) => {
+          console.log("Canvas dimensions:", {
+            width: canvas.width,
+            height: canvas.height,
+          });
+          const link = document.createElement("a");
+          link.download = `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.png`;
+          link.href = canvas.toDataURL("image/png", 1.0);
+          link.click();
+          window.open(canvas.toDataURL("image/png", 1.0), "_blank");
+        })
+        .catch((error) => console.error("Error generating HD image:", error))
+        .finally(() => {
+          document.body.removeChild(hiddenContainer);
+          setGenerating(false);
+        });
+    });
   };
 
   const generatePDF = () => {
@@ -294,20 +351,70 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
       return;
     }
 
-    const pdfOptions = {
-      margin: [5, 5, 5, 5],
-      filename: `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["css", "legacy"], avoid: ["table", "div"], after: ["#student-report"], strict: "true" },
-    };
+    setGenerating(true);
 
-    html2pdf().from(element).set(pdfOptions).toPdf().get("pdf").then((pdf) => {
-      window.open(pdf.output("bloburl"), "_blank");
-      pdf.save(pdfOptions.filename);
-      onClose();
-    }).catch((error) => console.error("Error generating PDF:", error));
+    const hiddenContainer = document.createElement("div");
+    hiddenContainer.style.position = "absolute";
+    hiddenContainer.style.left = "-9999px";
+    hiddenContainer.style.width = "210mm";
+    hiddenContainer.style.height = "auto";
+    const clonedElement = element.cloneNode(true);
+    hiddenContainer.appendChild(clonedElement);
+    document.body.appendChild(hiddenContainer);
+
+    const images = clonedElement.querySelectorAll("img");
+    const loadPromises = Array.from(images).map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = () => {
+          console.error(`Failed to load image: ${img.src}`);
+          resolve();
+        };
+      });
+    });
+
+    Promise.all(loadPromises).then(() => {
+      const pdfOptions = {
+        margin: [5, 5, 5, 5],
+        filename: `Student_Report_${studentData.name.replace(/\s+/g, "_")}_${studentData.reg_num}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          width: clonedElement.scrollWidth,
+          height: clonedElement.scrollHeight,
+          windowWidth: clonedElement.scrollWidth,
+          windowHeight: clonedElement.scrollHeight,
+          scrollX: 0,
+          scrollY: 0,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: {
+          mode: ["css", "legacy"],
+          avoid: [".image-slot", "tr"], // Prevent breaking images and table rows
+          before: [".section-break-before"],
+          after: [".section-break-after"],
+        },
+      };
+
+      html2pdf()
+        .from(clonedElement)
+        .set(pdfOptions)
+        .toPdf()
+        .get("pdf")
+        .then((pdf) => {
+          console.log("PDF page count:", pdf.internal.getNumberOfPages());
+          window.open(pdf.output("bloburl"), "_blank");
+          pdf.save(pdfOptions.filename);
+        })
+        .catch((error) => console.error("Error generating PDF:", error))
+        .finally(() => {
+          document.body.removeChild(hiddenContainer);
+          setGenerating(false);
+        });
+    });
   };
 
   if (!isDataLoaded) {
@@ -342,12 +449,13 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
   }
 
   const imageSlots = [...selectedImages, ...Array(4 - selectedImages.length).fill(null)];
-
-  // Calculate attendance percentage for status indicator
   const attendancePercentage = attendanceData?.total_days > 0
     ? (attendanceData.present_days / attendanceData.total_days) * 100
     : 0;
   const attendanceStatusColor = attendancePercentage > 80 ? "green" : attendancePercentage < 60 ? "red" : "orange";
+
+  // Split lessons into page-sized chunks
+  const lessonChunks = lessonsData?.lessons?.length > 0 ? splitLessonsIntoPages(lessonsData.lessons) : [];
 
   return (
     <div
@@ -360,7 +468,8 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
         background: "rgba(0, 0, 0, 0.5)",
         display: "flex",
         justifyContent: "center",
-        alignItems: "center",
+        alignItems: "flex-start",
+        paddingTop: "20px",
         zIndex: 1000,
       }}
       role="dialog"
@@ -373,9 +482,10 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
           borderRadius: "8px",
           maxWidth: "800px",
           width: "100%",
-          maxHeight: "90vh",
-          overflowY: "auto",
+          height: "auto",
+          overflowY: "visible",
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         <h2 id="modal-title" style={{ marginBottom: "10px" }}>
           Student Report Preview
@@ -383,6 +493,11 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
         {errorMessage && (
           <p style={{ color: "red", marginBottom: "10px" }} role="alert">
             {errorMessage}
+          </p>
+        )}
+        {generating && (
+          <p style={{ color: "blue", marginBottom: "10px" }}>
+            Generating file, please wait...
           </p>
         )}
 
@@ -407,7 +522,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                     onKeyDown={(e) => e.key === "Enter" && toggleImageSelection(img)}
                     style={{
                       width: "100px",
-                      height: "130px", // Increased height to accommodate date
+                      height: "130px",
                       position: "relative",
                       cursor: "pointer",
                       border: selectedImages.includes(img)
@@ -470,13 +585,12 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
           </div>
         )}
 
-        {/* Report Section with Fixed Layout */}
         <div
           ref={reportRef}
           id="student-report"
           style={{
             width: "210mm",
-            minHeight: "297mm",
+            height: "auto",
             padding: "10mm",
             backgroundColor: "#f9f9f9",
             boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
@@ -485,9 +599,9 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
             boxSizing: "border-box",
             display: "flex",
             flexDirection: "column",
+            position: "relative",
           }}
         >
-          {/* Watermark */}
           <div
             style={{
               position: "absolute",
@@ -505,7 +619,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
             {studentData?.school}
           </div>
 
-          {/* Header */}
           <div
             style={{
               background: "linear-gradient(90deg, #4A90E2, #ffffff)",
@@ -535,14 +648,15 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
             />
           </div>
 
-          {/* Main Content Area */}
-          <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", gap: "10mm" }}>
-            {/* Student Information */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10mm" }}>
+            {/* Student Details Section */}
             <div
+              className="section-break-after"
               style={{
                 padding: "5mm",
                 borderBottom: "2px solid #4A90E2",
                 lineHeight: "1.6",
+                pageBreakAfter: "always", // Force page break after this section
               }}
             >
               <h3
@@ -573,7 +687,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
               </p>
             </div>
 
-            {/* Attendance */}
+            {/* Attendance Section */}
             <div
               style={{
                 padding: "5mm",
@@ -583,6 +697,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                 display: "flex",
                 alignItems: "center",
                 gap: "10px",
+                pageBreakInside: "avoid", // Prevent breaking this section
               }}
             >
               <span style={{ fontSize: "20px", color: "#2ECC71" }}>✅</span>
@@ -616,8 +731,8 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
               </div>
             </div>
 
-            {/* Lessons Overview */}
-            <div style={{ flex: "1 1 auto", overflow: "auto" }}>
+            {/* Lessons Overview Section */}
+            <div className="section-break-before" style={{ pageBreakBefore: "always" }}>
               <h3
                 style={{
                   fontFamily: "'Montserrat', sans-serif",
@@ -629,63 +744,73 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
               >
                 <span style={{ fontSize: "20px", marginRight: "5px" }}>📖</span> Lessons Overview
               </h3>
-              {lessonsData?.lessons?.length === 0 || !lessonsData ? (
+              {lessonChunks.length === 0 || !lessonsData ? (
                 <p style={{ color: "#666", fontStyle: "italic", fontSize: "14px", textAlign: "center" }}>
                   No lessons found for the selected date range.
                 </p>
               ) : (
-                <div style={{ maxHeight: "80mm", overflowY: "auto" }}>
-                  <table
+                lessonChunks.map((chunk, chunkIndex) => (
+                  <div
+                    key={chunkIndex}
+                    className={chunkIndex > 0 ? "section-break-before" : ""}
                     style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
-                      borderRadius: "5px",
-                      overflow: "hidden",
+                      pageBreakBefore: chunkIndex > 0 ? "always" : "auto",
+                      marginBottom: "5mm",
                     }}
-                    aria-label="Lessons achieved for the month"
                   >
-                    <thead>
-                      <tr style={{ backgroundColor: "#4A90E2", color: "white" }}>
-                        <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>📅 Date</th>
-                        <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>Planned Topic</th>
-                        <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>Achieved Topic</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lessonsData?.lessons?.map((lesson, index) => (
-                        <tr
-                          key={index}
-                          style={{
-                            backgroundColor: index % 2 === 0 ? "#f5f5f5" : "white",
-                          }}
-                        >
-                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>
-                            {new Date(lesson.date).toLocaleDateString("en-US", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            }) || "N/A"}
-                          </td>
-                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>
-                            {lesson.planned_topic || "N/A"}
-                          </td>
-                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>
-                            {lesson.achieved_topic || "N/A"}
-                            {lesson.planned_topic === lesson.achieved_topic && lesson.achieved_topic && (
-                              <span style={{ color: "green", marginLeft: "5px" }}>✓</span>
-                            )}
-                          </td>
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
+                        borderRadius: "5px",
+                        overflow: "visible",
+                      }}
+                      aria-label={`Lessons achieved for the month - Part ${chunkIndex + 1}`}
+                    >
+                      <thead>
+                        <tr style={{ backgroundColor: "#4A90E2", color: "white" }}>
+                          <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>📅 Date</th>
+                          <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>Planned Topic</th>
+                          <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold" }}>Achieved Topic</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {chunk.map((lesson, index) => (
+                          <tr
+                            key={index}
+                            style={{
+                              backgroundColor: (chunkIndex * 10 + index) % 2 === 0 ? "#f5f5f5" : "white",
+                              pageBreakInside: "avoid", // Prevent row from breaking
+                            }}
+                          >
+                            <td style={{ padding: "8px", border: "1px solid #ddd" }}>
+                              {new Date(lesson.date).toLocaleDateString("en-US", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }) || "N/A"}
+                            </td>
+                            <td style={{ padding: "8px", border: "1px solid #ddd" }}>
+                              {lesson.planned_topic || "N/A"}
+                            </td>
+                            <td style={{ padding: "8px", border: "1px solid #ddd" }}>
+                              {lesson.achieved_topic || "N/A"}
+                              {lesson.planned_topic === lesson.achieved_topic && lesson.achieved_topic && (
+                                <span style={{ color: "green", marginLeft: "5px" }}>✓</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))
               )}
             </div>
 
-            {/* Progress Images */}
-            <div>
+            {/* Progress Images Section */}
+            <div className="section-break-before" style={{ pageBreakBefore: "always" }}>
               <h3
                 style={{
                   fontFamily: "'Montserrat', sans-serif",
@@ -707,17 +832,19 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(2, 1fr)",
-                  gridTemplateRows: "repeat(2, 60mm)",
+                  gridTemplateRows: "repeat(2, 50mm)", // Reduced height to fit on one page
                   gap: "8mm",
                   padding: "5mm",
                   backgroundColor: "white",
                   borderRadius: "5px",
                   boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
+                  pageBreakInside: "avoid", // Prevent the entire grid from breaking
                 }}
               >
                 {imageSlots.map((img, index) => (
                   <div
                     key={index}
+                    className="image-slot"
                     style={{
                       width: "100%",
                       height: "100%",
@@ -728,6 +855,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                       justifyContent: "center",
                       backgroundColor: "#f5f5f5",
                       overflow: "hidden",
+                      pageBreakInside: "avoid", // Prevent individual image slots from breaking
                     }}
                   >
                     {img ? (
@@ -758,7 +886,6 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
             </div>
           </div>
 
-          {/* Footer */}
           <div
             style={{
               borderTop: "1px solid #ddd",
@@ -767,6 +894,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
               color: "#666",
               marginTop: "10mm",
               flexShrink: 0,
+              pageBreakInside: "avoid",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -774,7 +902,7 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
                 <p style={{ margin: "0 0 5px 0" }}>
                   Teacher’s Signature: <span style={{ borderBottom: "1px dotted #666", display: "inline-block", width: "100px" }}></span>
                 </p>
-                <p style={{ margin: 0 }}>Generated on: May 06, 2025</p>
+                <p style={{ margin: 0 }}>Generated on: May 16, 2025</p>
               </div>
               <div
                 style={{
@@ -793,13 +921,14 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
           <div>
             <button
               onClick={generateHDImage}
+              disabled={generating}
               style={{
                 padding: "10px 20px",
-                background: "blue",
+                background: generating ? "gray" : "blue",
                 color: "white",
                 border: "none",
                 borderRadius: "5px",
-                cursor: "pointer",
+                cursor: generating ? "not-allowed" : "pointer",
                 marginRight: "10px",
               }}
             >
@@ -807,13 +936,14 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
             </button>
             <button
               onClick={generatePDF}
+              disabled={generating}
               style={{
                 padding: "10px 20px",
-                background: "green",
+                background: generating ? "gray" : "green",
                 color: "white",
                 border: "none",
                 borderRadius: "5px",
-                cursor: "pointer",
+                cursor: generating ? "not-allowed" : "pointer",
               }}
             >
               📄 Generate PDF
@@ -821,13 +951,14 @@ const StudentReportModal = ({ onClose, studentId, mode, selectedMonth, startDate
           </div>
           <button
             onClick={onClose}
+            disabled={generating}
             style={{
               padding: "10px 20px",
               background: "red",
               color: "white",
               border: "none",
               borderRadius: "5px",
-              cursor: "pointer",
+              cursor: generating ? "not-allowed" : "pointer",
             }}
           >
             Cancel
