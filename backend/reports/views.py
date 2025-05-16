@@ -7,6 +7,7 @@ import weasyprint
 import datetime
 import json
 from django.conf import settings
+from rest_framework.response import Response
 
 @csrf_exempt  # Exempt from CSRF for Postman testing; remove in production with frontend
 @api_view(["POST"])
@@ -164,9 +165,14 @@ class GeneratePDFView(View):
             # Generate PDF using WeasyPrint
             pdf_file = weasyprint.HTML(string=html_content, base_url=request.build_absolute_uri('/')).write_pdf()
 
+            # Construct filename outside the f-string to avoid syntax issues
+            name = student_data.get('name', 'Unknown').replace(' ', '_')
+            reg_num = student_data.get('reg_num', 'Unknown')
+            filename = f"Student_Report_{name}_{reg_num}.pdf"
+
             # Set response headers for PDF download
             response = Response(pdf_file, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="Student_Report_{student_data.get('name', 'Unknown').replace(' ', '_')}_{student_data.get('reg_num', 'Unknown')}.pdf"'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
             response['Content-Length'] = len(pdf_file)
             return response
 
