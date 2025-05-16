@@ -7,6 +7,7 @@ import weasyprint
 import datetime
 import json
 
+
 class GeneratePDFView(View):
     def post(self, request, *args, **kwargs):
         try:
@@ -15,7 +16,7 @@ class GeneratePDFView(View):
             if isinstance(report_data, bytes):
                 report_data = json.loads(report_data.decode('utf-8'))
 
-            # Extract data (same structure as sent from the client)
+            # Extract data
             student_data = report_data.get('studentData', {})
             attendance_data = report_data.get('attendanceData', {})
             lessons_data = report_data.get('lessonsData', {})
@@ -32,7 +33,61 @@ class GeneratePDFView(View):
                 for i in range(0, len(lessons), max_rows_per_page)
             ]
 
-            # Generate HTML content for the report
+            # Generate lessons table rows separately to avoid nested f-strings
+            lesson_chunks_html = ''
+            for i, chunk in enumerate(lesson_chunks):
+                chunk_rows = ''
+                for lesson in chunk:
+                    lesson_date = (
+                        datetime.datetime.strptime(lesson['date'], '%Y-%m-%d').strftime('%d %b %Y')
+                        if lesson.get('date')
+                        else 'N/A'
+                    )
+                    planned_topic = lesson.get('planned_topic', 'N/A')
+                    achieved_topic = lesson.get('achieved_topic', 'N/A')
+                    achieved_icon = (
+                        '<span style="color: green; margin-left: 5px;">✓</span>'
+                        if planned_topic == achieved_topic and achieved_topic
+                        else ''
+                    )
+                    chunk_rows += (
+                        f'<tr>'
+                        f'<td>{lesson_date}</td>'
+                        f'<td>{planned_topic}</td>'
+                        f'<td>{achieved_topic}{achieved_icon}</td>'
+                        f'</tr>'
+                    )
+                chunk_html = (
+                    f'<div class="lesson-chunk{" first-chunk" if i == 0 else ""}">'
+                    f'<table>'
+                    f'<thead><tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr></thead>'
+                    f'<tbody>{chunk_rows}</tbody>'
+                    f'</table>'
+                    f'</div>'
+                )
+                lesson_chunks_html += chunk_html
+
+            # Generate images grid separately
+            images_html = ''
+            for i, img in enumerate(selected_images + [None] * (4 - len(selected_images))):
+                image_content = (
+                    f'<div style="text-align: center; width: 100%;">'
+                    f'<img src="{img}" alt="Progress {i + 1}">'
+                    f'<p>Image {i + 1}</p>'
+                    f'</div>'
+                    if img
+                    else '<span class="placeholder">[No Image]</span>'
+                )
+                images_html += f'<div class="image-slot">{image_content}</div>'
+
+            # Generate attendance section
+            attendance_text = (
+                'No school days recorded'
+                if not attendance_data or attendance_data.get('total_days', 0) == 0
+                else f"{attendance_data.get('present_days', 0)}/{attendance_data.get('total_days', 0)} days ({attendance_percentage:.2f}%)"
+            )
+
+            # Construct the full HTML
             html_content = f"""
             <!DOCTYPE html>
             <html lang="en">
@@ -155,7 +210,7 @@ class GeneratePDFView(View):
                         page-break-before: always;
                         margin-bottom: 5mm;
                     }}
-                    .lesson-chunk:first-child {{
+                    .lesson-chunk.first-chunk {{
                         page-break-before: avoid;
                     }}
                     .images {{
@@ -226,12 +281,10 @@ class GeneratePDFView(View):
             <body>
                 <div class="report-container">
                     <div class="watermark">{student_data.get('school', '')}</div>
-
                     <div class="header">
                         <h2>Monthly Student Report</h2>
                         <img src="{request.build_absolute_uri('/static/logo.png')}" alt="School Logo">
                     </div>
-
                     <div class="section student-details">
                         <h3>Student Details</h3>
                         <p><strong>Student Name:</strong> {student_data.get('name', 'N/A')}</p>
@@ -240,100 +293,27 @@ class GeneratePDFView(View):
                         <p><strong>Class:</strong> {student_data.get('class', 'N/A')}</p>
                         <p><strong>Month:</strong> {formatted_month or 'N/A'}</p>
                     </div>
-
                     <div class="section attendance">
                         <span class="icon">✔</span>
                         <div>
                             <h3>Attendance</h3>
                             <p>
-                                {
-                                    'No school days recorded' if not attendance_data or attendance_data.get('total_days', 0) == 0
-                                    else f"{attendance_data.get('present_days', 0)}/{attendance_data.get('total_days', 0)} days ({attendance_percentage:.2f}%)"
-                                }
+                                {attendance_text}
                                 <span class="status-dot" style="background-color: {attendance_status_color}"></span>
                             </p>
                         </div>
                     </div>
-
                     <div class="section lessons">
                         <h3>Lessons Overview</h3>
-                        {
-                            '<p style="color: #666; font-style: italic; font-size: 14px; text-align: center;">No lessons found for the selected date range.</p>'
-                            if not lesson_chunks
-                            else ''.join([
-                                f'''
-                                <div class="lesson-chunk{' first-chunk' if i == 0 else ''}">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Planned Topic</th>
-                                                <th>Achieved Topic</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {
-                                                ''.join([
-                                                    f"""
-                                                    <tr>
-                                                        <td>{
-                                                            datetime.datetime.strptime(lesson['date'], '%Y-%m-%d').strftime('%d %b %Y')
-                                                            if lesson.get('date')
-                                                            else 'N/A'
-                                                        }</td>
-                                                        <td>{lesson.get('planned_topic', 'N/A')}</td>
-                                                        <td>
-                                                            {lesson.get('achieved_topic', 'N/A')}
-                                                            {
-                                                                '<span style="color: green; margin-left: 5px;">✓</span>'
-                                                                if lesson.get('planned_topic') == lesson.get('achieved_topic') and lesson.get('achieved_topic')
-                                                                else ''
-                                                            }
-                                                        </td>
-                                                    </tr>
-                                                    """
-                                                    for lesson in chunk
-                                                ])
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                                '''
-                                for i, chunk in enumerate(lesson_chunks)
-                            ])
-                        }
+                        {'' if not lesson_chunks else lesson_chunks_html}
                     </div>
-
                     <div class="section images">
                         <h3>Progress Images</h3>
-                        {
-                            '<p style="color: red; margin-bottom: 10px; text-align: center;">No progress images available for this student.</p>'
-                            if not selected_images
-                            else ''
-                        }
+                        {'' if selected_images else '<p style="color: red; margin-bottom: 10px; text-align: center;">No progress images available for this student.</p>'}
                         <div class="images-grid">
-                            {
-                                ''.join([
-                                    f'''
-                                    <div class="image-slot">
-                                        {
-                                            f"""
-                                            <div style="text-align: center; width: 100%;">
-                                                <img src="{img}" alt="Progress {i + 1}">
-                                                <p>Image {i + 1}</p>
-                                            </div>
-                                            """
-                                            if img
-                                            else '<span class="placeholder">[No Image]</span>'
-                                        }
-                                    </div>
-                                    '''
-                                    for i, img in enumerate(selected_images + [None] * (4 - len(selected_images)))
-                                ])
-                            }
+                            {images_html}
                         </div>
                     </div>
-
                     <div class="footer">
                         <div class="flex">
                             <div>
