@@ -10,7 +10,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 import datetime
-import base64
 import requests
 from io import BytesIO
 
@@ -39,7 +38,10 @@ def generate_pdf(request):
 
             # Create PDF document
             response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="Student_Report_{student_data.get('name', 'Unknown')}_{student_data.get('reg_num', 'Unknown')}.pdf"'
+            # Fix the f-string syntax by using variables
+            student_name = student_data.get('name', 'Unknown')
+            student_reg_num = student_data.get('reg_num', 'Unknown')
+            response['Content-Disposition'] = f'attachment; filename="Student_Report_{student_name}_{student_reg_num}.pdf"'
             doc = SimpleDocTemplate(response, pagesize=A4, rightMargin=inch, leftMargin=inch, topMargin=inch, bottomMargin=inch)
             elements = []
 
@@ -47,7 +49,7 @@ def generate_pdf(request):
             styles = getSampleStyleSheet()
             title_style = ParagraphStyle(name='Title', fontSize=24, textColor=HEADER_BLUE, alignment=1)
             header_style = ParagraphStyle(name='Header', fontSize=18, textColor=HEADER_BLUE, spaceAfter=12)
-            normal_style = ParagraphStyle(name='Normal', fontSize=12, spaceAfter=6, wordWrap='CJK')  # Enable word wrapping
+            normal_style = ParagraphStyle(name='Normal', fontSize=12, spaceAfter=6, wordWrap='CJK')
 
             # Header
             elements.append(Paragraph("<b>Monthly Student Report</b>", title_style))
@@ -96,18 +98,18 @@ def generate_pdf(request):
                         Paragraph(lesson.get('planned_topic', 'N/A'), normal_style),
                         Paragraph(f"{lesson.get('achieved_topic', 'N/A')} {achieved_mark}", normal_style)
                     ])
-                lessons_table = Table(lessons_data_table, colWidths=[1.5*inch, 3.5*inch, 3.5*inch])  # Increased colWidths
+                lessons_table = Table(lessons_data_table, colWidths=[1.5*inch, 3.5*inch, 3.5*inch])
                 lessons_table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), TABLE_HEADER),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                     ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),  # Reduced font size to prevent overflow
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
                     ('BACKGROUND', (0, 1), (-1, -1), TABLE_ROW_LIGHT),
                     ('GRID', (0, 0), (-1, -1), 1, TABLE_BORDER),
                     ('LEADING', (0, 0), (-1, -1), 12),
-                    ('WORDWRAP', (0, 0), (-1, -1), True),  # Enable word wrapping
+                    ('WORDWRAP', (0, 0), (-1, -1), True),
                 ]))
                 elements.append(lessons_table)
             else:
@@ -123,7 +125,6 @@ def generate_pdf(request):
                 for j in range(2):
                     idx = i + j
                     if idx < len(image_slots) and image_slots[idx]:
-                        # Fetch and encode image (placeholder logic)
                         try:
                             response = requests.get(image_slots[idx], timeout=5)
                             response.raise_for_status()
