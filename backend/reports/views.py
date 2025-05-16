@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
@@ -38,7 +38,6 @@ def generate_pdf(request):
 
             # Create PDF document
             response = HttpResponse(content_type='application/pdf')
-            # Fix the f-string syntax by using variables
             student_name = student_data.get('name', 'Unknown')
             student_reg_num = student_data.get('reg_num', 'Unknown')
             response['Content-Disposition'] = f'attachment; filename="Student_Report_{student_name}_{student_reg_num}.pdf"'
@@ -130,9 +129,16 @@ def generate_pdf(request):
                             response.raise_for_status()
                             img_data = BytesIO(response.content)
                             img = ImageReader(img_data)
+                            # Resize image to fit within cell
+                            img_width, img_height = 2.4 * inch, 1.4 * inch
+                            img_ratio = img.getSize()[0] / img.getSize()[1]
+                            if img.getSize()[0] > img_width:
+                                img._width, img._height = img_width, img_width / img_ratio
+                            if img._height > img_height:
+                                img._width, img._height = img_height * img_ratio, img_height
                             row.append(img)
-                        except Exception:
-                            row.append(Paragraph(f"Image {idx + 1}<br/>(Failed to load)", normal_style))
+                        except Exception as e:
+                            row.append(Paragraph(f"Image {idx + 1}<br/>(Failed to load: {str(e)})", normal_style))
                     else:
                         row.append(Paragraph("No Image", normal_style))
                 image_table_data.append(row)
@@ -157,6 +163,6 @@ def generate_pdf(request):
             return response
 
         except Exception as e:
-            return Response({'error': 'An error occurred', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'Failed to generate PDF', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response({'error': 'Method not allowed'}, status=status.HTTP405_METHOD_NOT_ALLOWED)
