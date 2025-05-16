@@ -39,7 +39,7 @@ def generate_pdf_view(request):
                 achieved_topic = lesson.get('achieved_topic', 'N/A')
                 achieved_icon = '✓' if planned_topic == achieved_topic and achieved_topic else ''
                 chunk_rows += f'<tr><td>{lesson_date}</td><td>{planned_topic}</td><td>{achieved_topic}{achieved_icon}</td></tr>'
-            chunk_html = f'<div class="lesson-chunk{' first-chunk' if i == 0 else ''}"><table><thead><tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr></thead><tbody>{chunk_rows}</tbody></table></div>'
+            chunk_html = f'<div class="lesson-chunk{" first-chunk" if i == 0 else ""}"><table><thead><tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr></thead><tbody>{chunk_rows}</tbody></table></div>'
             lesson_chunks_html += chunk_html
 
         images_html = ''
