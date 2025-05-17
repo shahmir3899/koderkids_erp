@@ -5,11 +5,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, Frame, KeepInFrame
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, mm
 from reportlab.lib.utils import ImageReader
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 import datetime
 import requests
 from io import BytesIO
@@ -46,82 +46,90 @@ def generate_pdf(request):
         pdf_response['Content-Disposition'] = f'attachment; filename="Student_Report_{student_name}_{student_reg_num}.pdf"'
 
         # Define colors
-        HEADER_BLUE = colors.HexColor('#4A90E2')
-        ATTENDANCE_GREEN = colors.HexColor('#2ECC71')
-        TABLE_HEADER = colors.HexColor('#34495E')
-        FOOTER_GRAY = colors.HexColor('#7F8C8D')
-        TABLE_ROW_LIGHT = colors.HexColor('#F5F5F5')
-        TABLE_BORDER = colors.HexColor('#DDDDDD')
+        HEADER_BLUE = colors.HexColor('#2c3e50')  # Dark blue for headers
+        ACCENT_GREEN = colors.HexColor('#27ae60')  # Green for positive indicators
+        SECTION_BG = colors.HexColor('#f8f9fa')    # Light gray for section backgrounds
+        TEXT_COLOR = colors.HexColor('#333333')    # Dark gray for text
+        BORDER_COLOR = colors.HexColor('#dddddd')  # Light gray for borders
+        FOOTER_GRAY = colors.HexColor('#7f8c8d')   # Gray for footer text
 
         # Create PDF document
-        doc = SimpleDocTemplate(pdf_response, pagesize=A4, rightMargin=15*mm, leftMargin=15*mm, topMargin=20*mm, bottomMargin=15*mm)
+        doc = SimpleDocTemplate(
+            pdf_response, 
+            pagesize=A4, 
+            rightMargin=15*mm, 
+            leftMargin=15*mm, 
+            topMargin=15*mm, 
+            bottomMargin=15*mm
+        )
         elements = []
 
         # Styles
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(name='Title', fontSize=22, textColor=HEADER_BLUE, alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
-        header_style = ParagraphStyle(name='Header', fontSize=16, textColor=HEADER_BLUE, spaceAfter=6, fontName='Helvetica-Bold')
-        normal_style = ParagraphStyle(name='Normal', fontSize=10, spaceAfter=4, wordWrap='CJK', fontName='Helvetica')
-        footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=FOOTER_GRAY, alignment=TA_LEFT, leading=12)
+        title_style = ParagraphStyle(
+            name='Title', 
+            fontSize=18, 
+            textColor=HEADER_BLUE, 
+            alignment=TA_CENTER, 
+            spaceAfter=6, 
+            fontName='Helvetica-Bold'
+        )
+        header_style = ParagraphStyle(
+            name='Header', 
+            fontSize=14, 
+            textColor=HEADER_BLUE, 
+            spaceAfter=4, 
+            fontName='Helvetica-Bold',
+            underline=1
+        )
+        normal_style = ParagraphStyle(
+            name='Normal', 
+            fontSize=10, 
+            textColor=TEXT_COLOR,
+            spaceAfter=2, 
+            leading=12,
+            fontName='Helvetica'
+        )
+        footer_style = ParagraphStyle(
+            name='Footer', 
+            fontSize=8, 
+            textColor=FOOTER_GRAY, 
+            alignment=TA_LEFT, 
+            leading=10
+        )
 
-        # Logo
-        logo_url = 'https://koderkids-erp.onrender.com/static/logo.png'  # Replace with actual logo URL
-        try:
-            logo_response = requests.get(logo_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
-            logo_response.raise_for_status()
-            logo_data = BytesIO(logo_response.content)
-            logo = ImageReader(logo_data)
-            logo_width, logo_height = 50*mm, 15*mm
-            logo_ratio = logo.getSize()[0] / logo.getSize()[1]
-            if logo_ratio > logo_width / logo_height:
-                logo._width, logo._height = logo_width, logo_width / logo_ratio
-            else:
-                logo._width, logo._height = logo_height * logo_ratio, logo_height
-            logo.hAlign = 'CENTER'
-            elements.append(logo)
-        except Exception as e:
-            logger.error("Failed to load logo from %s: %s", logo_url, e)
-            elements.append(Paragraph("Mazen Schools Quaid Campus", title_style))  # Fallback to text
-        elements.append(Spacer(1, 10*mm))
-
-        # Header
+        # Header with school name
+        elements.append(Paragraph(student_data.get('school', 'School Name'), title_style))
         elements.append(Paragraph("Monthly Student Report", title_style))
-        elements.append(Paragraph("<hr/>", normal_style))
-        elements.append(Spacer(1, 10*mm))
+        elements.append(Spacer(1, 6*mm))
 
-        # Student Details
+        # Student Details Section
         elements.append(Paragraph("Student Details", header_style))
-        data_table = [
-            ['Name:', Paragraph(student_data.get('name', 'N/A'), normal_style)],
-            ['Registration Number:', Paragraph(student_data.get('reg_num', 'N/A'), normal_style)],
-            ['School:', Paragraph(student_data.get('school', 'N/A'), normal_style)],
-            ['Class:', Paragraph(student_data.get('class', 'N/A'), normal_style)],
-            ['Month/Date Range:', Paragraph(formatted_month, normal_style)],
+        details_content = [
+            Paragraph(f"<b>Name:</b> {student_data.get('name', 'N/A')}", normal_style),
+            Paragraph(f"<b>Registration Number:</b> {student_data.get('reg_num', 'N/A')}", normal_style),
+            Paragraph(f"<b>School:</b> {student_data.get('school', 'N/A')}", normal_style),
+            Paragraph(f"<b>Class:</b> {student_data.get('class', 'N/A')}", normal_style),
+            Paragraph(f"<b>Month/Date Range:</b> {formatted_month}", normal_style),
         ]
-        table = Table(data_table, colWidths=[40*mm, 120*mm])
-        table.setStyle(TableStyle([
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('LEADING', (0, 0), (-1, -1), 12),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('GRID', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
-            ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-            ('BOX', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        elements.append(table)
-        elements.append(Spacer(1, 10*mm))
+        elements.extend(details_content)
+        elements.append(Spacer(1, 6*mm))
 
-        # Attendance
+        # Attendance Section
         elements.append(Paragraph("Attendance", header_style))
         attendance_text = f"{attendance_data.get('present_days', 0)}/{attendance_data.get('total_days', 0)} days ({attendance_percentage:.2f}%)"
-        elements.append(Paragraph(attendance_text, ParagraphStyle(name='Attendance', fontSize=12, textColor=ATTENDANCE_GREEN, alignment=TA_CENTER)))
-        status_color = {'green': colors.green, 'orange': colors.orange, 'red': colors.red, 'gray': colors.gray}.get(attendance_status_color, colors.gray)
-        elements.append(Paragraph("<hr color='%s' width='20mm' height='5'/>" % status_color.hexval()[2:], normal_style))
-        elements.append(Spacer(1, 10*mm))
+        status_dot = f'<font color="{attendance_status_color}">●</font>'
+        attendance_para = Paragraph(
+            f"{attendance_text} {status_dot}", 
+            ParagraphStyle(
+                name='Attendance', 
+                fontSize=12, 
+                textColor=TEXT_COLOR, 
+                alignment=TA_LEFT
+            )
+        )
+        elements.append(attendance_para)
+        elements.append(Spacer(1, 6*mm))
 
         # Lessons Table
         elements.append(Paragraph("Lessons Overview", header_style))
@@ -134,24 +142,28 @@ def generate_pdf(request):
                     formatted_date = date_obj.strftime('%d %b %Y')
                 except ValueError:
                     formatted_date = date_str
-                achieved_mark = '<font color="green">✓</font>' if lesson.get('planned_topic') == lesson.get('achieved_topic') and lesson.get('achieved_topic') else ''
+                
+                achieved_mark = ''
+                if lesson.get('planned_topic') == lesson.get('achieved_topic') and lesson.get('achieved_topic'):
+                    achieved_mark = '<font color="green">✓</font>'
+                
                 lessons_data_table.append([
                     Paragraph(formatted_date, normal_style),
                     Paragraph(lesson.get('planned_topic', 'N/A'), normal_style),
                     Paragraph(f"{lesson.get('achieved_topic', 'N/A')} {achieved_mark}", normal_style)
                 ])
+
             lessons_table = Table(lessons_data_table, colWidths=[30*mm, 65*mm, 65*mm])
             lessons_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), TABLE_HEADER),
+                ('BACKGROUND', (0, 0), (-1, 0), HEADER_BLUE),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('LEADING', (0, 0), (-1, -1), 11),
-                ('BACKGROUND', (0, 1), (-1, -1), TABLE_ROW_LIGHT),
-                ('GRID', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
+                ('GRID', (0, 0), (-1, -1), 0.5, BORDER_COLOR),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, SECTION_BG]),
                 ('WORDWRAP', (0, 0), (-1, -1), True),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -159,7 +171,7 @@ def generate_pdf(request):
             elements.append(lessons_table)
         else:
             elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
-        elements.append(Spacer(1, 10*mm))
+        elements.append(Spacer(1, 6*mm))
 
         # Image Grid
         elements.append(Paragraph("Progress Images", header_style))
@@ -171,7 +183,6 @@ def generate_pdf(request):
                 idx = i + j
                 if idx < len(image_slots) and image_slots[idx]:
                     try:
-                        # Validate URL
                         if not image_slots[idx].startswith(('http://', 'https://')):
                             raise ValueError("Invalid URL scheme")
                         logger.info("Fetching image %d: %s", idx + 1, image_slots[idx])
@@ -193,25 +204,24 @@ def generate_pdf(request):
                 else:
                     row.append(Paragraph("No Image", normal_style))
             image_table_data.append(row)
+
         image_table = Table(image_table_data, colWidths=[80*mm, 80*mm], rowHeights=55*mm)
         image_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
-            ('BOX', (0, 0), (-1, -1), 0.5, TABLE_BORDER),
             ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+            ('BOX', (0, 0), (-1, -1), 0.5, BORDER_COLOR),
             ('TOPPADDING', (0, 0), (-1, -1), 4),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
         elements.append(image_table)
-        elements.append(Spacer(1, 10*mm))
+        elements.append(Spacer(1, 6*mm))
 
         # Footer
-        elements.append(Paragraph("<hr/>", normal_style))
         footer_text = (
-            f"Teacher’s Signature: ____________________<br/>"
+            f"Teacher's Signature: ____________________<br/>"
             f"Generated on: {datetime.datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}<br/>"
-            f"Powered by {student_data.get('school', 'Your School Name')}"
+            f"<i>Powered by {student_data.get('school', 'Your School Name')}</i>"
         )
         elements.append(Paragraph(footer_text, footer_style))
 
