@@ -5,19 +5,62 @@ from rest_framework.response import Response
 from rest_framework import status
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, Frame, KeepInFrame
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, mm
 from reportlab.lib.utils import ImageReader
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
 import datetime
 import requests
 from io import BytesIO
 import logging
+import urllib.parse
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def get_clean_image_url(url):
+    """Remove token parameter from Supabase URL if present"""
+    if not url:
+        return None
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if 'supabase.co' in parsed.netloc and 'token=' in parsed.query:
+            # Reconstruct URL without token
+            clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+            return clean_url
+        return url
+    except Exception as e:
+        logger.error(f"Error cleaning image URL: {str(e)}")
+        return url
+
+def fetch_image(url, timeout=15):
+    """Fetch image with proper headers and error handling"""
+    if not url:
+        return None
+        
+    clean_url = get_clean_image_url(url)
+    if not clean_url:
+        return None
+        
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://your-school-domain.com/'  # Add your domain if needed
+        }
+        
+        response = requests.get(clean_url, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        
+        # Validate image content
+        if not response.headers.get('Content-Type', '').startswith('image/'):
+            raise ValueError("URL does not point to an image")
+            
+        return BytesIO(response.content)
+    except Exception as e:
+        logger.error(f"Failed to fetch image from {clean_url}: {str(e)}")
+        return None
 
 @api_view(['POST'])
 @csrf_exempt
@@ -46,12 +89,12 @@ def generate_pdf(request):
         pdf_response['Content-Disposition'] = f'attachment; filename="Student_Report_{student_name}_{student_reg_num}.pdf"'
 
         # Define colors
-        HEADER_BLUE = colors.HexColor('#2c3e50')  # Dark blue for headers
-        ACCENT_GREEN = colors.HexColor('#27ae60')  # Green for positive indicators
-        SECTION_BG = colors.HexColor('#f8f9fa')    # Light gray for section backgrounds
-        TEXT_COLOR = colors.HexColor('#333333')    # Dark gray for text
-        BORDER_COLOR = colors.HexColor('#dddddd')  # Light gray for borders
-        FOOTER_GRAY = colors.HexColor('#7f8c8d')   # Gray for footer text
+        HEADER_BLUE = colors.HexColor('#2c3e50')
+        ACCENT_GREEN = colors.HexColor('#27ae60')
+        SECTION_BG = colors.HexColor('#f8f9fa')
+        TEXT_COLOR = colors.HexColor('#333333')
+        BORDER_COLOR = colors.HexColor('#dddddd')
+        FOOTER_GRAY = colors.HexColor('#7f8c8d')
 
         # Create PDF document
         doc = SimpleDocTemplate(
@@ -177,30 +220,32 @@ def generate_pdf(request):
         elements.append(Paragraph("Progress Images", header_style))
         image_slots = selected_images + [None] * (4 - len(selected_images))
         image_table_data = []
+        
         for i in range(0, 4, 2):
             row = []
             for j in range(2):
                 idx = i + j
                 if idx < len(image_slots) and image_slots[idx]:
                     try:
-                        if not image_slots[idx].startswith(('http://', 'https://')):
-                            raise ValueError("Invalid URL scheme")
-                        logger.info("Fetching image %d: %s", idx + 1, image_slots[idx])
-                        img_response = requests.get(image_slots[idx], timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
-                        img_response.raise_for_status()
-                        img_data = BytesIO(img_response.content)
-                        img = ImageReader(img_data)
-                        img_width, img_height = 75*mm, 50*mm
-                        img_ratio = img.getSize()[0] / img.getSize()[1]
-                        if img_ratio > img_width / img_height:
-                            img._width, img._height = img_width, img_width / img_ratio
+                        img_url = image_slots[idx]
+                        img_data = fetch_image(img_url)
+                        
+                        if img_data:
+                            img = ImageReader(img_data)
+                            img_width, img_height = 75*mm, 50*mm
+                            img_ratio = img.getSize()[0] / img.getSize()[1]
+                            
+                            if img_ratio > img_width / img_height:
+                                img._width, img._height = img_width, img_width / img_ratio
+                            else:
+                                img._width, img._height = img_height * img_ratio, img_height
+                                
+                            row.append(img)
                         else:
-                            img._width, img._height = img_height * img_ratio, img_height
-                        img.hAlign = 'CENTER'
-                        row.append(img)
+                            row.append(Paragraph(f"Image {idx+1} (Failed to load)", normal_style))
                     except Exception as e:
-                        logger.error("Failed to load image %d from %s: %s", idx + 1, image_slots[idx], e)
-                        row.append(Paragraph(f"Image {idx + 1} (Failed to load)", normal_style))
+                        logger.error(f"Error processing image {idx+1}: {str(e)}")
+                        row.append(Paragraph(f"Image {idx+1} (Error)", normal_style))
                 else:
                     row.append(Paragraph("No Image", normal_style))
             image_table_data.append(row)
