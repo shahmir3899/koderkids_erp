@@ -49,7 +49,7 @@ def fetch_image(url, timeout=15):
     if not clean_url:
         return None
     try:
-        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://koderkids.pk/'}
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://your-school-domain.com/'}
         response = requests.get(clean_url, headers=headers, timeout=timeout)
         response.raise_for_status()
         if not response.headers.get('Content-Type', '').startswith('image/'):
@@ -124,8 +124,10 @@ def student_report_data(request):
             "absent": next((item['count'] for item in attendance_records if item['status'] == "Absent"), 0),
             "not_marked": next((item['count'] for item in attendance_records if item['status'] == "N/A"), 0),
             "total_days": total_days,
-            "percentage": (attendance_data["present"] / total_days * 100) if total_days > 0 else 0
+            "percentage": 0.0  # Initialize percentage to 0
         }
+        if total_days > 0:
+            attendance_data["percentage"] = (attendance_data["present"] / total_days * 100)
 
         # Fetch lessons achieved
         planned_lessons = LessonPlan.objects.filter(
@@ -231,8 +233,10 @@ def generate_pdf(request):
             "absent": next((item['count'] for item in attendance_records if item['status'] == "Absent"), 0),
             "not_marked": next((item['count'] for item in attendance_records if item['status'] == "N/A"), 0),
             "total_days": total_days,
-            "percentage": (attendance_data["present"] / total_days * 100) if total_days > 0 else 0
+            "percentage": 0.0  # Initialize percentage to 0
         }
+        if total_days > 0:
+            attendance_data["percentage"] = (attendance_data["present"] / total_days * 100)
 
         planned_lessons = LessonPlan.objects.filter(
             session_date__range=[start_date, end_date],
@@ -473,8 +477,10 @@ def generate_pdf_batch(request):
                 "absent": next((item['count'] for item in attendance_records if item['status'] == "Absent"), 0),
                 "not_marked": next((item['count'] for item in attendance_records if item['status'] == "N/A"), 0),
                 "total_days": total_days,
-                "percentage": (attendance_data["present"] / total_days * 100) if total_days > 0 else 0
+                "percentage": 0.0  # Initialize percentage to 0
             }
+            if total_days > 0:
+                attendance_data["percentage"] = (attendance_data["present"] / total_days * 100)
 
             planned_lessons = LessonPlan.objects.filter(
                 session_date__range=[start_date, end_date],
