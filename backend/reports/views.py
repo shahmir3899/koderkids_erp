@@ -34,7 +34,7 @@ def get_clean_image_url(url):
     return url  # Keep the signed URL intact with token
 
 def fetch_image(url, timeout=15):
-    """Fetch image with proper headers, redirect handling, and error logging"""
+    """Fetch image with detailed error logging"""
     if not url:
         return None
     clean_url = get_clean_image_url(url)
@@ -42,18 +42,13 @@ def fetch_image(url, timeout=15):
         return None
     try:
         headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://koderkids-erp.onrender.com/'}
-        response = requests.get(clean_url, headers=headers, timeout=timeout, allow_redirects=True, stream=True)
+        response = requests.get(clean_url, headers=headers, timeout=timeout, allow_redirects=True)
+        logger.info(f"Fetching image from {clean_url} - Status: {response.status_code}, Headers: {response.headers}")
         response.raise_for_status()
-        if not response.headers.get('Content-Type', '').startswith('image/'):
-            raise ValueError(f"URL does not point to an image, Content-Type: {response.headers.get('Content-Type')}")
         img_data = BytesIO(response.content)
-        # Validate image data by checking if it can be read
-        img_reader = ImageReader(img_data)
-        img_reader.getSize()  # This will raise an exception if invalid
-        img_data.seek(0)  # Reset pointer after validation
         return img_data
     except requests.RequestException as e:
-        logger.error(f"Network error fetching image from {clean_url}: {str(e)}")
+        logger.error(f"Network error fetching image from {clean_url}: {str(e)} - Status: {getattr(response, 'status_code', 'N/A')}")
         return None
     except Exception as e:
         logger.error(f"Error processing image from {clean_url}: {str(e)}")
@@ -187,6 +182,7 @@ def generate_pdf(request):
         end_date = request.GET.get('end_date')  # YYYY-MM-DD
         school_id = request.GET.get('school_id')
         student_class = request.GET.get('student_class')
+        image_ids = request.GET.get('image_ids', '').split(',')  # Comma-separated list of image file names or indices
 
         # Validate inputs
         if not student_id or not mode or (mode == 'month' and not month) or (mode == 'range' and not (start_date and end_date)):
@@ -264,11 +260,28 @@ def generate_pdf(request):
             logger.error(f"Error fetching images for student {student_id}: {response['error']['message']}")
             image_urls = []
         else:
-            image_urls = [
+            all_images = [
                 supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(f"{folder_path}{file['name']}", 604800)['signedURL']
                 for file in response
                 if file["name"].startswith(month if mode == 'month' else start_date.strftime('%Y-%m'))
             ]
+            # Filter images based on image_ids (file names or indices)
+            if image_ids and image_ids[0]:
+                selected_images = []
+                for img_id in image_ids:
+                    try:
+                        idx = int(img_id) - 1  # Convert to 0-based index
+                        if 0 <= idx < len(all_images):
+                            selected_images.append(all_images[idx])
+                    except ValueError:
+                        # Treat as file name
+                        for img_url in all_images:
+                            if img_url.endswith(img_id):
+                                selected_images.append(img_url)
+                                break
+                image_urls = selected_images[:4]  # Limit to 4 even with selection
+            else:
+                image_urls = all_images[:4]  # Default to first 4 if no image_ids
 
         # Generate PDF
         buffer = BytesIO()
@@ -395,6 +408,7 @@ def generate_pdf(request):
 
         # Image Grid
         elements.append(Paragraph("Progress Images", header_style))
+        total_images = len(all_images)
         image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
         image_table_data = []
 
@@ -434,6 +448,10 @@ def generate_pdf(request):
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
         elements.append(image_table)
+
+        # Add note about total images
+        if total_images > 4:
+            elements.append(Paragraph(f"Note: Showing 4 of {total_images} images.", normal_style))
         elements.append(Spacer(1, 6*mm))
 
         # Footer
@@ -469,6 +487,7 @@ def generate_pdf_batch(request):
         end_date = data.get('end_date')  # YYYY-MM-DD
         school_id = data.get('school_id')
         student_class = data.get('student_class')
+        image_ids = data.get('image_ids', '').split(',')  # Comma-separated list of image file names or indices
 
         # Validate inputs
         if not student_ids or not mode or (mode == 'month' and not month) or (mode == 'range' and not (start_date and end_date)):
@@ -593,11 +612,28 @@ def generate_pdf_batch(request):
                 logger.error(f"Error fetching images for student {student_id}: {response['error']['message']}")
                 image_urls = []
             else:
-                image_urls = [
+                all_images = [
                     supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(f"{folder_path}{file['name']}", 604800)['signedURL']
                     for file in response
                     if file["name"].startswith(month if mode == 'month' else start_date.strftime('%Y-%m'))
                 ]
+                # Filter images based on image_ids (file names or indices)
+                if image_ids and image_ids[0]:
+                    selected_images = []
+                    for img_id in image_ids:
+                        try:
+                            idx = int(img_id) - 1  # Convert to 0-based index
+                            if 0 <= idx < len(all_images):
+                                selected_images.append(all_images[idx])
+                        except ValueError:
+                            # Treat as file name
+                            for img_url in all_images:
+                                if img_url.endswith(img_id):
+                                    selected_images.append(img_url)
+                                    break
+                    image_urls = selected_images[:4]  # Limit to 4 even with selection
+                else:
+                    image_urls = all_images[:4]  # Default to first 4 if no image_ids
 
             # Generate PDF
             pdf_buffer = BytesIO()
@@ -682,6 +718,7 @@ def generate_pdf_batch(request):
 
             # Image Grid
             elements.append(Paragraph("Progress Images", header_style))
+            total_images = len(all_images)
             image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
             image_table_data = []
 
@@ -721,6 +758,10 @@ def generate_pdf_batch(request):
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
             elements.append(image_table)
+
+            # Add note about total images
+            if total_images > 4:
+                elements.append(Paragraph(f"Note: Showing 4 of {total_images} images.", normal_style))
             elements.append(Spacer(1, 6*mm))
 
             # Footer
