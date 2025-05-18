@@ -17,12 +17,20 @@ import logging
 from supabase import create_client
 from django.conf import settings
 import requests
+import os
+import tempfile
 from io import BytesIO
 from zipfile import ZipFile
 import urllib.parse
 
-# Set up logging
+# Set up logging with forced output
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
@@ -34,25 +42,53 @@ def get_clean_image_url(url):
     return url  # Keep the signed URL intact with token
 
 def fetch_image(url, timeout=15):
-    """Fetch image with detailed error logging"""
+    """Fetch image with detailed error logging and temporary file fallback"""
     if not url:
+        logger.warning("No URL provided for fetching image")
         return None
     clean_url = get_clean_image_url(url)
     if not clean_url:
+        logger.warning("Invalid URL after cleaning")
         return None
     try:
         headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://koderkids-erp.onrender.com/'}
+        logger.debug(f"Attempting to fetch image from {clean_url}")
         response = requests.get(clean_url, headers=headers, timeout=timeout, allow_redirects=True)
         logger.info(f"Fetching image from {clean_url} - Status: {response.status_code}, Headers: {response.headers}")
         response.raise_for_status()
-        img_data = BytesIO(response.content)
-        return img_data
+
+        # Check content type (for debugging, not strict validation)
+        content_type = response.headers.get('Content-Type', '')
+        if not content_type.startswith('image/'):
+            logger.warning(f"Unexpected Content-Type: {content_type}, expected image/*")
+            logger.debug(f"Response content: {response.text[:500]}")  # Log first 500 chars of response
+
+        # Save to temporary file
+        temp_file = os.path.join(tempfile.gettempdir(), clean_url.split('/')[-1].split('?')[0])
+        with open(temp_file, 'wb') as f:
+            f.write(response.content)
+        logger.debug(f"Saved image to temporary file: {temp_file}")
+
+        # Verify the file
+        img_data = ImageReader(temp_file)
+        logger.debug(f"Successfully read image from temporary file: {temp_file}")
+        return temp_file  # Return file path for ImageReader
     except requests.RequestException as e:
         logger.error(f"Network error fetching image from {clean_url}: {str(e)} - Status: {getattr(response, 'status_code', 'N/A')}")
+        if 'response' in locals():
+            logger.debug(f"Response content: {response.text[:500]}")
         return None
     except Exception as e:
         logger.error(f"Error processing image from {clean_url}: {str(e)}")
         return None
+    finally:
+        # Clean up temporary file if it exists
+        if 'temp_file' in locals() and os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+                logger.debug(f"Cleaned up temporary file: {temp_file}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up temporary file {temp_file}: {str(e)}")
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -269,6 +305,7 @@ def generate_pdf(request):
             if image_ids and image_ids[0]:
                 selected_images = []
                 for img_id in image_ids:
+                    img_id = img_id.strip()  # Clean up any whitespace
                     try:
                         idx = int(img_id) - 1  # Convert to 0-based index
                         if 0 <= idx < len(all_images):
@@ -276,7 +313,7 @@ def generate_pdf(request):
                     except ValueError:
                         # Treat as file name
                         for img_url in all_images:
-                            if img_url.endswith(img_id):
+                            if img_url.split('/')[-1].split('?')[0] == img_id:
                                 selected_images.append(img_url)
                                 break
                 image_urls = selected_images[:4]  # Limit to 4 even with selection
@@ -419,6 +456,7 @@ def generate_pdf(request):
                 if idx < len(image_slots) and image_slots[idx]:
                     try:
                         img_url = image_slots[idx]
+                        logger.debug(f"Processing image {idx+1}: {img_url}")
                         img_data = fetch_image(img_url)
                         if img_data:
                             img = ImageReader(img_data)
@@ -621,6 +659,7 @@ def generate_pdf_batch(request):
                 if image_ids and image_ids[0]:
                     selected_images = []
                     for img_id in image_ids:
+                        img_id = img_id.strip()  # Clean up any whitespace
                         try:
                             idx = int(img_id) - 1  # Convert to 0-based index
                             if 0 <= idx < len(all_images):
@@ -628,7 +667,7 @@ def generate_pdf_batch(request):
                         except ValueError:
                             # Treat as file name
                             for img_url in all_images:
-                                if img_url.endswith(img_id):
+                                if img_url.split('/')[-1].split('?')[0] == img_id:
                                     selected_images.append(img_url)
                                     break
                     image_urls = selected_images[:4]  # Limit to 4 even with selection
@@ -729,6 +768,7 @@ def generate_pdf_batch(request):
                     if idx < len(image_slots) and image_slots[idx]:
                         try:
                             img_url = image_slots[idx]
+                            logger.debug(f"Processing image {idx+1}: {img_url}")
                             img_data = fetch_image(img_url)
                             if img_data:
                                 img = ImageReader(img_data)
