@@ -18,6 +18,7 @@ from supabase import create_client
 from django.conf import settings
 import requests
 from io import BytesIO
+import brotli
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ logger.addHandler(handler)
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 def fetch_image(url, timeout=15):
-    """Fetch image from URL and return a BytesIO object."""
+    """Fetch image from URL, decompress if necessary, and return a BytesIO object."""
     if not url:
         logger.warning("No URL provided for fetching image")
         return None
@@ -48,10 +49,30 @@ def fetch_image(url, timeout=15):
             logger.warning(f"Unexpected Content-Type: {content_type}, expected image/*")
             logger.debug(f"Response content: {response.content[:50]}")  # Log first 50 bytes
 
-        return BytesIO(response.content)
+        # Handle Brotli compression
+        content = response.content
+        if response.headers.get('Content-Encoding') == 'br':
+            logger.debug("Decompressing Brotli-encoded content")
+            content = brotli.decompress(content)
+        else:
+            logger.debug("No compression detected")
+
+        # Validate image data
+        img_buffer = BytesIO(content)
+        img_buffer.seek(0)
+        first_bytes = img_buffer.read(4)
+        img_buffer.seek(0)
+        if first_bytes not in [b'\xff\xd8\xff\xe0', b'\xff\xd8\xff\xe1', b'\x89PNG\r\n\x1a\n']:
+            logger.warning(f"Invalid image signature: {first_bytes.hex()}")
+            return None
+
+        return img_buffer
     except requests.RequestException as e:
         logger.error(f"Network error fetching image from {url}: {str(e)}")
         return None
+    except brotli.error as e:
+        logger.error(f"Brotli decompression error for {url}: {str(e)}")
+        return BytesIO(response.content)  # Fallback to raw content
     except Exception as e:
         logger.error(f"Error processing image from {url}: {str(e)}")
         return None
@@ -395,16 +416,20 @@ def generate_pdf(request):
                         img_url = image_slots[idx]
                         logger.debug(f"Processing image {idx+1}: {img_url}")
                         img_data = fetch_image(img_url)
-                        if img_data:
+                        if img_data and img_data.getbuffer().nbytes > 0:
                             img = ImageReader(img_data)
+                            logger.debug(f"Image size: {img.getSize()}")
+                            if img.getSize()[0] <= 0 or img.getSize()[1] <= 0:
+                                raise ValueException("Invalid image dimensions")
                             img_width, img_height = 75*mm, 50*mm
-                            img_ratio = img.getSize()[0] / img.getSize()[1]
+                            img_ratio = img.getSize()[0] / img.getSize()[1] if img.getSize()[1] > 0 else 1
                             if img_ratio > img_width / img_height:
                                 img._width, img._height = img_width, img_width / img_ratio
                             else:
                                 img._width, img._height = img_height * img_ratio, img_height
                             row.append(img)
                         else:
+                            logger.warning(f"Empty or invalid image data for {img_url}")
                             row.append(Paragraph(f"Image {idx+1} (Failed to load)", normal_style))
                     except Exception as e:
                         logger.error(f"Error processing image {idx+1} from {img_url}: {str(e)}")
@@ -686,16 +711,20 @@ def generate_pdf_batch(request):
                             img_url = image_slots[idx]
                             logger.debug(f"Processing image {idx+1}: {img_url}")
                             img_data = fetch_image(img_url)
-                            if img_data:
+                            if img_data and img_data.getbuffer().nbytes > 0:
                                 img = ImageReader(img_data)
+                                logger.debug(f"Image size: {img.getSize()}")
+                                if img.getSize()[0] <= 0 or img.getSize()[1] <= 0:
+                                    raise ValueError("Invalid image dimensions")
                                 img_width, img_height = 75*mm, 50*mm
-                                img_ratio = img.getSize()[0] / img.getSize()[1]
+                                img_ratio = img.getSize()[0] / img.getSize()[1] if img.getSize()[1] > 0 else 1
                                 if img_ratio > img_width / img_height:
                                     img._width, img._height = img_width, img_width / img_ratio
                                 else:
                                     img._width, img._height = img_height * img_ratio, img_height
                                 row.append(img)
                             else:
+                                logger.warning(f"Empty or invalid image data for {img_url}")
                                 row.append(Paragraph(f"Image {idx+1} (Failed to load)", normal_style))
                         except Exception as e:
                             logger.error(f"Error processing image {idx+1} from {img_url}: {str(e)}")
