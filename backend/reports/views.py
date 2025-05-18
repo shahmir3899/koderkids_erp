@@ -34,7 +34,7 @@ def get_clean_image_url(url):
     return url  # Keep the signed URL intact with token
 
 def fetch_image(url, timeout=15):
-    """Fetch image with proper headers and error handling"""
+    """Fetch image with proper headers, redirect handling, and error logging"""
     if not url:
         return None
     clean_url = get_clean_image_url(url)
@@ -42,13 +42,21 @@ def fetch_image(url, timeout=15):
         return None
     try:
         headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://koderkids-erp.onrender.com/'}
-        response = requests.get(clean_url, headers=headers, timeout=timeout)
+        response = requests.get(clean_url, headers=headers, timeout=timeout, allow_redirects=True, stream=True)
         response.raise_for_status()
         if not response.headers.get('Content-Type', '').startswith('image/'):
-            raise ValueError("URL does not point to an image")
-        return BytesIO(response.content)
+            raise ValueError(f"URL does not point to an image, Content-Type: {response.headers.get('Content-Type')}")
+        img_data = BytesIO(response.content)
+        # Validate image data by checking if it can be read
+        img_reader = ImageReader(img_data)
+        img_reader.getSize()  # This will raise an exception if invalid
+        img_data.seek(0)  # Reset pointer after validation
+        return img_data
+    except requests.RequestException as e:
+        logger.error(f"Network error fetching image from {clean_url}: {str(e)}")
+        return None
     except Exception as e:
-        logger.error(f"Failed to fetch image from {clean_url}: {str(e)}")
+        logger.error(f"Error processing image from {clean_url}: {str(e)}")
         return None
 
 @api_view(['GET'])
@@ -410,8 +418,8 @@ def generate_pdf(request):
                         else:
                             row.append(Paragraph(f"Image {idx+1} (Failed to load)", normal_style))
                     except Exception as e:
-                        logger.error(f"Error processing image {idx+1}: {str(e)}")
-                        row.append(Paragraph(f"Image {idx+1} (Error)", normal_style))
+                        logger.error(f"Error processing image {idx+1} from {img_url}: {str(e)}")
+                        row.append(Paragraph(f"Image {idx+1} (Error: {str(e)})", normal_style))
                 else:
                     row.append(Paragraph("No Image", normal_style))
             image_table_data.append(row)
@@ -697,8 +705,8 @@ def generate_pdf_batch(request):
                             else:
                                 row.append(Paragraph(f"Image {idx+1} (Failed to load)", normal_style))
                         except Exception as e:
-                            logger.error(f"Error processing image {idx+1}: {str(e)}")
-                            row.append(Paragraph(f"Image {idx+1} (Error)", normal_style))
+                            logger.error(f"Error processing image {idx+1} from {img_url}: {str(e)}")
+                            row.append(Paragraph(f"Image {idx+1} (Error: {str(e)})", normal_style))
                     else:
                         row.append(Paragraph("No Image", normal_style))
                 image_table_data.append(row)
