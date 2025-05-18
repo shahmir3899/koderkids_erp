@@ -17,13 +17,9 @@ import logging
 from supabase import create_client
 from django.conf import settings
 import requests
-import os
-import tempfile
 from io import BytesIO
-from zipfile import ZipFile
-import urllib.parse
 
-# Set up logging with forced output
+# Set up logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 handler = logging.StreamHandler()
@@ -35,60 +31,30 @@ logger.addHandler(handler)
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
-def get_clean_image_url(url):
-    """Preserve token in Supabase URL for proper access"""
-    if not url or not isinstance(url, str):
-        return None
-    return url  # Keep the signed URL intact with token
-
 def fetch_image(url, timeout=15):
-    """Fetch image with detailed error logging and temporary file fallback"""
+    """Fetch image from URL and return a BytesIO object."""
     if not url:
         logger.warning("No URL provided for fetching image")
         return None
-    clean_url = get_clean_image_url(url)
-    if not clean_url:
-        logger.warning("Invalid URL after cleaning")
-        return None
     try:
         headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://koderkids-erp.onrender.com/'}
-        logger.debug(f"Attempting to fetch image from {clean_url}")
-        response = requests.get(clean_url, headers=headers, timeout=timeout, allow_redirects=True)
-        logger.info(f"Fetching image from {clean_url} - Status: {response.status_code}, Headers: {response.headers}")
+        logger.debug(f"Attempting to fetch image from {url}")
+        response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+        logger.info(f"Fetching image from {url} - Status: {response.status_code}, Headers: {response.headers}")
         response.raise_for_status()
 
-        # Check content type (for debugging, not strict validation)
         content_type = response.headers.get('Content-Type', '')
         if not content_type.startswith('image/'):
             logger.warning(f"Unexpected Content-Type: {content_type}, expected image/*")
-            logger.debug(f"Response content: {response.text[:500]}")  # Log first 500 chars of response
+            logger.debug(f"Response content: {response.content[:50]}")  # Log first 50 bytes
 
-        # Save to temporary file
-        temp_file = os.path.join(tempfile.gettempdir(), clean_url.split('/')[-1].split('?')[0])
-        with open(temp_file, 'wb') as f:
-            f.write(response.content)
-        logger.debug(f"Saved image to temporary file: {temp_file}")
-
-        # Verify the file
-        img_data = ImageReader(temp_file)
-        logger.debug(f"Successfully read image from temporary file: {temp_file}")
-        return temp_file  # Return file path for ImageReader
+        return BytesIO(response.content)
     except requests.RequestException as e:
-        logger.error(f"Network error fetching image from {clean_url}: {str(e)} - Status: {getattr(response, 'status_code', 'N/A')}")
-        if 'response' in locals():
-            logger.debug(f"Response content: {response.text[:500]}")
+        logger.error(f"Network error fetching image from {url}: {str(e)}")
         return None
     except Exception as e:
-        logger.error(f"Error processing image from {clean_url}: {str(e)}")
+        logger.error(f"Error processing image from {url}: {str(e)}")
         return None
-    finally:
-        # Clean up temporary file if it exists
-        if 'temp_file' in locals() and os.path.exists(temp_file):
-            try:
-                os.remove(temp_file)
-                logger.debug(f"Cleaned up temporary file: {temp_file}")
-            except Exception as e:
-                logger.warning(f"Failed to clean up temporary file {temp_file}: {str(e)}")
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -104,24 +70,20 @@ def student_report_data(request):
         school_id = request.GET.get('school_id')
         student_class = request.GET.get('student_class')
 
-        # Validate inputs
         if not student_id or not mode or (mode == 'month' and not month) or (mode == 'range' and not (start_date and end_date)):
             return Response({'error': 'Missing required parameters'}, status=400)
 
-        # Validate school access for teachers
         if user.role == "Teacher":
             assigned_schools = user.assigned_schools.values_list("id", flat=True)
             if int(school_id) not in assigned_schools:
                 return Response({"error": "Unauthorized access to this school"}, status=403)
 
-        # Fetch student data
         student = Student.objects.filter(
             id=student_id, school_id=school_id, student_class=student_class
         ).first()
         if not student:
             return Response({'error': 'Student not found'}, status=404)
 
-        # Determine date range
         if mode == 'month':
             year, month_num = map(int, month.split('-'))
             start_date = datetime(year, month_num, 1).date()
@@ -133,7 +95,6 @@ def student_report_data(request):
             except ValueError:
                 return Response({'error': 'Invalid date format'}, status=400)
 
-        # Fetch student details
         student_data = {
             "name": student.name,
             "reg_num": student.reg_num,
@@ -141,7 +102,6 @@ def student_report_data(request):
             "school": student.school.name
         }
 
-        # Fetch attendance
         total_days = Attendance.objects.filter(
             session_date__range=[start_date, end_date],
             student__school=student.school
@@ -155,12 +115,11 @@ def student_report_data(request):
             "absent": next((item['count'] for item in attendance_records if item['status'] == "Absent"), 0),
             "not_marked": next((item['count'] for item in attendance_records if item['status'] == "N/A"), 0),
             "total_days": total_days,
-            "percentage": 0.0  # Initialize percentage to 0
+            "percentage": 0.0
         }
         if total_days > 0:
             attendance_data["percentage"] = (attendance_data["present"] / total_days * 100)
 
-        # Fetch lessons achieved
         planned_lessons = LessonPlan.objects.filter(
             session_date__range=[start_date, end_date],
             school=student.school,
@@ -181,7 +140,6 @@ def student_report_data(request):
             for session_date in sorted(planned_dict.keys())
         ]
 
-        # Fetch images
         folder_path = f"{student_id}/"
         response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(folder_path)
         if "error" in response:
@@ -220,24 +178,20 @@ def generate_pdf(request):
         student_class = request.GET.get('student_class')
         image_ids = request.GET.get('image_ids', '').split(',')  # Comma-separated list of image file names or indices
 
-        # Validate inputs
         if not student_id or not mode or (mode == 'month' and not month) or (mode == 'range' and not (start_date and end_date)):
             return Response({'error': 'Missing required parameters'}, status=400)
 
-        # Validate school access for teachers
         if user.role == "Teacher":
             assigned_schools = user.assigned_schools.values_list("id", flat=True)
             if int(school_id) not in assigned_schools:
                 return Response({"error": "Unauthorized access to this school"}, status=403)
 
-        # Fetch student
         student = Student.objects.filter(
             id=student_id, school_id=school_id, student_class=student_class
         ).first()
         if not student:
             return Response({'error': 'Student not found'}, status=404)
 
-        # Determine date range
         if mode == 'month':
             year, month_num = map(int, month.split('-'))
             start_date = datetime(year, month_num, 1).date()
@@ -251,7 +205,6 @@ def generate_pdf(request):
             except ValueError:
                 return Response({'error': 'Invalid date format'}, status=400)
 
-        # Fetch report data
         total_days = Attendance.objects.filter(
             session_date__range=[start_date, end_date],
             student__school=student.school
@@ -265,7 +218,7 @@ def generate_pdf(request):
             "absent": next((item['count'] for item in attendance_records if item['status'] == "Absent"), 0),
             "not_marked": next((item['count'] for item in attendance_records if item['status'] == "N/A"), 0),
             "total_days": total_days,
-            "percentage": 0.0  # Initialize percentage to 0
+            "percentage": 0.0
         }
         if total_days > 0:
             attendance_data["percentage"] = (attendance_data["present"] / total_days * 100)
@@ -301,31 +254,27 @@ def generate_pdf(request):
                 for file in response
                 if file["name"].startswith(month if mode == 'month' else start_date.strftime('%Y-%m'))
             ]
-            # Filter images based on image_ids (file names or indices)
             if image_ids and image_ids[0]:
                 selected_images = []
                 for img_id in image_ids:
-                    img_id = img_id.strip()  # Clean up any whitespace
+                    img_id = img_id.strip()
                     try:
-                        idx = int(img_id) - 1  # Convert to 0-based index
+                        idx = int(img_id) - 1
                         if 0 <= idx < len(all_images):
                             selected_images.append(all_images[idx])
                     except ValueError:
-                        # Treat as file name
                         for img_url in all_images:
                             if img_url.split('/')[-1].split('?')[0] == img_id:
                                 selected_images.append(img_url)
                                 break
-                image_urls = selected_images[:4]  # Limit to 4 even with selection
+                image_urls = selected_images[:4]
             else:
-                image_urls = all_images[:4]  # Default to first 4 if no image_ids
+                image_urls = all_images[:4]
 
-        # Generate PDF
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=15*mm, leftMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
         elements = []
 
-        # Define colors
         HEADER_BLUE = colors.HexColor('#2c3e50')
         ACCENT_GREEN = colors.HexColor('#27ae60')
         SECTION_BG = colors.HexColor('#f8f9fa')
@@ -333,7 +282,6 @@ def generate_pdf(request):
         BORDER_COLOR = colors.HexColor('#dddddd')
         FOOTER_GRAY = colors.HexColor('#7f8c8d')
 
-        # Styles
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
             name='Title',
@@ -367,12 +315,10 @@ def generate_pdf(request):
             leading=10
         )
 
-        # Header with school name
         elements.append(Paragraph(student.school.name, title_style))
         elements.append(Paragraph("Monthly Student Report", title_style))
         elements.append(Spacer(1, 6*mm))
 
-        # Student Details Section
         elements.append(Paragraph("Student Details", header_style))
         details_content = [
             Paragraph(f"<b>Name:</b> {student.name}", normal_style),
@@ -384,7 +330,6 @@ def generate_pdf(request):
         elements.extend(details_content)
         elements.append(Spacer(1, 6*mm))
 
-        # Attendance Section
         elements.append(Paragraph("Attendance", header_style))
         attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
         attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
@@ -401,7 +346,6 @@ def generate_pdf(request):
         elements.append(attendance_para)
         elements.append(Spacer(1, 6*mm))
 
-        # Lessons Table
         elements.append(Paragraph("Lessons Overview", header_style))
         if lessons_data:
             lessons_data_table = [['Date', 'Planned Topic', 'Achieved Topic']]
@@ -412,17 +356,12 @@ def generate_pdf(request):
                     formatted_date = date_obj.strftime('%d %b %Y')
                 except ValueError:
                     formatted_date = date_str
-
-                achieved_mark = ''
-                if lesson['planned_topic'] == lesson['achieved_topic'] and lesson['achieved_topic']:
-                    achieved_mark = '<font color="green">✓</font>'
-
+                achieved_mark = '<font color="green">✓</font>' if lesson['planned_topic'] == lesson['achieved_topic'] and lesson['achieved_topic'] else ''
                 lessons_data_table.append([
                     Paragraph(formatted_date, normal_style),
                     Paragraph(lesson['planned_topic'], normal_style),
                     Paragraph(f"{lesson['achieved_topic']} {achieved_mark}", normal_style)
                 ])
-
             lessons_table = Table(lessons_data_table, colWidths=[30*mm, 65*mm, 65*mm])
             lessons_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), HEADER_BLUE),
@@ -443,12 +382,10 @@ def generate_pdf(request):
             elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
         elements.append(Spacer(1, 6*mm))
 
-        # Image Grid
         elements.append(Paragraph("Progress Images", header_style))
         total_images = len(all_images)
         image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
         image_table_data = []
-
         for i in range(0, 4, 2):
             row = []
             for j in range(2):
@@ -487,12 +424,10 @@ def generate_pdf(request):
         ]))
         elements.append(image_table)
 
-        # Add note about total images
         if total_images > 4:
             elements.append(Paragraph(f"Note: Showing 4 of {total_images} images.", normal_style))
         elements.append(Spacer(1, 6*mm))
 
-        # Footer
         footer_text = (
             f"Teacher's Signature: ____________________<br/>"
             f"Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}<br/>"
@@ -500,7 +435,6 @@ def generate_pdf(request):
         )
         elements.append(Paragraph(footer_text, footer_style))
 
-        # Build PDF
         doc.build(elements)
         buffer.seek(0)
         response = HttpResponse(buffer, content_type='application/pdf')
@@ -527,17 +461,14 @@ def generate_pdf_batch(request):
         student_class = data.get('student_class')
         image_ids = data.get('image_ids', '').split(',')  # Comma-separated list of image file names or indices
 
-        # Validate inputs
         if not student_ids or not mode or (mode == 'month' and not month) or (mode == 'range' and not (start_date and end_date)):
             return Response({'error': 'Missing required parameters'}, status=400)
 
-        # Validate school access for teachers
         if user.role == "Teacher":
             assigned_schools = user.assigned_schools.values_list("id", flat=True)
             if int(school_id) not in assigned_schools:
                 return Response({"error": "Unauthorized access to this school"}, status=403)
 
-        # Determine date range
         if mode == 'month':
             year, month_num = map(int, month.split('-'))
             start_date = datetime(year, month_num, 1).date()
@@ -551,11 +482,12 @@ def generate_pdf_batch(request):
             except ValueError:
                 return Response({'error': 'Invalid date format'}, status=400)
 
-        # Initialize ZIP buffer
+        from io import BytesIO
+        from zipfile import ZipFile
+
         zip_buffer = BytesIO()
         zip_file = ZipFile(zip_buffer, 'w', compression=ZipFile.ZIP_DEFLATED)
 
-        # Define colors
         HEADER_BLUE = colors.HexColor('#2c3e50')
         ACCENT_GREEN = colors.HexColor('#27ae60')
         SECTION_BG = colors.HexColor('#f8f9fa')
@@ -563,7 +495,6 @@ def generate_pdf_batch(request):
         BORDER_COLOR = colors.HexColor('#dddddd')
         FOOTER_GRAY = colors.HexColor('#7f8c8d')
 
-        # Styles
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
             name='Title',
@@ -605,7 +536,6 @@ def generate_pdf_batch(request):
                 logger.warning(f"Student {student_id} not found")
                 continue
 
-            # Fetch report data
             total_days = Attendance.objects.filter(
                 session_date__range=[start_date, end_date],
                 student__school=student.school
@@ -619,7 +549,7 @@ def generate_pdf_batch(request):
                 "absent": next((item['count'] for item in attendance_records if item['status'] == "Absent"), 0),
                 "not_marked": next((item['count'] for item in attendance_records if item['status'] == "N/A"), 0),
                 "total_days": total_days,
-                "percentage": 0.0  # Initialize percentage to 0
+                "percentage": 0.0
             }
             if total_days > 0:
                 attendance_data["percentage"] = (attendance_data["present"] / total_days * 100)
@@ -655,36 +585,31 @@ def generate_pdf_batch(request):
                     for file in response
                     if file["name"].startswith(month if mode == 'month' else start_date.strftime('%Y-%m'))
                 ]
-                # Filter images based on image_ids (file names or indices)
                 if image_ids and image_ids[0]:
                     selected_images = []
                     for img_id in image_ids:
-                        img_id = img_id.strip()  # Clean up any whitespace
+                        img_id = img_id.strip()
                         try:
-                            idx = int(img_id) - 1  # Convert to 0-based index
+                            idx = int(img_id) - 1
                             if 0 <= idx < len(all_images):
                                 selected_images.append(all_images[idx])
                         except ValueError:
-                            # Treat as file name
                             for img_url in all_images:
                                 if img_url.split('/')[-1].split('?')[0] == img_id:
                                     selected_images.append(img_url)
                                     break
-                    image_urls = selected_images[:4]  # Limit to 4 even with selection
+                    image_urls = selected_images[:4]
                 else:
-                    image_urls = all_images[:4]  # Default to first 4 if no image_ids
+                    image_urls = all_images[:4]
 
-            # Generate PDF
             pdf_buffer = BytesIO()
             doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, rightMargin=15*mm, leftMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
             elements = []
 
-            # Header with school name
             elements.append(Paragraph(student.school.name, title_style))
             elements.append(Paragraph("Monthly Student Report", title_style))
             elements.append(Spacer(1, 6*mm))
 
-            # Student Details Section
             elements.append(Paragraph("Student Details", header_style))
             details_content = [
                 Paragraph(f"<b>Name:</b> {student.name}", normal_style),
@@ -696,7 +621,6 @@ def generate_pdf_batch(request):
             elements.extend(details_content)
             elements.append(Spacer(1, 6*mm))
 
-            # Attendance Section
             elements.append(Paragraph("Attendance", header_style))
             attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
             attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
@@ -713,7 +637,6 @@ def generate_pdf_batch(request):
             elements.append(attendance_para)
             elements.append(Spacer(1, 6*mm))
 
-            # Lessons Table
             elements.append(Paragraph("Lessons Overview", header_style))
             if lessons_data:
                 lessons_data_table = [['Date', 'Planned Topic', 'Achieved Topic']]
@@ -724,17 +647,12 @@ def generate_pdf_batch(request):
                         formatted_date = date_obj.strftime('%d %b %Y')
                     except ValueError:
                         formatted_date = date_str
-
-                    achieved_mark = ''
-                    if lesson['planned_topic'] == lesson['achieved_topic'] and lesson['achieved_topic']:
-                        achieved_mark = '<font color="green">✓</font>'
-
+                    achieved_mark = '<font color="green">✓</font>' if lesson['planned_topic'] == lesson['achieved_topic'] and lesson['achieved_topic'] else ''
                     lessons_data_table.append([
                         Paragraph(formatted_date, normal_style),
                         Paragraph(lesson['planned_topic'], normal_style),
                         Paragraph(f"{lesson['achieved_topic']} {achieved_mark}", normal_style)
                     ])
-
                 lessons_table = Table(lessons_data_table, colWidths=[30*mm, 65*mm, 65*mm])
                 lessons_table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), HEADER_BLUE),
@@ -755,12 +673,10 @@ def generate_pdf_batch(request):
                 elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
             elements.append(Spacer(1, 6*mm))
 
-            # Image Grid
             elements.append(Paragraph("Progress Images", header_style))
             total_images = len(all_images)
             image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
             image_table_data = []
-
             for i in range(0, 4, 2):
                 row = []
                 for j in range(2):
@@ -799,12 +715,10 @@ def generate_pdf_batch(request):
             ]))
             elements.append(image_table)
 
-            # Add note about total images
             if total_images > 4:
                 elements.append(Paragraph(f"Note: Showing 4 of {total_images} images.", normal_style))
             elements.append(Spacer(1, 6*mm))
 
-            # Footer
             footer_text = (
                 f"Teacher's Signature: ____________________<br/>"
                 f"Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}<br/>"
@@ -812,13 +726,11 @@ def generate_pdf_batch(request):
             )
             elements.append(Paragraph(footer_text, footer_style))
 
-            # Build PDF and add to ZIP
             doc.build(elements)
             pdf_buffer.seek(0)
             filename = f"student_report_{student.reg_num}_{period.replace(' ', '_')}.pdf"
             zip_file.writestr(filename, pdf_buffer.getvalue())
 
-        # Finalize ZIP file
         zip_file.close()
         zip_buffer.seek(0)
         response = HttpResponse(zip_buffer, content_type='application/zip')
