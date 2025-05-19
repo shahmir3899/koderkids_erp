@@ -636,7 +636,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     elements.append(Spacer(1, 15*mm))
 
-    # 5. Progress Images Section
+    # 5. Progress Images Section (All images, up to 7, in 2x4 grid)
     images_header = Table([["Progress Images"]], colWidths=[doc.width])
     images_header.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
@@ -649,45 +649,44 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     ]))
     elements.append(images_header)
 
-    # Paginate images (4 per page)
-    for i in range(0, len(image_urls), 4):
-        image_batch = image_urls[i:i+4]
-        image_slots = image_batch + [None] * (4 - len(image_batch))
-        image_buffers = fetch_images_in_parallel(image_slots)
+    # Load all images (up to 7)
+    image_slots = image_urls + [None] * (8 - len(image_urls))  # Pad to 8 for 2x4 grid
+    image_buffers = fetch_images_in_parallel(image_slots[:8])
 
-        image_table_data = []
-        for j in range(0, 4, 2):
-            row = []
-            for k in range(2):
-                idx = j + k
-                img_data = image_buffers[idx] if idx < len(image_buffers) and image_buffers[idx] else None
-                if img_data and img_data.getbuffer().nbytes > 0:
-                    img_data.seek(0)
-                    img = Image(img_data, alt=f"Progress Image {i+idx+1}")
-                    img.drawWidth, img.drawHeight = 75*mm, 50*mm
-                    row.append(Table([[img], [Paragraph(f"Image {i+idx+1} - {datetime.now().strftime('%Y-%m-%d')}", cached_styles['normal'])]], colWidths=[75*mm]))
-                else:
-                    row.append(Paragraph("No Image", cached_styles['normal']))
-            image_table_data.append(row)
+    image_table_data = []
+    for i in range(0, 8, 4):  # 2 rows, 4 columns
+        row = []
+        for j in range(4):
+            idx = i + j
+            img_data = image_buffers[idx] if idx < len(image_buffers) and image_buffers[idx] else None
+            if img_data and img_data.getbuffer().nbytes > 0:
+                img_data.seek(0)
+                img = Image(img_data, alt=f"Progress Image {idx+1}")
+                img.drawWidth, img.drawHeight = 40*mm, 30*mm  # Smaller size for 4 columns
+                row.append(Table([[img], [Paragraph(f"Image {idx+1} - {datetime.now().strftime('%Y-%m-%d')}", cached_styles['normal'])]], colWidths=[40*mm]))
+            else:
+                row.append(Paragraph("No Image", cached_styles['normal']))
+        image_table_data.append(row)
 
-        image_table = Table(image_table_data, colWidths=[doc.width/2, doc.width/2], rowHeights=60*mm)
-        image_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
-            ('INNERGRID', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        elements.append(image_table)
-        elements.append(Spacer(1, 15*mm))
+    image_table = Table(image_table_data, colWidths=[doc.width/4]*4, rowHeights=40*mm)
+    image_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
+        ('INNERGRID', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(image_table)
+
+    elements.append(Spacer(1, 15*mm))
 
     # 6. Footer Section (full-width, sticks to bottom)
     footer_text = (
         f"Teacher's Signature: ____________________<br/>"
         f"Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}<br/>"
-        f"Powered by Koder Kids"
+        f"Powered by {student.school.name}"
     )
     footer_table = Table([[Paragraph(footer_text, cached_styles['footer'])]], colWidths=[doc.width])
     footer_table.setStyle(TableStyle([
@@ -706,4 +705,3 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
-
