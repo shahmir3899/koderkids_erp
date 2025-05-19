@@ -493,12 +493,12 @@ def generate_pdf(request):
 
         # Progress Images
         elements.append(Paragraph("Progress Images", header_style))
-        
+
         # Prepare image grid (2x2)
         image_table_data = []
         image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
         image_buffers = []  # Keep buffers alive until PDF is built
-        
+
         for i in range(0, 4, 2):
             row = []
             for j in range(2):
@@ -523,34 +523,45 @@ def generate_pdf(request):
                             row.append(Paragraph(f"Image {idx+1} (Empty buffer)", normal_style))
                             continue
 
-                        # Create ImageReader and keep the buffer alive
-                        img = ImageReader(img_data)
+                        # Create ImageReader and convert to Image
+                        img_reader = ImageReader(img_data)
                         image_buffers.append(img_data)  # Prevent garbage collection
                         
                         # Validate dimensions
-                        img_size = img.getSize()
-                        logger.debug(f"Image size: {img_size}")
+                        img_size = img_reader.getSize()
+                        logger.debug(f"Image size from ImageReader: {img_size}")
                         if img_size[0] <= 0 or img_size[1] <= 0:
                             logger.warning(f"Invalid image dimensions for {img_url}: {img_size}")
                             row.append(Paragraph(f"Image {idx+1} (Invalid dimensions)", normal_style))
                             continue
 
+                        # Create ReportLab Image object
+                        img = Image(img_reader)
+                        img.drawHeight = img_size[1] * mm
+                        img.drawWidth = img_size[0] * mm
+
                         # Calculate dimensions while maintaining aspect ratio
-                        img_width, img_height = 75*mm, 50*mm
+                        target_width, target_height = 75*mm, 50*mm
                         img_ratio = img_size[0] / img_size[1] if img_size[1] > 0 else 1
                         
-                        if img_ratio > img_width / img_height:
-                            img._width, img._height = img_width, img_width / img_ratio
+                        if img_ratio > target_width / target_height:
+                            img.drawWidth = target_width
+                            img.drawHeight = target_width / img_ratio
                         else:
-                            img._width, img._height = img_height * img_ratio, img_height
-                        
-                        # Test render the image in a temporary PDF to catch rendering issues
+                            img.drawHeight = target_height
+                            img.drawWidth = target_height * img_ratio
+
+                        # Test render the image to catch rendering issues
                         temp_buffer = BytesIO()
                         temp_doc = SimpleDocTemplate(temp_buffer, pagesize=A4)
-                        temp_elements = [img]
-                        temp_doc.build(temp_elements)
-                        logger.debug(f"Image {idx+1} rendered successfully in test PDF")
-                        
+                        try:
+                            temp_doc.build([img])
+                            logger.debug(f"Image {idx+1} rendered successfully in test PDF")
+                        except Exception as e:
+                            logger.error(f"Test render failed for image {idx+1}: {str(e)}", exc_info=True)
+                            row.append(Paragraph(f"Image {idx+1} (Render error: {str(e)})", normal_style))
+                            continue
+
                         row.append(img)
                     except Exception as e:
                         logger.error(f"Error processing image {idx+1}: {str(e)}", exc_info=True)
@@ -558,7 +569,7 @@ def generate_pdf(request):
                 else:
                     row.append(Paragraph("No Image", normal_style))
             image_table_data.append(row)
-        
+
         # Add image table to PDF
         image_table = Table(
             image_table_data,
@@ -617,6 +628,8 @@ def generate_pdf(request):
             {"error": "Failed to generate PDF", "details": str(e)},
             status=500
         )
+
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
