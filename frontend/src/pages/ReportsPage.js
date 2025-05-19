@@ -91,13 +91,11 @@ const ReportsPage = () => {
 
   // Validate and fetch students
   const fetchStudents = async () => {
-    // Batch state updates to clear previous data
     setErrorMessage("");
     setIsSearching(true);
     setStudents([]);
     setSelectedStudentIds([]);
 
-    // Validation for month mode
     if (mode === "month") {
       if (!selectedMonth || !isValidMonth(selectedMonth)) {
         setErrorMessage("Please select a valid month (YYYY-MM).");
@@ -111,7 +109,6 @@ const ReportsPage = () => {
       }
     }
 
-    // Validation for range mode
     if (mode === "range") {
       if (!startDate || !endDate || !isValidDate(startDate) || !isValidDate(endDate)) {
         setErrorMessage("Please select valid start and end dates.");
@@ -123,9 +120,9 @@ const ReportsPage = () => {
         setIsSearching(false);
         return;
       }
-      const currentDate = new Date();
+      const currentDate = new Date("2025-05-19");
       if (new Date(startDate) > currentDate || new Date(endDate) > currentDate) {
-        setErrorMessage("Dates cannot be in the future.");
+        setErrorMessage("Dates cannot be in the future (beyond May 19, 2025).");
         setIsSearching(false);
         return;
       }
@@ -137,7 +134,6 @@ const ReportsPage = () => {
     }
 
     try {
-      // Compute dates once
       const sessionDate = mode === "month"
         ? formatToMMDDYYYY(`${selectedMonth}-01`)
         : formatToMMDDYYYY(startDate);
@@ -172,9 +168,7 @@ const ReportsPage = () => {
       setStudents(studentList);
     } catch (error) {
       console.error("Error fetching students:", error.response?.data || error.message);
-      setErrorMessage(
-        error.response?.data?.message || "Failed to fetch students. Please try again."
-      );
+      setErrorMessage(error.response?.data?.message || "Failed to fetch students. Please try again.");
     } finally {
       setIsSearching(false);
     }
@@ -251,7 +245,7 @@ const ReportsPage = () => {
     }
   };
 
-  // Generate bulk PDF reports
+  // Generate multiple individual PDF reports
   const handleGenerateBulkReports = async () => {
     if (selectedStudentIds.length === 0) {
       setErrorMessage("Please select at least one student.");
@@ -263,38 +257,12 @@ const ReportsPage = () => {
     setIsGeneratingBulk(true);
 
     try {
-      const payload = {
-        student_ids: selectedStudentIds,
-        mode,
-        school_id: selectedSchool,
-        student_class: selectedClass,
-      };
-
-      if (mode === "month") {
-        payload.month = selectedMonth;
-      } else {
-        payload.start_date = formatToYYYYMMDD(startDate);
-        payload.end_date = formatToYYYYMMDD(endDate);
+      // Sequentially generate reports for each student
+      for (const studentId of selectedStudentIds) {
+        await handleGenerateReport(studentId);
       }
 
-      const response = await axios.post(`${API_URL}/api/generate-pdf-batch/`, payload, {
-        headers: getAuthHeaders(),
-        responseType: 'blob',
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      const period = mode === "month"
-        ? selectedMonth.replace('-', '_')
-        : `${formatToYYYYMMDD(startDate).replace(/-/g, '')}_to_${formatToYYYYMMDD(endDate).replace(/-/g, '')}`;
-      link.href = url;
-      link.setAttribute('download', `student_reports_${period}.zip`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success("Bulk reports generated successfully!");
+      toast.success("All reports generated successfully!");
     } catch (error) {
       console.error("Error generating bulk reports:", error.response?.status, error.response?.data || error.message);
       const errorMsg = error.response?.status === 400
@@ -372,7 +340,7 @@ const ReportsPage = () => {
             value={startDate}
             disabled={mode === "month"}
             onChange={(e) => setStartDate(e.target.value)}
-            max={new Date().toISOString().split("T")[0]} // Dynamic max date
+            max="2025-05-19" // Fixed to current date
             aria-label="Select start date"
           />
         </div>
@@ -386,7 +354,7 @@ const ReportsPage = () => {
             value={endDate}
             disabled={mode === "month"}
             onChange={(e) => setEndDate(e.target.value)}
-            max={new Date().toISOString().split("T")[0]} // Dynamic max date
+            max="2025-05-19" // Fixed to current date
             aria-label="Select end date"
           />
         </div>
@@ -511,7 +479,7 @@ const ReportsPage = () => {
                   Generating...
                 </>
               ) : (
-                <>📦 Generate Selected Reports ({selectedStudentIds.length})</>
+                <>📄 Generate Selected Reports ({selectedStudentIds.length})</>
               )}
             </button>
           </div>
@@ -528,7 +496,7 @@ const ReportsPage = () => {
                       aria-label="Select all students"
                     />
                   </th>
-                  <th className="p-3 text-left text-Grok3 built by xAI-gray-700 font-semibold">Student Name</th>
+                  <th className="p-3 text-left text-gray-700 font-semibold">Student Name</th>
                   <th className="p-3 text-left text-gray-700 font-semibold">Action</th>
                 </tr>
               </thead>
