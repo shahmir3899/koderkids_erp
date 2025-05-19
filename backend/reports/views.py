@@ -497,6 +497,7 @@ def generate_pdf(request):
         # Prepare image grid (2x2)
         image_table_data = []
         image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
+        image_buffers = []  # Keep buffers alive until PDF is built
         
         for i in range(0, 4, 2):
             row = []
@@ -508,31 +509,52 @@ def generate_pdf(request):
                         logger.debug(f"Processing image {idx+1} from {img_url}")
                         
                         img_data = fetch_image(img_url)
-                        if img_data and img_data.getbuffer().nbytes > 0:
-                            img = ImageReader(img_data)
-                            
-                            # Validate dimensions
-                            img_size = img.getSize()
-                            logger.debug(f"Image size: {img_size}")
-                            if img_size[0] <= 0 or img_size[1] <= 0:
-                                raise ValueError("Invalid image dimensions")
+                        if img_data is None:
+                            logger.warning(f"fetch_image returned None for {img_url}")
+                            row.append(Paragraph(f"Image {idx+1} (Failed to fetch)", normal_style))
+                            continue
 
-                            # Calculate dimensions while maintaining aspect ratio
-                            img_width, img_height = 75*mm, 50*mm
-                            img_ratio = img_size[0] / img_size[1] if img_size[1] > 0 else 1
-                            
-                            if img_ratio > img_width / img_height:
-                                img._width, img._height = img_width, img_width / img_ratio
-                            else:
-                                img._width, img._height = img_height * img_ratio, img_height
-                            
-                            row.append(img)
+                        # Ensure the buffer is at the start
+                        img_data.seek(0)
+                        buffer_size = img_data.getbuffer().nbytes
+                        logger.debug(f"Image buffer size: {buffer_size} bytes")
+                        if buffer_size == 0:
+                            logger.warning(f"Empty image buffer for {img_url}")
+                            row.append(Paragraph(f"Image {idx+1} (Empty buffer)", normal_style))
+                            continue
+
+                        # Create ImageReader and keep the buffer alive
+                        img = ImageReader(img_data)
+                        image_buffers.append(img_data)  # Prevent garbage collection
+                        
+                        # Validate dimensions
+                        img_size = img.getSize()
+                        logger.debug(f"Image size: {img_size}")
+                        if img_size[0] <= 0 or img_size[1] <= 0:
+                            logger.warning(f"Invalid image dimensions for {img_url}: {img_size}")
+                            row.append(Paragraph(f"Image {idx+1} (Invalid dimensions)", normal_style))
+                            continue
+
+                        # Calculate dimensions while maintaining aspect ratio
+                        img_width, img_height = 75*mm, 50*mm
+                        img_ratio = img_size[0] / img_size[1] if img_size[1] > 0 else 1
+                        
+                        if img_ratio > img_width / img_height:
+                            img._width, img._height = img_width, img_width / img_ratio
                         else:
-                            logger.warning(f"Empty or invalid image data for {img_url}")
-                            row.append(Paragraph(f"Image {idx+1} (Failed to load)", normal_style))
+                            img._width, img._height = img_height * img_ratio, img_height
+                        
+                        # Test render the image in a temporary PDF to catch rendering issues
+                        temp_buffer = BytesIO()
+                        temp_doc = SimpleDocTemplate(temp_buffer, pagesize=A4)
+                        temp_elements = [img]
+                        temp_doc.build(temp_elements)
+                        logger.debug(f"Image {idx+1} rendered successfully in test PDF")
+                        
+                        row.append(img)
                     except Exception as e:
                         logger.error(f"Error processing image {idx+1}: {str(e)}", exc_info=True)
-                        row.append(Paragraph(f"Image {idx+1} (Error)", normal_style))
+                        row.append(Paragraph(f"Image {idx+1} (Error: {str(e)})", normal_style))
                 else:
                     row.append(Paragraph("No Image", normal_style))
             image_table_data.append(row)
