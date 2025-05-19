@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getAuthHeaders, getSchools, getClasses, API_URL } from "../api";
-import StudentReportModal from "../components/StudentReportModal";
 
 // Function to validate YYYY-MM format
 const isValidMonth = (monthStr) => {
@@ -48,13 +47,14 @@ const ReportsPage = () => {
   const [students, setStudents] = useState([]);
   const [schools, setSchools] = useState([]);
   const [classes, setClasses] = useState([]);
-  const [selectedStudentId, setSelectedStudentId] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [mode, setMode] = useState("month");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [isGenerating, setIsGenerating] = useState({});
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
 
   // Fetch schools on component mount
   useEffect(() => {
@@ -92,6 +92,7 @@ const ReportsPage = () => {
   const fetchStudents = async () => {
     setErrorMessage("");
     setStudents([]);
+    setSelectedStudentIds([]);
     setIsSearching(true);
 
     // Validation for month mode
@@ -120,9 +121,9 @@ const ReportsPage = () => {
         setIsSearching(false);
         return;
       }
-      const currentDate = new Date("2025-05-05");
+      const currentDate = new Date("2025-05-19");
       if (new Date(startDate) > currentDate || new Date(endDate) > currentDate) {
-        setErrorMessage("Dates cannot be in the future (beyond May 05, 2025).");
+        setErrorMessage("Dates cannot be in the future (beyond May 19, 2025).");
         setIsSearching(false);
         return;
       }
@@ -179,9 +180,170 @@ const ReportsPage = () => {
     }
   };
 
-  const handleGenerateReport = (studentId) => {
-    setSelectedStudentId(studentId);
-    setIsModalOpen(true);
+  // Fetch images for a student
+  const fetchStudentImages = async (studentId, sessionDate) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/get-student-images/`, {
+        headers: getAuthHeaders(),
+        params: {
+          student_id: studentId,
+          session_date: sessionDate,
+        },
+      });
+      const images = response.data.images || [];
+      // Extract filenames from signed URLs
+      const imageIds = images.map(img => img.signedURL.split('/').pop().split('?')[0]).slice(0, 4);
+      console.log(`Fetched images for student ${studentId}:`, imageIds);
+      return imageIds;
+    } catch (error) {
+      console.error(`Error fetching images for student ${studentId}:`, error.response?.status, error.response?.data || error.message);
+      setErrorMessage(`Failed to fetch images for student ${studentId}. Proceeding without images.`);
+      return [];
+    }
+  };
+
+  // Toggle student selection
+  const toggleStudentSelection = (studentId) => {
+    setSelectedStudentIds(prev =>
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  // Select/deselect all students
+  const toggleSelectAll = () => {
+    if (selectedStudentIds.length === students.length) {
+      setSelectedStudentIds([]);
+    } else {
+      setSelectedStudentIds(students.map(student => student.id));
+    }
+  };
+
+  // Generate single PDF report
+  const handleGenerateReport = async (studentId) => {
+    setErrorMessage("");
+    setIsGenerating(prev => ({ ...prev, [studentId]: true }));
+
+    try {
+      // Determine session_date for image fetching
+      const sessionDate = mode === "month"
+        ? selectedMonth
+        : formatToYYYYMMDD(startDate).slice(0, 7); // YYYY-MM
+
+      // Fetch image IDs
+      const imageIds = await fetchStudentImages(studentId, sessionDate);
+      const imageIdsString = imageIds.join(',');
+
+      // Build query parameters
+      const params = {
+        student_id: studentId,
+        mode,
+        school_id: selectedSchool,
+        student_class: selectedClass,
+        image_ids: imageIdsString,
+      };
+
+      if (mode === "month") {
+        params.month = selectedMonth;
+      } else {
+        params.start_date = formatToYYYYMMDD(startDate);
+        params.end_date = formatToYYYYMMDD(endDate);
+      }
+
+      // Make API call to generate PDF
+      const response = await axios.get(`${API_URL}/api/generate-pdf/`, {
+        headers: getAuthHeaders(),
+        params,
+        responseType: 'blob',
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      const period = mode === "month"
+        ? selectedMonth.replace('-', '_')
+        : `${formatToYYYYMMDD(startDate).replace(/-/g, '')}_to_${formatToYYYYMMDD(endDate).replace(/-/g, '')}`;
+      link.href = url;
+      link.setAttribute('download', `student_report_${studentId}_${period}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error generating report:", error.response?.data || error.message);
+      setErrorMessage("Failed to generate report. Please check API endpoints and try again.");
+    } finally {
+      setIsGenerating(prev => ({ ...prev, [studentId]: false }));
+    }
+  };
+
+  // Generate bulk PDF reports
+  const handleGenerateBulkReports = async () => {
+    if (selectedStudentIds.length === 0) {
+      setErrorMessage("Please select at least one student.");
+      return;
+    }
+
+    setErrorMessage("");
+    setIsGeneratingBulk(true);
+
+    try {
+      // Determine session_date for image fetching
+      const sessionDate = mode === "month"
+        ? selectedMonth
+        : formatToYYYYMMDD(startDate).slice(0, 7); // YYYY-MM
+
+      // Fetch images for all selected students
+      const allImageIds = [];
+      for (const studentId of selectedStudentIds) {
+        const imageIds = await fetchStudentImages(studentId, sessionDate);
+        allImageIds.push(...imageIds);
+      }
+      const imageIdsString = allImageIds.slice(0, 4).join(',');
+
+      // Build payload
+      const payload = {
+        student_ids: selectedStudentIds,
+        mode,
+        school_id: selectedSchool,
+        student_class: selectedClass,
+        image_ids: imageIdsString,
+      };
+
+      if (mode === "month") {
+        payload.month = selectedMonth;
+      } else {
+        payload.start_date = formatToYYYYMMDD(startDate);
+        payload.end_date = formatToYYYYMMDD(endDate);
+      }
+
+      console.log("Bulk payload:", payload);
+
+      // Make API call to generate bulk PDFs
+      const response = await axios.post(`${API_URL}/api/generate-pdf-batch/`, payload, {
+        headers: getAuthHeaders(),
+        responseType: 'blob',
+      });
+
+      // Create download link for ZIP
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      const period = mode === "month"
+        ? selectedMonth.replace('-', '_')
+        : `${formatToYYYYMMDD(startDate).replace(/-/g, '')}_to_${formatToYYYYMMDD(endDate).replace(/-/g, '')}`;
+      link.href = url;
+      link.setAttribute('download', `student_reports_${period}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error generating bulk reports:", error.response?.status, error.response?.data || error.message);
+      setErrorMessage("Failed to generate bulk reports. Please check API endpoints and try again.");
+    } finally {
+      setIsGeneratingBulk(false);
+    }
   };
 
   return (
@@ -342,11 +504,62 @@ const ReportsPage = () => {
       {/* Student List */}
       {Array.isArray(students) && students.length > 0 ? (
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-700 mb-4">📋 Student List</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold text-gray-700">📋 Student List</h3>
+            <button
+              onClick={handleGenerateBulkReports}
+              className={`bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                isGeneratingBulk || selectedStudentIds.length === 0
+                  ? "opacity-75 cursor-not-allowed"
+                  : "hover:bg-purple-600"
+              }`}
+              disabled={isGeneratingBulk || selectedStudentIds.length === 0}
+              aria-label="Generate selected reports"
+            >
+              {isGeneratingBulk ? (
+                <>
+                  <svg
+                    className="animate-spin h-5 w-5 mr-2 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  📦 Generate Selected Reports ({selectedStudentIds.length})
+                </>
+              )}
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead className="bg-gray-100">
                 <tr>
+                  <th className="p-3 text-left text-gray-700 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={selectedStudentIds.length === students.length && students.length > 0}
+                      onChange={toggleSelectAll}
+                      className="mr-2"
+                      aria-label="Select all students"
+                    />
+                  </th>
                   <th className="p-3 text-left text-gray-700 font-semibold">Student Name</th>
                   <th className="p-3 text-left text-gray-700 font-semibold">Action</th>
                 </tr>
@@ -354,14 +567,54 @@ const ReportsPage = () => {
               <tbody>
                 {students.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-3 border-t border-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={selectedStudentIds.includes(student.id)}
+                        onChange={() => toggleStudentSelection(student.id)}
+                        className="mr-2"
+                        aria-label={`Select ${student.name}`}
+                      />
+                    </td>
                     <td className="p-3 border-t border-gray-200 text-gray-600">{student.name}</td>
                     <td className="p-3 border-t border-gray-200">
                       <button
                         onClick={() => handleGenerateReport(student.id)}
-                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                        className={`bg-green-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                          isGenerating[student.id] ? "opacity-75 cursor-not-allowed" : "hover:bg-green-600"
+                        }`}
+                        disabled={isGenerating[student.id]}
                         aria-label={`Generate report for ${student.name}`}
                       >
-                        📄 Generate Report
+                        {isGenerating[student.id] ? (
+                          <>
+                            <svg
+                              className="animate-spin h-5 w-5 mr-2 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            📄 Generate Report
+                          </>
+                        )}
                       </button>
                     </td>
                   </tr>
@@ -374,18 +627,6 @@ const ReportsPage = () => {
         <p className="text-center text-gray-500">
           {errorMessage || "No students found. Adjust filters and try again."}
         </p>
-      )}
-
-      {/* Student Report Modal */}
-      {isModalOpen && (
-        <StudentReportModal
-          studentId={selectedStudentId}
-          mode={mode}
-          selectedMonth={mode === "month" ? selectedMonth : ""}
-          startDate={mode === "range" ? formatToYYYYMMDD(startDate) : ""}
-          endDate={mode === "range" ? formatToYYYYMMDD(endDate) : ""}
-          onClose={() => setIsModalOpen(false)}
-        />
       )}
     </div>
   );
