@@ -679,8 +679,8 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
     ]))
-    elements.append(image_table)
-
+    #elements.append(image_table)
+    elements.append(Paragraph("Images disabled for testing.", cached_styles['normal']))
     elements.append(Spacer(1, 15*mm))
 
     # 6. Footer Section (full-width, sticks to bottom)
