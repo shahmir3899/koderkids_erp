@@ -490,29 +490,45 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(Paragraph("Monthly Student Report", title_style))
     elements.append(Spacer(1, 6*mm))
     elements.append(Paragraph("Student Details", header_style))
-    elements.extend([
-        Paragraph(f"<b>Name:</b> {student.name}", normal_style),
-        Paragraph(f"<b>Registration Number:</b> {student.reg_num}", normal_style),
-        Paragraph(f"<b>School:</b> {student.school.name}", normal_style),
-        Paragraph(f"<b>Class:</b> {student.student_class}", normal_style),
-        Paragraph(f"<b>Month/Date Range:</b> {period}", normal_style),
-    ])
+    
+    # Student Details Table with Emojis
+    details_table = Table([
+        ["👤 Name:", Paragraph(student.name, normal_style)],
+        ["🆔 Reg. Number:", Paragraph(student.reg_num, normal_style)],
+        ["🏫 School:", Paragraph(student.school.name, normal_style)],
+        ["📚 Class:", Paragraph(student.student_class, normal_style)],
+        ["📅 Period:", Paragraph(period, normal_style)]
+    ], colWidths=[40*mm, 120*mm])
+    details_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#333333')),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+    ]))
+    elements.append(details_table)
+    
     elements.append(Spacer(1, 6*mm))
     elements.append(Paragraph("Attendance", header_style))
     attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
-    elements.append(Paragraph(f"{attendance_text} <font color='{attendance_status_color}'>&bull;</font>", normal_style))
+    elements.append(Paragraph(f"{attendance_text} <font color='{attendance_status_color}'>•</font>", normal_style))
     elements.append(Spacer(1, 6*mm))
     elements.append(Paragraph("Lessons Overview", header_style))
+    
+    # Lessons Overview Table with Emojis
     if lessons_data:
         lessons_table = Table(
-            [['Date', 'Planned Topic', 'Achieved Topic']] + [
+            [['📅 Date', '📋 Planned Topic', '✅ Achieved Topic']] + [
                 [
                     Paragraph(lesson['date'], normal_style),
                     Paragraph(lesson['planned_topic'], normal_style),
                     Paragraph(
                         f"{lesson['achieved_topic']} " + (
-                            '<font color="green">&check;</font>'
+                            '<font color="green">✓</font>'
                             if lesson['planned_topic'] == lesson['achieved_topic'] and lesson['achieved_topic'] != "N/A"
                             else ''
                         ),
@@ -538,6 +554,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         elements.append(lessons_table)
     else:
         elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
+    
     elements.append(Spacer(1, 6*mm))
     elements.append(Paragraph("Progress Images", header_style))
     elements.append(Paragraph("Images disabled for testing.", normal_style))
@@ -553,5 +570,4 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements)
     buffer.seek(0)
     return buffer
-
 
