@@ -21,6 +21,8 @@ import brotli
 from PIL import Image as PILImage
 from concurrent.futures import ThreadPoolExecutor
 from zipfile import ZipFile, ZIP_DEFLATED
+from reportlab.graphics.shapes import Drawing, Rect, String
+from reportlab.graphics import renderPDF
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -465,8 +467,10 @@ def generate_pdf(request):
             "error": "An unexpected error occurred"
         }, status=500)
 
+
+
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content using ReportLab with enhanced formatting and background colors."""
+    """Generate PDF content using ReportLab with a simulated logo, enhanced formatting, and page background."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     elements = []
@@ -478,8 +482,27 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=4, leading=12, fontName='Helvetica')
     footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#7f8c8d'), alignment=TA_CENTER, leading=12, spaceBefore=10)
 
-    # Page background color (light gray)
-    doc.setBackground(colors.HexColor('#f5f7fa'))  # Light gray background for the entire page
+    # Define a function to draw the background color for each page
+    def draw_background(canvas, doc):
+        canvas.saveState()
+        canvas.setFillColor(colors.HexColor('#f5f7fa'))  # Light gray background
+        canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)  # Fill the entire page
+        canvas.restoreState()
+
+    # Attach the background drawing function to the document
+    doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
+
+    # Simulated Logo (Rectangle with Text)
+    logo_drawing = Drawing(100*mm, 25*mm)  # Width and height of the logo placeholder
+    logo_rect = Rect(0, 0, 100*mm, 25*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
+    logo_drawing.add(logo_rect)
+    logo_text = String(50*mm, 12.5*mm, "School Logo", fontName='Helvetica-Bold', fontSize=14, fillColor=colors.white)
+    logo_text.textAnchor = 'middle'
+    logo_drawing.add(logo_text)
+    elements.append(logo_drawing)
+
+    # Spacer to separate logo from title
+    elements.append(Spacer(1, 15*mm))
 
     # Header section with background color
     header_table = Table([[student.school.name], ["Monthly Student Report"]], colWidths=[160*mm])
@@ -679,9 +702,6 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(footer_table)
 
     # Build the PDF
-    doc.build(elements)
+    doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
-
-
-    
