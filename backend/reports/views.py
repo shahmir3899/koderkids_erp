@@ -1569,6 +1569,187 @@ def generate_pdf_batch(request):
         from zipfile import ZipFile
 
         zip_buffer = BytesIO()
+        with ZipFile(zip_buffer, 'w', compression=ZipFile.ZIP_DEFLATED) as zip_file:
+            failed_students = []
+            for student_id in student_ids:
+                try:
+                    student = Student.objects.filter(
+                        id=student_id, school_id=school_id, student_class=student_class
+                    ).first()
+                    if not student:
+                        logger.warning(f"Student {student_id} not found")
+                        failed_students.append(student_id)
+                        continue
+
+                    # Fetch attendance and lessons data (simplified for brevity)
+                    total_days = Attendance.objects.filter(
+                        session_date__range=[start_date, end_date],
+                        student__school=student.school
+                    ).values('session_date').distinct().count()
+                    attendance_records = Attendance.objects.filter(
+                        student_id=student_id,
+                        session_date__range=[start_date, end_date]
+                    ).values('status').annotate(count=Count('id'))
+                    attendance_data = {
+                        "present": next((item['count'] for item in attendance_records if item['status'] == "Present"), 0),
+                        "total_days": total_days,
+                        "percentage": 0.0 if total_days == 0 else (next((item['count'] for item in attendance_records if item['status'] == "Present"), 0) / total_days * 100)
+                    }
+
+                    planned_lessons = LessonPlan.objects.filter(
+                        session_date__range=[start_date, end_date],
+                        school=student.school,
+                        student_class=student.student_class
+                    ).values("session_date", "planned_topic")
+                    achieved_lessons = Attendance.objects.filter(
+                        session_date__range=[start_date, end_date],
+                        student=student
+                    ).values("session_date", "achieved_topic")
+                    lessons_data = [
+                        {
+                            "date": lesson["session_date"].strftime('%Y-%m-%d'),
+                            "planned_topic": lesson["planned_topic"],
+                            "achieved_topic": next((al["achieved_topic"] for al in achieved_lessons if al["session_date"] == lesson["session_date"]), "N/A")
+                        }
+                        for lesson in planned_lessons
+                    ]
+
+                    folder_path = f"{student_id}/"
+                    supabase_response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(folder_path)
+                    if "error" in supabase_response:
+                        logger.error(f"Supabase error fetching images for student {student_id}: {supabase_response['error']['message']}")
+                        image_urls = []
+                    else:
+                        all_images = [
+                            supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(
+                                f"{folder_path}{file['name']}", 3600
+                            )['signedURL']
+                            for file in supabase_response
+                            if file["name"].startswith(month if mode == 'month' else start_date.strftime('%Y-%m'))
+                        ]
+                        image_urls = all_images[:4] if not image_ids else [all_images[int(i)-1] for i in image_ids if 0 <= int(i)-1 < len(all_images)][:4]
+
+                    pdf_buffer = BytesIO()
+                    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, rightMargin=15*mm, leftMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
+                    elements = []
+                    styles = getSampleStyleSheet()
+                    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=6, fontName='Helvetica-Bold')
+                    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.HexColor('#2c3e50'), spaceAfter=4, fontName='Helvetica-Bold', underline=1)
+                    normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=2, leading=12, fontName='Helvetica')
+                    elements.append(Paragraph(student.school.name, title_style))
+                    elements.append(Paragraph("Monthly Student Report", title_style))
+                    elements.append(Spacer(1, 6*mm))
+                    elements.append(Paragraph("Student Details", header_style))
+                    elements.extend([
+                        Paragraph(f"<b>Name:</b> {student.name}", normal_style),
+                        Paragraph(f"<b>Registration Number:</b> {student.reg_num}", normal_style),
+                        Paragraph(f"<b>School:</b> {student.school.name}", normal_style),
+                        Paragraph(f"<b>Class:</b> {student.student_class}", normal_style),
+                        Paragraph(f"<b>Month/Date Range:</b> {period}", normal_style),
+                    ])
+                    elements.append(Spacer(1, 6*mm))
+                    elements.append(Paragraph("Attendance", header_style))
+                    attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
+                    elements.append(Paragraph(attendance_text, normal_style))
+                    elements.append(Spacer(1, 6*mm))
+                    elements.append(Paragraph("Lessons Overview", header_style))
+                    if lessons_data:
+                        lessons_table = Table([['Date', 'Planned Topic', 'Achieved Topic']] + [[Paragraph(lesson['date'], normal_style), Paragraph(lesson['planned_topic'], normal_style), Paragraph(lesson['achieved_topic'], normal_style)] for lesson in lessons_data], colWidths=[30*mm, 65*mm, 65*mm])
+                        lessons_table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('ALIGN', (0, 0), (-1, -1), 'LEFT'), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9), ('LEADING', (0, 0), (-1, -1), 11), ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')), ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]), ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4)]))
+                        elements.append(lessons_table)
+                    elements.append(Spacer(1, 6*mm))
+                    elements.append(Paragraph("Progress Images", header_style))
+                    image_table_data = []
+                    image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
+                    for i in range(0, 4, 2):
+                        row = []
+                        for j in range(2):
+                            idx = i + j
+                            if idx < len(image_slots) and image_slots[idx]:
+                                try:
+                                    img_data = fetch_image(image_slots[idx])
+                                    if img_data and img_data.getbuffer().nbytes > 0:
+                                        img = ImageReader(img_data)
+                                        img._width, img._height = 75*mm, 50*mm
+                                        row.append(img)
+                                    else:
+                                        row.append(Paragraph("Image Failed", normal_style))
+                                except Exception as e:
+                                    logger.error(f"Image processing error for student {student_id}: {str(e)}")
+                                    row.append(Paragraph("Image Error", normal_style))
+                            else:
+                                row.append(Paragraph("No Image", normal_style))
+                        image_table_data.append(row)
+                    image_table = Table(image_table_data, colWidths=[80*mm, 80*mm], rowHeights=55*mm)
+                    image_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('BACKGROUND', (0, 0), (-1, -1), colors.white), ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')), ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4)]))
+                    elements.append(image_table)
+                    doc.build(elements)
+                    pdf_buffer.seek(0)
+                    filename = f"student_report_{student.reg_num}_{period.replace(' ', '_')}.pdf"
+                    zip_file.writestr(filename, pdf_buffer.getvalue())
+                    logger.info(f"Successfully generated PDF for student {student_id}")
+                except Exception as e:
+                    logger.error(f"Failed to generate PDF for student {student_id}: {str(e)}", exc_info=True)
+                    failed_students.append(student_id)
+
+        zip_buffer.seek(0)
+        response = HttpResponse(zip_buffer, content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename=student_reports_{period.replace(" ", "_")}.zip'
+
+        if failed_students:
+            logger.warning(f"Some PDFs failed to generate for students: {failed_students}")
+            return Response({
+                "message": "Partially successful: Some PDFs generated",
+                "warning": f"Failed to generate PDFs for student IDs: {', '.join(map(str, failed_students))}",
+                "data": response
+            }, status=206)
+
+        logger.info(f"Successfully generated PDF batch for {len(student_ids)} students")
+        return response
+
+    except Exception as e:
+        logger.error(f"Unexpected error in generate_pdf_batch: {str(e)}", exc_info=True)
+        return Response({"message": "Failed to generate PDF batch", "error": "An unexpected error occurred while generating the PDF batch. Please try again later."}, status=500)
+    """Generate PDF reports for multiple students and return as a ZIP file"""
+    user = request.user
+    try:
+        data = request.data
+        student_ids = data.get('student_ids', [])
+        mode = data.get('mode')
+        month = data.get('month')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        school_id = data.get('school_id')
+        student_class = data.get('student_class')
+        image_ids = [x.strip() for x in data.get('image_ids', '').split(',') if x.strip()]
+
+        if not student_ids or not mode or (mode == 'month' and not month) or (mode == 'range' and not (start_date and end_date)):
+            logger.warning("Missing required parameters in generate_pdf_batch")
+            return Response({'message': 'Failed to generate PDF batch', 'error': 'Missing required parameters: student_ids, mode, and either month or start_date/end_date are required'}, status=400)
+
+        if user.role == "Teacher":
+            assigned_schools = user.assigned_schools.values_list("id", flat=True)
+            if int(school_id) not in assigned_schools:
+                logger.warning(f"Unauthorized access attempt by {user.username} to school {school_id}")
+                return Response({"message": "Failed to generate PDF batch", "error": "Unauthorized access to this school"}, status=403)
+
+        if mode == 'month':
+            year, month_num = map(int, month.split('-'))
+            start_date = datetime(year, month_num, 1).date()
+            end_date = (datetime(year, month_num + 1, 1) - timedelta(days=1)).date() if month_num < 12 else datetime(year, 12, 31).date()
+            period = datetime(year, month_num, 1).strftime('%B %Y')
+        else:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                period = f"{start_date.strftime('%b %d, %Y')} to {end_date.strftime('%b %d, %Y')}"
+            except ValueError:
+                logger.warning(f"Invalid date format: start_date={start_date}, end_date={end_date}")
+                return Response({'message': 'Failed to generate PDF batch', 'error': 'Invalid date format. Use YYYY-MM-DD'}, status=400)
+
+        from zipfile import ZipFile
+
+        zip_buffer = BytesIO()
         zip_file = ZipFile(zip_buffer, 'w', compression=ZipFile.ZIP_DEFLATED)
 
         styles = getSampleStyleSheet()
