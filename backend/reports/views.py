@@ -496,6 +496,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     bg_image_path = os.path.join(settings.STATIC_ROOT, 'bg.png')
 
     def draw_background(canvas, doc):
+        print(f"draw_background called with args: {len(locals())}, canvas: {type(canvas)}, doc: {type(doc)}")
         canvas.saveState()
         # A4 background image (595x842 points, centered)
         canvas.drawImage(bg_image_path, 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
