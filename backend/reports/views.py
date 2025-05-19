@@ -255,7 +255,7 @@ def generate_pdf(request):
 
         if mode == 'month' and not month:
             logger.warning("Month required for monthly reports in generate_pdf")
-            return Response({'message': 'Failed to generate PDF', 'error': 'Month required for monthly reports'}, status=400)
+            return Response({'message': 'Failed to generate PDF', 'error': 'Month-required for monthly reports'}, status=400)
         if mode == 'range' and not (start_date and end_date):
             logger.warning("Start and end dates required for range reports in generate_pdf")
             return Response({'message': 'Failed to generate PDF', 'error': 'Start and end dates required for range reports'}, status=400)
@@ -344,7 +344,6 @@ def generate_pdf(request):
                 for file in supabase_response
                 if file["name"].startswith(month if mode == 'month' else start_date.strftime('%Y-%m'))
             ]
-            
             image_urls = all_images[:4]  # Default to first 4 images since image_ids is not sent
 
         buffer = BytesIO()
@@ -419,7 +418,7 @@ def generate_pdf(request):
             f"{attendance_data['present']}/{attendance_data['total_days']} days "
             f"({attendance_data['percentage']:.2f}%)"
         )
-        status_dot = f'<font color="{attendance_status_color}">â—�</font>'
+        status_dot = f'<font color="{attendance_status_color}">●</font>'
         attendance_para = Paragraph(
             f"{attendance_text} {status_dot}",
             ParagraphStyle(
@@ -441,7 +440,7 @@ def generate_pdf(request):
                         Paragraph(lesson['planned_topic'], normal_style),
                         Paragraph(
                             f"{lesson['achieved_topic']} " + 
-                            ('<font color="green">âœ“</font>' 
+                            ('<font color="green">✓</font>' 
                              if lesson['planned_topic'] == lesson['achieved_topic'] 
                              and lesson['achieved_topic'] != "N/A" 
                              else ''),
@@ -460,7 +459,7 @@ def generate_pdf(request):
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('LEADING', (0, 0), (-1, -1), 11),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
@@ -480,7 +479,7 @@ def generate_pdf(request):
             row = []
             for j in range(2):
                 idx = i + j
-                img_data = image_buffers[j] if idx < len(image_buffers) and image_buffers[j] else None
+                img_data = image_buffers[idx] if idx < len(image_buffers) and image_buffers[idx] else None
                 if img_data and img_data.getbuffer().nbytes > 0:
                     img_data.seek(0)
                     with PILImage.open(img_data) as pil_img:
@@ -511,7 +510,7 @@ def generate_pdf(request):
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
             ('TOPPADDING', (0, 0), (-1, -1), 4),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
@@ -553,6 +552,7 @@ def generate_pdf(request):
     except Exception as e:
         logger.error(f"Unexpected error in generate_pdf: {str(e)}", exc_info=True)
         return Response({"message": "Failed to generate PDF", "error": "An unexpected error occurred while generating the PDF. Please try again later."}, status=500)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -699,7 +699,7 @@ def generate_pdf_batch(request):
                             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                             ('FONTSIZE', (0, 0), (-1, -1), 9),
                             ('LEADING', (0, 0), (-1, -1), 11),
-                            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+                            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
                             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
                             ('TOPPADDING', (0, 0), (-1, -1), 4),
@@ -718,7 +718,7 @@ def generate_pdf_batch(request):
                         row = []
                         for j in range(2):
                             idx = i + j
-                            img_data = image_buffers[j] if idx < len(image_buffers) and image_buffers[j] else None
+                            img_data = image_buffers[idx] if idx < len(image_buffers) and image_buffers[idx] else None
                             if img_data and img_data.getbuffer().nbytes > 0:
                                 img_data.seek(0)
                                 img = Image(img_data)
@@ -733,7 +733,7 @@ def generate_pdf_batch(request):
                         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                         ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-                        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+                        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
                         ('TOPPADDING', (0, 0), (-1, -1), 4),
                         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                     ]))
