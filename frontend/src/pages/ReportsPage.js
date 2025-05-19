@@ -218,7 +218,7 @@ const ReportsPage = () => {
         params.end_date = formatToYYYYMMDD(endDate);
       }
 
-      const response = await axios.get(`${API_URL}/generate-pdf/`, {
+      const response = await axios.get(`${API_URL}/api/generate-pdf/`, {
         headers: getAuthHeaders(),
         params,
         responseType: 'blob',
@@ -277,7 +277,7 @@ const ReportsPage = () => {
         payload.end_date = formatToYYYYMMDD(endDate);
       }
 
-      const response = await axios.post(`${API_URL}/generate-pdf-batch/`, payload, {
+      const response = await axios.post(`${API_URL}/api/generate-pdf-batch/`, payload, {
         headers: getAuthHeaders(),
         responseType: 'blob',
       });

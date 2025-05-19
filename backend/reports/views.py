@@ -446,7 +446,7 @@ def generate_pdf(request):
         student, attendance_data, lessons_data = fetch_student_data(student_id, school_id, student_class, start_date, end_date)
         if not student:
             logger.warning(f"Student not found: {student_id}")
-            return Response({' remunerationmessage': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)
+            return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)  # Fixed typo
 
         image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
         buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period)
@@ -465,6 +465,117 @@ def generate_pdf(request):
             "error": "An unexpected error occurred"
         }, status=500)
 
+def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
+    """Generate PDF content using ReportLab."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=15*mm, leftMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=6, fontName='Helvetica-Bold')
+    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.HexColor('#2c3e50'), spaceAfter=4, fontName='Helvetica-Bold', underline=1)
+    normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=2, leading=12, fontName='Helvetica')
+    footer_style = ParagraphStyle(name='Footer', fontSize=8, textColor=colors.HexColor('#7f8c8d'), alignment=TA_LEFT, leading=10)
+
+    elements.append(Paragraph(student.school.name, title_style))
+    elements.append(Paragraph("Monthly Student Report", title_style))
+    elements.append(Spacer(1, 6*mm))
+    elements.append(Paragraph("Student Details", header_style))
+    elements.extend([
+        Paragraph(f"<b>Name:</b> {student.name}", normal_style),
+        Paragraph(f"<b>Registration Number:</b> {student.reg_num}", normal_style),
+        Paragraph(f"<b>School:</b> {student.school.name}", normal_style),
+        Paragraph(f"<b>Class:</b> {student.student_class}", normal_style),
+        Paragraph(f"<b>Month/Date Range:</b> {period}", normal_style),
+    ])
+    elements.append(Spacer(1, 6*mm))
+    elements.append(Paragraph("Attendance", header_style))
+    attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
+    attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
+    elements.append(Paragraph(f"{attendance_text} <font color='{attendance_status_color}'>●</font>", normal_style))  # Fixed bullet
+    elements.append(Spacer(1, 6*mm))
+    elements.append(Paragraph("Lessons Overview", header_style))
+    if lessons_data:
+        lessons_table = Table(
+            [['Date', 'Planned Topic', 'Achieved Topic']] + [
+                [
+                    Paragraph(lesson['date'], normal_style),
+                    Paragraph(lesson['planned_topic'], normal_style),
+                    Paragraph(
+                        f"{lesson['achieved_topic']} " + (
+                            '<font color="green">✓</font>'  # Fixed checkmark
+                            if lesson['planned_topic'] == lesson['achieved_topic'] and lesson['achieved_topic'] != "N/A"
+                            else ''
+                        ),
+                        normal_style
+                    )
+                ] for lesson in lessons_data
+            ],
+            colWidths=[30*mm, 65*mm, 65*mm]
+        )
+        lessons_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),  # Fixed color code
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('LEADING', (0, 0), (-1, -1), 11),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(lessons_table)
+    else:
+        elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
+    elements.append(Spacer(1, 6*mm))
+    elements.append(Paragraph("Progress Images", header_style))
+    image_table_data = []
+    image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
+    image_buffers = fetch_images_in_parallel(image_slots[:4])
+
+    for i in range(0, 4, 2):
+        row = []
+        for j in range(2):
+            idx = i + j
+            img_data = image_buffers[idx] if idx < len(image_buffers) and image_buffers[idx] else None
+            if img_data and img_data.getbuffer().nbytes > 0:
+                img_data.seek(0)
+                img = Image(img_data)
+                img.drawWidth, img.drawHeight = 75*mm, 50*mm
+                row.append(img)
+            else:
+                row.append(Paragraph("No Image", normal_style))
+        image_table_data.append(row)
+
+    image_table = Table(image_table_data, colWidths=[80*mm, 80*mm], rowHeights=55*mm)
+    image_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(image_table)
+    if len(image_urls) > 4:
+        elements.append(Paragraph(
+            f"Note: Showing 4 of {len(image_urls)} images available.",
+            ParagraphStyle(name='Small', fontSize=8, textColor=colors.gray, alignment=TA_CENTER)
+        ))
+    elements.append(Spacer(1, 6*mm))
+
+    footer_text = (
+        f"Teacher's Signature: ____________________<br/>"
+        f"Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}<br/>"
+        f"<i>Powered by {student.school.name}</i>"
+    )
+    elements.append(Paragraph(footer_text, footer_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_pdf_batch(request):
