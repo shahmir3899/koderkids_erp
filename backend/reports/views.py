@@ -23,6 +23,10 @@ from concurrent.futures import ThreadPoolExecutor
 from zipfile import ZipFile, ZIP_DEFLATED
 from reportlab.graphics.shapes import Drawing, Rect, String
 from reportlab.graphics import renderPDF
+from reportlab.graphics.charts.piecharts import Pie
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import os
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -470,156 +474,157 @@ def generate_pdf(request):
 
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content using ReportLab with a simulated logo, enhanced formatting, and page background."""
+    """Generate PDF content using ReportLab with enhanced formatting and background image."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Define custom styles with improved spacing and colors
-    title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#1a3c5a'), alignment=TA_CENTER, spaceAfter=10, fontName='Helvetica-Bold')
-    header_style = ParagraphStyle(name='Header', fontSize=16, textColor=colors.white, spaceAfter=8, spaceBefore=12, fontName='Helvetica-Bold')
-    normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=4, leading=12, fontName='Helvetica')
-    footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#7f8c8d'), alignment=TA_CENTER, leading=12, spaceBefore=10)
+    # Register fallback font
+    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
 
-    # Define a function to draw the background color for each page
+    # Define custom styles
+    title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.white, alignment=TA_CENTER, spaceAfter=10, fontName='DejaVuSans')
+    header_style = ParagraphStyle(name='Header', fontSize=16, textColor=colors.white, spaceAfter=8, spaceBefore=12, fontName='DejaVuSans')
+    normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=4, leading=12, fontName='DejaVuSans')
+    footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=colors.white, alignment=TA_CENTER, leading=12, spaceBefore=10)
+
+    # Cache styles
+    cached_styles = {'title': title_style, 'header': header_style, 'normal': normal_style, 'footer': footer_style}
+
+    # Background image path
+    bg_image_path = os.path.join(settings.STATIC_ROOT, 'bg.png')
+
     def draw_background(canvas, doc):
         canvas.saveState()
-        canvas.setFillColor(colors.HexColor('#f5f7fa'))  # Light gray background
-        canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)  # Fill the entire page
+        # A4 background image (595x842 points, centered)
+        canvas.drawImage(bg_image_path, 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
         canvas.restoreState()
 
-    # Attach the background drawing function to the document
-    doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
+    # 1. Logo and Header Section (same line)
+    logo_size = 512 / 72 * 25.4  # 512px to mm (~180mm)
+    logo_height = 25*mm  # Scaled to match header
+    header_height = 25*mm
+    top_image_height = max(logo_height, header_height)  # For top A4-width image
 
-    # Simulated Logo (Rectangle with Text)
-    logo_drawing = Drawing(100*mm, 25*mm)  # Width and height of the logo placeholder
-    logo_rect = Rect(0, 0, 100*mm, 25*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
+    # Logo (left-aligned)
+    logo_drawing = Drawing(logo_size, logo_height)
+    logo_rect = Rect(0, 0, logo_size, logo_height, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
     logo_drawing.add(logo_rect)
-    logo_text = String(50*mm, 12.5*mm, "School Logo", fontName='Helvetica-Bold', fontSize=14, fillColor=colors.white)
-    logo_text.textAnchor = 'middle'
+    logo_text = String(logo_size/2, logo_height/2, "School Logo", fontName='DejaVuSans', fontSize=14, fillColor=colors.white, textAnchor='middle')
     logo_drawing.add(logo_text)
-    elements.append(logo_drawing)
 
-    # Spacer to separate logo from title
-    elements.append(Spacer(1, 15*mm))
+    # Header (center-aligned)
+    header_text = f"{student.school.name}<br/>Monthly Student Report"
+    header_para = Paragraph(header_text, cached_styles['title'])
 
-    # Header section with background color
-    header_table = Table([[student.school.name], ["Monthly Student Report"]], colWidths=[160*mm])
+    # Header table (logo left, header center)
+    header_table = Table([[logo_drawing, header_para]], colWidths=[logo_size, doc.width-logo_size])
     header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 20),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
     ]))
     elements.append(header_table)
 
-    # Spacer to ensure heading doesn't touch body
+    # Top A4-width image (same height as header/logo)
+    top_image = Drawing(doc.width, top_image_height)
+    top_rect = Rect(0, 0, doc.width, top_image_height, fillColor=colors.HexColor('#e6f0fa'))
+    top_image.add(top_rect)
+    elements.append(top_image)
+
     elements.append(Spacer(1, 15*mm))
 
-    # Student Details Section
-    elements.append(Paragraph("Student Details", header_style))
-    details_table = Table([
-        ["Name:", student.name],
-        ["Registration Number:", student.reg_num],
-        ["School:", student.school.name],
-        ["Class:", student.student_class],
-        ["Month/Date Range:", period]
-    ], colWidths=[40*mm, 120*mm])
+    # 2. Student Details Section
+    details_bg_image = Image(bg_image_path, width=160*mm, height=50*mm)  # Fixed background image
+    details_data = [
+        ["👤 Name:", student.name],
+        ["🆔 Reg. Number:", student.reg_num],
+        ["🏫 School:", student.school.name],
+        ["📚 Class:", student.student_class],
+        ["📅 Period:", period]
+    ]
+    details_table = Table(details_data, colWidths=[40*mm, 120*mm])
     details_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),  # Light blue background for section
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#333333')),
-        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#555555')),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#333333')),
+        ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
         ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
     ]))
+    # Fixed position (20mm from left, 200mm from top)
+    details_table.wrapOn(None, 160*mm, 50*mm)
+    details_table.drawOn(doc, 20*mm, A4[1]-200*mm)
+    elements.append(details_bg_image)
     elements.append(details_table)
 
-    # Spacer to separate sections
     elements.append(Spacer(1, 15*mm))
 
-    # Attendance Section with background color
-    attendance_header = Table([["Attendance"]], colWidths=[160*mm])
-    attendance_header.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background for header
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 16),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-    ]))
+    # 3. Attendance Section (Pie Chart)
+    attendance_header = Paragraph("Attendance", cached_styles['header'])
     elements.append(attendance_header)
 
-    elements.append(Spacer(1, 8*mm))  # Space between header and body
+    pie_chart = Drawing(100*mm, 100*mm)
+    pie = Pie()
+    pie.width = pie.height = 80*mm
+    pie.x = 10*mm
+    pie.y = 10*mm
+    pie.data = [attendance_data['present'], attendance_data['total_days'] - attendance_data['present']]
+    pie.labels = ['Present', 'Absent']
+    pie.slices.strokeColor = colors.white
+    pie.slices[0].fillColor = colors.green
+    pie.slices[1].fillColor = colors.red
+    pie_chart.add(pie)
+    elements.append(pie_chart)
+    elements.append(Paragraph(f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)", cached_styles['normal']))
 
-    attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
-    attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
-    attendance_table = Table([[f"{attendance_text}  ", f"<font color='{attendance_status_color}'>●</font>"]], colWidths=[100*mm, 10*mm])
-    attendance_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),  # Light blue background
-        ('FONTSIZE', (0, 0), (-1, -1), 12),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    elements.append(attendance_table)
-
-    # Spacer to separate sections
     elements.append(Spacer(1, 15*mm))
 
-    # Lessons Overview Section
-    lessons_header = Table([["Lessons Overview"]], colWidths=[160*mm])
+    # 4. Lessons Overview Section
+    lessons_header = Table([["Lessons Overview"]], colWidths=[doc.width])
     lessons_header.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background for header
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
         ('FONTSIZE', (0, 0), (-1, -1), 16),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     elements.append(lessons_header)
 
-    elements.append(Spacer(1, 8*mm))  # Space between header and body
-
     if lessons_data:
         lessons_table = Table(
             [['Date', 'Planned Topic', 'Achieved Topic']] + [
                 [
-                    Paragraph(lesson['date'], normal_style),
-                    Paragraph(lesson['planned_topic'], normal_style),
+                    Paragraph(lesson['date'], cached_styles['normal']),
+                    Paragraph(lesson['planned_topic'], cached_styles['normal']),
                     Paragraph(
                         f"{lesson['achieved_topic']} " + (
                             '<font color="green">✓</font>'
                             if lesson['planned_topic'] == lesson['achieved_topic'] and lesson['achieved_topic'] != "N/A"
                             else ''
                         ),
-                        normal_style
+                        cached_styles['normal']
                     )
                 ] for lesson in lessons_data
             ],
-            colWidths=[35*mm, 70*mm, 55*mm]
+            colWidths=[doc.width/3, doc.width/3, doc.width/3]
         )
         lessons_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a6fa5')),  # Lighter blue for table header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a6fa5')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('LEADING', (0, 0), (-1, -1), 12),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#eee')),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
@@ -627,81 +632,78 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ]))
         elements.append(lessons_table)
     else:
-        elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
+        elements.append(Paragraph("No lessons found.", cached_styles['normal']))
 
-    # Spacer to separate sections
     elements.append(Spacer(1, 15*mm))
 
-    # Progress Images Section
-    images_header = Table([["Progress Images"]], colWidths=[160*mm])
+    # 5. Progress Images Section
+    images_header = Table([["Progress Images"]], colWidths=[doc.width])
     images_header.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background for header
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
         ('FONTSIZE', (0, 0), (-1, -1), 16),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     elements.append(images_header)
 
-    elements.append(Spacer(1, 8*mm))  # Space between header and body
+    # Paginate images (4 per page)
+    for i in range(0, len(image_urls), 4):
+        image_batch = image_urls[i:i+4]
+        image_slots = image_batch + [None] * (4 - len(image_batch))
+        image_buffers = fetch_images_in_parallel(image_slots)
 
-    image_table_data = []
-    image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
-    image_buffers = fetch_images_in_parallel(image_slots[:4])
+        image_table_data = []
+        for j in range(0, 4, 2):
+            row = []
+            for k in range(2):
+                idx = j + k
+                img_data = image_buffers[idx] if idx < len(image_buffers) and image_buffers[idx] else None
+                if img_data and img_data.getbuffer().nbytes > 0:
+                    img_data.seek(0)
+                    img = Image(img_data, alt=f"Progress Image {i+idx+1}")
+                    img.drawWidth, img.drawHeight = 75*mm, 50*mm
+                    row.append(Table([[img], [Paragraph(f"Image {i+idx+1} - {datetime.now().strftime('%Y-%m-%d')}", cached_styles['normal'])]], colWidths=[75*mm]))
+                else:
+                    row.append(Paragraph("No Image", cached_styles['normal']))
+            image_table_data.append(row)
 
-    for i in range(0, 4, 2):
-        row = []
-        for j in range(2):
-            idx = i + j
-            img_data = image_buffers[idx] if idx < len(image_buffers) and image_buffers[idx] else None
-            if img_data and img_data.getbuffer().nbytes > 0:
-                img_data.seek(0)
-                img = Image(img_data)
-                img.drawWidth, img.drawHeight = 75*mm, 50*mm
-                row.append(img)
-            else:
-                row.append(Paragraph("No Image", normal_style))
-        image_table_data.append(row)
+        image_table = Table(image_table_data, colWidths=[doc.width/2, doc.width/2], rowHeights=60*mm)
+        image_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
+            ('INNERGRID', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(image_table)
+        elements.append(Spacer(1, 15*mm))
 
-    image_table = Table(image_table_data, colWidths=[85*mm, 85*mm], rowHeights=60*mm)
-    image_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),  # Light blue background
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
-        ('INNERGRID', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    elements.append(image_table)
-
-    if len(image_urls) > 4:
-        elements.append(Paragraph(
-            f"Note: Showing 4 of {len(image_urls)} images available.",
-            ParagraphStyle(name='Small', fontSize=8, textColor=colors.HexColor('#888888'), alignment=TA_CENTER, spaceBefore=6)
-        ))
-
-    # Spacer to separate sections
-    elements.append(Spacer(1, 15*mm))
-
-    # Footer Section
-    footer_table = Table([[
-        f"Teacher's Signature: ____________________  |  Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}  |  Powered by {student.school.name}"
-    ]], colWidths=[160*mm])
+    # 6. Footer Section (full-width, sticks to bottom)
+    footer_text = (
+        f"Teacher's Signature: ____________________<br/>"
+        f"Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}<br/>"
+        f"Powered by Koder Kids"
+    )
+    footer_table = Table([[Paragraph(footer_text, cached_styles['footer'])]], colWidths=[doc.width])
     footer_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background for footer
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
+    elements.append(Spacer(1, doc.bottomMargin))
     elements.append(footer_table)
 
-    # Build the PDF
+    # Build PDF
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
+
