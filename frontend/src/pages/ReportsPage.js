@@ -91,10 +91,11 @@ const ReportsPage = () => {
 
   // Validate and fetch students
   const fetchStudents = async () => {
+    // Batch state updates to clear previous data
     setErrorMessage("");
+    setIsSearching(true);
     setStudents([]);
     setSelectedStudentIds([]);
-    setIsSearching(true);
 
     // Validation for month mode
     if (mode === "month") {
@@ -122,9 +123,9 @@ const ReportsPage = () => {
         setIsSearching(false);
         return;
       }
-      const currentDate = new Date("2025-05-19");
+      const currentDate = new Date();
       if (new Date(startDate) > currentDate || new Date(endDate) > currentDate) {
-        setErrorMessage("Dates cannot be in the future (beyond May 19, 2025).");
+        setErrorMessage("Dates cannot be in the future.");
         setIsSearching(false);
         return;
       }
@@ -136,7 +137,7 @@ const ReportsPage = () => {
     }
 
     try {
-      // Format dates for API
+      // Compute dates once
       const sessionDate = mode === "month"
         ? formatToMMDDYYYY(`${selectedMonth}-01`)
         : formatToMMDDYYYY(startDate);
@@ -164,8 +165,6 @@ const ReportsPage = () => {
         },
       });
 
-      console.log("Students API response:", response.data);
-
       const studentList = Array.isArray(response.data?.students) ? response.data.students : Array.isArray(response.data) ? response.data : [];
       if (studentList.length === 0) {
         setErrorMessage("No students found for the selected criteria.");
@@ -178,28 +177,6 @@ const ReportsPage = () => {
       );
     } finally {
       setIsSearching(false);
-    }
-  };
-
-  // Fetch images for a student
-  const fetchStudentImages = async (studentId, sessionDate) => {
-    try {
-      const response = await axios.get(`${API_URL}/api/get-student-images/`, {
-        headers: getAuthHeaders(),
-        params: {
-          student_id: studentId,
-          session_date: sessionDate,
-        },
-      });
-      const images = response.data.images || [];
-      // Extract filenames from signed URLs
-      const imageIds = images.map(img => img.signedURL.split('/').pop().split('?')[0]).slice(0, 4);
-      console.log(`Fetched images for student ${studentId}:`, imageIds);
-      return imageIds;
-    } catch (error) {
-      console.error(`Error fetching images for student ${studentId}:`, error.response?.status, error.response?.data || error.message);
-      setErrorMessage(`Failed to fetch images for student ${studentId}. Proceeding without images.`);
-      return [];
     }
   };
 
@@ -227,22 +204,11 @@ const ReportsPage = () => {
     setIsGenerating(prev => ({ ...prev, [studentId]: true }));
 
     try {
-      // Determine session_date for image fetching
-      const sessionDate = mode === "month"
-        ? selectedMonth
-        : formatToYYYYMMDD(startDate).slice(0, 7); // YYYY-MM
-
-      // Fetch image IDs
-      const imageIds = await fetchStudentImages(studentId, sessionDate);
-      const imageIdsString = imageIds.join(',');
-
-      // Build query parameters
       const params = {
         student_id: studentId,
         mode,
         school_id: selectedSchool,
         student_class: selectedClass,
-        image_ids: imageIdsString,
       };
 
       if (mode === "month") {
@@ -252,14 +218,12 @@ const ReportsPage = () => {
         params.end_date = formatToYYYYMMDD(endDate);
       }
 
-      // Make API call to generate PDF
-      const response = await axios.get(`${API_URL}/api/generate-pdf/`, {
+      const response = await axios.get(`${API_URL}/generate-pdf/`, {
         headers: getAuthHeaders(),
         params,
         responseType: 'blob',
       });
 
-      // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       const period = mode === "month"
@@ -299,26 +263,11 @@ const ReportsPage = () => {
     setIsGeneratingBulk(true);
 
     try {
-      // Determine session_date for image fetching
-      const sessionDate = mode === "month"
-        ? selectedMonth
-        : formatToYYYYMMDD(startDate).slice(0, 7); // YYYY-MM
-
-      // Fetch images for all selected students
-      const allImageIds = [];
-      for (const studentId of selectedStudentIds) {
-        const imageIds = await fetchStudentImages(studentId, sessionDate);
-        allImageIds.push(...imageIds);
-      }
-      const imageIdsString = allImageIds.slice(0, 4).join(',');
-
-      // Build payload
       const payload = {
         student_ids: selectedStudentIds,
         mode,
         school_id: selectedSchool,
         student_class: selectedClass,
-        image_ids: imageIdsString,
       };
 
       if (mode === "month") {
@@ -328,15 +277,11 @@ const ReportsPage = () => {
         payload.end_date = formatToYYYYMMDD(endDate);
       }
 
-      console.log("Bulk payload:", payload);
-
-      // Make API call to generate bulk PDFs
-      const response = await axios.post(`${API_URL}/api/generate-pdf-batch/`, payload, {
+      const response = await axios.post(`${API_URL}/generate-pdf-batch/`, payload, {
         headers: getAuthHeaders(),
         responseType: 'blob',
       });
 
-      // Create download link for ZIP
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       const period = mode === "month"
@@ -372,7 +317,7 @@ const ReportsPage = () => {
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg" role="alert">
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg" role="alert" aria-live="assertive">
           {errorMessage}
         </div>
       )}
@@ -386,6 +331,7 @@ const ReportsPage = () => {
             checked={mode === "month"}
             onChange={() => setMode("month")}
             className="mr-2"
+            aria-label="Select month mode"
           />
           <span className="text-gray-700">Month</span>
         </label>
@@ -396,6 +342,7 @@ const ReportsPage = () => {
             checked={mode === "range"}
             onChange={() => setMode("range")}
             className="mr-2"
+            aria-label="Select date range mode"
           />
           <span className="text-gray-700">Date Range</span>
         </label>
@@ -425,6 +372,7 @@ const ReportsPage = () => {
             value={startDate}
             disabled={mode === "month"}
             onChange={(e) => setStartDate(e.target.value)}
+            max={new Date().toISOString().split("T")[0]} // Dynamic max date
             aria-label="Select start date"
           />
         </div>
@@ -438,6 +386,7 @@ const ReportsPage = () => {
             value={endDate}
             disabled={mode === "month"}
             onChange={(e) => setEndDate(e.target.value)}
+            max={new Date().toISOString().split("T")[0]} // Dynamic max date
             aria-label="Select end date"
           />
         </div>
@@ -486,6 +435,7 @@ const ReportsPage = () => {
             className={`bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 mt-7 ${
               isSearching ? "opacity-75 cursor-not-allowed" : "hover:bg-blue-600"
             }`}
+            disabled={isSearching}
             aria-label={isSearching ? "Searching students" : "Search students"}
           >
             {isSearching ? (
@@ -495,6 +445,7 @@ const ReportsPage = () => {
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <circle
                     className="opacity-25"
@@ -513,9 +464,7 @@ const ReportsPage = () => {
                 Searching...
               </>
             ) : (
-              <>
-                🔍 Search
-              </>
+              <>🔍 Search</>
             )}
           </button>
         </div>
@@ -523,7 +472,7 @@ const ReportsPage = () => {
 
       {/* Student List */}
       {Array.isArray(students) && students.length > 0 ? (
-        <div className="bg-white p-6 rounded-lg shadow-lg">
+        <div className="bg-white p-6 rounded-lg shadow-lg" aria-live="polite">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-semibold text-gray-700">📋 Student List</h3>
             <button
@@ -534,7 +483,7 @@ const ReportsPage = () => {
                   : "hover:bg-purple-600"
               }`}
               disabled={isGeneratingBulk || selectedStudentIds.length === 0}
-              aria-label="Generate selected reports"
+              aria-label={`Generate reports for ${selectedStudentIds.length} selected students`}
             >
               {isGeneratingBulk ? (
                 <>
@@ -543,6 +492,7 @@ const ReportsPage = () => {
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <circle
                       className="opacity-25"
@@ -561,9 +511,7 @@ const ReportsPage = () => {
                   Generating...
                 </>
               ) : (
-                <>
-                  📦 Generate Selected Reports ({selectedStudentIds.length})
-                </>
+                <>📦 Generate Selected Reports ({selectedStudentIds.length})</>
               )}
             </button>
           </div>
@@ -580,7 +528,7 @@ const ReportsPage = () => {
                       aria-label="Select all students"
                     />
                   </th>
-                  <th className="p-3 text-left text-gray-700 font-semibold">Student Name</th>
+                  <th className="p-3 text-left text-Grok3 built by xAI-gray-700 font-semibold">Student Name</th>
                   <th className="p-3 text-left text-gray-700 font-semibold">Action</th>
                 </tr>
               </thead>
@@ -613,6 +561,7 @@ const ReportsPage = () => {
                               xmlns="http://www.w3.org/2000/svg"
                               fill="none"
                               viewBox="0 0 24 24"
+                              aria-hidden="true"
                             >
                               <circle
                                 className="opacity-25"
@@ -631,9 +580,7 @@ const ReportsPage = () => {
                             Generating...
                           </>
                         ) : (
-                          <>
-                            📄 Generate Report
-                          </>
+                          <>📄 Generate Report</>
                         )}
                       </button>
                     </td>
@@ -644,7 +591,7 @@ const ReportsPage = () => {
           </div>
         </div>
       ) : (
-        <p className="text-center text-gray-500">
+        <p className="text-center text-gray-500" aria-live="polite">
           {errorMessage || "No students found. Adjust filters and try again."}
         </p>
       )}
