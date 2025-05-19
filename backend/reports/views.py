@@ -474,20 +474,45 @@ def generate_pdf(request):
 
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content using ReportLab."""
+    """Generate PDF content using ReportLab with emojis and logo."""
     logger.debug("Using FIRST generate_pdf_content")
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=15*mm, leftMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=6, fontName='Helvetica-Bold')
-    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.HexColor('#2c3e50'), spaceAfter=4, fontName='Helvetica-Bold', underline=1)
-    normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=2, leading=12, fontName='Helvetica')
-    footer_style = ParagraphStyle(name='Footer', fontSize=8, textColor=colors.HexColor('#7f8c8d'), alignment=TA_LEFT, leading=10)
+    # Register DejaVuSans font for emoji support
+    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
 
-    elements.append(Paragraph(student.school.name, title_style))
-    elements.append(Paragraph("Monthly Student Report", title_style))
+    # Define custom styles with DejaVuSans
+    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=6, fontName='DejaVuSans')
+    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.HexColor('#2c3e50'), spaceAfter=4, fontName='DejaVuSans', underline=1)
+    normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=2, leading=12, fontName='DejaVuSans')
+    footer_style = ParagraphStyle(name='Footer', fontSize=8, textColor=colors.HexColor('#7f8c8d'), alignment=TA_LEFT, leading=10, fontName='DejaVuSans')
+
+    # Fetch logo from hardcoded URL
+    logo_url = "https://koderkids-erp.onrender.com/static/logo.png"
+    logo_buffer = fetch_image(logo_url)
+    if logo_buffer and logo_buffer.getbuffer().nbytes > 0:
+        logo_buffer.seek(0)
+        logo = Image(logo_buffer)
+        logo.drawWidth = 50*mm  # Adjust size as needed
+        logo.drawHeight = 25*mm
+    else:
+        # Fallback if logo fetch fails
+        logo = Paragraph("Logo Not Available", normal_style)
+
+    # Header section with logo and title
+    header_text = f"{student.school.name}<br/>Monthly Student Report"
+    header_para = Paragraph(header_text, title_style)
+    header_table = Table([[logo, header_para]], colWidths=[50*mm, 110*mm])
+    header_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(header_table)
+    
     elements.append(Spacer(1, 6*mm))
     elements.append(Paragraph("Student Details", header_style))
     
@@ -502,7 +527,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     details_table.setStyle(TableStyle([
         ('FONTSIZE', (0, 0), (-1, -1), 10),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#333333')),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -542,7 +567,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('LEADING', (0, 0), (-1, -1), 11),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
@@ -570,4 +595,6 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+
 
