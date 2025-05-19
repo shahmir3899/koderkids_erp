@@ -123,7 +123,7 @@ urlpatterns = [
     # Inventory
     path('api/inventory/', include('inventory.urls')),
 
-    path('api/', include('reports.urls')),
+    path('', include('reports.urls')),
 
     # DRF Router URLs (For ViewSets)
     path('api/', include(router.urls)),
