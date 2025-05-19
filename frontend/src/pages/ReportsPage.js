@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getAuthHeaders, getSchools, getClasses, API_URL } from "../api";
+import { toast } from 'react-toastify';
 
 // Function to validate YYYY-MM format
 const isValidMonth = (monthStr) => {
@@ -270,9 +271,17 @@ const ReportsPage = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+
+      toast.success("Report generated successfully!");
     } catch (error) {
-      console.error("Error generating report:", error.response?.data || error.message);
-      setErrorMessage("Failed to generate report. Please check API endpoints and try again.");
+      console.error("Error generating report:", error.response?.status, error.response?.data || error.message);
+      const errorMsg = error.response?.status === 400
+        ? "Invalid request parameters."
+        : error.response?.status === 403
+        ? "You do not have permission to generate this report."
+        : "Failed to generate report. Please try again.";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsGenerating(prev => ({ ...prev, [studentId]: false }));
     }
@@ -282,6 +291,7 @@ const ReportsPage = () => {
   const handleGenerateBulkReports = async () => {
     if (selectedStudentIds.length === 0) {
       setErrorMessage("Please select at least one student.");
+      toast.warning("Please select at least one student.");
       return;
     }
 
@@ -338,9 +348,19 @@ const ReportsPage = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+
+      toast.success("Bulk reports generated successfully!");
     } catch (error) {
       console.error("Error generating bulk reports:", error.response?.status, error.response?.data || error.message);
-      setErrorMessage("Failed to generate bulk reports. Please check API endpoints and try again.");
+      const errorMsg = error.response?.status === 400
+        ? "Invalid request parameters."
+        : error.response?.status === 403
+        ? "You do not have permission to generate these reports."
+        : error.response?.status === 500
+        ? "Server error occurred while generating reports."
+        : "Failed to generate bulk reports. Please try again.";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsGeneratingBulk(false);
     }
