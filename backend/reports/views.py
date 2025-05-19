@@ -508,13 +508,14 @@ def generate_pdf(request):
                         img_url = image_slots[idx]
                         logger.debug(f"Processing image {idx+1} from {img_url}")
                         
+                        # Fetch image and get natural size
                         img_data = fetch_image(img_url)
                         if img_data is None:
                             logger.warning(f"fetch_image returned None for {img_url}")
                             row.append(Paragraph(f"Image {idx+1} (Failed to fetch)", normal_style))
                             continue
 
-                        # Ensure the buffer is at the start
+                        # Ensure buffer is at the start
                         img_data.seek(0)
                         buffer_size = img_data.getbuffer().nbytes
                         logger.debug(f"Image buffer size: {buffer_size} bytes")
@@ -523,26 +524,24 @@ def generate_pdf(request):
                             row.append(Paragraph(f"Image {idx+1} (Empty buffer)", normal_style))
                             continue
 
-                        # Create ImageReader and convert to Image
-                        img_reader = ImageReader(img_data)
-                        image_buffers.append(img_data)  # Prevent garbage collection
-                        
-                        # Validate dimensions
-                        img_size = img_reader.getSize()
-                        logger.debug(f"Image size from ImageReader: {img_size}")
-                        if img_size[0] <= 0 or img_size[1] <= 0:
-                            logger.warning(f"Invalid image dimensions for {img_url}: {img_size}")
-                            row.append(Paragraph(f"Image {idx+1} (Invalid dimensions)", normal_style))
-                            continue
+                        # Keep buffer alive
+                        image_buffers.append(img_data)
 
-                        # Create ReportLab Image object
-                        img = Image(img_reader)
-                        img.drawHeight = img_size[1] * mm
-                        img.drawWidth = img_size[0] * mm
+                        # Re-open the image with Pillow to get natural size
+                        img_data.seek(0)  # Reset buffer position
+                        with PILImage.open(img_data) as pil_img:
+                            natural_size = pil_img.size  # (width, height)
 
-                        # Calculate dimensions while maintaining aspect ratio
+                        # Reset buffer position again for ReportLab
+                        img_data.seek(0)
+
+                        # Create ReportLab Image object directly from BytesIO
+                        img = Image(img_data)
+
+                        # Set dimensions while maintaining aspect ratio
                         target_width, target_height = 75*mm, 50*mm
-                        img_ratio = img_size[0] / img_size[1] if img_size[1] > 0 else 1
+                        width, height = natural_size
+                        img_ratio = width / height if height > 0 else 1
                         
                         if img_ratio > target_width / target_height:
                             img.drawWidth = target_width
@@ -628,8 +627,6 @@ def generate_pdf(request):
             {"error": "Failed to generate PDF", "details": str(e)},
             status=500
         )
-
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
