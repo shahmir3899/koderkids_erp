@@ -1,4 +1,4 @@
-import io
+import logging
 from django.http import HttpResponse
 from django.utils.timezone import now
 from rest_framework.decorators import api_view, permission_classes
@@ -13,23 +13,13 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
-import logging
 from supabase import create_client
 from django.conf import settings
 import requests
 from io import BytesIO
-import brotli
 from PIL import Image as PILImage
 from reportlab.lib.utils import ImageReader
-from concurrent.futures import ThreadPoolExecutor
-from zipfile import ZipFile, ZIP_DEFLATED
-from reportlab.graphics.shapes import Drawing, Rect, String
-from reportlab.graphics import renderPDF
-from reportlab.graphics.charts.piecharts import Pie
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from django.contrib.staticfiles import finders
-import os
+import time
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -43,9 +33,26 @@ logger.addHandler(handler)
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
+# Cache background image at module level with retries
+BG_IMAGE = None
+retries = 3
+for attempt in range(retries):
+    try:
+        response = requests.get("https://koderkids-erp.onrender.com/static/bg.png", timeout=5)
+        response.raise_for_status()
+        BG_IMAGE = ImageReader(BytesIO(response.content))
+        logger.info("Successfully cached background image")
+        break
+    except Exception as e:
+        logger.error(f"Attempt {attempt+1} to load background image failed: {str(e)}")
+        if attempt < retries - 1:
+            time.sleep(2)
+if BG_IMAGE is None:
+    logger.warning("Failed to load background image after retries; using no background")
+
 def fetch_image(url, timeout=15, max_size=(1200, 1200)):
     """
-    Fetch image from URL with robust error handling, decompression, and resizing.
+    Fetch image from URL with robust error handling and resizing.
     Returns BytesIO object with image data or None if failed.
     """
     if not url:
@@ -66,9 +73,6 @@ def fetch_image(url, timeout=15, max_size=(1200, 1200)):
         response.raise_for_status()
 
         content = response.content
-        if response.headers.get('Content-Encoding') == 'br':
-            content = brotli.decompress(content)
-
         if not content.startswith(expected_signature):
             logger.warning(f"Invalid image signature for {extension}: {content[:8].hex()}")
             return None
@@ -95,11 +99,6 @@ def fetch_image(url, timeout=15, max_size=(1200, 1200)):
     except Exception as e:
         logger.error(f"Error fetching image: {str(e)}")
         return None
-
-def fetch_images_in_parallel(image_urls, max_workers=4):
-    """Fetch multiple images in parallel using ThreadPoolExecutor."""
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        return list(executor.map(fetch_image, image_urls))
 
 def get_date_range(mode, month, start_date, end_date):
     """Parse and validate date range for reports."""
@@ -184,10 +183,9 @@ def fetch_student_images(student_id, mode, month, start_date, image_ids=None):
     if image_ids:
         image_urls = [img["url"] for img in all_images if img["name"] in image_ids]
     else:
-        image_urls = [img["url"] for img in all_images][:4]  # Default to first 4 images
+        image_urls = [img["url"] for img in all_images][:4]
 
     return image_urls
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -216,9 +214,7 @@ def student_report_data(request):
                 logger.warning(f"Unauthorized access attempt by {user.username} to school {school_id}")
                 return Response({"message": "Failed to fetch report data", "error": "Unauthorized access to this school"}, status=403)
 
-        student = Student.objects.filter(
-            id=student_id, school_id=school_id, student_class=student_class
-        ).first()
+        student = Student.objects.filter(id=student_id, school_id=school_id, student_class=student_class).first()
         if not student:
             logger.warning(f"Student not found: {student_id}")
             return Response({'message': 'Failed to fetch report data', 'error': 'Student not found'}, status=404)
@@ -239,7 +235,7 @@ def student_report_data(request):
                 }, status=400)
 
         student_data = {
-            "name": student.name,
+            " ordinarily name": student.name,
             "reg_num": student.reg_num,
             "class": student.student_class,
             "school": student.school.name
@@ -344,7 +340,7 @@ def generate_pdf(request):
         student, attendance_data, lessons_data = fetch_student_data(student_id, school_id, student_class, start_date, end_date)
         if not student:
             logger.warning(f"Student not found: {student_id}")
-            return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)  # Fixed typo
+            return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)
 
         image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
         buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period)
@@ -363,10 +359,8 @@ def generate_pdf(request):
             "error": "An unexpected error occurred"
         }, status=500)
 
-
-
-
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
+    """Generate PDF content with cached background image."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=15*mm, bottomMargin=20*mm)
     elements = []
@@ -374,21 +368,30 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
     header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=6, spaceBefore=10, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=16)
-    table_header_style = [('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('FONTSIZE', (0,0), (-1,0), 10), ('ALIGN', (0,0), (-1,-1), 'LEFT'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')), ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8f9fa')]), ('LEADING', (0,0), (-1,-1), 14)]
-    details_table_style = [('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f0f0f0')), ('TEXTCOLOR', (0,0), (-1,0), colors.black), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('LEFTPADDING', (0,0), (-1,-1), 4), ('BOTTOMPADDING', (0,0), (-1,-1), 6)]
-
-    try:
-        response = requests.get("https://koderkids-erp.onrender.com/static/bg.png")
-        response.raise_for_status()
-        bg_image = ImageReader(io.BytesIO(response.content))
-    except Exception as e:
-        logger.error(f"Error loading background image: {str(e)}")
-        bg_image = None
+    table_header_style = [
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,0), 10),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ('LEADING', (0,0), (-1,-1), 14)
+    ]
+    details_table_style = [
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f0f0f0')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6)
+    ]
 
     def draw_background(canvas, doc):
         canvas.saveState()
-        if bg_image:
-            canvas.drawImage(bg_image, 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
+        if BG_IMAGE:
+            canvas.drawImage(BG_IMAGE, 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
+        else:
+            logger.warning("No background image available; skipping background")
         page_num = canvas.getPageNumber()
         canvas.setFont('Helvetica', 9)
         canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
@@ -401,7 +404,12 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(Spacer(1, 12*mm))
 
     elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Student Details</para>", header_style))
-    details_data = [[Paragraph("Name:", styles['BodyText']), Paragraph(student.name, styles['BodyText'])], [Paragraph("Registration Number:", styles['BodyText']), Paragraph(student.reg_num, styles['BodyText'])], [Paragraph("Class:", styles['BodyText']), Paragraph(student.student_class, styles['BodyText'])], [Paragraph("Reporting Period:", styles['BodyText']), Paragraph(period, styles['BodyText'])]]
+    details_data = [
+        [Paragraph("Name:", styles['BodyText']), Paragraph(student.name, styles['BodyText'])],
+        [Paragraph("Registration Number:", styles['BodyText']), Paragraph(student.reg_num, styles['BodyText'])],
+        [Paragraph("Class:", styles['BodyText']), Paragraph(student.student_class, styles['BodyText'])],
+        [Paragraph("Reporting Period:", styles['BodyText']), Paragraph(period, styles['BodyText'])]
+    ]
     details_table = Table(details_data, colWidths=[45*mm, 125*mm])
     details_table.setStyle(TableStyle(details_table_style))
     elements.append(details_table)
@@ -415,7 +423,11 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         lessons_rows = [['Date', 'Planned Topic', 'Achieved Topic']]
         for lesson in lessons_data:
             status = '✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''
-            lessons_rows.append([Paragraph(lesson['date'], styles['BodyText']), Paragraph(lesson['planned_topic'], styles['BodyText']), Paragraph(f"{lesson['achieved_topic']} <font color='green'>{status}</font>", styles['BodyText'])])
+            lessons_rows.append([
+                Paragraph(lesson['date'], styles['BodyText']),
+                Paragraph(lesson['planned_topic'], styles['BodyText']),
+                Paragraph(f"{lesson['achieved_topic']} <font color='green'>{status}</font>", styles['BodyText'])
+            ])
         lessons_table = Table(lessons_rows, colWidths=[30*mm, 70*mm, 70*mm])
         lessons_table.setStyle(TableStyle(table_header_style + [('VALIGN', (0,0), (-1,-1), 'TOP'), ('MINIMUMHEIGHT', (0,0), (-1,-1), 8*mm)]))
         elements.append(Spacer(1, 10*mm))
@@ -435,7 +447,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
                 else:
                     images.append(Paragraph("Image Not Available\n", styles['Italic']))
             except Exception as e:
-                logger.error("Error loading image: {str(e)}")
+                logger.error(f"Error loading image: {str(e)}")
                 images.append(Paragraph("Image Load Error\n", styles['Italic']))
         image_grid = [images[i:i+2] for i in range(0, len(images), 2)]
         for row in image_grid:
@@ -450,6 +462,3 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
-
-
-
