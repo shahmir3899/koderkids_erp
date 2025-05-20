@@ -363,8 +363,9 @@ def generate_pdf(request):
 
 
 
+
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content using ReportLab with icons and full-length header backgrounds."""
+    """Generate PDF content using ReportLab with full-length header backgrounds."""
     logger.info("Starting PDF generation for student: %s, period: %s", student.name, period)
     
     buffer = BytesIO()
@@ -386,23 +387,6 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
         canvas.restoreState()
         logger.debug("Applied background color to page")
-
-    # Locate icon files
-    icon_paths = {
-        'person': finders.find('icons/person.png') or '',
-        'id': finders.find('icons/id.png') or '',
-        'school': finders.find('icons/school.png') or '',
-        'class': finders.find('icons/class.png') or '',
-        'calendar': finders.find('icons/calendar.png') or ''
-    }
-    for icon_name, path in icon_paths.items():
-        if not path:
-            logger.warning("Icon %s not found, using text placeholder", icon_name)
-        else:
-            logger.debug("Icon %s found at %s", icon_name, path)
-    if not any(icon_paths.values()) and not os.getenv('PRODUCTION', False):
-        logger.error("No icons found locally. Ensure static/icons/ contains person.png, id.png, school.png, class.png, calendar.png")
-        raise ValueError("No icon files found in static/icons/")
 
     # Simulated Logo
     logger.debug("Creating logo drawing")
@@ -438,11 +422,11 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     logger.debug("Building student details section")
     elements.append(Paragraph("Student Details", header_style))
     details_table = Table([
-        [Paragraph(f"{'👤 ' if not icon_paths['person'] else f'<img src=\"{icon_paths['person']}\" width=16 height=16/> '}Name:", label_style), Paragraph(student.name, normal_style)],
-        [Paragraph(f"{'🆔 ' if not icon_paths['id'] else f'<img src=\"{icon_paths['id']}\" width=16 height=16/> '}Registration Number:", label_style), Paragraph(student.reg_num, normal_style)],
-        [Paragraph(f"{'🏫 ' if not icon_paths['school'] else f'<img src=\"{icon_paths['school']}\" width=16 height=16/> '}School:", label_style), Paragraph(student.school.name, normal_style)],
-        [Paragraph(f"{'📚 ' if not icon_paths['class'] else f'<img src=\"{icon_paths['class']}\" width=16 height=16/> '}Class:", label_style), Paragraph(student.student_class, normal_style)],
-        [Paragraph(f"{'📅 ' if not icon_paths['calendar'] else f'<img src=\"{icon_paths['calendar']}\" width=16 height=16/> '}Month/Date Range:", label_style), Paragraph(period, normal_style)]
+        [Paragraph("Name:", label_style), Paragraph(student.name, normal_style)],
+        [Paragraph("Registration Number:", label_style), Paragraph(student.reg_num, normal_style)],
+        [Paragraph("School:", label_style), Paragraph(student.school.name, normal_style)],
+        [Paragraph("Class:", label_style), Paragraph(student.student_class, normal_style)],
+        [Paragraph("Month/Date Range:", label_style), Paragraph(period, normal_style)]
     ], colWidths=[40*mm, 130*mm])
     details_table.setStyle(TableStyle([
         ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#e6f0fa'), colors.HexColor('#ffffff')]),
@@ -496,7 +480,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 16),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     elements.append(lessons_header)
@@ -602,7 +586,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     # Footer Section
     logger.debug("Building footer section")
     footer_table = Table([[
-        f"Teacher's Signature: ____________________  |  Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}  |  Powered by {student.school.name}  |  Icons by Freepik from www.flaticon.com"
+        f"Teacher's Signature: ____________________  |  Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}  |  Powered by {student.school.name}"
     ]], colWidths=[170*mm])
     footer_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
@@ -626,5 +610,3 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     buffer.seek(0)
     return buffer
-
-
