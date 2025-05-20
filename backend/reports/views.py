@@ -419,7 +419,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Attendance</para>", header_style))
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)"
     elements.append(Paragraph(attendance_text, ParagraphStyle(name='Attendance', fontSize=12, textColor=colors.HexColor('#2c3e50'), backColor=colors.HexColor('#e6f0fa'), padding=6, spaceAfter=10)))
-    elements.append(Spacer(1, 10*mm))
+    elements.append(Spacer(1, 5*mm))
 
     if lessons_data:
         lessons_rows = [['Date', 'Planned Topic', 'Achieved Topic']]
@@ -440,7 +440,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         elements.append(Spacer(1, 15*mm))
         elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Progress Images</para>", header_style))
         images = []
-        for url in image_urls[:4]:
+        for url in image_urls[:6]:
             try:
                 img_buffer = fetch_image(url)
                 if img_buffer:
