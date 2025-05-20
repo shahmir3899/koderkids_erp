@@ -365,128 +365,67 @@ def generate_pdf(request):
 
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content with full-width headers and improved layout."""
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, 
-                          rightMargin=20*mm, leftMargin=20*mm, 
-                          topMargin=15*mm, bottomMargin=20*mm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=15*mm, bottomMargin=20*mm)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Custom Styles
-    title_style = ParagraphStyle(
-        name='Title', fontSize=20, textColor=colors.HexColor('#2c3e50'), 
-        alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold'
-    )
-    header_style = ParagraphStyle(
-        name='Header', fontSize=14, textColor=colors.white, 
-        spaceAfter=6, spaceBefore=10, fontName='Helvetica-Bold',
-        backColor=colors.HexColor('#3a5f8a'), leading=16
-    )
-    # Improved table styling
-    table_header_style = [
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,0), 10),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8f9fa')]),
-        ('LEADING', (0,0), (-1,-1), 14),
-    ]
+    title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
+    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=6, spaceBefore=10, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=16)
+    table_header_style = [('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('FONTSIZE', (0,0), (-1,0), 10), ('ALIGN', (0,0), (-1,-1), 'LEFT'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')), ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8f9fa')]), ('LEADING', (0,0), (-1,-1), 14)]
+    details_table_style = [('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f0f0f0')), ('TEXTCOLOR', (0,0), (-1,0), colors.black), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('LEFTPADDING', (0,0), (-1,-1), 4), ('BOTTOMPADDING', (0,0), (-1,-1), 6)]
 
     def draw_background(canvas, doc):
-        """Draw full-width header backgrounds and page numbers"""
         canvas.saveState()
-        # Light background
         canvas.setFillColor(colors.HexColor('#f8f9fa'))
         canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
-        
-        # Page number
         page_num = canvas.getPageNumber()
         canvas.setFont('Helvetica', 9)
         canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
         canvas.restoreState()
 
-    # Improved Logo Handling
     logo = None
     try:
-        logo_buffer = fetch_image("https://koderkids-erp.onrender.com/static/logo.png")
+        logo_buffer = fetch_image("[invalid url, do not cite]")
         if logo_buffer:
-            logo = Image(logo_buffer, width=45*mm, height=15*mm)  # Maintain aspect ratio
+            logo = Image(logo_buffer, width=45*mm, height=15*mm)
     except Exception as e:
         logger.error("Logo loading failed: %s", str(e))
-        logo = Paragraph("<b>MAZEN SCHOOLS</b>", ParagraphStyle(
-            name='LogoFallback', fontSize=14, textColor=colors.HexColor('#2c3e50'),
-            alignment=TA_LEFT, fontName='Helvetica-Bold'
-        ))
+        logo = Paragraph("<b>MAZEN SCHOOLS</b>", ParagraphStyle(name='LogoFallback', fontSize=14, textColor=colors.HexColor('#2c3e50'), alignment=TA_LEFT, fontName='Helvetica-Bold'))
 
-    # Header with full-width background
-    header_content = [
-        [logo, Paragraph(f"<font size=14>{student.school.name}<br/>Monthly Student Report</font>", title_style)]
-    ]
+    header_content = [[logo, Paragraph(f"<font size=14>{student.school.name}<br/>Monthly Student Report</font>", title_style)]]
     header_table = Table(header_content, colWidths=[60*mm, 130*mm])
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
-    ]))
+    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 10)]))
     elements.append(header_table)
     elements.append(Spacer(1, 12*mm))
 
-    # Student Details Section with full-width header
     elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Student Details</para>", header_style))
-    details_data = [
-        [Paragraph("Name:", styles['BodyText']), Paragraph(student.name, styles['BodyText'])],
-        [Paragraph("Registration Number:", styles['BodyText']), Paragraph(student.reg_num, styles['BodyText'])],
-        [Paragraph("Class:", styles['BodyText']), Paragraph(student.student_class, styles['BodyText'])],
-        [Paragraph("Reporting Period:", styles['BodyText']), Paragraph(period, styles['BodyText'])],
-    ]
+    details_data = [[Paragraph("Name:", styles['BodyText']), Paragraph(student.name, styles['BodyText'])], [Paragraph("Registration Number:", styles['BodyText']), Paragraph(student.reg_num, styles['BodyText'])], [Paragraph("Class:", styles['BodyText']), Paragraph(student.student_class, styles['BodyText'])], [Paragraph("Reporting Period:", styles['BodyText']), Paragraph(period, styles['BodyText'])]]
     details_table = Table(details_data, colWidths=[45*mm, 125*mm])
-    details_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('LEFTPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-    ] + table_header_style))
+    details_table.setStyle(TableStyle(details_table_style))
     elements.append(details_table)
 
-    # Improved Attendance Section
     elements.append(Spacer(1, 10*mm))
     elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Attendance</para>", header_style))
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)"
-    elements.append(Paragraph(attendance_text, ParagraphStyle(
-        name='Attendance', fontSize=12, textColor=colors.HexColor('#2c3e50'),
-        backColor=colors.HexColor('#e6f0fa'), padding=6
-    )))
+    elements.append(Paragraph(attendance_text, ParagraphStyle(name='Attendance', fontSize=12, textColor=colors.HexColor('#2c3e50'), backColor=colors.HexColor('#e6f0fa'), padding=6)))
 
-    # Enhanced Lessons Table
     if lessons_data:
-        lessons_rows = [['Date', 'Planned Topic', 'Achieved Topic']]  # Fixed missing bracket
+        lessons_rows = [['Date', 'Planned Topic', 'Achieved Topic']]
         for lesson in lessons_data:
             status = '✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''
-            lessons_rows.append([
-                Paragraph(lesson['date'], styles['BodyText']),  # Added styles parameter
-                Paragraph(lesson['planned_topic'], styles['BodyText']),
-                Paragraph(
-                    f"{lesson['achieved_topic']} <font color='green'>{status}</font>",  # Fixed f-string syntax
-                    styles['BodyText']
-                )
-            ])
-        
+            lessons_rows.append([Paragraph(lesson['date'], styles['BodyText']), Paragraph(lesson['planned_topic'], styles['BodyText']), Paragraph(f"{lesson['achieved_topic']} <font color='green'>{status}</font>", styles['BodyText'])])
         lessons_table = Table(lessons_rows, colWidths=[30*mm, 70*mm, 70*mm])
-        lessons_table.setStyle(TableStyle(table_header_style + [
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('MINIMUMHEIGHT', (0,0), (-1,-1), 8*mm),
-        ]))
+        lessons_table.setStyle(TableStyle(table_header_style + [('VALIGN', (0,0), (-1,-1), 'TOP'), ('MINIMUMHEIGHT', (0,0), (-1,-1), 8*mm)]))
         elements.append(Spacer(1, 10*mm))
         elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Lessons Overview</para>", header_style))
         elements.append(lessons_table)
 
-    # Image Section Improvements
     if image_urls:
         elements.append(Spacer(1, 10*mm))
         elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Progress Images</para>", header_style))
-        # Improved image grid with error handling
         images = []
-        for url in image_urls[:4]:  # Show max 4 images
+        for url in image_urls[:4]:
             try:
                 img_buffer = fetch_image(url)
                 if img_buffer:
@@ -497,26 +436,18 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             except Exception as e:
                 logger.error("Error loading image: %s", str(e))
                 images.append(Paragraph("Image Load Error\n", styles['Italic']))
-        
-        # Create 2x2 grid
         image_grid = [images[i:i+2] for i in range(0, len(images), 2)]
         for row in image_grid:
             img_table = Table([row], colWidths=[80*mm]*2)
             elements.append(img_table)
             elements.append(Spacer(1, 5*mm))
 
-    # Enhanced Footer
-    footer_text = (
-        f"Teacher's Signature: ____________________ | "
-        f"Generated: {datetime.now().strftime('%b %d, %Y %I:%M %p')} | "
-        "Powered by Koder Kids"
-    )
-    footer = Paragraph(footer_text, ParagraphStyle(
-        name='Footer', fontSize=9, textColor=colors.HexColor('#666666'),
-        alignment=TA_CENTER, spaceBefore=15*mm
-    ))
+    footer_text = f"Teacher's Signature: ____________________ | Generated: {datetime.now().strftime('%b %d, %Y %I:%M %p')} | Powered by Koder Kids"
+    footer = Paragraph(footer_text, ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceBefore=15*mm))
     elements.append(footer)
 
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
+
+
