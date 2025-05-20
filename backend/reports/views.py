@@ -500,18 +500,22 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     # Locate icon files
     icon_paths = {
-        'person': finders.find('icons/person.png'),
-        'id': finders.find('icons/id.png'),
-        'school': finders.find('icons/school.png'),
-        'class': finders.find('icons/class.png'),
-        'calendar': finders.find('icons/calendar.png')
-    }
-    
+    'person': finders.find('icons/person.png') or '',
+    'id': finders.find('icons/id.png') or '',
+    'school': finders.find('icons/school.png') or '',
+    'class': finders.find('icons/class.png') or '',
+    'calendar': finders.find('icons/calendar.png') or ''
+}
     for icon_name, path in icon_paths.items():
-        if path is None or not os.path.exists(path):
-            logger.error("Icon file missing: %s at path %s", icon_name, path)
-            raise ValueError(f"Icon file for {icon_name} not found at {path}")
-        logger.debug("Found icon %s at %s", icon_name, path)
+        if not path:
+            logger.warning("Icon %s not found, using text placeholder", icon_name)
+        else:
+            logger.debug("Icon %s found at %s", icon_name, path)
+    if not any(icon_paths.values()) and not os.getenv('PRODUCTION', False):
+        logger.error("No icons found locally. Ensure static/icons/ contains person.png, id.png, school.png, class.png, calendar.png")
+        raise ValueError("No icon files found in static/icons/")
+    
+ 
 
     # Simulated Logo
     logger.debug("Creating logo drawing")
@@ -547,12 +551,12 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     logger.debug("Building student details section")
     elements.append(Paragraph("Student Details", header_style))
     details_table = Table([
-        [Paragraph(f"<img src='{icon_paths['person']}' width='16' height='16'/> Name:", label_style), Paragraph(student.name, normal_style)],
-        [Paragraph(f"<img src='{icon_paths['id']}' width='16' height='16'/> Registration Number:", label_style), Paragraph(student.reg_num, normal_style)],
-        [Paragraph(f"<img src='{icon_paths['school']}' width='16' height='16'/> School:", label_style), Paragraph(student.school.name, normal_style)],
-        [Paragraph(f"<img src='{icon_paths['class']}' width='16' height='16'/> Class:", label_style), Paragraph(student.student_class, normal_style)],
-        [Paragraph(f"<img src='{icon_paths['calendar']}' width='16' height='16'/> Month/Date Range:", label_style), Paragraph(period, normal_style)]
-    ], colWidths=[40*mm, 130*mm])
+    [Paragraph(f"{'👤 ' if not icon_paths['person'] else f'<img src={icon_paths['person']} width=16 height=16/> '}Name:", label_style), Paragraph(student.name, normal_style)],
+    [Paragraph(f"{'🆔 ' if not icon_paths['id'] else f'<img src={icon_paths['id']} width=16 height=16/> '}Registration Number:", label_style), Paragraph(student.reg_num, normal_style)],
+    [Paragraph(f"{'🏫 ' if not icon_paths['school'] else f'<img src={icon_paths['school']} width=16 height=16/> '}School:", label_style), Paragraph(student.school.name, normal_style)],
+    [Paragraph(f"{'📚 ' if not icon_paths['class'] else f'<img src={icon_paths['class']} width=16 height=16/> '}Class:", label_style), Paragraph(student.student_class, normal_style)],
+    [Paragraph(f"{'📅 ' if not icon_paths['calendar'] else f'<img src={icon_paths['calendar']} width=16 height=16/> '}Month/Date Range:", label_style), Paragraph(period, normal_style)]
+], colWidths=[40*mm, 130*mm])
     details_table.setStyle(TableStyle([
         ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#e6f0fa'), colors.HexColor('#ffffff')]),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
