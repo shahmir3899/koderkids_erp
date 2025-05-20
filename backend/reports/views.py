@@ -374,8 +374,8 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     styles = getSampleStyleSheet()
 
     # Define custom styles
-    title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#1a3c5a'), alignment=TA_CENTER, spaceAfter=10, fontName='Helvetica-Bold')
-    header_style = ParagraphStyle(name='Header', fontSize=16, textColor=colors.white, spaceAfter=8, spaceBefore=12, fontName='Helvetica-Bold', backColor=colors.HexColor('#2c3e50'))
+    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#1a3c5a'), alignment=TA_CENTER, spaceAfter=10, fontName='Helvetica-Bold')
+    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=8, spaceBefore=12, fontName='Helvetica-Bold', backColor=colors.HexColor('#2c3e50'))
     normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=4, leading=12, fontName='Helvetica')
     label_style = ParagraphStyle(name='Label', parent=normal_style, fontSize=10, fontName='Helvetica-Bold')
     footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#7f8c8d'), alignment=TA_CENTER, leading=12, spaceBefore=10)
@@ -394,14 +394,14 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     logo_buffer = fetch_image(logo_url)
     if logo_buffer:
         logo_img = Image(logo_buffer)
-        logo_img.drawWidth, logo_img.drawHeight = 60*mm, 60*mm  # Scaled from 512x512 pixels
+        logo_img.drawWidth, logo_img.drawHeight = 20*mm, 20*mm  # Scaled from 512x512 pixels
         logger.debug("Logo fetched successfully")
     else:
         # Fallback placeholder
-        logo_drawing = Drawing(60*mm, 60*mm)
-        logo_rect = Rect(0, 0, 60*mm, 60*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
+        logo_drawing = Drawing(20*mm, 20*mm)
+        logo_rect = Rect(0, 0, 20*mm, 20*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
         logo_drawing.add(logo_rect)
-        logo_text = String(30*mm, 30*mm, "School Logo", fontName='Helvetica-Bold', fontSize=14, fillColor=colors.white)
+        logo_text = String(15*mm, 15*mm, "School Logo", fontName='Helvetica-Bold', fontSize=14, fillColor=colors.white)
         logo_text.textAnchor = 'middle'
         logo_drawing.add(logo_text)
         logo_img = logo_drawing
@@ -420,7 +420,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('TOPPADDING', (0, 0), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
-    header_section = Table([[logo_img, title_table]], colWidths=[60*mm, 110*mm])
+    header_section = Table([[logo_img, title_table]], colWidths=[60*mm, 170*mm])
     header_section.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
