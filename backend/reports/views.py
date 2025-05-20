@@ -393,18 +393,9 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
         canvas.restoreState()
 
-    logo = None
-    try:
-        logo_buffer = fetch_image("https://koderkids-erp.onrender.com/static/logo.png")
-        if logo_buffer:
-            logo = Image(logo_buffer, width=45*mm, height=15*mm)
-    except Exception as e:
-        logger.error("Logo loading failed: %s", str(e))
-        logo = Paragraph("<b>MAZEN SCHOOLS</b>", ParagraphStyle(name='LogoFallback', fontSize=14, textColor=colors.HexColor('#2c3e50'), alignment=TA_LEFT, fontName='Helvetica-Bold'))
-
-    header_content = [[logo, Paragraph(f"<font size=14>{student.school.name}<br/>Monthly Student Report</font>", title_style)]]
-    header_table = Table(header_content, colWidths=[60*mm, 130*mm])
-    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 10)]))
+    header_content = [[Paragraph(f"{student.school.name}<br/>Monthly Student Report", title_style)]]
+    header_table = Table(header_content, colWidths=[190*mm])
+    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 10), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
     elements.append(header_table)
     elements.append(Spacer(1, 12*mm))
 
@@ -443,7 +434,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
                 else:
                     images.append(Paragraph("Image Not Available\n", styles['Italic']))
             except Exception as e:
-                logger.error("Error loading image: %s", str(e))
+                logger.error("Error loading image: {str(e)}")
                 images.append(Paragraph("Image Load Error\n", styles['Italic']))
         image_grid = [images[i:i+2] for i in range(0, len(images), 2)]
         for row in image_grid:
@@ -458,4 +449,3 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
-
