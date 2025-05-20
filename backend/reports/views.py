@@ -420,7 +420,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('TOPPADDING', (0, 0), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
-    header_section = Table([[logo_img, title_table]], colWidths=[60*mm, 170*mm])
+    header_section = Table([[logo_img, title_table]], colWidths=[64*mm, 170*mm])
     header_section.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
@@ -452,7 +452,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     # Attendance Section
     logger.debug("Building attendance section")
-    attendance_header = Table([["Attendance"]], colWidths=[170*mm])
+    attendance_header = Table([["Attendance"]], colWidths=[20*mm, 170*mm])
     attendance_header.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
@@ -466,9 +466,9 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     elements.append(Spacer(1, 8*mm))
 
-    attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
+    #attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
-    attendance_table = Table([[f"{attendance_text}  ", f"<font color={attendance_status_color}>●</font>"]], colWidths=[100*mm, 10*mm])
+    attendance_table = Table([[f"{attendance_text}  ", ]], colWidths=[100*mm, 10*mm])
     attendance_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
@@ -483,7 +483,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     # Lessons Overview Section
     logger.debug("Building lessons overview section")
-    lessons_header = Table([["Lessons Overview"]], colWidths=[170*mm])
+    lessons_header = Table([["Lessons Overview"]], colWidths=[20*mm, 170*mm])
     lessons_header.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
