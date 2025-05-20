@@ -364,7 +364,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     styles = getSampleStyleSheet()
 
     title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
-    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=10, spaceBefore=15, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=16)
+    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=15, spaceBefore=10, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=30)
     table_header_style = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -400,7 +400,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     header_table = Table(header_content, colWidths=[190*mm])
     header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 10), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
     elements.append(header_table)
-    elements.append(Spacer(1, 15*mm))
+    elements.append(Spacer(1, 5*mm))
 
     elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Student Details</para>", header_style))
     details_data = [
@@ -412,7 +412,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     details_table = Table(details_data, colWidths=[45*mm, 125*mm])
     details_table.setStyle(TableStyle(details_table_style))
     elements.append(details_table)
-    elements.append(Spacer(1, 15*mm))
+    elements.append(Spacer(1, 5*mm))
 
     elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Attendance</para>", header_style))
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)"
@@ -430,7 +430,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             ])
         lessons_table = Table(lessons_rows, colWidths=[30*mm, 70*mm, 70*mm])
         lessons_table.setStyle(TableStyle(table_header_style + [('VALIGN', (0,0), (-1,-1), 'TOP'), ('MINIMUMHEIGHT', (0,0), (-1,-1), 8*mm)]))
-        elements.append(Spacer(1, 15*mm))
+        elements.append(Spacer(1, 5*mm))
         elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Lessons Overview</para>", header_style))
         elements.append(lessons_table)
 
