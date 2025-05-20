@@ -19,6 +19,7 @@ import requests
 from io import BytesIO
 import brotli
 from PIL import Image as PILImage
+from reportlab.lib.utils import ImageReader
 from concurrent.futures import ThreadPoolExecutor
 from zipfile import ZipFile, ZIP_DEFLATED
 from reportlab.graphics.shapes import Drawing, Rect, String
@@ -377,8 +378,16 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     def draw_background(canvas, doc):
         canvas.saveState()
-        canvas.setFillColor(colors.HexColor('#f8f9fa'))
-        canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
+        try:
+            response = requests.get("https://koderkids-erp.onrender.com/static/bg.png")
+            response.raise_for_status()
+            img = PILImage.open(BytesIO(response.content))
+            img_buffer = BytesIO()
+            img.save(img_buffer, format="PNG")
+            img_buffer.seek(0)
+            canvas.drawImage(ImageReader(img_buffer), 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
+        except Exception as e:
+            logger.error(f"Error loading background image: {str(e)}")
         page_num = canvas.getPageNumber()
         canvas.setFont('Helvetica', 9)
         canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
@@ -386,7 +395,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     logo = None
     try:
-        logo_buffer = fetch_image("[invalid url, do not cite]")
+        logo_buffer = fetch_image("https://koderkids-erp.onrender.com/static/logo.png")
         if logo_buffer:
             logo = Image(logo_buffer, width=45*mm, height=15*mm)
     except Exception as e:
@@ -449,5 +458,4 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
-
 
