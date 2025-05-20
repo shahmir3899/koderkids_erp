@@ -357,23 +357,14 @@ def generate_pdf(request):
         }, status=500)
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content with cached background image."""
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import mm
-    from reportlab.lib.enums import TA_LEFT, TA_CENTER
-    from io import BytesIO
-    from datetime import datetime
-
+    """Generate PDF content with adjusted spacing to prevent text overlap."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=15*mm, bottomMargin=20*mm)
     elements = []
     styles = getSampleStyleSheet()
 
     title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
-    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=6, spaceBefore=10, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=16)
+    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=10, spaceBefore=15, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=16)
     table_header_style = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -381,7 +372,8 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')),
         ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8f9fa')]),
-        ('LEADING', (0,0), (-1,-1), 14)
+        ('LEADING', (0,0), (-1,-1), 16),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8)
     ]
     details_table_style = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f0f0f0')),
@@ -389,7 +381,8 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('LEFTPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6)
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('LEADING', (0,0), (-1,-1), 16)
     ]
 
     def draw_background(canvas, doc):
@@ -407,9 +400,9 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     header_table = Table(header_content, colWidths=[190*mm])
     header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 10), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
     elements.append(header_table)
-    elements.append(Spacer(1, 12*mm))
+    elements.append(Spacer(1, 15*mm))
 
-    elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Student Details</para>", header_style))
+    elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Student Details</para>", header_style))
     details_data = [
         [Paragraph("Name:", styles['BodyText']), Paragraph(student.name, styles['BodyText'])],
         [Paragraph("Registration Number:", styles['BodyText']), Paragraph(student.reg_num, styles['BodyText'])],
@@ -419,11 +412,12 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     details_table = Table(details_data, colWidths=[45*mm, 125*mm])
     details_table.setStyle(TableStyle(details_table_style))
     elements.append(details_table)
+    elements.append(Spacer(1, 15*mm))
 
-    elements.append(Spacer(1, 10*mm))
-    elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Attendance</para>", header_style))
+    elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Attendance</para>", header_style))
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)"
-    elements.append(Paragraph(attendance_text, ParagraphStyle(name='Attendance', fontSize=12, textColor=colors.HexColor('#2c3e50'), backColor=colors.HexColor('#e6f0fa'), padding=6)))
+    elements.append(Paragraph(attendance_text, ParagraphStyle(name='Attendance', fontSize=12, textColor=colors.HexColor('#2c3e50'), backColor=colors.HexColor('#e6f0fa'), padding=6, spaceAfter=10)))
+    elements.append(Spacer(1, 15*mm))
 
     if lessons_data:
         lessons_rows = [['Date', 'Planned Topic', 'Achieved Topic']]
@@ -436,13 +430,13 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             ])
         lessons_table = Table(lessons_rows, colWidths=[30*mm, 70*mm, 70*mm])
         lessons_table.setStyle(TableStyle(table_header_style + [('VALIGN', (0,0), (-1,-1), 'TOP'), ('MINIMUMHEIGHT', (0,0), (-1,-1), 8*mm)]))
-        elements.append(Spacer(1, 10*mm))
-        elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Lessons Overview</para>", header_style))
+        elements.append(Spacer(1, 15*mm))
+        elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Lessons Overview</para>", header_style))
         elements.append(lessons_table)
 
     if image_urls:
-        elements.append(Spacer(1, 10*mm))
-        elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=12>Progress Images</para>", header_style))
+        elements.append(Spacer(1, 15*mm))
+        elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Progress Images</para>", header_style))
         images = []
         for url in image_urls[:4]:
             try:
@@ -459,13 +453,12 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         for row in image_grid:
             img_table = Table([row], colWidths=[80*mm]*2)
             elements.append(img_table)
-            elements.append(Spacer(1, 5*mm))
+            elements.append(Spacer(1, 10*mm))
 
     footer_text = f"Teacher's Signature: ____________________ | Generated: {datetime.now().strftime('%b %d, %Y %I:%M %p')} | Powered by Koder Kids"
-    footer = Paragraph(footer_text, ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceBefore=15*mm))
+    footer = Paragraph(footer_text, ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceBefore=20*mm))
     elements.append(footer)
 
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
-
