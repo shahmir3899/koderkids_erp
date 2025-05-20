@@ -26,6 +26,7 @@ from reportlab.graphics import renderPDF
 from reportlab.graphics.charts.piecharts import Pie
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from django.contrib.staticfiles import finders
 import os
 
 # Set up logging
@@ -473,10 +474,10 @@ def generate_pdf(request):
 
 
 
-
-
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
     """Generate PDF content using ReportLab with icons and full-length header backgrounds."""
+    logger.info("Starting PDF generation for student: %s, period: %s", student.name, period)
+    
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     elements = []
@@ -495,8 +496,25 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         canvas.setFillColor(colors.HexColor('#f5f7fa'))
         canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
         canvas.restoreState()
+        logger.debug("Applied background color to page")
+
+    # Locate icon files
+    icon_paths = {
+        'person': finders.find('icons/person.png'),
+        'id': finders.find('icons/id.png'),
+        'school': finders.find('icons/school.png'),
+        'class': finders.find('icons/class.png'),
+        'calendar': finders.find('icons/calendar.png')
+    }
+    
+    for icon_name, path in icon_paths.items():
+        if path is None or not os.path.exists(path):
+            logger.error("Icon file missing: %s at path %s", icon_name, path)
+            raise ValueError(f"Icon file for {icon_name} not found at {path}")
+        logger.debug("Found icon %s at %s", icon_name, path)
 
     # Simulated Logo
+    logger.debug("Creating logo drawing")
     logo_drawing = Drawing(50*mm, 25*mm)
     logo_rect = Rect(0, 0, 50*mm, 25*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
     logo_drawing.add(logo_rect)
@@ -505,6 +523,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     logo_drawing.add(logo_text)
 
     # Header section with logo and title on same line
+    logger.debug("Building header section")
     title_table = Table([[student.school.name], ["Monthly Student Report"]], colWidths=[70*mm])
     title_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
@@ -525,13 +544,14 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(Spacer(1, 15*mm))
 
     # Student Details Section
+    logger.debug("Building student details section")
     elements.append(Paragraph("Student Details", header_style))
     details_table = Table([
-        [Paragraph("<img src='icons/person.png' width='16' height='16'/> Name:", label_style), Paragraph(student.name, normal_style)],
-        [Paragraph("<img src='icons/id.png' width='16' height='16'/> Registration Number:", label_style), Paragraph(student.reg_num, normal_style)],
-        [Paragraph("<img src='icons/school.png' width='16' height='16'/> School:", label_style), Paragraph(student.school.name, normal_style)],
-        [Paragraph("<img src='icons/class.png' width='16' height='16'/> Class:", label_style), Paragraph(student.student_class, normal_style)],
-        [Paragraph("<img src='icons/calendar.png' width='16' height='16'/> Month/Date Range:", label_style), Paragraph(period, normal_style)]
+        [Paragraph(f"<img src='{icon_paths['person']}' width='16' height='16'/> Name:", label_style), Paragraph(student.name, normal_style)],
+        [Paragraph(f"<img src='{icon_paths['id']}' width='16' height='16'/> Registration Number:", label_style), Paragraph(student.reg_num, normal_style)],
+        [Paragraph(f"<img src='{icon_paths['school']}' width='16' height='16'/> School:", label_style), Paragraph(student.school.name, normal_style)],
+        [Paragraph(f"<img src='{icon_paths['class']}' width='16' height='16'/> Class:", label_style), Paragraph(student.student_class, normal_style)],
+        [Paragraph(f"<img src='{icon_paths['calendar']}' width='16' height='16'/> Month/Date Range:", label_style), Paragraph(period, normal_style)]
     ], colWidths=[40*mm, 130*mm])
     details_table.setStyle(TableStyle([
         ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#e6f0fa'), colors.HexColor('#ffffff')]),
@@ -546,12 +566,13 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(Spacer(1, 15*mm))
 
     # Attendance Section
+    logger.debug("Building attendance section")
     attendance_header = Table([["Attendance"]], colWidths=[170*mm])
     attendance_header.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), 0, (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 16),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -576,6 +597,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(Spacer(1, 15*mm))
 
     # Lessons Overview Section
+    logger.debug("Building lessons overview section")
     lessons_header = Table([["Lessons Overview"]], colWidths=[170*mm])
     lessons_header.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
@@ -624,10 +646,12 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         elements.append(lessons_table)
     else:
         elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
+        logger.warning("No lessons data provided for period: %s", period)
 
     elements.append(Spacer(1, 15*mm))
 
     # Progress Images Section
+    logger.debug("Building progress images section")
     images_header = Table([["Progress Images"]], colWidths=[170*mm])
     images_header.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
@@ -644,6 +668,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     image_table_data = []
     image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
+    logger.info("Processing %d image URLs", len(image_urls))
     image_buffers = fetch_images_in_parallel(image_slots[:4])
 
     for i in range(0, 4, 2):
@@ -656,8 +681,10 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
                 img = Image(img_data)
                 img.drawWidth, img.drawHeight = 75*mm, 50*mm
                 row.append(img)
+                logger.debug("Added image at index %d", idx)
             else:
                 row.append(Paragraph("No Image", normal_style))
+                logger.warning("No valid image data at index %d", idx)
         image_table_data.append(row)
 
     image_table = Table(image_table_data, colWidths=[85*mm, 85*mm], rowHeights=60*mm)
@@ -677,10 +704,12 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             f"Note: Showing 4 of {len(image_urls)} images available.",
             ParagraphStyle(name='Small', fontSize=8, textColor=colors.HexColor('#888888'), alignment=TA_CENTER, spaceBefore=6)
         ))
+        logger.info("Noted excess images: %d total, showing 4", len(image_urls))
 
     elements.append(Spacer(1, 15*mm))
 
     # Footer Section
+    logger.debug("Building footer section")
     footer_table = Table([[
         f"Teacher's Signature: ____________________  |  Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}  |  Powered by {student.school.name}"
     ]], colWidths=[170*mm])
@@ -696,8 +725,17 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(footer_table)
 
     # Build the PDF
-    doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
+    logger.info("Building PDF document")
+    try:
+        doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
+        logger.info("PDF generation completed successfully")
+    except Exception as e:
+        logger.error("PDF generation failed: %s", str(e), exc_info=True)
+        raise
+
     buffer.seek(0)
     return buffer
+
+
 
 
