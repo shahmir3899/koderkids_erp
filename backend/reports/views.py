@@ -19,6 +19,7 @@ import requests
 from io import BytesIO
 from PIL import Image as PILImage
 from reportlab.lib.utils import ImageReader
+from django.contrib.staticfiles import finders
 import time
 
 # Set up logging
@@ -33,22 +34,18 @@ logger.addHandler(handler)
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
-# Cache background image at module level with retries
+
+# Load background image from static files
 BG_IMAGE = None
-retries = 3
-for attempt in range(retries):
+static_path = finders.find('images/bg.png')
+if static_path:
     try:
-        response = requests.get("https://koderkids-erp.onrender.com/static/bg.png", timeout=5)
-        response.raise_for_status()
-        BG_IMAGE = ImageReader(BytesIO(response.content))
-        logger.info("Successfully cached background image")
-        break
+        BG_IMAGE = ImageReader(static_path)
+        logger.info("Successfully loaded local background image")
     except Exception as e:
-        logger.error(f"Attempt {attempt+1} to load background image failed: {str(e)}")
-        if attempt < retries - 1:
-            time.sleep(2)
-if BG_IMAGE is None:
-    logger.warning("Failed to load background image after retries; using no background")
+        logger.error(f"Error loading local background image: {str(e)}")
+else:
+    logger.warning("Local background image not found; skipping background")
 
 def fetch_image(url, timeout=15, max_size=(1200, 1200)):
     """
@@ -361,6 +358,15 @@ def generate_pdf(request):
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
     """Generate PDF content with cached background image."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER
+    from io import BytesIO
+    from datetime import datetime
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=15*mm, bottomMargin=20*mm)
     elements = []
@@ -462,3 +468,4 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
+
