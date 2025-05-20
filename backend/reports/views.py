@@ -375,9 +375,9 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     # Define custom styles
     title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#1a3c5a'), alignment=TA_CENTER, spaceAfter=10, fontName='Helvetica-Bold')
-    header_style = ParagraphStyle(name='Header', fontSize=16, textColor=colors.white, spaceAfter=8, spaceBefore=12, fontName='Helvetica-Bold')
+    header_style = ParagraphStyle(name='Header', fontSize=16, textColor=colors.white, spaceAfter=8, spaceBefore=12, fontName='Helvetica-Bold', backColor=colors.HexColor('#2c3e50'))
     normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=4, leading=12, fontName='Helvetica')
-    label_style = ParagraphStyle(name='Label', parent=normal_style, fontName='Helvetica-Bold')
+    label_style = ParagraphStyle(name='Label', parent=normal_style, fontSize=10, fontName='Helvetica-Bold')
     footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#7f8c8d'), alignment=TA_CENTER, leading=12, spaceBefore=10)
 
     # Define background color for each page
@@ -388,18 +388,28 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         canvas.restoreState()
         logger.debug("Applied background color to page")
 
-    # Simulated Logo
-    logger.debug("Creating logo drawing")
-    logo_drawing = Drawing(50*mm, 25*mm)
-    logo_rect = Rect(0, 0, 50*mm, 25*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
-    logo_drawing.add(logo_rect)
-    logo_text = String(25*mm, 12.5*mm, "School Logo", fontName='Helvetica-Bold', fontSize=14, fillColor=colors.white)
-    logo_text.textAnchor = 'middle'
-    logo_drawing.add(logo_text)
+    # Fetch logo
+    logger.debug("Fetching logo")
+    logo_url = "https://koderkids-erp.onrender.com/static/logo.png"
+    logo_buffer = fetch_image(logo_url)
+    if logo_buffer:
+        logo_img = Image(logo_buffer)
+        logo_img.drawWidth, logo_img.drawHeight = 60*mm, 60*mm  # Scaled from 512x512 pixels
+        logger.debug("Logo fetched successfully")
+    else:
+        # Fallback placeholder
+        logo_drawing = Drawing(60*mm, 60*mm)
+        logo_rect = Rect(0, 0, 60*mm, 60*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
+        logo_drawing.add(logo_rect)
+        logo_text = String(30*mm, 30*mm, "School Logo", fontName='Helvetica-Bold', fontSize=14, fillColor=colors.white)
+        logo_text.textAnchor = 'middle'
+        logo_drawing.add(logo_text)
+        logo_img = logo_drawing
+        logger.warning("Failed to fetch logo, using placeholder")
 
     # Header section with logo and title on same line
     logger.debug("Building header section")
-    title_table = Table([[student.school.name], ["Monthly Student Report"]], colWidths=[70*mm])
+    title_table = Table([[student.school.name], ["Monthly Student Report"]], colWidths=[170*mm])
     title_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
@@ -410,7 +420,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('TOPPADDING', (0, 0), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
-    header_section = Table([[logo_drawing, title_table, None]], colWidths=[50*mm, 70*mm, 50*mm])
+    header_section = Table([[logo_img, title_table]], colWidths=[60*mm, 110*mm])
     header_section.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
@@ -458,10 +468,10 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
-    attendance_table = Table([[f"{attendance_text}  ", f"<font color='{attendance_status_color}'>●</font>"]], colWidths=[100*mm, 10*mm])
+    attendance_table = Table([[f"{attendance_text}  ", f"<font color={attendance_status_color}>●</font>"]], colWidths=[100*mm, 10*mm])
     attendance_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),
-        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
         ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
@@ -480,7 +490,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 16),
-        ('TOPPADING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     elements.append(lessons_header)
@@ -586,7 +596,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     # Footer Section
     logger.debug("Building footer section")
     footer_table = Table([[
-        f"Teacher's Signature: ____________________  |  Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}  |  Powered by {student.school.name}"
+        f"Teacher's Signature: ____________________  |  Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}  |  Powered by Koder Kids"
     ]], colWidths=[170*mm])
     footer_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
@@ -610,3 +620,5 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     buffer.seek(0)
     return buffer
+
+
