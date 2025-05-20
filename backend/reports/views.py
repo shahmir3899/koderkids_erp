@@ -363,7 +363,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=20, fontName='Helvetica-Bold')
+    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=200, fontName='Helvetica-Bold')
     header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=15, spaceBefore=10, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=30)
     table_header_style = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')),
