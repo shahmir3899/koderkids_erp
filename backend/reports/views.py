@@ -381,17 +381,25 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         try:
             response = requests.get("https://koderkids-erp.onrender.com/static/bg.png")
             response.raise_for_status()
-            img = PILImage.open(BytesIO(response.content))
-            img_buffer = BytesIO()
-            img.save(img_buffer, format="PNG")
-            img_buffer.seek(0)
-            canvas.drawImage(ImageReader(img_buffer), 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
+            bg_image = BytesIO(response.content)
         except Exception as e:
             logger.error(f"Error loading background image: {str(e)}")
-        page_num = canvas.getPageNumber()
-        canvas.setFont('Helvetica', 9)
-        canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
-        canvas.restoreState()
+            bg_image = None
+
+            def draw_background(canvas, doc):
+                canvas.saveState()
+                if bg_image:
+                    bg_image.seek(0)
+                    canvas.drawImage(bg_image, 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
+                page_num = canvas.getPageNumber()
+                canvas.setFont('Helvetica', 9)
+                canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
+                canvas.restoreState()
+
+            page_num = canvas.getPageNumber()
+            canvas.setFont('Helvetica', 9)
+            canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
+            canvas.restoreState()
 
     header_content = [[Paragraph(f"{student.school.name}<br/>Monthly Student Report", title_style)]]
     header_table = Table(header_content, colWidths=[190*mm])
