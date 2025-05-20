@@ -363,7 +363,8 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=200, fontName='Helvetica-Bold')
+    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=12, fontName='Helvetica-Bold')
+    title_style2 = ParagraphStyle(name='Title2', fontSize=16, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=12, fontName='Helvetica-Bold')
     header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=15, spaceBefore=10, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=30)
     table_header_style = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')),
@@ -396,10 +397,11 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
         canvas.restoreState()
 
-    header_content = [[Paragraph(f"{student.school.name}<br/>Monthly Student Report", title_style)]]
+    header_content = [[Paragraph(f"{student.school.name}", title_style)]]
     header_table = Table(header_content, colWidths=[190*mm])
     header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 10), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
     elements.append(header_table)
+    elements.append(Paragraph("Monthly Student Report", title_style2))
     elements.append(Spacer(1, 5*mm))
 
     elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Student Details</para>", header_style))
@@ -462,3 +464,6 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
+
+
+
