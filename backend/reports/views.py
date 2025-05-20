@@ -1,3 +1,4 @@
+import io
 from django.http import HttpResponse
 from django.utils.timezone import now
 from rest_framework.decorators import api_view, permission_classes
@@ -376,30 +377,22 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     table_header_style = [('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('FONTSIZE', (0,0), (-1,0), 10), ('ALIGN', (0,0), (-1,-1), 'LEFT'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')), ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8f9fa')]), ('LEADING', (0,0), (-1,-1), 14)]
     details_table_style = [('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f0f0f0')), ('TEXTCOLOR', (0,0), (-1,0), colors.black), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('LEFTPADDING', (0,0), (-1,-1), 4), ('BOTTOMPADDING', (0,0), (-1,-1), 6)]
 
+    try:
+        response = requests.get("https://koderkids-erp.onrender.com/static/bg.png")
+        response.raise_for_status()
+        bg_image = ImageReader(io.BytesIO(response.content))
+    except Exception as e:
+        logger.error(f"Error loading background image: {str(e)}")
+        bg_image = None
+
     def draw_background(canvas, doc):
         canvas.saveState()
-        try:
-            response = requests.get("https://koderkids-erp.onrender.com/static/bg.png")
-            response.raise_for_status()
-            bg_image = BytesIO(response.content)
-        except Exception as e:
-            logger.error(f"Error loading background image: {str(e)}")
-            bg_image = None
-
-            def draw_background(canvas, doc):
-                canvas.saveState()
-                if bg_image:
-                    bg_image.seek(0)
-                    canvas.drawImage(bg_image, 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
-                page_num = canvas.getPageNumber()
-                canvas.setFont('Helvetica', 9)
-                canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
-                canvas.restoreState()
-
-            page_num = canvas.getPageNumber()
-            canvas.setFont('Helvetica', 9)
-            canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
-            canvas.restoreState()
+        if bg_image:
+            canvas.drawImage(bg_image, 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
+        page_num = canvas.getPageNumber()
+        canvas.setFont('Helvetica', 9)
+        canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
+        canvas.restoreState()
 
     header_content = [[Paragraph(f"{student.school.name}<br/>Monthly Student Report", title_style)]]
     header_table = Table(header_content, colWidths=[190*mm])
@@ -457,3 +450,6 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
+
+
+
