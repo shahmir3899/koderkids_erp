@@ -363,7 +363,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
+    title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=12, fontName='Helvetica-Bold')
     header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=15, spaceBefore=10, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=30)
     table_header_style = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')),
@@ -417,7 +417,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Attendance</para>", header_style))
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)"
     elements.append(Paragraph(attendance_text, ParagraphStyle(name='Attendance', fontSize=12, textColor=colors.HexColor('#2c3e50'), backColor=colors.HexColor('#e6f0fa'), padding=6, spaceAfter=10)))
-    elements.append(Spacer(1, 15*mm))
+    elements.append(Spacer(1, 10*mm))
 
     if lessons_data:
         lessons_rows = [['Date', 'Planned Topic', 'Achieved Topic']]
