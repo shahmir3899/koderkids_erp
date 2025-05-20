@@ -473,45 +473,41 @@ def generate_pdf(request):
 
 
 
+
+
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content using ReportLab with a simulated logo, enhanced formatting, and page background."""
+    """Generate PDF content using ReportLab with icons and full-length header backgrounds."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Define custom styles with improved spacing and colors
+    # Define custom styles
     title_style = ParagraphStyle(name='Title', fontSize=20, textColor=colors.HexColor('#1a3c5a'), alignment=TA_CENTER, spaceAfter=10, fontName='Helvetica-Bold')
     header_style = ParagraphStyle(name='Header', fontSize=16, textColor=colors.white, spaceAfter=8, spaceBefore=12, fontName='Helvetica-Bold')
     normal_style = ParagraphStyle(name='Normal', fontSize=10, textColor=colors.HexColor('#333333'), spaceAfter=4, leading=12, fontName='Helvetica')
+    label_style = ParagraphStyle(name='Label', parent=normal_style, fontName='Helvetica-Bold')
     footer_style = ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#7f8c8d'), alignment=TA_CENTER, leading=12, spaceBefore=10)
 
-    # Define a function to draw the background color for each page
+    # Define background color for each page
     def draw_background(canvas, doc):
         canvas.saveState()
-        canvas.setFillColor(colors.HexColor('#f5f7fa'))  # Light gray background
-        canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)  # Fill the entire page
+        canvas.setFillColor(colors.HexColor('#f5f7fa'))
+        canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
         canvas.restoreState()
 
-    # Attach the background drawing function to the document
-    doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
-
-    # Simulated Logo (Rectangle with Text)
-    logo_drawing = Drawing(100*mm, 25*mm)  # Width and height of the logo placeholder
-    logo_rect = Rect(0, 0, 100*mm, 25*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
+    # Simulated Logo
+    logo_drawing = Drawing(50*mm, 25*mm)
+    logo_rect = Rect(0, 0, 50*mm, 25*mm, fillColor=colors.HexColor('#2c3e50'), strokeColor=colors.HexColor('#1a3c5a'))
     logo_drawing.add(logo_rect)
-    logo_text = String(50*mm, 12.5*mm, "School Logo", fontName='Helvetica-Bold', fontSize=14, fillColor=colors.white)
+    logo_text = String(25*mm, 12.5*mm, "School Logo", fontName='Helvetica-Bold', fontSize=14, fillColor=colors.white)
     logo_text.textAnchor = 'middle'
     logo_drawing.add(logo_text)
-    elements.append(logo_drawing)
 
-    # Spacer to separate logo from title
-    elements.append(Spacer(1, 15*mm))
-
-    # Header section with background color
-    header_table = Table([[student.school.name], ["Monthly Student Report"]], colWidths=[160*mm])
-    header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background
+    # Header section with logo and title on same line
+    title_table = Table([[student.school.name], ["Monthly Student Report"]], colWidths=[70*mm])
+    title_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
@@ -520,27 +516,25 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         ('TOPPADDING', (0, 0), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
-    elements.append(header_table)
+    header_section = Table([[logo_drawing, title_table, None]], colWidths=[50*mm, 70*mm, 50*mm])
+    header_section.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(header_section)
 
-    # Spacer to ensure heading doesn't touch body
     elements.append(Spacer(1, 15*mm))
 
     # Student Details Section
     elements.append(Paragraph("Student Details", header_style))
     details_table = Table([
-        ["Name:", student.name],
-        ["Registration Number:", student.reg_num],
-        ["School:", student.school.name],
-        ["Class:", student.student_class],
-        ["Month/Date Range:", period]
-    ], colWidths=[40*mm, 120*mm])
+        [Paragraph("<img src='icons/person.png' width='16' height='16'/> Name:", label_style), Paragraph(student.name, normal_style)],
+        [Paragraph("<img src='icons/id.png' width='16' height='16'/> Registration Number:", label_style), Paragraph(student.reg_num, normal_style)],
+        [Paragraph("<img src='icons/school.png' width='16' height='16'/> School:", label_style), Paragraph(student.school.name, normal_style)],
+        [Paragraph("<img src='icons/class.png' width='16' height='16'/> Class:", label_style), Paragraph(student.student_class, normal_style)],
+        [Paragraph("<img src='icons/calendar.png' width='16' height='16'/> Month/Date Range:", label_style), Paragraph(period, normal_style)]
+    ], colWidths=[40*mm, 130*mm])
     details_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),  # Light blue background for section
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#333333')),
-        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#555555')),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#e6f0fa'), colors.HexColor('#ffffff')]),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -549,29 +543,28 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     ]))
     elements.append(details_table)
 
-    # Spacer to separate sections
     elements.append(Spacer(1, 15*mm))
 
-    # Attendance Section with background color
-    attendance_header = Table([["Attendance"]], colWidths=[160*mm])
+    # Attendance Section
+    attendance_header = Table([["Attendance"]], colWidths=[170*mm])
     attendance_header.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background for header
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), 0, (-1, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 16),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     elements.append(attendance_header)
 
-    elements.append(Spacer(1, 8*mm))  # Space between header and body
+    elements.append(Spacer(1, 8*mm))
 
     attendance_status_color = 'green' if attendance_data['percentage'] >= 75 else 'red' if attendance_data['percentage'] < 50 else 'orange'
     attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.2f}%)"
     attendance_table = Table([[f"{attendance_text}  ", f"<font color='{attendance_status_color}'>●</font>"]], colWidths=[100*mm, 10*mm])
     attendance_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),  # Light blue background
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),
         ('FONTSIZE', (0, 0), (-1, -1), 12),
         ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -580,13 +573,12 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     ]))
     elements.append(attendance_table)
 
-    # Spacer to separate sections
     elements.append(Spacer(1, 15*mm))
 
     # Lessons Overview Section
-    lessons_header = Table([["Lessons Overview"]], colWidths=[160*mm])
+    lessons_header = Table([["Lessons Overview"]], colWidths=[170*mm])
     lessons_header.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background for header
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
@@ -596,7 +588,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     ]))
     elements.append(lessons_header)
 
-    elements.append(Spacer(1, 8*mm))  # Space between header and body
+    elements.append(Spacer(1, 8*mm))
 
     if lessons_data:
         lessons_table = Table(
@@ -614,10 +606,10 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
                     )
                 ] for lesson in lessons_data
             ],
-            colWidths=[35*mm, 70*mm, 55*mm]
+            colWidths=[35*mm, 70*mm, 65*mm]
         )
         lessons_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a6fa5')),  # Lighter blue for table header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a6fa5')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -633,13 +625,12 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     else:
         elements.append(Paragraph("No lessons found for the selected date range.", normal_style))
 
-    # Spacer to separate sections
     elements.append(Spacer(1, 15*mm))
 
     # Progress Images Section
-    images_header = Table([["Progress Images"]], colWidths=[160*mm])
+    images_header = Table([["Progress Images"]], colWidths=[170*mm])
     images_header.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background for header
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
@@ -649,7 +640,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     ]))
     elements.append(images_header)
 
-    elements.append(Spacer(1, 8*mm))  # Space between header and body
+    elements.append(Spacer(1, 8*mm))
 
     image_table_data = []
     image_slots = image_urls[:4] + [None] * (4 - min(len(image_urls), 4))
@@ -671,7 +662,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     image_table = Table(image_table_data, colWidths=[85*mm, 85*mm], rowHeights=60*mm)
     image_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),  # Light blue background
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6f0fa')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#ccc')),
@@ -687,15 +678,14 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             ParagraphStyle(name='Small', fontSize=8, textColor=colors.HexColor('#888888'), alignment=TA_CENTER, spaceBefore=6)
         ))
 
-    # Spacer to separate sections
     elements.append(Spacer(1, 15*mm))
 
     # Footer Section
     footer_table = Table([[
         f"Teacher's Signature: ____________________  |  Generated on: {datetime.now().strftime('%B %d, %Y, %I:%M %p PKT')}  |  Powered by {student.school.name}"
-    ]], colWidths=[160*mm])
+    ]], colWidths=[170*mm])
     footer_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),  # Dark blue background for footer
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -709,3 +699,5 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
+
+
