@@ -333,15 +333,14 @@ def generate_pdf(request):
             logger.warning(f"Student not found: {student_id}")
             return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)
 
-        # Fetch background image (use first image from fetch_student_images or a default)
-        image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
-        bg_image_url = 'https://koderkids-erp.onrender.com/static/bg.png'
-        if not bg_image_url:
-            logger.warning("No background image available; using blank background")
+        # Fetch background image from specific URL
+        bg_image_url = "https://koderkids-erp.onrender.com/static/bg.png"
+        bg_image_buffer = fetch_image(bg_image_url)
+        if not bg_image_buffer:
+            logger.warning("Failed to fetch background image; using blank background")
             bg_image_data = None
         else:
-            bg_image_buffer = fetch_image(bg_image_url)
-            bg_image_data = base64.b64encode(bg_image_buffer.read()).decode("utf-8") if bg_image_buffer else None
+            bg_image_data = base64.b64encode(bg_image_buffer.read()).decode("utf-8")
 
         buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data)
         response = HttpResponse(buffer, content_type='application/pdf')
@@ -357,13 +356,15 @@ def generate_pdf(request):
             "message": "Failed to generate PDF",
             "error": "An unexpected error occurred"
         }, status=500)
+    
+
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data):
     """Generate PDF content with A4 size, background image, and dynamic student data."""
-    # Determine MIME type for background image
-    image_mime = "image/jpeg"  # Default; adjust if needed (e.g., check extension in fetch_image)
+    # Set MIME type for PNG background image
+    image_mime = "image/png"
 
-    # HTML template with A4 layout, background image, and dynamic content
+    # [Rest of the function remains unchanged]
     html_content = f"""
     <html>
     <head>
@@ -460,6 +461,3 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     HTML(string=html_content).write_pdf(buffer)
     buffer.seek(0)
     return buffer
-
-
-
