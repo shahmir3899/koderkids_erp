@@ -14,7 +14,7 @@ import requests
 from io import BytesIO
 from PIL import Image as PILImage
 import base64
-import time
+from django.contrib.staticfiles import finders
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -30,7 +30,7 @@ logger.addHandler(handler)
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
-def fetch_image(url, timeout=30, max_size=(1200, 1200), retries=3):
+def fetch_image(url, timeout=20, max_size=(800, 800), retries=3):
     """
     Fetch image from URL with robust error handling, resizing, and retries.
     Returns BytesIO object with image data or None if failed.
@@ -52,7 +52,7 @@ def fetch_image(url, timeout=30, max_size=(1200, 1200), retries=3):
 
         # Set up session with retries
         session = requests.Session()
-        retry = Retry(total=retries, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+        retry = Retry(total=retries, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
         adapter = HTTPAdapter(max_retries=retry)
         session.mount('https://', adapter)
 
@@ -75,10 +75,10 @@ def fetch_image(url, timeout=30, max_size=(1200, 1200), retries=3):
 
         output_buffer = BytesIO()
         img_format = 'JPEG' if extension in ('jpeg', 'jpg') else 'PNG'
-        img.save(output_buffer, format=img_format, quality=85)
+        img.save(output_buffer, format=img_format, quality=75)  # Reduced quality
         output_buffer.seek(0)
 
-        if output_buffer.getbuffer().nbytes > 10 * 1024 * 1024:
+        if output_buffer.getbuffer().nbytes > 5 * 1024 * 1024:
             logger.warning(f"Image size too large: {output_buffer.getbuffer().nbytes} bytes")
             return None
 
@@ -331,13 +331,26 @@ def generate_pdf(request):
 
         # Fetch progress images from Supabase
         image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
+        logger.info(f"Progress image URLs: {image_urls}")
 
-        # Fetch background image from fixed URL
+        # Fetch background image from fixed URL with local fallback
         bg_image_url = "https://koderkids-erp.onrender.com/static/bg.png"
         bg_image_buffer = fetch_image(bg_image_url)
-        bg_image_data = base64.b64encode(bg_image_buffer.read()).decode("utf-8") if bg_image_buffer else None
         if not bg_image_buffer:
-            logger.warning("Failed to fetch background image; using blank background")
+            logger.warning("Failed to fetch background image from URL; trying local static file")
+            static_path = finders.find('images/bg.png')
+            if static_path:
+                try:
+                    with open(static_path, "rb") as image_file:
+                        bg_image_buffer = BytesIO(image_file.read())
+                    logger.info("Using local static background image")
+                except Exception as e:
+                    logger.error(f"Error loading local background image: {str(e)}")
+                    bg_image_buffer = None
+            else:
+                logger.warning("Local background image not found; using blank background")
+
+        bg_image_data = base64.b64encode(bg_image_buffer.read()).decode("utf-8") if bg_image_buffer else None
 
         buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data)
         response = HttpResponse(buffer, content_type='application/pdf')
@@ -361,7 +374,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
     # Fetch and encode progress images as base64
     progress_images = []
-    for url in image_urls[:6]:  # Limit to 6 images
+    for url in image_urls[:4]:  # Limit to 4 images to avoid timeout
         img_buffer = fetch_image(url)
         if img_buffer:
             img_data = base64.b64encode(img_buffer.read()).decode("utf-8")
@@ -390,29 +403,29 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         background-repeat: no-repeat;
       }}
       .content {{
-        padding: 20mm;
+        padding: 15mm;
         color: white;
         font-family: Arial, sans-serif;
-        background-color: rgba(0, 0, 0, 0.6);
+        background-color: rgba(0, 0, 0, 0.7);
         border-radius: 5mm;
         margin: 10mm;
-        height: calc(297mm - 40mm);
+        height: calc(297mm - 50mm);
         box-sizing: border-box;
         overflow: auto;
       }}
       h1 {{
-        font-size: 24pt;
-        margin-bottom: 10mm;
+        font-size: 20pt;
+        margin-bottom: 8mm;
       }}
       h2 {{
-        font-size: 18pt;
-        margin-top: 10mm;
-        margin-bottom: 5mm;
+        font-size: 16pt;
+        margin-top: 8mm;
+        margin-bottom: 4mm;
       }}
       p, table {{
-        font-size: 12pt;
-        line-height: 1.5;
-        margin-bottom: 10mm;
+        font-size: 10pt;
+        line-height: 1.4;
+        margin-bottom: 8mm;
       }}
       table {{
         width: 100%;
@@ -433,19 +446,19 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       .image-grid {{
         display: flex;
         flex-wrap: wrap;
-        gap: 5mm;
-        margin-bottom: 10mm;
+        gap: 4mm;
+        margin-bottom: 8mm;
       }}
       .image-grid img {{
-        width: 80mm;
-        height: 50mm;
+        width: 60mm;
+        height: 40mm;
         object-fit: cover;
         border-radius: 2mm;
       }}
       .footer {{
-        font-size: 9pt;
+        font-size: 8pt;
         text-align: center;
-        margin-top: 10mm;
+        margin-top: 8mm;
         color: #ccc;
       }}
     </style>
