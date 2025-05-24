@@ -14,7 +14,9 @@ import requests
 from io import BytesIO
 from PIL import Image as PILImage
 import base64
-import os
+import time
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -28,22 +30,9 @@ logger.addHandler(handler)
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
-
-# Load background image from static files
-# BG_IMAGE = None
-# static_path = finders.find('images/bg.png')
-# if static_path:
-#     try:
-#         BG_IMAGE = ImageReader(static_path)
-#         logger.info("Successfully loaded local background image")
-#     except Exception as e:
-#         logger.error(f"Error loading local background image: {str(e)}")
-# else:
-#     logger.warning("Local background image not found; skipping background")
-
-def fetch_image(url, timeout=15, max_size=(1200, 1200)):
+def fetch_image(url, timeout=30, max_size=(1200, 1200), retries=3):
     """
-    Fetch image from URL with robust error handling and resizing.
+    Fetch image from URL with robust error handling, resizing, and retries.
     Returns BytesIO object with image data or None if failed.
     """
     if not url:
@@ -60,7 +49,14 @@ def fetch_image(url, timeout=15, max_size=(1200, 1200)):
 
         expected_signature = supported_formats[extension]
         headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://koderkids-erp.onrender.com/', 'Accept-Encoding': 'identity'}
-        response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+
+        # Set up session with retries
+        session = requests.Session()
+        retry = Retry(total=retries, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('https://', adapter)
+
+        response = session.get(url, headers=headers, timeout=timeout, allow_redirects=True)
         response.raise_for_status()
 
         content = response.content
@@ -88,7 +84,7 @@ def fetch_image(url, timeout=15, max_size=(1200, 1200)):
 
         return output_buffer
     except Exception as e:
-        logger.error(f"Error fetching image: {str(e)}")
+        logger.error(f"Error fetching image from {url}: {str(e)}")
         return None
 
 def get_date_range(mode, month, start_date, end_date):
@@ -226,7 +222,7 @@ def student_report_data(request):
                 }, status=400)
 
         student_data = {
-            " ordinarily name": student.name,
+            "name": student.name,
             "reg_num": student.reg_num,
             "class": student.student_class,
             "school": student.school.name
@@ -300,7 +296,7 @@ def student_report_data(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def generate_pdf(request):
-    """Generate a PDF report for a single student with A4 background image."""
+    """Generate a PDF report for a single student with A4 background and progress images."""
     user = request.user
     try:
         student_id = request.GET.get('student_id')
@@ -333,14 +329,15 @@ def generate_pdf(request):
             logger.warning(f"Student not found: {student_id}")
             return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)
 
-        # Fetch background image from specific URL
+        # Fetch progress images from Supabase
+        image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
+
+        # Fetch background image from fixed URL
         bg_image_url = "https://koderkids-erp.onrender.com/static/bg.png"
         bg_image_buffer = fetch_image(bg_image_url)
+        bg_image_data = base64.b64encode(bg_image_buffer.read()).decode("utf-8") if bg_image_buffer else None
         if not bg_image_buffer:
             logger.warning("Failed to fetch background image; using blank background")
-            bg_image_data = None
-        else:
-            bg_image_data = base64.b64encode(bg_image_buffer.read()).decode("utf-8")
 
         buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data)
         response = HttpResponse(buffer, content_type='application/pdf')
@@ -356,15 +353,24 @@ def generate_pdf(request):
             "message": "Failed to generate PDF",
             "error": "An unexpected error occurred"
         }, status=500)
-    
-
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data):
     """Generate PDF content with A4 size, background image, and dynamic student data."""
     # Set MIME type for PNG background image
     image_mime = "image/png"
 
-    # [Rest of the function remains unchanged]
+    # Fetch and encode progress images as base64
+    progress_images = []
+    for url in image_urls[:6]:  # Limit to 6 images
+        img_buffer = fetch_image(url)
+        if img_buffer:
+            img_data = base64.b64encode(img_buffer.read()).decode("utf-8")
+            img_mime = "image/jpeg" if url.lower().endswith(('.jpg', '.jpeg')) else "image/png"
+            progress_images.append((img_data, img_mime))
+        else:
+            progress_images.append(None)
+
+    # HTML template with A4 layout, background image, and progress images
     html_content = f"""
     <html>
     <head>
@@ -424,6 +430,18 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       tr:nth-child(even) {{
         background-color: rgba(255, 255, 255, 0.2);
       }}
+      .image-grid {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5mm;
+        margin-bottom: 10mm;
+      }}
+      .image-grid img {{
+        width: 80mm;
+        height: 50mm;
+        object-fit: cover;
+        border-radius: 2mm;
+      }}
       .footer {{
         font-size: 9pt;
         text-align: center;
@@ -449,7 +467,9 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         {"".join([f"<tr><td>{lesson['date']}</td><td>{lesson['planned_topic']}</td><td>{lesson['achieved_topic']}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data])}
       </table>
       <h2>Progress Images</h2>
-      <p>{"Images not embedded in this version. See API response for URLs." if image_urls else "No images available."}</p>
+      <div class="image-grid">
+        {"".join([f"<img src='data:{img_mime};base64,{img_data}'/>" if img_data else "<p>Image Not Available</p>" for img_data, img_mime in progress_images])}
+      </div>
       <p class="footer">Teacher's Signature: ____________________ | Generated: {datetime.now().strftime('%b %d, %Y %I:%M %p')} | Powered by Koder Kids</p>
     </div>
     </body>
