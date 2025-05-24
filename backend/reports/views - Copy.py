@@ -7,14 +7,20 @@ from rest_framework.response import Response
 from students.models import Student, Attendance, LessonPlan
 from django.db.models import Count
 from datetime import datetime, timedelta
-from weasyprint import HTML
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from supabase import create_client
 from django.conf import settings
 import requests
 from io import BytesIO
 from PIL import Image as PILImage
-import base64
-import os
+from reportlab.lib.utils import ImageReader
+from django.contrib.staticfiles import finders
+import time
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -30,16 +36,16 @@ supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 
 # Load background image from static files
-# BG_IMAGE = None
-# static_path = finders.find('images/bg.png')
-# if static_path:
-#     try:
-#         BG_IMAGE = ImageReader(static_path)
-#         logger.info("Successfully loaded local background image")
-#     except Exception as e:
-#         logger.error(f"Error loading local background image: {str(e)}")
-# else:
-#     logger.warning("Local background image not found; skipping background")
+BG_IMAGE = None
+static_path = finders.find('images/bg.png')
+if static_path:
+    try:
+        BG_IMAGE = ImageReader(static_path)
+        logger.info("Successfully loaded local background image")
+    except Exception as e:
+        logger.error(f"Error loading local background image: {str(e)}")
+else:
+    logger.warning("Local background image not found; skipping background")
 
 def fetch_image(url, timeout=15, max_size=(1200, 1200)):
     """
@@ -300,7 +306,7 @@ def student_report_data(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def generate_pdf(request):
-    """Generate a PDF report for a single student with A4 background image."""
+    """Generate a PDF report for a single student."""
     user = request.user
     try:
         student_id = request.GET.get('student_id')
@@ -333,17 +339,9 @@ def generate_pdf(request):
             logger.warning(f"Student not found: {student_id}")
             return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)
 
-        # Fetch background image (use first image from fetch_student_images or a default)
         image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
-        bg_image_url = 'https://koderkids-erp.onrender.com/static/bg.png'
-        if not bg_image_url:
-            logger.warning("No background image available; using blank background")
-            bg_image_data = None
-        else:
-            bg_image_buffer = fetch_image(bg_image_url)
-            bg_image_data = base64.b64encode(bg_image_buffer.read()).decode("utf-8") if bg_image_buffer else None
+        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period)
 
-        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data)
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=student_report_{student.reg_num}_{period.replace(" ", "_")}.pdf'
         logger.info(f"Successfully generated PDF for student {student_id}")
@@ -358,106 +356,112 @@ def generate_pdf(request):
             "error": "An unexpected error occurred"
         }, status=500)
 
-def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data):
-    """Generate PDF content with A4 size, background image, and dynamic student data."""
-    # Determine MIME type for background image
-    image_mime = "image/jpeg"  # Default; adjust if needed (e.g., check extension in fetch_image)
-
-    # HTML template with A4 layout, background image, and dynamic content
-    html_content = f"""
-    <html>
-    <head>
-    <style>
-      @page {{
-        size: A4;
-        margin: 0;
-      }}
-      body {{
-        margin: 0;
-        padding: 0;
-        width: 210mm;
-        height: 297mm;
-        background-image: url('data:{image_mime};base64,{bg_image_data or ''}');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-      }}
-      .content {{
-        padding: 20mm;
-        color: white;
-        font-family: Arial, sans-serif;
-        background-color: rgba(0, 0, 0, 0.6);
-        border-radius: 5mm;
-        margin: 10mm;
-        height: calc(297mm - 40mm);
-        box-sizing: border-box;
-        overflow: auto;
-      }}
-      h1 {{
-        font-size: 24pt;
-        margin-bottom: 10mm;
-      }}
-      h2 {{
-        font-size: 18pt;
-        margin-top: 10mm;
-        margin-bottom: 5mm;
-      }}
-      p, table {{
-        font-size: 12pt;
-        line-height: 1.5;
-        margin-bottom: 10mm;
-      }}
-      table {{
-        width: 100%;
-        border-collapse: collapse;
-      }}
-      th, td {{
-        border: 1px solid #ddd;
-        padding: 2mm;
-        text-align: left;
-      }}
-      th {{
-        background-color: #3a5f8a;
-        color: white;
-      }}
-      tr:nth-child(even) {{
-        background-color: rgba(255, 255, 255, 0.2);
-      }}
-      .footer {{
-        font-size: 9pt;
-        text-align: center;
-        margin-top: 10mm;
-        color: #ccc;
-      }}
-    </style>
-    </head>
-    <body>
-    <div class="content">
-      <h1>{student.school.name}</h1>
-      <h2>Monthly Student Report</h2>
-      <h2>Student Details</h2>
-      <p>Name: {student.name}</p>
-      <p>Registration Number: {student.reg_num}</p>
-      <p>Class: {student.student_class}</p>
-      <p>Reporting Period: {period}</p>
-      <h2>Attendance</h2>
-      <p>{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)</p>
-      <h2>Lessons Overview</h2>
-      <table>
-        <tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr>
-        {"".join([f"<tr><td>{lesson['date']}</td><td>{lesson['planned_topic']}</td><td>{lesson['achieved_topic']}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data])}
-      </table>
-      <h2>Progress Images</h2>
-      <p>{"Images not embedded in this version. See API response for URLs." if image_urls else "No images available."}</p>
-      <p class="footer">Teacher's Signature: ____________________ | Generated: {datetime.now().strftime('%b %d, %Y %I:%M %p')} | Powered by Koder Kids</p>
-    </div>
-    </body>
-    </html>
-    """
-
-    # Generate PDF with WeasyPrint
+def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
+    """Generate PDF content with adjusted spacing to prevent text overlap."""
     buffer = BytesIO()
-    HTML(string=html_content).write_pdf(buffer)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=15*mm, bottomMargin=20*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(name='Title', fontSize=18, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=12, fontName='Helvetica-Bold')
+    title_style2 = ParagraphStyle(name='Title2', fontSize=16, textColor=colors.HexColor('#2c3e50'), alignment=TA_CENTER, spaceAfter=12, fontName='Helvetica-Bold')
+    header_style = ParagraphStyle(name='Header', fontSize=14, textColor=colors.white, spaceAfter=15, spaceBefore=10, fontName='Helvetica-Bold', backColor=colors.HexColor('#3a5f8a'), leading=30)
+    table_header_style = [
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3a5f8a')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,0), 10),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ('LEADING', (0,0), (-1,-1), 16),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8)
+    ]
+    details_table_style = [
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f0f0f0')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('LEADING', (0,0), (-1,-1), 16)
+    ]
+
+    def draw_background(canvas, doc):
+        canvas.saveState()
+        if BG_IMAGE:
+            canvas.drawImage(BG_IMAGE, 0, 0, width=A4[0], height=A4[1], preserveAspectRatio=True, anchor='c')
+        else:
+            logger.warning("No background image available; skipping background")
+        page_num = canvas.getPageNumber()
+        canvas.setFont('Helvetica', 9)
+        canvas.drawRightString(A4[0]-20*mm, 10*mm, f"Page {page_num}")
+        canvas.restoreState()
+
+    header_content = [[Paragraph(f"{student.school.name}", title_style)]]
+    header_table = Table(header_content, colWidths=[190*mm])
+    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 10), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    elements.append(header_table)
+    elements.append(Paragraph("Monthly Student Report", title_style2))
+    elements.append(Spacer(1, 5*mm))
+
+    elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Student Details</para>", header_style))
+    details_data = [
+        [Paragraph("Name:", styles['BodyText']), Paragraph(student.name, styles['BodyText'])],
+        [Paragraph("Registration Number:", styles['BodyText']), Paragraph(student.reg_num, styles['BodyText'])],
+        [Paragraph("Class:", styles['BodyText']), Paragraph(student.student_class, styles['BodyText'])],
+        [Paragraph("Reporting Period:", styles['BodyText']), Paragraph(period, styles['BodyText'])]
+    ]
+    details_table = Table(details_data, colWidths=[45*mm, 125*mm])
+    details_table.setStyle(TableStyle(details_table_style))
+    elements.append(details_table)
+    elements.append(Spacer(1, 5*mm))
+
+    elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Attendance</para>", header_style))
+    attendance_text = f"{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)"
+    elements.append(Paragraph(attendance_text, ParagraphStyle(name='Attendance', fontSize=12, textColor=colors.HexColor('#2c3e50'), backColor=colors.HexColor('#e6f0fa'), padding=6, spaceAfter=10)))
+    elements.append(Spacer(1, 5*mm))
+
+    if lessons_data:
+        lessons_rows = [['Date', 'Planned Topic', 'Achieved Topic']]
+        for lesson in lessons_data:
+            status = '✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''
+            lessons_rows.append([
+                Paragraph(lesson['date'], styles['BodyText']),
+                Paragraph(lesson['planned_topic'], styles['BodyText']),
+                Paragraph(f"{lesson['achieved_topic']} <font color='green'>{status}</font>", styles['BodyText'])
+            ])
+        lessons_table = Table(lessons_rows, colWidths=[30*mm, 70*mm, 70*mm])
+        lessons_table.setStyle(TableStyle(table_header_style + [('VALIGN', (0,0), (-1,-1), 'TOP'), ('MINIMUMHEIGHT', (0,0), (-1,-1), 8*mm)]))
+        elements.append(Spacer(1, 5*mm))
+        elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Lessons Overview</para>", header_style))
+        elements.append(lessons_table)
+
+    if image_urls:
+        elements.append(Spacer(1, 15*mm))
+        elements.append(Paragraph("<para backColor='#3a5f8a' spaceBefore=15>Progress Images</para>", header_style))
+        images = []
+        for url in image_urls[:6]:
+            try:
+                img_buffer = fetch_image(url)
+                if img_buffer:
+                    img = Image(img_buffer, width=80*mm, height=50*mm)
+                    images.append(img)
+                else:
+                    images.append(Paragraph("Image Not Available\n", styles['Italic']))
+            except Exception as e:
+                logger.error(f"Error loading image: {str(e)}")
+                images.append(Paragraph("Image Load Error\n", styles['Italic']))
+        image_grid = [images[i:i+2] for i in range(0, len(images), 2)]
+        for row in image_grid:
+            img_table = Table([row], colWidths=[80*mm]*2)
+            elements.append(img_table)
+            elements.append(Spacer(1, 10*mm))
+
+    footer_text = f"Teacher's Signature: ____________________ | Generated: {datetime.now().strftime('%b %d, %Y %I:%M %p')} | Powered by Koder Kids"
+    footer = Paragraph(footer_text, ParagraphStyle(name='Footer', fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceBefore=20*mm))
+    elements.append(footer)
+
+    doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
     return buffer
 

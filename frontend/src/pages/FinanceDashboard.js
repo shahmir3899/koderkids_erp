@@ -458,7 +458,7 @@ function FinanceDashboard() {
                   Transaction Type
                 </label>
                 <div className="flex gap-3">
-                  {["Income", "Expense", "Transfer"].map((type) => (
+                  {["Income", "Expense", ].map((type) => (
                     <button
                       key={type}
                       onClick={() => {
