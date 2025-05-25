@@ -30,11 +30,12 @@ logger.addHandler(handler)
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
-def fetch_image(url, timeout=20, max_size=(800, 800), retries=3):
+def fetch_image(url, timeout=10, max_size=(600, 600), retries=2):
     """
     Fetch image from URL with robust error handling, resizing, and retries.
     Returns BytesIO object with image data or None if failed.
     """
+    logger.info(f"Fetching image from {url}")
     if not url:
         logger.warning("No URL provided for fetching image")
         return None
@@ -42,17 +43,17 @@ def fetch_image(url, timeout=20, max_size=(800, 800), retries=3):
     try:
         url_path = url.split('?')[0]
         extension = url_path.split('.')[-1].lower()
-        supported_formats = {'jpeg': b'\xff\xd8', 'jpg': b'\xff\xd8', 'png': b'\x89PNG'}
+        supported_formats = {'jpeg': b'\xff\d8', 'jpg': b'\xff\d8', 'png': b'\x89PNG'}
         if extension not in supported_formats:
             logger.warning(f"Unsupported image format: {extension}")
             return None
 
         expected_signature = supported_formats[extension]
-        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://koderkids-erp.onrender.com/', 'Accept-Encoding': 'identity'}
+        headers = {'User-Agent': 'Mozilla/5.0', 'Accept-Encoding': 'identity'}
 
         # Set up session with retries
         session = requests.Session()
-        retry = Retry(total=retries, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+        retry = Retry(total=retries, backoff_factor=0.3, status_forcelist=[429, 500, 502, 503, 504])
         adapter = HTTPAdapter(max_retries=retry)
         session.mount('https://', adapter)
 
@@ -75,13 +76,14 @@ def fetch_image(url, timeout=20, max_size=(800, 800), retries=3):
 
         output_buffer = BytesIO()
         img_format = 'JPEG' if extension in ('jpeg', 'jpg') else 'PNG'
-        img.save(output_buffer, format=img_format, quality=75)  # Reduced quality
+        img.save(output_buffer, format=img_format, quality=70)
         output_buffer.seek(0)
 
-        if output_buffer.getbuffer().nbytes > 5 * 1024 * 1024:
+        if output_buffer.getbuffer().nbytes > 3 * 1024 * 1024:
             logger.warning(f"Image size too large: {output_buffer.getbuffer().nbytes} bytes")
             return None
 
+        logger.info(f"Successfully fetched image from {url}")
         return output_buffer
     except Exception as e:
         logger.error(f"Error fetching image from {url}: {str(e)}")
@@ -89,6 +91,7 @@ def fetch_image(url, timeout=20, max_size=(800, 800), retries=3):
 
 def get_date_range(mode, month, start_date, end_date):
     """Parse and validate date range for reports."""
+    logger.info(f"Getting date range: mode={mode}, month={month}, start_date={start_date}, end_date={end_date}")
     if mode == 'month':
         if not month:
             raise ValueError("Month required for monthly reports")
@@ -105,12 +108,15 @@ def get_date_range(mode, month, start_date, end_date):
             period = f"{start_date.strftime('%b %d, %Y')} to {end_date.strftime('%b %d, %Y')}"
         except ValueError:
             raise ValueError("Invalid date format. Use YYYY-MM-DD")
+    logger.info(f"Date range: {start_date} to {end_date}, period={period}")
     return start_date, end_date, period
 
 def fetch_student_data(student_id, school_id, student_class, start_date, end_date):
     """Fetch student, attendance, and lesson data efficiently."""
+    logger.info(f"Fetching student data: student_id={student_id}, school_id={school_id}, student_class={student_class}")
     student = Student.objects.filter(id=student_id, school_id=school_id, student_class=student_class).select_related('school').first()
     if not student:
+        logger.warning(f"Student not found: {student_id}")
         return None, None, None
 
     total_days = Attendance.objects.filter(
@@ -150,10 +156,12 @@ def fetch_student_data(student_id, school_id, student_class, start_date, end_dat
         for lesson in planned_lessons
     ]
 
+    logger.info(f"Student data fetched: student={student.name}, attendance={attendance_data['percentage']}%, lessons={len(lessons_data)}")
     return student, attendance_data, lessons_data
 
 def fetch_student_images(student_id, mode, month, start_date, image_ids=None):
     """Fetch image URLs for a student, optionally filtered by image_ids."""
+    logger.info(f"Fetching images for student {student_id}, mode={mode}, month={month}, image_ids={image_ids}")
     folder_path = f"{student_id}/"
     supabase_response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(folder_path)
     if "error" in supabase_response:
@@ -170,14 +178,16 @@ def fetch_student_images(student_id, mode, month, start_date, image_ids=None):
     if image_ids:
         image_urls = [img["url"] for img in all_images if img["name"] in image_ids]
     else:
-        image_urls = [img["url"] for img in all_images][:4]
+        image_urls = [img["url"] for img in all_images][:2]  # Limit to 2 images
 
+    logger.info(f"Fetched {len(image_urls)} image URLs: {image_urls}")
     return image_urls
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_report_data(request):
     """Fetch all data needed for a student report."""
+    logger.info(f"student_report_data request: {request.GET}")
     user = request.user
     try:
         student_id = request.GET.get('student_id')
@@ -297,6 +307,7 @@ def student_report_data(request):
 @permission_classes([IsAuthenticated])
 def generate_pdf(request):
     """Generate a PDF report for a single student with A4 background and progress images."""
+    logger.info(f"generate_pdf request: {request.GET}")
     user = request.user
     try:
         student_id = request.GET.get('student_id')
@@ -333,24 +344,30 @@ def generate_pdf(request):
         image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
         logger.info(f"Progress image URLs: {image_urls}")
 
-        # Fetch background image from fixed URL with local fallback
-        bg_image_url = "https://koderkids-erp.onrender.com/static/bg.png"
+        # Fetch background image with fallbacks
+        bg_image_url = "https://drive.google.com/file/d/1KCUNfL1hmlIxl5JT8XUdvQvsPmzuN9ds/view?usp=sharing"  # Replace <FILE_ID> with your Google Drive file ID
+        logger.info(f"Attempting to fetch background image from {bg_image_url}")
         bg_image_buffer = fetch_image(bg_image_url)
         if not bg_image_buffer:
-            logger.warning("Failed to fetch background image from URL; trying local static file")
-            static_path = finders.find('images/bg.png')
-            if static_path:
-                try:
-                    with open(static_path, "rb") as image_file:
-                        bg_image_buffer = BytesIO(image_file.read())
-                    logger.info("Using local static background image")
-                except Exception as e:
-                    logger.error(f"Error loading local background image: {str(e)}")
-                    bg_image_buffer = None
-            else:
-                logger.warning("Local background image not found; using blank background")
+            logger.warning("Failed to fetch background image from Google Drive; trying Render URL")
+            bg_image_url = "https://koderkids-erp.onrender.com/static/bg.png"
+            bg_image_buffer = fetch_image(bg_image_url)
+            if not bg_image_buffer:
+                logger.warning("Failed to fetch background image from Render; trying local static file")
+                static_path = finders.find('images/bg.png')
+                if static_path:
+                    try:
+                        with open(static_path, "rb") as image_file:
+                            bg_image_buffer = BytesIO(image_file.read())
+                        logger.info("Using local static background image")
+                    except Exception as e:
+                        logger.error(f"Error loading local background image: {str(e)}")
+                        bg_image_buffer = None
+                else:
+                    logger.warning("Local background image not found; using blank background")
 
         bg_image_data = base64.b64encode(bg_image_buffer.read()).decode("utf-8") if bg_image_buffer else None
+        logger.info(f"Background image data: {'present' if bg_image_data else 'none'}")
 
         buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data)
         response = HttpResponse(buffer, content_type='application/pdf')
@@ -369,98 +386,41 @@ def generate_pdf(request):
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, bg_image_data):
     """Generate PDF content with A4 size, background image, and dynamic student data."""
-    # Set MIME type for PNG background image
-    image_mime = "image/png"
+    logger.info("Generating PDF content")
+    image_mime = "image/png"  # Assuming PNG for Google Drive/Render bg.png
 
     # Fetch and encode progress images as base64
     progress_images = []
-    for url in image_urls[:4]:  # Limit to 4 images to avoid timeout
+    for url in image_urls[:2]:  # Limit to 2 images
+        logger.info(f"Fetching progress image: {url}")
         img_buffer = fetch_image(url)
         if img_buffer:
             img_data = base64.b64encode(img_buffer.read()).decode("utf-8")
             img_mime = "image/jpeg" if url.lower().endswith(('.jpg', '.jpeg')) else "image/png"
             progress_images.append((img_data, img_mime))
+            logger.info(f"Progress image fetched: {url}")
         else:
             progress_images.append(None)
+            logger.warning(f"Failed to fetch progress image: {url}")
 
-    # HTML template with A4 layout, background image, and progress images
+    # HTML template with minimal styling
     html_content = f"""
     <html>
     <head>
     <style>
-      @page {{
-        size: A4;
-        margin: 0;
-      }}
-      body {{
-        margin: 0;
-        padding: 0;
-        width: 210mm;
-        height: 297mm;
-        background-image: url('data:{image_mime};base64,{bg_image_data or ''}');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-      }}
-      .content {{
-        padding: 15mm;
-        color: white;
-        font-family: Arial, sans-serif;
-        background-color: rgba(0, 0, 0, 0.7);
-        border-radius: 5mm;
-        margin: 10mm;
-        height: calc(297mm - 50mm);
-        box-sizing: border-box;
-        overflow: auto;
-      }}
-      h1 {{
-        font-size: 20pt;
-        margin-bottom: 8mm;
-      }}
-      h2 {{
-        font-size: 16pt;
-        margin-top: 8mm;
-        margin-bottom: 4mm;
-      }}
-      p, table {{
-        font-size: 10pt;
-        line-height: 1.4;
-        margin-bottom: 8mm;
-      }}
-      table {{
-        width: 100%;
-        border-collapse: collapse;
-      }}
-      th, td {{
-        border: 1px solid #ddd;
-        padding: 2mm;
-        text-align: left;
-      }}
-      th {{
-        background-color: #3a5f8a;
-        color: white;
-      }}
-      tr:nth-child(even) {{
-        background-color: rgba(255, 255, 255, 0.2);
-      }}
-      .image-grid {{
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4mm;
-        margin-bottom: 8mm;
-      }}
-      .image-grid img {{
-        width: 60mm;
-        height: 40mm;
-        object-fit: cover;
-        border-radius: 2mm;
-      }}
-      .footer {{
-        font-size: 8pt;
-        text-align: center;
-        margin-top: 8mm;
-        color: #ccc;
-      }}
+      @page {{ size: A4; margin: 0; }}
+      body {{ margin: 0; padding: 0; width: 210mm; height: 297mm; background-image: url('data:{image_mime};base64,{bg_image_data or ''}'); background-size: cover; background-position: center; background-repeat: no-repeat; }}
+      .content {{ padding: 10mm; color: white; font-family: Arial, sans-serif; background-color: rgba(0, 0, 0, 0.7); border-radius: 3mm; margin: 8mm; height: calc(297mm - 36mm); box-sizing: border-box; }}
+      h1 {{ font-size: 18pt; margin-bottom: 5mm; }}
+      h2 {{ font-size: 14pt; margin: 5mm 0 3mm; }}
+      p, table {{ font-size: 9pt; line-height: 1.3; margin-bottom: 5mm; }}
+      table {{ width: 100%; border-collapse: collapse; }}
+      th, td {{ border: 1px solid #ddd; padding: 1mm; text-align: left; }}
+      th {{ background-color: #3a5f8a; color: white; }}
+      tr:nth-child(even) {{ background-color: rgba(255, 255, 255, 0.2); }}
+      .image-grid {{ display: flex; gap: 3mm; margin-bottom: 5mm; }}
+      .image-grid img {{ width: 50mm; height: 30mm; object-fit: cover; border-radius: 1mm; }}
+      .footer {{ font-size: 7pt; text-align: center; margin-top: 5mm; color: #ccc; }}
     </style>
     </head>
     <body>
@@ -477,7 +437,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       <h2>Lessons Overview</h2>
       <table>
         <tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr>
-        {"".join([f"<tr><td>{lesson['date']}</td><td>{lesson['planned_topic']}</td><td>{lesson['achieved_topic']}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data])}
+        {"".join([f"<tr><td>{lesson['date']}</td><td>{lesson['planned_topic']}</td><td>{lesson['achieved_topic']}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data[:5]])}
       </table>
       <h2>Progress Images</h2>
       <div class="image-grid">
@@ -490,7 +450,9 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     """
 
     # Generate PDF with WeasyPrint
+    logger.info("Rendering PDF with WeasyPrint")
     buffer = BytesIO()
     HTML(string=html_content).write_pdf(buffer)
     buffer.seek(0)
+    logger.info("PDF rendered successfully")
     return buffer
