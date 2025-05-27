@@ -467,8 +467,8 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         margin-bottom: 8mm; 
       }}
       .image-grid img {{
-        width: 93.5mm;
-        height: 58.44mm;
+        width: 84.15mm;
+        height: 52.60mm;
         object-fit: cover;
         border-radius: 2mm;
         border: 1px solid #ccc;
@@ -671,8 +671,8 @@ def preview_pdf_html(request):
             margin-bottom: 8mm; 
           }}
           .image-grid img {{ 
-            width: 93.5mm; 
-            height: 58.44mm; 
+            width: 84.15mm; 
+            height: 52.596mm; 
             object-fit: cover; 
             border-radius: 2mm; 
             border: 1px solid #ccc; 
