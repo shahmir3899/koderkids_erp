@@ -372,24 +372,24 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             progress_images.append(None)
             logger.warning(f"Failed to fetch progress image: {url}")
 
-    # HTML template with minimal styling, no background
+    # HTML template with improved styling
     html_content = f"""
     <html>
     <head>
     <style>
       @page {{ size: A4; margin: 0; }}
       body {{ margin: 0; padding: 0; width: 210mm; height: 297mm; background-color: white; }}
-      .content {{ padding: 10mm; color: black; font-family: Arial, sans-serif; background-color: rgba(255, 255, 255, 0.9); border-radius: 3mm; margin: 8mm; height: calc(297mm - 36mm); box-sizing: border-box; }}
-      h1 {{ font-size: 18pt; margin-bottom: 5mm; }}
-      h2 {{ font-size: 14pt; margin: 5mm 0 3mm; }}
-      p, table {{ font-size: 9pt; line-height: 1.3; margin-bottom: 5mm; }}
+      .content {{ padding: 15mm; color: black; font-family: Arial, sans-serif; background-color: rgba(255, 255, 255, 0.95); border-radius: 5mm; margin: 10mm; height: calc(297mm - 40mm); box-sizing: border-box; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+      h1 {{ font-size: 20pt; margin-bottom: 8mm; text-align: center; }}
+      h2 {{ font-size: 16pt; margin: 8mm 0 4mm; border-bottom: 1px solid #ccc; padding-bottom: 2mm; }}
+      p, table {{ font-size: 10pt; line-height: 1.4; margin-bottom: 8mm; }}
       table {{ width: 100%; border-collapse: collapse; }}
-      th, td {{ border: 1px solid #ddd; padding: 1mm; text-align: left; }}
+      th, td {{ border: 2px solid #bbb; padding: 2mm; text-align: left; }}
       th {{ background-color: #3a5f8a; color: white; }}
-      tr:nth-child(even) {{ background-color: #f2f2f2; }}
-      .image-grid {{ display: flex; gap: 3mm; margin-bottom: 5mm; }}
-      .image-grid img {{ width: 50mm; height: 30mm; object-fit: cover; border-radius: 1mm; }}
-      .footer {{ font-size: 7pt; text-align: center; margin-top: 5mm; color: #666; }}
+      tr:nth-child(even) {{ background-color: #e6e6e6; }}
+      .image-grid {{ display: flex; gap: 5mm; margin-bottom: 8mm; }}
+      .image-grid img {{ width: 50mm; height: 30mm; object-fit: cover; border-radius: 2mm; border: 1px solid #ccc; background-color: white; }}
+      .footer {{ font-size: 8pt; text-align: center; margin-top: 8mm; color: #666; }}
     </style>
     </head>
     <body>

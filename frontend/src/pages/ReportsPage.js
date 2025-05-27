@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getAuthHeaders, getSchools, getClasses, API_URL } from "../api";
 import { toast } from 'react-toastify';
+import { PDFDocument } from 'pdf-lib';
 
 // Function to validate YYYY-MM format
 const isValidMonth = (monthStr) => {
@@ -40,6 +41,70 @@ const formatToYYYYMMDD = (dateStr) => {
     return "";
   }
 };
+
+// Function to fetch array buffer from URL
+async function fetchArrayBuffer(url) {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
+    return await response.arrayBuffer();
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+// Function to add background image to PDF
+async function addBackgroundToPDF(pdfBlob, backgroundImageUrl, fallbackImageUrl) {
+  try {
+    // Load the PDF
+    const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
+
+    // Fetch the background image
+    let imageArrayBuffer = await fetchArrayBuffer(backgroundImageUrl);
+    if (!imageArrayBuffer) {
+      console.warn('Background image fetch failed; trying fallback');
+      imageArrayBuffer = await fetchArrayBuffer(fallbackImageUrl);
+      if (!imageArrayBuffer) {
+        console.warn('Fallback image fetch failed; using no background');
+      }
+    }
+
+    let backgroundImage;
+    if (imageArrayBuffer) {
+      const isJpeg = backgroundImageUrl.toLowerCase().endsWith('.jpg') || backgroundImageUrl.toLowerCase().endsWith('.jpeg');
+      backgroundImage = isJpeg ? await pdfDoc.embedJpg(imageArrayBuffer) : await pdfDoc.embedPng(imageArrayBuffer);
+    }
+
+    // A4 dimensions in points (1mm = 2.83464567 points)
+    const a4Width = 210 * 2.83464567; // 595.28 points
+    const a4Height = 297 * 2.83464567; // 841.89 points
+
+    // Add background to each page
+    const pages = pdfDoc.getPages();
+    for (const page of pages) {
+      if (backgroundImage) {
+        page.drawImage(backgroundImage, {
+          x: 0,
+          y: 0,
+          width: a4Width,
+          height: a4Height,
+        });
+        // Ensure existing content is on top
+        const contentStream = page.getContentStream();
+        page.setContentStream(contentStream);
+      }
+    }
+
+    // Save the modified PDF
+    const modifiedPdfBytes = await pdfDoc.save();
+    return new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+  } catch (error) {
+    console.error('Error adding background to PDF:', error);
+    throw error;
+  }
+}
 
 const ReportsPage = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -120,9 +185,9 @@ const ReportsPage = () => {
         setIsSearching(false);
         return;
       }
-      const currentDate = new Date("2025-05-19");
+      const currentDate = new Date("2025-05-27");
       if (new Date(startDate) > currentDate || new Date(endDate) > currentDate) {
-        setErrorMessage("Dates cannot be in the future (beyond May 19, 2025).");
+        setErrorMessage("Dates cannot be in the future (beyond May 27, 2025).");
         setIsSearching(false);
         return;
       }
@@ -192,7 +257,7 @@ const ReportsPage = () => {
     }
   };
 
-  // Generate single PDF report
+  // Generate single PDF report with background
   const handleGenerateReport = async (studentId) => {
     setErrorMessage("");
     setIsGenerating(prev => ({ ...prev, [studentId]: true }));
@@ -218,7 +283,13 @@ const ReportsPage = () => {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // Add background image to the PDF
+      const backgroundImageUrl = 'https://drive.google.com/uc?export=download&id=1KCUNfL1hmlIxl5JT8XUdvQvsPmzuN9ds';
+      const fallbackImageUrl = '/static/images/bg.png';
+      const modifiedBlob = await addBackgroundToPDF(response.data, backgroundImageUrl, fallbackImageUrl);
+
+      // Trigger download
+      const url = window.URL.createObjectURL(modifiedBlob);
       const link = document.createElement('a');
       const period = mode === "month"
         ? selectedMonth.replace('-', '_')
@@ -245,7 +316,7 @@ const ReportsPage = () => {
     }
   };
 
-  // Generate multiple individual PDF reports
+  // Generate multiple individual PDF reports with background
   const handleGenerateBulkReports = async () => {
     if (selectedStudentIds.length === 0) {
       setErrorMessage("Please select at least one student.");
@@ -340,7 +411,7 @@ const ReportsPage = () => {
             value={startDate}
             disabled={mode === "month"}
             onChange={(e) => setStartDate(e.target.value)}
-            max="2025-05-19" // Fixed to current date
+            max="2025-05-27" // Updated to current date
             aria-label="Select start date"
           />
         </div>
@@ -354,7 +425,7 @@ const ReportsPage = () => {
             value={endDate}
             disabled={mode === "month"}
             onChange={(e) => setEndDate(e.target.value)}
-            max="2025-05-19" // Fixed to current date
+            max="2025-05-27" // Updated to current date
             aria-label="Select end date"
           />
         </div>
