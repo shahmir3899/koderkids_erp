@@ -358,9 +358,9 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     """Generate PDF content with A4 size, no background, and dynamic student data."""
     logger.info("Generating PDF content")
 
-    # Fetch and encode progress images as base64 (required)
+    # Fetch and encode progress images as base64 (now for 4 images)
     progress_images = []
-    for url in image_urls[:2]:  # Limit to 2 images, as per current setup
+    for url in image_urls[:4]:  # Updated to 4 images
         logger.info(f"Fetching progress image: {url}")
         img_buffer = fetch_image(url)
         if img_buffer:
@@ -375,21 +375,25 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     # HTML template with dynamic content and pagination
     html_content = f"""
     <html>
-    <head>
+    <   <head>
     <style>
       @page {{ size: A4; margin: 10mm; }}
       body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: white; }}
-      .content {{ padding: 15mm; color: black; background-color: rgba(255, 255, 255, 0.95); border-radius: 5mm; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+      .content {{ padding: 15mm; padding-top: 50mm; color: black; background-color: rgba(255, 255, 255, 0.95); border-radius: 5mm; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
       h1 {{ font-size: 20pt; margin-bottom: 8mm; text-align: center; }}
       h2 {{ font-size: 16pt; margin: 8mm 0 4mm; border-bottom: 1px solid #ccc; padding-bottom: 2mm; }}
       p {{ font-size: 10pt; line-height: 1.4; margin-bottom: 8mm; }}
-      table {{ width: 100%; border-collapse: collapse; margin-bottom: 8mm; }}
-      th, td {{ border: 2px solid #bbb; padding: 2mm; text-align: left; font-size: 10pt; }}
-      th {{ background-color: #3a5f8a; color: white; }}
-      tr:nth-child(even) {{ background-color: #e6e6e6; }}
-      tr {{ page-break-inside: avoid; page-break-after: auto; }} /* Prevent row splitting */
-      .image-grid {{ display: flex; gap: 5mm; margin-bottom: 8mm; }}
-      .image-grid img {{ width: 50mm; height: 30mm; object-fit: cover; border-radius: 2mm; border: 1px solid #ccc; background-color: white; }}
+      table.student-details {{ width: 100%; border-collapse: collapse; margin-bottom: 8mm; }}
+      table.student-details th, table.student-details td {{ border: 1px solid #bbb; padding: 2mm; text-align: left; font-size: 10pt; }}
+      table.student-details th {{ background-color: #3a5f8a; color: white; }}
+      table.student-details tr:nth-child(even) {{ background-color: #e6e6e6; }}
+      table.lessons {{ width: 100%; border-collapse: collapse; margin-bottom: 8mm; }}
+      table.lessons th, table.lessons td {{ border: 2px solid #bbb; padding: 2mm; text-align: left; font-size: 10pt; }}
+      table.lessons th {{ background-color: #3a5f8a; color: white; }}
+      table.lessons tr:nth-child(even) {{ background-color: #e6e6e6; }}
+      tr {{ page-break-inside: avoid; page-break-after: auto; }}
+      .image-grid {{ display: flex; flex-wrap: wrap; gap: 5mm; margin-bottom: 8mm; }}
+      .image-grid img {{ width: 40mm; height: 25mm; object-fit: cover; border-radius: 2mm; border: 1px solid #ccc; background-color: white; }}
       .footer {{ font-size: 8pt; text-align: center; margin-top: 8mm; color: #666; }}
     </style>
     </head>
@@ -398,14 +402,16 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       <h1>{student.school.name}</h1>
       <h2>Monthly Student Report</h2>
       <h2>Student Details</h2>
-      <p>Name: {student.name}</p>
-      <p>Registration Number: {student.reg_num}</p>
-      <p>Class: {student.student_class}</p>
-      <p>Reporting Period: {period}</p>
+      <table class="student-details">
+        <tr><th>Name</th><td>{student.name}</td></tr>
+        <tr><th>Registration Number</th><td>{student.reg_num}</td></tr>
+        <tr><th>Class</th><td>{student.student_class}</td></tr>
+        <tr><th>Reporting Period</th><td>{period}</td></tr>
+      </table>
       <h2>Attendance</h2>
       <p>{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)</p>
       <h2>Lessons Overview</h2>
-      <table>
+      <table class="lessons">
         <tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr>
         {"".join([f"<tr><td>{lesson['date']}</td><td>{lesson['planned_topic']}</td><td>{lesson['achieved_topic']}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data])}
       </table>
@@ -428,5 +434,3 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 
 
 
-
-    

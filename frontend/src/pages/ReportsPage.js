@@ -72,74 +72,30 @@ async function validateImageFormat(arrayBuffer, url) {
   return isJpeg;
 }
 
-// Function to add background image to PDF with corrected layering
+// Function to add background image to PDF using the alternative approach
 async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
   try {
-    // Load the original PDF
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-    console.log(`Original PDF loaded, size: ${pdfArrayBuffer.byteLength} bytes`);
     const originalPdf = await PDFDocument.load(pdfArrayBuffer);
-
-    // Fetch the background image
     const imageArrayBuffer = await fetchArrayBuffer(backgroundImageUrl);
-    if (!imageArrayBuffer) {
-      console.warn('Background image fetch failed; proceeding without background');
-      toast.warn('Unable to load background image; downloading PDF without background.');
-      return pdfBlob; // Return original PDF if background fetch fails
-    }
-
-    // Validate image format
+    if (!imageArrayBuffer) return pdfBlob;
     const isJpeg = await validateImageFormat(imageArrayBuffer, backgroundImageUrl);
-
-    // Create a new PDF document to ensure layering control
-    const pdfDoc = await PDFDocument.create();
-
-    // Embed the background image
-    let backgroundImage;
-    console.log(`Embedding background image as ${isJpeg ? 'JPEG' : 'PNG'}`);
-    try {
-      backgroundImage = isJpeg ? await pdfDoc.embedJpg(imageArrayBuffer) : await pdfDoc.embedPng(imageArrayBuffer);
-    } catch (embedError) {
-      console.error(`Failed to embed background image: ${embedError.message}`);
-      toast.warn('Background image format is invalid; downloading PDF without background.');
-      return pdfBlob;
+    const newPdf = await PDFDocument.create();
+    let backgroundImage = isJpeg ? await newPdf.embedJpg(imageArrayBuffer) : await newPdf.embedPng(imageArrayBuffer);
+    const originalPages = originalPdf.getPages();
+    for (let i = 0; i < originalPages.length; i++) {
+      const originalPage = originalPages[i];
+      const { width, height } = originalPage.getSize();
+      const newPage = newPdf.addPage([width, height]);
+      newPage.drawImage(backgroundImage, { x: 0, y: 0, width, height });
+      const embeddedPage = await newPdf.embedPage(originalPage);
+      newPage.drawPage(embeddedPage, { x: 0, y: 0, width, height });
     }
-
-    // A4 dimensions in points (1mm = 2.83464567 points)
-    const a4Width = 210 * 2.83464567; // 595.28 points
-    const a4Height = 297 * 2.83464567; // 841.89 points
-
-    // Copy pages from the original PDF and add background
-    const pages = await pdfDoc.copyPages(originalPdf, originalPdf.getPageIndices());
-    console.log(`Adding background to ${pages.length} pages`);
-    for (let i = 0; i < pages.length; i++) {
-      const page = pages[i];
-      pdfDoc.addPage(page);
-
-      // Draw the background image as the first layer
-      try {
-        pdfDoc.getPage(i).drawImage(backgroundImage, {
-          x: 0,
-          y: 0,
-          width: a4Width,
-          height: a4Height,
-        });
-        // The original content is already part of the copied page and will be on top
-      } catch (drawError) {
-        console.error(`Failed to draw background on page ${i}: ${drawError.message}`);
-        toast.warn('Failed to apply background to PDF; downloading without background.');
-        return pdfBlob;
-      }
-    }
-
-    // Save the modified PDF
-    const modifiedPdfBytes = await pdfDoc.save();
-    console.log(`Modified PDF size: ${modifiedPdfBytes.byteLength} bytes`);
-    return new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+    const newPdfBytes = await newPdf.save();
+    return new Blob([newPdfBytes], { type: 'application/pdf' });
   } catch (error) {
-    console.error('Error adding background to PDF:', error.message);
-    toast.error('Failed to add background image; downloading PDF without background.');
-    return pdfBlob; // Fallback to original PDF
+    console.error(error.message);
+    return pdfBlob;
   }
 }
 
@@ -158,7 +114,7 @@ const ReportsPage = () => {
   const [isGenerating, setIsGenerating] = useState({});
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
-  const [includeBackground, setIncludeBackground] = useState(true);
+  const [includeBackground, setIncludeBackground] = useState({}); // Per-student toggle state
 
   // Fetch schools on component mount
   useEffect(() => {
@@ -191,6 +147,17 @@ const ReportsPage = () => {
     };
     fetchClassList();
   }, [selectedSchool]);
+
+  // Initialize toggle state for each student when students are fetched
+  useEffect(() => {
+    if (students.length > 0) {
+      const initialToggleState = students.reduce((acc, student) => {
+        acc[student.id] = true; // Default to true (include background)
+        return acc;
+      }, {});
+      setIncludeBackground(initialToggleState);
+    }
+  }, [students]);
 
   // Validate and fetch students
   const fetchStudents = async () => {
@@ -277,7 +244,7 @@ const ReportsPage = () => {
     }
   };
 
-  // Toggle student selection
+  // Toggle student selection for bulk generation
   const toggleStudentSelection = (studentId) => {
     setSelectedStudentIds(prev =>
       prev.includes(studentId)
@@ -286,7 +253,7 @@ const ReportsPage = () => {
     );
   };
 
-  // Select/deselect all students
+  // Select/deselect all students for bulk generation
   const toggleSelectAll = () => {
     if (selectedStudentIds.length === students.length) {
       setSelectedStudentIds([]);
@@ -323,8 +290,8 @@ const ReportsPage = () => {
 
       let finalBlob = response.data;
 
-      // Add background image if toggle is enabled
-      if (includeBackground) {
+      // Add background image if toggle is enabled for this student
+      if (includeBackground[studentId]) {
         const backgroundImageUrl = '/bg.png'; // Background image in public folder
         finalBlob = await addBackgroundToPDF(response.data, backgroundImageUrl);
       }
@@ -393,6 +360,51 @@ const ReportsPage = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
+      <style>
+        {`
+          .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+          }
+          .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+          }
+          .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            transition: 0.4s;
+            border-radius: 20px;
+          }
+          .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 50%;
+          }
+          input:checked + .slider {
+            background-color: #2196F3; /* Blue when checked */
+          }
+          input:checked + .slider:before {
+            transform: translateX(20px);
+            background-color: #fff; /* White knob when checked */
+          }
+        `}
+      </style>
       <h2 className="text-2xl font-bold text-gray-700 mb-6">📊 Monthly Reports</h2>
 
       {/* Error Message */}
@@ -425,20 +437,6 @@ const ReportsPage = () => {
             aria-label="Select date range mode"
           />
           <span className="text-gray-700">Date Range</span>
-        </label>
-      </div>
-
-      {/* Toggle for Background Image */}
-      <div className="flex items-center mb-4">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={includeBackground}
-            onChange={() => setIncludeBackground(!includeBackground)}
-            className="mr-2"
-            aria-label="Include background image"
-          />
-          <span className="text-gray-700">Include Background Image</span>
         </label>
       </div>
 
@@ -640,43 +638,57 @@ const ReportsPage = () => {
                     </td>
                     <td className="p-3 border-t border-gray-200 text-gray-600">{student.name}</td>
                     <td className="p-3 border-t border-gray-200">
-                      <button
-                        onClick={() => handleGenerateReport(student.id)}
-                        className={`bg-green-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                          isGenerating[student.id] ? "opacity-75 cursor-not-allowed" : "hover:bg-green-600"
-                        }`}
-                        disabled={isGenerating[student.id]}
-                        aria-label={`Generate report for ${student.name}`}
-                      >
-                        {isGenerating[student.id] ? (
-                          <>
-                            <svg
-                              className="animate-spin h-5 w-5 mr-2 text-white"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
-                            Generating...
-                          </>
-                        ) : (
-                          <>📄 Generate Report</>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <label className="toggle-switch">
+                          <input
+                            type="checkbox"
+                            checked={includeBackground[student.id] || false}
+                            onChange={() => setIncludeBackground(prev => ({
+                              ...prev,
+                              [student.id]: !prev[student.id],
+                            }))}
+                            aria-label={`Include background image for ${student.name}`}
+                          />
+                          <span className="slider"></span>
+                        </label>
+                        <button
+                          onClick={() => handleGenerateReport(student.id)}
+                          className={`bg-green-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                            isGenerating[student.id] ? "opacity-75 cursor-not-allowed" : "hover:bg-green-600"
+                          }`}
+                          disabled={isGenerating[student.id]}
+                          aria-label={`Generate report for ${student.name}`}
+                        >
+                          {isGenerating[student.id] ? (
+                            <>
+                              <svg
+                                className="animate-spin h-5 w-5 mr-2 text-white"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              Generating...
+                            </>
+                          ) : (
+                            <>📄 Generate Report</>
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
