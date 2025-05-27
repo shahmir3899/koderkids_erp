@@ -78,7 +78,10 @@ async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
     const originalPdf = await PDFDocument.load(pdfArrayBuffer);
     const imageArrayBuffer = await fetchArrayBuffer(backgroundImageUrl);
-    if (!imageArrayBuffer) return pdfBlob;
+    if (!imageArrayBuffer) {
+      console.warn('Background image fetch failed; proceeding without background');
+      return pdfBlob;
+    }
     const isJpeg = await validateImageFormat(imageArrayBuffer, backgroundImageUrl);
     const newPdf = await PDFDocument.create();
     let backgroundImage = isJpeg ? await newPdf.embedJpg(imageArrayBuffer) : await newPdf.embedPng(imageArrayBuffer);
@@ -94,7 +97,7 @@ async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
     const newPdfBytes = await newPdf.save();
     return new Blob([newPdfBytes], { type: 'application/pdf' });
   } catch (error) {
-    console.error(error.message);
+    console.error('Error adding background to PDF:', error.message);
     return pdfBlob;
   }
 }

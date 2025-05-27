@@ -317,6 +317,7 @@ def generate_pdf(request):
         text_color = request.GET.get('text_color', '#000000')  # Default to black
         header_color = request.GET.get('header_color', '#3a5f8a')  # Default to existing header color
         row_color = request.GET.get('row_color', '#e6e6e6')  # Default to existing row color
+        image_rotation = request.GET.get('image_rotation', '0')  # Default to 0 degrees
 
         if not all([student_id, mode, school_id, student_class]):
             logger.warning("Missing required parameters in generate_pdf")
@@ -342,12 +343,12 @@ def generate_pdf(request):
         # Fetch progress images from Supabase (optional)
         image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
         logger.info(f"Progress image URLs: {image_urls}")
-
-        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color, header_color, row_color)
+        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color, header_color, row_color, image_rotation)
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=student_report_{student.reg_num}_{period.replace(" ", "_")}.pdf'
         logger.info(f"Successfully generated PDF for student {student_id}")
         return response
+      
     except ValueError as e:
         logger.warning(f"Validation error: {str(e)}")
         return Response({'message': 'Failed to generate PDF', 'error': str(e)}, status=400)
@@ -357,10 +358,10 @@ def generate_pdf(request):
             "message": "Failed to generate PDF",
             "error": "An unexpected error occurred"
         }, status=500)
-
-def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color='#000000', header_color='#3a5f8a', row_color='#e6e6e6'):
+def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color='#000000', header_color='#3a5f8a', row_color='#e6e6e6', image_rotation='0'):
     """Generate PDF content with A4 size, transparent background, and dynamic student data."""
     logger.info("Generating PDF content")
+
 
     # Fetch and encode progress images as base64 (now for 4 images)
     progress_images = []
@@ -395,7 +396,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       }}
       .content {{ 
         padding: 15mm; 
-        padding-top: 50mm; /* Consistent padding for all pages */
+        padding-top: 10mm; /* Consistent padding for all pages */
         color: {text_color}; 
         background-color: transparent; 
         border-radius: 5mm; 
@@ -465,14 +466,16 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         gap: 5mm; 
         margin-bottom: 8mm; 
       }}
-      .image-grid img {{ 
-        width: 40mm; 
-        height: 25mm; 
-        object-fit: cover; 
-        border-radius: 2mm; 
-        border: 1px solid #ccc; 
-        background-color: white; 
-      }}
+      .image-grid img {{
+        width: 93.5mm;
+        height: 58.44mm;
+        object-fit: cover;
+        border-radius: 2mm;
+        border: 1px solid #ccc;
+        background-color: white;
+        
+        transform: rotate({image_rotation}deg);
+        }}
       .footer {{ 
         font-size: 8pt; 
         text-align: center; 
@@ -519,6 +522,213 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def preview_pdf_html(request):
+    """Return the HTML content of the PDF for preview with optional image rotation."""
+    logger.info(f"preview_pdf_html request: {request.GET}")
+    user = request.user
+    try:
+        student_id = request.GET.get('student_id')
+        mode = request.GET.get('mode')
+        month = request.GET.get('month')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        school_id = request.GET.get('school_id')
+        student_class = request.GET.get('student_class')
+        image_ids = [x.strip() for x in request.GET.get('image_ids', '').split(',') if x.strip()]
+        text_color = request.GET.get('text_color', '#000000')
+        header_color = request.GET.get('header_color', '#3a5f8a')
+        row_color = request.GET.get('row_color', '#e6e6e6')
+        image_rotation = request.GET.get('image_rotation', '0')  # Default to 0 degrees
+
+        if not all([student_id, mode, school_id, student_class]):
+            logger.warning("Missing required parameters in preview_pdf_html")
+            return Response({
+                'message': 'Failed to preview HTML',
+                'error': 'Missing required parameters: student_id, mode, school_id, student_class'
+            }, status=400)
+
+        if user.role == "Teacher":
+            if int(school_id) not in user.assigned_schools.values_list("id", flat=True):
+                logger.warning(f"Unauthorized access attempt by {user.username} to school {school_id}")
+                return Response({
+                    "message": "Failed to preview HTML",
+                    "error": "Unauthorized access to this school"
+                }, status=403)
+
+        start_date, end_date, period = get_date_range(mode, month, start_date, end_date)
+        student, attendance_data, lessons_data = fetch_student_data(student_id, school_id, student_class, start_date, end_date)
+        if not student:
+            logger.warning(f"Student not found: {student_id}")
+            return Response({'message': 'Failed to preview HTML', 'error': 'Student not found'}, status=404)
+
+        image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
+        logger.info(f"Progress image URLs: {image_urls}")
+
+        # Generate HTML content with preview-specific edits
+        progress_images = []
+        for url in image_urls[:4]:
+            img_buffer = fetch_image(url)
+            if img_buffer:
+                img_data = base64.b64encode(img_buffer.read()).decode("utf-8")
+                img_mime = "image/jpeg" if url.lower().endswith(('.jpg', '.jpeg')) else "image/png"
+                progress_images.append((img_data, img_mime))
+            else:
+                progress_images.append(None)
+
+        html_content = f"""
+        <html>
+        <head>
+        <style>
+          @page {{ 
+            size: A4; 
+            margin: 10mm; 
+            padding-top: 30mm;
+          }}
+          body {{ 
+            margin: 0; 
+            padding: 0; 
+            font-family: Arial, sans-serif; 
+            background-color: transparent; 
+            color: {text_color};
+            background-image: url('/bg.png'); /* Simulate background image for preview */
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: top left;
+          }}
+          .content {{ 
+            padding: 15mm; 
+            padding-top: 50mm; 
+            color: {text_color}; 
+            background-color: transparent; 
+            border-radius: 5mm; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            min-height: 257mm;
+            page-break-before: always;
+          }}
+          h1 {{ 
+            font-size: 20pt; 
+            margin-bottom: 8mm; 
+            text-align: center; 
+          }}
+          h2 {{ 
+            font-size: 16pt; 
+            margin: 8mm 0 4mm; 
+            border-bottom: 1px solid #ccc; 
+            padding-bottom: 2mm; 
+          }}
+          p {{ 
+            font-size: 10pt; 
+            line-height: 1.4; 
+            margin-bottom: 8mm; 
+          }}
+          table.student-details {{ 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 8mm; 
+          }}
+          table.student-details th, table.student-details td {{ 
+            border: 1px solid #bbb; 
+            padding: 2mm; 
+            text-align: left; 
+            font-size: 10pt; 
+          }}
+          table.student-details th {{ 
+            background-color: {header_color}; 
+            color: white; 
+          }}
+          table.student-details tr:nth-child(even) {{ 
+            background-color: {row_color}; 
+          }}
+          table.lessons {{ 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 8mm; 
+          }}
+          table.lessons th, table.lessons td {{ 
+            border: 2px solid #bbb; 
+            padding: 2mm; 
+            text-align: left; 
+            font-size: 10pt; 
+          }}
+          table.lessons th {{ 
+            background-color: {header_color}; 
+            color: white; 
+          }}
+          table.lessons tr:nth-child(even) {{ 
+            background-color: {row_color}; 
+          }}
+          tr {{ 
+            page-break-inside: avoid; 
+            page-break-after: auto; 
+          }}
+          .image-grid {{ 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 5mm; 
+            margin-bottom: 8mm; 
+          }}
+          .image-grid img {{ 
+            width: 93.5mm; 
+            height: 58.44mm; 
+            object-fit: cover; 
+            border-radius: 2mm; 
+            border: 1px solid #ccc; 
+            background-color: white; 
+            transform: rotate({image_rotation}deg); /* Apply rotation */
+          }}
+          .footer {{ 
+            font-size: 8pt; 
+            text-align: center; 
+            margin-top: 8mm; 
+            color: #666; 
+          }}
+          .checkmark {{ 
+            color: green; 
+            font-size: 12pt; 
+          }}
+        </style>
+        </head>
+        <body>
+        <div class="content">
+          <h1>{html.escape(student.school.name)}</h1>
+          <h2>Monthly Student Report</h2>
+          <h2>Student Details</h2>
+          <table class="student-details">
+            <tr><th>Name</th><td>{html.escape(student.name)}</td></tr>
+            <tr><th>Registration Number</th><td>{html.escape(student.reg_num)}</td></tr>
+            <tr><th>Class</th><td>{html.escape(student.student_class)}</td></tr>
+            <tr><th>Reporting Period</th><td>{html.escape(period)}</td></tr>
+          </table>
+          <h2>Attendance</h2>
+          <p>{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)</p>
+          <h2>Lessons Overview</h2>
+          <table class="lessons">
+            <tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr>
+            {"".join([f"<tr><td>{html.escape(lesson['date'])}</td><td>{html.escape(lesson['planned_topic'])}</td><td>{html.escape(lesson['achieved_topic'])}<span class='checkmark'>{('✓' if lesson['planned_topic'] == lesson['achieved_topic'] else '')}</span></td></tr>" for lesson in lessons_data])}
+          </table>
+          <h2>Progress Images</h2>
+          <div class="image-grid">
+            {"".join([f"<img src='data:{img_mime};base64,{img_data}'/>" if img_data else "<p>Image Not Available</p>" for img_data, img_mime in progress_images])}
+          </div>
+          <p class="footer">Teacher's Signature: ____________________ | Generated: {datetime.now().strftime('%b %d, %Y %I:%M %p')} | Powered by Koder Kids</p>
+        </div>
+        </body>
+        </html>
+        """
+        return HttpResponse(html_content, content_type='text/html')
+    except ValueError as e:
+        logger.warning(f"Validation error: {str(e)}")
+        return Response({'message': 'Failed to preview HTML', 'error': str(e)}, status=400)
+    except Exception as e:
+        logger.error(f"Unexpected error in preview_pdf_html: {str(e)}")
+        return Response({
+            "message": "Failed to preview HTML",
+            "error": "An unexpected error occurred"
+        }, status=500)
+    
 
 
 
