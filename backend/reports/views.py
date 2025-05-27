@@ -461,19 +461,20 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         page-break-after: auto; 
       }}
       .image-grid {{ 
-        display: flex; 
-        flex-wrap: wrap; 
+        display: grid; 
+        grid-template-columns: repeat(2, 84.15mm); 
+        grid-template-rows: repeat(2, 52.60mm); 
         gap: 5mm; 
         margin-bottom: 8mm; 
+        justify-content: center; 
       }}
       .image-grid img {{
-        width: 84.15mm;
-        height: 52.60mm;
-        object-fit: cover;
-        border-radius: 2mm;
-        border: 1px solid #ccc;
-        background-color: white;
-        
+        width: 84.15mm; 
+        height: 52.60mm; 
+        object-fit: cover; 
+        border-radius: 2mm; 
+        border: 1px solid #ccc; 
+        background-color: white; 
         transform: rotate({image_rotation}deg);
         }}
       .footer {{ 
@@ -665,19 +666,21 @@ def preview_pdf_html(request):
             page-break-after: auto; 
           }}
           .image-grid {{ 
-            display: flex; 
-            flex-wrap: wrap; 
+            display: grid; 
+            grid-template-columns: repeat(2, 84.15mm); 
+            grid-template-rows: repeat(2, 52.60mm); 
             gap: 5mm; 
             margin-bottom: 8mm; 
+            justify-content: center;
           }}
           .image-grid img {{ 
             width: 84.15mm; 
-            height: 52.596mm; 
+            height: 52.60mm; 
             object-fit: cover; 
             border-radius: 2mm; 
             border: 1px solid #ccc; 
             background-color: white; 
-            transform: rotate({image_rotation}deg); /* Apply rotation */
+            transform: rotate({image_rotation}deg);
           }}
           .footer {{ 
             font-size: 8pt; 
