@@ -173,7 +173,7 @@ def fetch_student_images(student_id, mode, month, start_date, image_ids=None):
     if image_ids:
         image_urls = [img["url"] for img in all_images if img["name"] in image_ids]
     else:
-        image_urls = [img["url"] for img in all_images][:2]  # Limit to 2 images
+        image_urls = [img["url"] for img in all_images][:4]  # Limit to 2 images
 
     logger.info(f"Fetched {len(image_urls)} image URLs: {image_urls}")
     return image_urls
@@ -355,12 +355,12 @@ def generate_pdf(request):
         }, status=500)
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content with A4 size, no background, and optional progress images."""
+    """Generate PDF content with A4 size, no background, and dynamic student data."""
     logger.info("Generating PDF content")
 
-    # Fetch and encode progress images as base64 (optional)
+    # Fetch and encode progress images as base64 (required)
     progress_images = []
-    for url in image_urls[:2]:  # Limit to 2 images
+    for url in image_urls[:2]:  # Limit to 2 images, as per current setup
         logger.info(f"Fetching progress image: {url}")
         img_buffer = fetch_image(url)
         if img_buffer:
@@ -372,24 +372,25 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             progress_images.append(None)
             logger.warning(f"Failed to fetch progress image: {url}")
 
-    # HTML template with improved styling
+    # HTML template with improved styling to prevent table row splitting
     html_content = f"""
     <html>
     <head>
     <style>
       @page {{ size: A4; margin: 0; }}
       body {{ margin: 0; padding: 0; width: 210mm; height: 297mm; background-color: white; }}
-      .content {{ padding: 15mm; color: black; font-family: Arial, sans-serif; background-color: rgba(255, 255, 255, 0.95); border-radius: 5mm; margin: 10mm; height: calc(297mm - 40mm); box-sizing: border-box; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+      .content {{ padding: 15mm; color: black; font-family: Arial, sans-serif; background-color: rgba(255, 255, 255, 0.95); border-radius: 5mm; margin: 10mm; height: calc(297mm - 40mm); box-sizing: border-box; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; }}
       h1 {{ font-size: 20pt; margin-bottom: 8mm; text-align: center; }}
       h2 {{ font-size: 16pt; margin: 8mm 0 4mm; border-bottom: 1px solid #ccc; padding-bottom: 2mm; }}
-      p, table {{ font-size: 10pt; line-height: 1.4; margin-bottom: 8mm; }}
-      table {{ width: 100%; border-collapse: collapse; }}
-      th, td {{ border: 2px solid #bbb; padding: 2mm; text-align: left; }}
+      p {{ font-size: 10pt; line-height: 1.4; margin-bottom: 8mm; }}
+      table {{ width: 100%; border-collapse: collapse; margin-bottom: 8mm; }}
+      th, td {{ border: 2px solid #bbb; padding: 2mm; text-align: left; font-size: 10pt; }}
       th {{ background-color: #3a5f8a; color: white; }}
       tr:nth-child(even) {{ background-color: #e6e6e6; }}
+      tr {{ page-break-inside: avoid; page-break-after: auto; }} /* Prevent row splitting */
       .image-grid {{ display: flex; gap: 5mm; margin-bottom: 8mm; }}
       .image-grid img {{ width: 50mm; height: 30mm; object-fit: cover; border-radius: 2mm; border: 1px solid #ccc; background-color: white; }}
-      .footer {{ font-size: 8pt; text-align: center; margin-top: 8mm; color: #666; }}
+      .footer {{ font-size: 8pt; text-align: center; margin-top: 8mm; color: #666; position: absolute; bottom: 10mm; width: 100%; }}
     </style>
     </head>
     <body>

@@ -42,39 +42,64 @@ const formatToYYYYMMDD = (dateStr) => {
   }
 };
 
-// Function to fetch array buffer from URL
+// Function to fetch array buffer from URL with detailed logging
 async function fetchArrayBuffer(url) {
+  console.log(`Attempting to fetch: ${url}`);
   try {
     const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
-    return await response.arrayBuffer();
+    if (!response.ok) {
+      console.error(`Fetch failed: ${url} returned status ${response.status}`);
+      throw new Error(`Failed to fetch ${url}: ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    console.log(`Successfully fetched: ${url}, size: ${arrayBuffer.byteLength} bytes`);
+    return arrayBuffer;
   } catch (error) {
-    console.error(error);
-    return null;
+    console.error(`Error fetching ${url}:`, error.message);
+    throw error;
   }
 }
 
-// Function to add background image to PDF
-async function addBackgroundToPDF(pdfBlob, backgroundImageUrl, fallbackImageUrl) {
+// Function to validate image format
+async function validateImageFormat(arrayBuffer, url) {
+  const firstBytes = new Uint8Array(arrayBuffer.slice(0, 4));
+  const isJpeg = firstBytes[0] === 0xFF && firstBytes[1] === 0xD8; // JPEG signature
+  const isPng = firstBytes[0] === 0x89 && firstBytes[1] === 0x50 && firstBytes[2] === 0x4E && firstBytes[3] === 0x47; // PNG signature
+  if (!isJpeg && !isPng) {
+    console.error(`Invalid image format for ${url}: First bytes: ${firstBytes}`);
+    throw new Error(`Invalid image format for ${url}. Only PNG and JPEG are supported.`);
+  }
+  return isJpeg;
+}
+
+// Function to add background image to PDF with improved error handling
+async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
   try {
     // Load the PDF
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+    console.log(`PDF loaded, size: ${pdfArrayBuffer.byteLength} bytes`);
     const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
 
     // Fetch the background image
-    let imageArrayBuffer = await fetchArrayBuffer(backgroundImageUrl);
+    const imageArrayBuffer = await fetchArrayBuffer(backgroundImageUrl);
     if (!imageArrayBuffer) {
-      console.warn('Background image fetch failed; trying fallback');
-      imageArrayBuffer = await fetchArrayBuffer(fallbackImageUrl);
-      if (!imageArrayBuffer) {
-        console.warn('Fallback image fetch failed; using no background');
-      }
+      console.warn('Background image fetch failed; proceeding without background');
+      toast.warn('Unable to load background image; downloading PDF without background.');
+      return pdfBlob; // Return original PDF if background fetch fails
     }
 
+    // Validate image format
+    const isJpeg = await validateImageFormat(imageArrayBuffer, backgroundImageUrl);
+
+    // Embed the background image
     let backgroundImage;
-    if (imageArrayBuffer) {
-      const isJpeg = backgroundImageUrl.toLowerCase().endsWith('.jpg') || backgroundImageUrl.toLowerCase().endsWith('.jpeg');
+    console.log(`Embedding background image as ${isJpeg ? 'JPEG' : 'PNG'}`);
+    try {
       backgroundImage = isJpeg ? await pdfDoc.embedJpg(imageArrayBuffer) : await pdfDoc.embedPng(imageArrayBuffer);
+    } catch (embedError) {
+      console.error(`Failed to embed background image: ${embedError.message}`);
+      toast.warn('Background image format is invalid; downloading PDF without background.');
+      return pdfBlob;
     }
 
     // A4 dimensions in points (1mm = 2.83464567 points)
@@ -83,26 +108,31 @@ async function addBackgroundToPDF(pdfBlob, backgroundImageUrl, fallbackImageUrl)
 
     // Add background to each page
     const pages = pdfDoc.getPages();
+    console.log(`Adding background to ${pages.length} pages`);
     for (const page of pages) {
-      if (backgroundImage) {
+      try {
         page.drawImage(backgroundImage, {
           x: 0,
           y: 0,
           width: a4Width,
           height: a4Height,
         });
-        // Ensure existing content is on top
-        const contentStream = page.getContentStream();
-        page.setContentStream(contentStream);
+        // No need for setContentStream; existing content is automatically on top
+      } catch (drawError) {
+        console.error(`Failed to draw background on page: ${drawError.message}`);
+        toast.warn('Failed to apply background to PDF; downloading without background.');
+        return pdfBlob;
       }
     }
 
     // Save the modified PDF
     const modifiedPdfBytes = await pdfDoc.save();
+    console.log(`Modified PDF size: ${modifiedPdfBytes.byteLength} bytes`);
     return new Blob([modifiedPdfBytes], { type: 'application/pdf' });
   } catch (error) {
-    console.error('Error adding background to PDF:', error);
-    throw error;
+    console.error('Error adding background to PDF:', error.message);
+    toast.error('Failed to add background image; downloading PDF without background.');
+    return pdfBlob; // Fallback to original PDF
   }
 }
 
@@ -121,6 +151,7 @@ const ReportsPage = () => {
   const [isGenerating, setIsGenerating] = useState({});
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
+  const [includeBackground, setIncludeBackground] = useState(true);
 
   // Fetch schools on component mount
   useEffect(() => {
@@ -257,7 +288,7 @@ const ReportsPage = () => {
     }
   };
 
-  // Generate single PDF report with background
+  // Generate single PDF report with or without background based on toggle
   const handleGenerateReport = async (studentId) => {
     setErrorMessage("");
     setIsGenerating(prev => ({ ...prev, [studentId]: true }));
@@ -283,13 +314,16 @@ const ReportsPage = () => {
         responseType: 'blob',
       });
 
-      // Add background image to the PDF
-      const backgroundImageUrl = 'https://drive.google.com/uc?export=download&id=1KCUNfL1hmlIxl5JT8XUdvQvsPmzuN9ds';
-      const fallbackImageUrl = '/static/images/bg.png';
-      const modifiedBlob = await addBackgroundToPDF(response.data, backgroundImageUrl, fallbackImageUrl);
+      let finalBlob = response.data;
+
+      // Add background image if toggle is enabled
+      if (includeBackground) {
+        const backgroundImageUrl = '/bg.png'; // Background image in public folder
+        finalBlob = await addBackgroundToPDF(response.data, backgroundImageUrl);
+      }
 
       // Trigger download
-      const url = window.URL.createObjectURL(modifiedBlob);
+      const url = window.URL.createObjectURL(finalBlob);
       const link = document.createElement('a');
       const period = mode === "month"
         ? selectedMonth.replace('-', '_')
@@ -316,7 +350,7 @@ const ReportsPage = () => {
     }
   };
 
-  // Generate multiple individual PDF reports with background
+  // Generate multiple individual PDF reports with or without background based on toggle
   const handleGenerateBulkReports = async () => {
     if (selectedStudentIds.length === 0) {
       setErrorMessage("Please select at least one student.");
@@ -387,6 +421,20 @@ const ReportsPage = () => {
         </label>
       </div>
 
+      {/* Toggle for Background Image */}
+      <div className="flex items-center mb-4">
+        <label className="flex items-center">
+          <input
+            type="checkbox"
+            checked={includeBackground}
+            onChange={() => setIncludeBackground(!includeBackground)}
+            className="mr-2"
+            aria-label="Include background image"
+          />
+          <span className="text-gray-700">Include Background Image</span>
+        </label>
+      </div>
+
       {/* Date Inputs */}
       <div className="flex flex-wrap gap-4 mb-6">
         {/* Month Selector */}
@@ -411,7 +459,7 @@ const ReportsPage = () => {
             value={startDate}
             disabled={mode === "month"}
             onChange={(e) => setStartDate(e.target.value)}
-            max="2025-05-27" // Updated to current date
+            max="2025-05-27"
             aria-label="Select start date"
           />
         </div>
@@ -425,7 +473,7 @@ const ReportsPage = () => {
             value={endDate}
             disabled={mode === "month"}
             onChange={(e) => setEndDate(e.target.value)}
-            max="2025-05-27" // Updated to current date
+            max="2025-05-27"
             aria-label="Select end date"
           />
         </div>
