@@ -72,13 +72,13 @@ async function validateImageFormat(arrayBuffer, url) {
   return isJpeg;
 }
 
-// Function to add background image to PDF with improved error handling
+// Function to add background image to PDF with corrected layering
 async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
   try {
-    // Load the PDF
+    // Load the original PDF
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-    console.log(`PDF loaded, size: ${pdfArrayBuffer.byteLength} bytes`);
-    const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
+    console.log(`Original PDF loaded, size: ${pdfArrayBuffer.byteLength} bytes`);
+    const originalPdf = await PDFDocument.load(pdfArrayBuffer);
 
     // Fetch the background image
     const imageArrayBuffer = await fetchArrayBuffer(backgroundImageUrl);
@@ -90,6 +90,9 @@ async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
 
     // Validate image format
     const isJpeg = await validateImageFormat(imageArrayBuffer, backgroundImageUrl);
+
+    // Create a new PDF document to ensure layering control
+    const pdfDoc = await PDFDocument.create();
 
     // Embed the background image
     let backgroundImage;
@@ -106,20 +109,24 @@ async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
     const a4Width = 210 * 2.83464567; // 595.28 points
     const a4Height = 297 * 2.83464567; // 841.89 points
 
-    // Add background to each page
-    const pages = pdfDoc.getPages();
+    // Copy pages from the original PDF and add background
+    const pages = await pdfDoc.copyPages(originalPdf, originalPdf.getPageIndices());
     console.log(`Adding background to ${pages.length} pages`);
-    for (const page of pages) {
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
+      pdfDoc.addPage(page);
+
+      // Draw the background image as the first layer
       try {
-        page.drawImage(backgroundImage, {
+        pdfDoc.getPage(i).drawImage(backgroundImage, {
           x: 0,
           y: 0,
           width: a4Width,
           height: a4Height,
         });
-        // No need for setContentStream; existing content is automatically on top
+        // The original content is already part of the copied page and will be on top
       } catch (drawError) {
-        console.error(`Failed to draw background on page: ${drawError.message}`);
+        console.error(`Failed to draw background on page ${i}: ${drawError.message}`);
         toast.warn('Failed to apply background to PDF; downloading without background.');
         return pdfBlob;
       }

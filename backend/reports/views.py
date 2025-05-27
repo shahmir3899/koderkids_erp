@@ -372,14 +372,14 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             progress_images.append(None)
             logger.warning(f"Failed to fetch progress image: {url}")
 
-    # HTML template with improved styling to prevent table row splitting
+    # HTML template with dynamic content and pagination
     html_content = f"""
     <html>
     <head>
     <style>
-      @page {{ size: A4; margin: 0; }}
-      body {{ margin: 0; padding: 0; width: 210mm; height: 297mm; background-color: white; }}
-      .content {{ padding: 15mm; color: black; font-family: Arial, sans-serif; background-color: rgba(255, 255, 255, 0.95); border-radius: 5mm; margin: 10mm; height: calc(297mm - 40mm); box-sizing: border-box; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; }}
+      @page {{ size: A4; margin: 10mm; }}
+      body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: white; }}
+      .content {{ padding: 15mm; color: black; background-color: rgba(255, 255, 255, 0.95); border-radius: 5mm; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
       h1 {{ font-size: 20pt; margin-bottom: 8mm; text-align: center; }}
       h2 {{ font-size: 16pt; margin: 8mm 0 4mm; border-bottom: 1px solid #ccc; padding-bottom: 2mm; }}
       p {{ font-size: 10pt; line-height: 1.4; margin-bottom: 8mm; }}
@@ -390,7 +390,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       tr {{ page-break-inside: avoid; page-break-after: auto; }} /* Prevent row splitting */
       .image-grid {{ display: flex; gap: 5mm; margin-bottom: 8mm; }}
       .image-grid img {{ width: 50mm; height: 30mm; object-fit: cover; border-radius: 2mm; border: 1px solid #ccc; background-color: white; }}
-      .footer {{ font-size: 8pt; text-align: center; margin-top: 8mm; color: #666; position: absolute; bottom: 10mm; width: 100%; }}
+      .footer {{ font-size: 8pt; text-align: center; margin-top: 8mm; color: #666; }}
     </style>
     </head>
     <body>
@@ -407,7 +407,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       <h2>Lessons Overview</h2>
       <table>
         <tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr>
-        {"".join([f"<tr><td>{lesson['date']}</td><td>{lesson['planned_topic']}</td><td>{lesson['achieved_topic']}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data[:5]])}
+        {"".join([f"<tr><td>{lesson['date']}</td><td>{lesson['planned_topic']}</td><td>{lesson['achieved_topic']}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data])}
       </table>
       <h2>Progress Images</h2>
       <div class="image-grid">
@@ -425,3 +425,8 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
+
+
+
+
+    
