@@ -16,7 +16,7 @@ from PIL import Image as PILImage
 import base64
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import html  # Added for escaping special characters
+import html
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ def fetch_student_images(student_id, mode, month, start_date, image_ids=None):
     if image_ids:
         image_urls = [img["url"] for img in all_images if img["name"] in image_ids]
     else:
-        image_urls = [img["url"] for img in all_images][:4]  # Limit to 4 images
+        image_urls = [img["url"] for img in all_images][:4]
     logger.info(f"Fetched {len(image_urls)} image URLs: {image_urls}")
     return image_urls
 
@@ -313,6 +313,10 @@ def generate_pdf(request):
         school_id = request.GET.get('school_id')
         student_class = request.GET.get('student_class')
         image_ids = [x.strip() for x in request.GET.get('image_ids', '').split(',') if x.strip()]
+        # New parameters for styling
+        text_color = request.GET.get('text_color', '#000000')  # Default to black
+        header_color = request.GET.get('header_color', '#3a5f8a')  # Default to existing header color
+        row_color = request.GET.get('row_color', '#e6e6e6')  # Default to existing row color
 
         if not all([student_id, mode, school_id, student_class]):
             logger.warning("Missing required parameters in generate_pdf")
@@ -339,7 +343,7 @@ def generate_pdf(request):
         image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
         logger.info(f"Progress image URLs: {image_urls}")
 
-        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period)
+        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color, header_color, row_color)
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=student_report_{student.reg_num}_{period.replace(" ", "_")}.pdf'
         logger.info(f"Successfully generated PDF for student {student_id}")
@@ -354,13 +358,13 @@ def generate_pdf(request):
             "error": "An unexpected error occurred"
         }, status=500)
 
-def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
+def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color='#000000', header_color='#3a5f8a', row_color='#e6e6e6'):
     """Generate PDF content with A4 size, transparent background, and dynamic student data."""
     logger.info("Generating PDF content")
 
     # Fetch and encode progress images as base64 (now for 4 images)
     progress_images = []
-    for url in image_urls[:4]:  # Updated to 4 images
+    for url in image_urls[:4]:
         logger.info(f"Fetching progress image: {url}")
         img_buffer = fetch_image(url)
         if img_buffer:
@@ -377,24 +381,108 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     <html>
     <head>
     <style>
-      @page {{ size: A4; margin: 10mm; }}
-      body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: transparent; }}
-      .content {{ padding: 15mm; padding-top: 50mm; color: black; background-color: transparent; border-radius: 5mm; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-      h1 {{ font-size: 20pt; margin-bottom: 8mm; text-align: center; }}
-      h2 {{ font-size: 16pt; margin: 8mm 0 4mm; border-bottom: 1px solid #ccc; padding-bottom: 2mm; }}
-      p {{ font-size: 10pt; line-height: 1.4; margin-bottom: 8mm; }}
-      table.student-details {{ width: 100%; border-collapse: collapse; margin-bottom: 8mm; }}
-      table.student-details th, table.student-details td {{ border: 1px solid #bbb; padding: 2mm; text-align: left; font-size: 10pt; }}
-      table.student-details th {{ background-color: #3a5f8a; color: white; }}
-      table.student-details tr:nth-child(even) {{ background-color: #e6e6e6; }}
-      table.lessons {{ width: 100%; border-collapse: collapse; margin-bottom: 8mm; }}
-      table.lessons th, table.lessons td {{ border: 2px solid #bbb; padding: 2mm; text-align: left; font-size: 10pt; }}
-      table.lessons th {{ background-color: #3a5f8a; color: white; }}
-      table.lessons tr:nth-child(even) {{ background-color: #e6e6e6; }}
-      tr {{ page-break-inside: avoid; page-break-after: auto; }}
-      .image-grid {{ display: flex; flex-wrap: wrap; gap: 5mm; margin-bottom: 8mm; }}
-      .image-grid img {{ width: 40mm; height: 25mm; object-fit: cover; border-radius: 2mm; border: 1px solid #ccc; background-color: white; }}
-      .footer {{ font-size: 8pt; text-align: center; margin-top: 8mm; color: #666; }}
+      @page {{ 
+        size: A4; 
+        margin: 10mm; 
+        padding-top: 30mm; /* Ensure space for logo on all pages */
+      }}
+      body {{ 
+        margin: 0; 
+        padding: 0; 
+        font-family: Arial, sans-serif; 
+        background-color: transparent; 
+        color: {text_color}; /* Dynamic text color */
+      }}
+      .content {{ 
+        padding: 15mm; 
+        padding-top: 50mm; /* Consistent padding for all pages */
+        color: {text_color}; 
+        background-color: transparent; 
+        border-radius: 5mm; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+        min-height: 257mm; /* A4 height minus margins */
+        page-break-before: always; /* Ensure each content block starts on a new page */
+      }}
+      h1 {{ 
+        font-size: 20pt; 
+        margin-bottom: 8mm; 
+        text-align: center; 
+      }}
+      h2 {{ 
+        font-size: 16pt; 
+        margin: 8mm 0 4mm; 
+        border-bottom: 1px solid #ccc; 
+        padding-bottom: 2mm; 
+      }}
+      p {{ 
+        font-size: 10pt; 
+        line-height: 1.4; 
+        margin-bottom: 8mm; 
+      }}
+      table.student-details {{ 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin-bottom: 8mm; 
+      }}
+      table.student-details th, table.student-details td {{ 
+        border: 1px solid #bbb; 
+        padding: 2mm; 
+        text-align: left; 
+        font-size: 10pt; 
+      }}
+      table.student-details th {{ 
+        background-color: {header_color}; /* Dynamic header color */
+        color: white; 
+      }}
+      table.student-details tr:nth-child(even) {{ 
+        background-color: {row_color}; /* Dynamic row color */
+      }}
+      table.lessons {{ 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin-bottom: 8mm; 
+      }}
+      table.lessons th, table.lessons td {{ 
+        border: 2px solid #bbb; 
+        padding: 2mm; 
+        text-align: left; 
+        font-size: 10pt; 
+      }}
+      table.lessons th {{ 
+        background-color: {header_color}; /* Dynamic header color */
+        color: white; 
+      }}
+      table.lessons tr:nth-child(even) {{ 
+        background-color: {row_color}; /* Dynamic row color */
+      }}
+      tr {{ 
+        page-break-inside: avoid; 
+        page-break-after: auto; 
+      }}
+      .image-grid {{ 
+        display: flex; 
+        flex-wrap: wrap; 
+        gap: 5mm; 
+        margin-bottom: 8mm; 
+      }}
+      .image-grid img {{ 
+        width: 40mm; 
+        height: 25mm; 
+        object-fit: cover; 
+        border-radius: 2mm; 
+        border: 1px solid #ccc; 
+        background-color: white; 
+      }}
+      .footer {{ 
+        font-size: 8pt; 
+        text-align: center; 
+        margin-top: 8mm; 
+        color: #666; 
+      }}
+      .checkmark {{ 
+        color: green; 
+        font-size: 12pt; 
+      }}
     </style>
     </head>
     <body>
@@ -413,7 +501,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       <h2>Lessons Overview</h2>
       <table class="lessons">
         <tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr>
-        {"".join([f"<tr><td>{html.escape(lesson['date'])}</td><td>{html.escape(lesson['planned_topic'])}</td><td>{html.escape(lesson['achieved_topic'])}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data])}
+        {"".join([f"<tr><td>{html.escape(lesson['date'])}</td><td>{html.escape(lesson['planned_topic'])}</td><td>{html.escape(lesson['achieved_topic'])}<span class='checkmark'>{('&#10003;' if lesson['planned_topic'] == lesson['achieved_topic'] else '')}</span></td></tr>" for lesson in lessons_data])}
       </table>
       <h2>Progress Images</h2>
       <div class="image-grid">
@@ -431,5 +519,6 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
+
 
 
