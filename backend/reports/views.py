@@ -345,7 +345,7 @@ def generate_pdf(request):
         logger.info(f"Progress image URLs: {image_urls}")
 
         # Fetch background image with fallbacks
-        bg_image_url = "https://drive.google.com/file/d/1KCUNfL1hmlIxl5JT8XUdvQvsPmzuN9ds/view?usp=sharing"  # Replace <FILE_ID> with your Google Drive file ID
+        bg_image_url = "https://drive.usercontent.google.com/download?id=1KCUNfL1hmlIxl5JT8XUdvQvsPmzuN9ds"  # Replace <FILE_ID> with your Google Drive file ID
         logger.info(f"Attempting to fetch background image from {bg_image_url}")
         bg_image_buffer = fetch_image(bg_image_url)
         if not bg_image_buffer:
