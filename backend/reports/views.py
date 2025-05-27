@@ -16,6 +16,7 @@ from PIL import Image as PILImage
 import base64
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import html  # Added for escaping special characters
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -173,8 +174,7 @@ def fetch_student_images(student_id, mode, month, start_date, image_ids=None):
     if image_ids:
         image_urls = [img["url"] for img in all_images if img["name"] in image_ids]
     else:
-        image_urls = [img["url"] for img in all_images][:4]  # Limit to 2 images
-
+        image_urls = [img["url"] for img in all_images][:4]  # Limit to 4 images
     logger.info(f"Fetched {len(image_urls)} image URLs: {image_urls}")
     return image_urls
 
@@ -355,7 +355,7 @@ def generate_pdf(request):
         }, status=500)
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
-    """Generate PDF content with A4 size, no background, and dynamic student data."""
+    """Generate PDF content with A4 size, transparent background, and dynamic student data."""
     logger.info("Generating PDF content")
 
     # Fetch and encode progress images as base64 (now for 4 images)
@@ -375,11 +375,11 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     # HTML template with dynamic content and pagination
     html_content = f"""
     <html>
-    <   <head>
+    <head>
     <style>
       @page {{ size: A4; margin: 10mm; }}
-      body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: white; }}
-      .content {{ padding: 15mm; padding-top: 50mm; color: black; background-color: rgba(255, 255, 255, 0.95); border-radius: 5mm; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+      body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: transparent; }}
+      .content {{ padding: 15mm; padding-top: 50mm; color: black; background-color: transparent; border-radius: 5mm; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
       h1 {{ font-size: 20pt; margin-bottom: 8mm; text-align: center; }}
       h2 {{ font-size: 16pt; margin: 8mm 0 4mm; border-bottom: 1px solid #ccc; padding-bottom: 2mm; }}
       p {{ font-size: 10pt; line-height: 1.4; margin-bottom: 8mm; }}
@@ -399,21 +399,21 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     </head>
     <body>
     <div class="content">
-      <h1>{student.school.name}</h1>
+      <h1>{html.escape(student.school.name)}</h1>
       <h2>Monthly Student Report</h2>
       <h2>Student Details</h2>
       <table class="student-details">
-        <tr><th>Name</th><td>{student.name}</td></tr>
-        <tr><th>Registration Number</th><td>{student.reg_num}</td></tr>
-        <tr><th>Class</th><td>{student.student_class}</td></tr>
-        <tr><th>Reporting Period</th><td>{period}</td></tr>
+        <tr><th>Name</th><td>{html.escape(student.name)}</td></tr>
+        <tr><th>Registration Number</th><td>{html.escape(student.reg_num)}</td></tr>
+        <tr><th>Class</th><td>{html.escape(student.student_class)}</td></tr>
+        <tr><th>Reporting Period</th><td>{html.escape(period)}</td></tr>
       </table>
       <h2>Attendance</h2>
       <p>{attendance_data['present']}/{attendance_data['total_days']} days ({attendance_data['percentage']:.1f}%)</p>
       <h2>Lessons Overview</h2>
       <table class="lessons">
         <tr><th>Date</th><th>Planned Topic</th><th>Achieved Topic</th></tr>
-        {"".join([f"<tr><td>{lesson['date']}</td><td>{lesson['planned_topic']}</td><td>{lesson['achieved_topic']}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data])}
+        {"".join([f"<tr><td>{html.escape(lesson['date'])}</td><td>{html.escape(lesson['planned_topic'])}</td><td>{html.escape(lesson['achieved_topic'])}{' ✓' if lesson['planned_topic'] == lesson['achieved_topic'] else ''}</td></tr>" for lesson in lessons_data])}
       </table>
       <h2>Progress Images</h2>
       <div class="image-grid">
@@ -431,6 +431,5 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
-
 
 
