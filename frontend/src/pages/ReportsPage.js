@@ -80,6 +80,7 @@ async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
     const imageArrayBuffer = await fetchArrayBuffer(backgroundImageUrl);
     if (!imageArrayBuffer) {
       console.warn('Background image fetch failed; proceeding without background');
+      toast.warn('Unable to load background image; downloading PDF without background.');
       return pdfBlob;
     }
     const isJpeg = await validateImageFormat(imageArrayBuffer, backgroundImageUrl);
@@ -98,6 +99,7 @@ async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
     return new Blob([newPdfBytes], { type: 'application/pdf' });
   } catch (error) {
     console.error('Error adding background to PDF:', error.message);
+    toast.error('Failed to add background image to PDF; downloading without background.');
     return pdfBlob;
   }
 }
@@ -118,6 +120,11 @@ const ReportsPage = () => {
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
   const [includeBackground, setIncludeBackground] = useState({}); // Per-student toggle state
+  // New state for styling options
+  const [textColor, setTextColor] = useState('#333333');
+  const [headerColor, setHeaderColor] = useState('#4a90e2');
+  const [rowColor, setRowColor] = useState('#f0f8ff');
+  const [imageRotation, setImageRotation] = useState('0');
 
   // Fetch schools on component mount
   useEffect(() => {
@@ -276,6 +283,10 @@ const ReportsPage = () => {
         mode,
         school_id: selectedSchool,
         student_class: selectedClass,
+        text_color: textColor,
+        header_color: headerColor,
+        row_color: rowColor,
+        image_rotation: imageRotation,
       };
 
       if (mode === "month") {
@@ -358,6 +369,41 @@ const ReportsPage = () => {
       toast.error(errorMsg);
     } finally {
       setIsGeneratingBulk(false);
+    }
+  };
+
+  // Preview HTML content in a new tab
+  const handlePreviewHTML = async (studentId) => {
+    try {
+      const params = {
+        student_id: studentId,
+        mode,
+        school_id: selectedSchool,
+        student_class: selectedClass,
+        text_color: textColor,
+        header_color: headerColor,
+        row_color: rowColor,
+        image_rotation: imageRotation,
+      };
+
+      if (mode === "month") {
+        params.month = selectedMonth;
+      } else {
+        params.start_date = formatToYYYYMMDD(startDate);
+        params.end_date = formatToYYYYMMDD(endDate);
+      }
+
+      const response = await axios.get(`${API_URL}/api/preview-pdf-html/`, {
+        headers: getAuthHeaders(),
+        params,
+      });
+
+      const newWindow = window.open('', '_blank');
+      newWindow.document.write(response.data);
+      newWindow.document.close();
+    } catch (error) {
+      console.error("Error previewing HTML:", error);
+      toast.error("Failed to preview HTML.");
     }
   };
 
@@ -484,6 +530,50 @@ const ReportsPage = () => {
             max="2025-05-27"
             aria-label="Select end date"
           />
+        </div>
+      </div>
+
+      {/* Styling Options */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        <div className="flex flex-col min-w-[200px]">
+          <label className="font-bold mb-1 text-gray-700">Text Color:</label>
+          <input
+            type="color"
+            value={textColor}
+            onChange={(e) => setTextColor(e.target.value)}
+            className="p-1 border rounded-lg"
+          />
+        </div>
+        <div className="flex flex-col min-w-[200px]">
+          <label className="font-bold mb-1 text-gray-700">Header Color:</label>
+          <input
+            type="color"
+            value={headerColor}
+            onChange={(e) => setHeaderColor(e.target.value)}
+            className="p-1 border rounded-lg"
+          />
+        </div>
+        <div className="flex flex-col min-w-[200px]">
+          <label className="font-bold mb-1 text-gray-700">Row Color:</label>
+          <input
+            type="color"
+            value={rowColor}
+            onChange={(e) => setRowColor(e.target.value)}
+            className="p-1 border rounded-lg"
+          />
+        </div>
+        <div className="flex flex-col min-w-[200px]">
+          <label className="font-bold mb-1 text-gray-700">Image Rotation (degrees):</label>
+          <select
+            value={imageRotation}
+            onChange={(e) => setImageRotation(e.target.value)}
+            className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+          >
+            <option value="0">0°</option>
+            <option value="90">90°</option>
+            <option value="180">180°</option>
+            <option value="270">270°</option>
+          </select>
         </div>
       </div>
 
@@ -654,6 +744,13 @@ const ReportsPage = () => {
                           />
                           <span className="slider"></span>
                         </label>
+                        <button
+                          onClick={() => handlePreviewHTML(student.id)}
+                          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                          aria-label={`Preview HTML for ${student.name}`}
+                        >
+                          👀 Preview
+                        </button>
                         <button
                           onClick={() => handleGenerateReport(student.id)}
                           className={`bg-green-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
