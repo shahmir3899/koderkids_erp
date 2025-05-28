@@ -301,7 +301,6 @@ def student_report_data(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def generate_pdf(request):
-    """Generate a PDF report for a single student without background image."""
     logger.info(f"generate_pdf request: {request.GET}")
     user = request.user
     try:
@@ -313,11 +312,10 @@ def generate_pdf(request):
         school_id = request.GET.get('school_id')
         student_class = request.GET.get('student_class')
         image_ids = [x.strip() for x in request.GET.get('image_ids', '').split(',') if x.strip()]
-        # New parameters for styling
-        text_color = request.GET.get('text_color', '#000000')  # Default to black
-        header_color = request.GET.get('header_color', '#3a5f8a')  # Default to existing header color
-        row_color = request.GET.get('row_color', '#e6e6e6')  # Default to existing row color
-        image_rotation = request.GET.get('image_rotation', '0')  # Default to 0 degrees
+        image_rotations = [int(x) for x in request.GET.get('image_rotations', '').split(',') if x.strip()]  # New: Parse rotations
+        text_color = request.GET.get('text_color', '#000000')
+        header_color = request.GET.get('header_color', '#3a5f8a')
+        row_color = request.GET.get('row_color', '#e6e6e6')
 
         if not all([student_id, mode, school_id, student_class]):
             logger.warning("Missing required parameters in generate_pdf")
@@ -340,15 +338,13 @@ def generate_pdf(request):
             logger.warning(f"Student not found: {student_id}")
             return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)
 
-        # Fetch progress images from Supabase (optional)
         image_urls = fetch_student_images(student_id, mode, month, start_date, image_ids)
         logger.info(f"Progress image URLs: {image_urls}")
-        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color, header_color, row_color, image_rotation)
+        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color, header_color, row_color, image_rotations)
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=student_report_{student.reg_num}_{period.replace(" ", "_")}.pdf'
         logger.info(f"Successfully generated PDF for student {student_id}")
         return response
-      
     except ValueError as e:
         logger.warning(f"Validation error: {str(e)}")
         return Response({'message': 'Failed to generate PDF', 'error': str(e)}, status=400)
@@ -358,12 +354,13 @@ def generate_pdf(request):
             "message": "Failed to generate PDF",
             "error": "An unexpected error occurred"
         }, status=500)
-def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color='#000000', header_color='#3a5f8a', row_color='#e6e6e6', image_rotation='0'):
-    """Generate PDF content with A4 size, transparent background, and dynamic student data."""
+
+
+def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, text_color='#000000', header_color='#3a5f8a', row_color='#e6e6e6', image_rotations=None):
     logger.info("Generating PDF content")
+    if image_rotations is None:
+        image_rotations = [0] * len(image_urls)  # Default to 0 if not provided
 
-
-    # Fetch and encode progress images as base64 (now for 4 images)
     progress_images = []
     for url in image_urls[:4]:
         logger.info(f"Fetching progress image: {url}")
@@ -377,7 +374,6 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
             progress_images.append(None)
             logger.warning(f"Failed to fetch progress image: {url}")
 
-    # HTML template with dynamic content and pagination
     html_content = f"""
     <html>
     <head>
@@ -385,24 +381,24 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       @page {{ 
         size: A4; 
         margin: 10mm; 
-        padding-top: 30mm; /* Ensure space for logo on all pages */
       }}
       body {{ 
         margin: 0; 
         padding: 0; 
         font-family: Arial, sans-serif; 
         background-color: transparent; 
-        color: {text_color}; /* Dynamic text color */
+        color: {text_color}; 
       }}
       .content {{ 
         padding: 15mm; 
-        padding-top: 10mm; /* Consistent padding for all pages */
+        padding-top: 10mm; 
+        padding-bottom: 10mm; 
         color: {text_color}; 
         background-color: transparent; 
         border-radius: 5mm; 
         box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-        min-height: 257mm; /* A4 height minus margins */
-        page-break-before: always; /* Ensure each content block starts on a new page */
+        min-height: 247mm; /* Adjusted for footer space */
+        page-break-before: always; 
       }}
       h1 {{ 
         font-size: 20pt; 
@@ -432,11 +428,11 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         font-size: 10pt; 
       }}
       table.student-details th {{ 
-        background-color: {header_color}; /* Dynamic header color */
+        background-color: {header_color}; 
         color: white; 
       }}
       table.student-details tr:nth-child(even) {{ 
-        background-color: {row_color}; /* Dynamic row color */
+        background-color: {row_color}; 
       }}
       table.lessons {{ 
         width: 100%; 
@@ -450,11 +446,11 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         font-size: 10pt; 
       }}
       table.lessons th {{ 
-        background-color: {header_color}; /* Dynamic header color */
+        background-color: {header_color}; 
         color: white; 
       }}
       table.lessons tr:nth-child(even) {{ 
-        background-color: {row_color}; /* Dynamic row color */
+        background-color: {row_color}; 
       }}
       tr {{ 
         page-break-inside: avoid; 
@@ -468,20 +464,23 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         margin-bottom: 8mm; 
         justify-content: center; 
       }}
-      .image-grid img {{
+      .image-grid img {{ 
         width: 84.15mm; 
         height: 52.60mm; 
         object-fit: cover; 
         border-radius: 2mm; 
         border: 1px solid #ccc; 
         background-color: white; 
-        transform: rotate({image_rotation}deg);
-        }}
+      }}
+      .footer-container {{ 
+        text-align: center; 
+        page-break-before: avoid; 
+      }}
       .footer {{ 
         font-size: 8pt; 
-        text-align: center; 
-        margin-top: 8mm; 
         color: #666; 
+        margin-top: 8mm; 
+        margin-bottom: 10mm; 
       }}
       .checkmark {{ 
         color: green; 
@@ -509,8 +508,10 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       </table>
       <h2>Progress Images</h2>
       <div class="image-grid">
-        {"".join([f"<img src='data:{img_mime};base64,{img_data}'/>" if img_data else "<p>Image Not Available</p>" for img_data, img_mime in progress_images])}
+        {"".join([f"<img src='data:{img_mime};base64,{img_data}' style='transform: rotate({image_rotations[i]}deg);'/>" if img_data else "<p>Image Not Available</p>" for i, (img_data, img_mime) in enumerate(progress_images)])}
       </div>
+    </div>
+    <div class="footer-container">
       <p class="footer">Teacher's Signature: ____________________ | Generated: {datetime.now().strftime('%b %d, %Y %I:%M %p')} | Powered by Koder Kids</p>
     </div>
     </body>
@@ -523,6 +524,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
