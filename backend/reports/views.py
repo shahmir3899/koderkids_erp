@@ -504,6 +504,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       </table>
       <h3>Progress Images</h3>
       <div class="image-grid">
+        {"" if progress_images else "<p style='grid-column: span 2; text-align: center;'>No images available</p>"}
         {"".join([f"<img src='data:{img_mime};base64,{img_data}' style='transform: rotate({(image_rotations[i] if i < len(image_rotations) else 0)}deg);'/>" if img_data else "<p>Image Not Available</p>" for i, (img_data, img_mime) in enumerate(progress_images)])}
       </div>
     </div>
@@ -518,8 +519,6 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
-
-
 # @api_view(['GET'])
 # @permission_classes([IsAuthenticated])
 # def preview_pdf_html(request):
