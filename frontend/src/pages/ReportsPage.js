@@ -724,120 +724,125 @@ const ReportsPage = () => {
 
       {/* Preview Modal */}
       {previewStudentId && previewData && (
-        <div className="modal">
-          <div className="modal-content" style={{ backgroundImage: `url('/bg.png')`, backgroundSize: 'cover' }}>
-            <button
-              onClick={closePreview}
-              className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded"
-              aria-label="Close preview"
-            >
-              Close
-            </button>
-            <h1 style={{ fontSize: '32px', textAlign: 'center', marginBottom: '20px', color: textColor }}>
-              {previewData.student.school}
-            </h1>
-            <h2 style={{ fontSize: '24px', margin: '20px 0 10px', borderBottom: '1px solid #ccc', color: textColor }}>
-              Monthly Student Report
-            </h2>
-            <h3 style={{ fontSize: '20px', margin: '20px 0 10px', color: textColor }}>Student Details</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-              <tbody>
-                <tr>
-                  <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Name</th>
-                  <td style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: rowColor }}>{previewData.student.name}</td>
-                </tr>
-                <tr>
-                  <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Registration Number</th>
-                  <td style={{ border: '1px solid #bbb', padding: '8px' }}>{previewData.student.reg_num}</td>
-                </tr>
-                <tr>
-                  <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Class</th>
-                  <td style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: rowColor }}>{previewData.student.class}</td>
-                </tr>
-                <tr>
-                  <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Reporting Period</th>
-                  <td style={{ border: '1px solid #bbb', padding: '8px' }}>
-                    {mode === 'month' ? new Date(`${selectedMonth}-01`).toLocaleString('default', { month: 'long', year: 'numeric' }) : `${startDate} to ${endDate}`}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <h3 style={{ fontSize: '20px', margin: '20px 0 10px', color: textColor }}>Attendance</h3>
-            <p style={{ fontSize: '16px', marginBottom: '20px', color: textColor }}>
-              {previewData.attendance.present}/{previewData.attendance.total_days} days ({previewData.attendance.percentage.toFixed(1)}%)
-            </p>
-            <h3 style={{ fontSize: '20px', margin: '20px 0 10px', color: textColor }}>Lessons Overview</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-              <thead>
-                <tr>
-                  <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Date</th>
-                  <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Planned Topic</th>
-                  <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Achieved Topic</th>
-                </tr>
-              </thead>
-              <tbody>
-                {previewData.lessons.map((lesson, index) => (
-                  <tr key={index} style={{ backgroundColor: index % 2 === 0 ? 'transparent' : rowColor }}>
-                    <td style={{ border: '2px solid #bbb', padding: '8px' }}>{lesson.date}</td>
-                    <td style={{ border: '2px solid #bbb', padding: '8px' }}>{lesson.planned_topic}</td>
-                    <td style={{ border: '2px solid #bbb', padding: '8px' }}>
-                      {lesson.achieved_topic}
-                      {lesson.planned_topic === lesson.achieved_topic && <span style={{ color: 'green', marginLeft: '8px' }}>✓</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <h3 style={{ fontSize: '20px', margin: '20px 0 10px', color: textColor }}>Progress Images</h3>
-            <div className="image-grid">
-              {previewData.images.slice(0, 4).map((img, index) => (
-                <div key={index} className="image-container">
-                  {img ? (
-                    <>
-                      <img
-                        src={img}
-                        alt={`Progress ${index + 1}`}
-                        style={{ transform: `rotate(${imageRotations[img] || 0}deg)` }}
-                      />
-                      <div className="rotate-buttons">
-                        <button
-                          onClick={() => handleRotateImage(img, 'left')}
-                          className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                          aria-label={`Rotate image ${index + 1} left`}
-                        >
-                          Rotate Left
-                        </button>
-                        <button
-                          onClick={() => handleRotateImage(img, 'right')}
-                          className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                          aria-label={`Rotate image ${index + 1} right`}
-                        >
-                          Rotate Right
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <p>Image Not Available</p>
-                  )}
+  <div className="modal">
+    <div className="modal-content" style={{ backgroundImage: `url('/bg.png')`, backgroundSize: 'cover' }}>
+      <button
+        onClick={closePreview}
+        className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded"
+        aria-label="Close preview"
+      >
+        Close
+      </button>
+      <h1 style={{ fontSize: '26px', textAlign: 'center', marginBottom: '30px', color: textColor }}>
+        {previewData.student.school}
+      </h1>
+      <h2 style={{ fontSize: '21px', margin: '30px 0 15px', borderBottom: '1px solid #ccc', paddingBottom: '8px', color: textColor }}>
+        Monthly Student Report
+      </h2>
+      <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Student Details</h3>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>
+        <tbody>
+          <tr>
+            <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Name</th>
+            <td style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: rowColor }}>{previewData.student.name}</td>
+          </tr>
+          <tr>
+            <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Registration Number</th>
+            <td style={{ border: '1px solid #bbb', padding: '8px' }}>{previewData.student.reg_num}</td>
+          </tr>
+          <tr>
+            <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Class</th>
+            <td style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: rowColor }}>{previewData.student.class}</td>
+          </tr>
+          <tr>
+            <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Reporting Period</th>
+            <td style={{ border: '1px solid #bbb', padding: '8px' }}>
+              {mode === 'month' ? new Date(`${selectedMonth}-01`).toLocaleString('default', { month: 'long', year: 'numeric' }) : `${startDate} to ${endDate}`}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Attendance</h3>
+      <p style={{ fontSize: '13px', marginBottom: '30px', color: textColor }}>
+        {previewData.attendance.present}/{previewData.attendance.total_days} days ({previewData.attendance.percentage.toFixed(1)}%)
+      </p>
+      <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Lessons Overview</h3>
+      <table className="lessons-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>
+        <thead>
+          <tr>
+            <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Date</th>
+            <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Planned Topic</th>
+            <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Achieved Topic</th>
+          </tr>
+        </thead>
+        <tbody>
+          {previewData.lessons.length > 0 ? (
+            previewData.lessons.map((lesson, index) => (
+              <tr key={index}>
+                <td style={{ border: '2px solid #bbb', padding: '8px' }}>{lesson.date}</td>
+                <td style={{ border: '2px solid #bbb', padding: '8px' }}>{lesson.planned_topic}</td>
+                <td style={{ border: '2px solid #bbb', padding: '8px' }}>
+                  {lesson.achieved_topic}
+                  {lesson.planned_topic === lesson.achieved_topic && <span style={{ color: 'green', marginLeft: '8px' }}>✓</span>}
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="3" style={{ textAlign: 'center', padding: '8px' }}>No lessons available</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Progress Images</h3>
+      <div className="image-grid">
+        {previewData.images.slice(0, 4).map((img, index) => (
+          <div key={index} className="image-container">
+            {img ? (
+              <>
+                <img
+                  src={img}
+                  alt={`Progress ${index + 1}`}
+                  style={{ transform: `rotate(${imageRotations[img] || 0}deg)` }}
+                />
+                <div className="rotate-buttons">
+                  <button
+                    onClick={() => handleRotateImage(img, 'left')}
+                    className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                    aria-label={`Rotate image ${index + 1} left`}
+                  >
+                    Rotate Left
+                  </button>
+                  <button
+                    onClick={() => handleRotateImage(img, 'right')}
+                    className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                    aria-label={`Rotate image ${index + 1} right`}
+                  >
+                    Rotate Right
+                  </button>
                 </div>
-              ))}
-            </div>
-            <div style={{ textAlign: 'center', marginTop: '20px' }}>
-              <button
-                onClick={handleGenerateFromPreview}
-                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
-                aria-label="Generate PDF from preview"
-              >
-                Generate PDF
-              </button>
-            </div>
-            <p style={{ fontSize: '12px', textAlign: 'center', marginTop: '20px', color: '#666' }}>
-              Teacher's Signature: ____________________ | Generated: {new Date().toLocaleString()} | Powered by Koder Kids
-            </p>
+              </>
+            ) : (
+              <p>Image Not Available</p>
+            )}
           </div>
-        </div>
-      )}
-
+        ))}
+      </div>
+      <div style={{ textAlign: 'center', marginTop: '30px' }}>
+        <button
+          onClick={handleGenerateFromPreview}
+          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+          aria-label="Generate PDF from preview"
+        >
+          Generate PDF
+        </button>
+      </div>
+      <p style={{ fontSize: '11px', textAlign: 'center', marginTop: '30px', color: '#666' }}>
+        Teacher's Signature: ____________________ | Generated: {new Date().toLocaleString()} | Powered by Koder Kids
+      </p>
+    </div>
+  </div>
+)}
       {/* Student List */}
       {Array.isArray(students) && students.length > 0 ? (
         <div className="bg-white p-6 rounded-lg shadow-lg" aria-live="polite">
