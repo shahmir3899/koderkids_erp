@@ -120,12 +120,6 @@ const ReportsPage = () => {
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
   const [includeBackground, setIncludeBackground] = useState({});
-  const [textColor, setTextColor] = useState('#333333');
-  const [headerColor, setHeaderColor] = useState('#4a90e2');
-  const [rowColor, setRowColor] = useState('#f0f8ff');
-  const [previewStudentId, setPreviewStudentId] = useState(null);
-  const [previewData, setPreviewData] = useState(null);
-  const [imageRotations, setImageRotations] = useState({});
 
   // Fetch schools on component mount
   useEffect(() => {
@@ -274,7 +268,7 @@ const ReportsPage = () => {
   };
 
   // Generate single PDF report with or without background based on toggle
-  const handleGenerateReport = async (studentId, imageIds = [], imageRotations = []) => {
+  const handleGenerateReport = async (studentId) => {
     setErrorMessage("");
     setIsGenerating(prev => ({ ...prev, [studentId]: true }));
 
@@ -284,11 +278,6 @@ const ReportsPage = () => {
         mode,
         school_id: selectedSchool,
         student_class: selectedClass,
-        text_color: textColor,
-        header_color: headerColor,
-        row_color: rowColor,
-        image_ids: imageIds.join(','), // Send selected image IDs
-        image_rotations: imageRotations.join(','), // Send rotations
       };
 
       if (mode === "month") {
@@ -376,72 +365,6 @@ const ReportsPage = () => {
     }
   };
 
-  // Open preview modal with student data
-  const handleOpenPreview = async (studentId) => {
-    setErrorMessage("");
-    try {
-      const params = {
-        student_id: studentId,
-        mode,
-        school_id: selectedSchool,
-        student_class: selectedClass,
-      };
-
-      if (mode === "month") {
-        params.month = selectedMonth;
-      } else {
-        params.start_date = formatToYYYYMMDD(startDate);
-        params.end_date = formatToYYYYMMDD(endDate);
-      }
-
-      const response = await axios.get(`${API_URL}/api/student-report-data/`, {
-        headers: getAuthHeaders(),
-        params,
-      });
-
-      if (response.data.message !== "Successfully fetched report data") {
-        throw new Error(response.data.error || "Failed to fetch preview data.");
-      }
-
-      setPreviewData(response.data.data);
-      setImageRotations(response.data.data.images.reduce((acc, img) => ({ ...acc, [img]: 0 }), {}));
-      setPreviewStudentId(studentId);
-    } catch (error) {
-      console.error("Error fetching preview data:", error.response?.data || error.message);
-      const errorMsg = error.response?.status === 404
-        ? "Student data not found. Please check your selection."
-        : "Failed to load preview data. Please try again.";
-      setErrorMessage(errorMsg);
-      toast.error(errorMsg);
-    }
-  };
-
-  // Rotate image left or right
-  const handleRotateImage = (imageUrl, direction) => {
-    setImageRotations(prev => ({
-      ...prev,
-      [imageUrl]: (prev[imageUrl] + (direction === 'left' ? -90 : 90)) % 360
-    }));
-  };
-
-  // Generate PDF from preview with rotations
-  const handleGenerateFromPreview = () => {
-    if (!previewStudentId || !previewData) return;
-    const imageIds = previewData.images.map(url => url.split('/').pop().split('?')[0]); // Extract filenames
-    const imageRotations = previewData.images.map(url => imageRotations[url] || 0);
-    handleGenerateReport(previewStudentId, imageIds, imageRotations);
-    setPreviewStudentId(null);
-    setPreviewData(null);
-    setImageRotations({});
-  };
-
-  // Close preview modal
-  const closePreview = () => {
-    setPreviewStudentId(null);
-    setPreviewData(null);
-    setImageRotations({});
-  };
-
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <style>
@@ -481,56 +404,11 @@ const ReportsPage = () => {
             border-radius: 50%;
           }
           input:checked + .slider {
-            background-color: #2196F3; /* Blue when checked */
+            background-color: #2196F3;
           }
           input:checked + .slider:before {
             transform: translateX(20px);
-            background-color: #fff; /* White knob when checked */
-          }
-          .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-          }
-          .modal-content {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 794px; /* A4 width at 96dpi */
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-          }
-          .modal-content img {
-            width: 320px;
-            height: 200px;
-            object-fit: cover;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-          }
-          .image-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 320px);
-            gap: 20px;
-            margin-bottom: 20px;
-          }
-          .image-container {
-            position: relative;
-            text-align: center;
-          }
-          .rotate-buttons {
-            margin-top: 10px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
+            background-color: #fff;
           }
         `}
       </style>
@@ -613,37 +491,6 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* Styling Options */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        <div className="flex flex-col min-w-[200px]">
-          <label className="font-bold mb-1 text-gray-700">Text Color:</label>
-          <input
-            type="color"
-            value={textColor}
-            onChange={(e) => setTextColor(e.target.value)}
-            className="p-1 border rounded-lg"
-          />
-        </div>
-        <div className="flex flex-col min-w-[200px]">
-          <label className="font-bold mb-1 text-gray-700">Header Color:</label>
-          <input
-            type="color"
-            value={headerColor}
-            onChange={(e) => setHeaderColor(e.target.value)}
-            className="p-1 border rounded-lg"
-          />
-        </div>
-        <div className="flex flex-col min-w-[200px]">
-          <label className="font-bold mb-1 text-gray-700">Row Color:</label>
-          <input
-            type="color"
-            value={rowColor}
-            onChange={(e) => setRowColor(e.target.value)}
-            className="p-1 border rounded-lg"
-          />
-        </div>
-      </div>
-
       {/* School and Class Selection */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex flex-col flex-1 min-w-[200px]">
@@ -722,131 +569,6 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* Preview Modal */}
-      {previewStudentId && previewData && (
-  <div className="modal">
-    <div className="modal-content" style={{ backgroundImage: `url('/bg.png')`, backgroundSize: 'cover' }}>
-      <button
-        onClick={closePreview}
-        className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded"
-        aria-label="Close preview"
-      >
-        Close
-      </button>
-      <h1 style={{ fontSize: '26px', textAlign: 'center', marginBottom: '30px', color: textColor }}>
-        {previewData.student.school}
-      </h1>
-      <h2 style={{ fontSize: '21px', margin: '30px 0 15px', borderBottom: '1px solid #ccc', paddingBottom: '8px', color: textColor }}>
-        Monthly Student Report
-      </h2>
-      <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Student Details</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>
-        <tbody>
-          <tr>
-            <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Name</th>
-            <td style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: rowColor }}>{previewData.student.name}</td>
-          </tr>
-          <tr>
-            <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Registration Number</th>
-            <td style={{ border: '1px solid #bbb', padding: '8px' }}>{previewData.student.reg_num}</td>
-          </tr>
-          <tr>
-            <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Class</th>
-            <td style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: rowColor }}>{previewData.student.class}</td>
-          </tr>
-          <tr>
-            <th style={{ border: '1px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Reporting Period</th>
-            <td style={{ border: '1px solid #bbb', padding: '8px' }}>
-              {mode === 'month' ? new Date(`${selectedMonth}-01`).toLocaleString('default', { month: 'long', year: 'numeric' }) : `${startDate} to ${endDate}`}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Attendance</h3>
-      <p style={{ fontSize: '13px', marginBottom: '30px', color: textColor }}>
-        {previewData.attendance.present}/{previewData.attendance.total_days} days ({previewData.attendance.percentage.toFixed(1)}%)
-      </p>
-      <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Lessons Overview</h3>
-      <table className="lessons-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>
-        <thead>
-          <tr>
-            <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Date</th>
-            <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Planned Topic</th>
-            <th style={{ border: '2px solid #bbb', padding: '8px', backgroundColor: headerColor, color: 'white' }}>Achieved Topic</th>
-          </tr>
-        </thead>
-        <tbody>
-          {previewData.lessons.length > 0 ? (
-            previewData.lessons.map((lesson, index) => (
-              <tr key={index}>
-                <td style={{ border: '2px solid #bbb', padding: '8px' }}>{lesson.date}</td>
-                <td style={{ border: '2px solid #bbb', padding: '8px' }}>{lesson.planned_topic}</td>
-                <td style={{ border: '2px solid #bbb', padding: '8px' }}>
-                  {lesson.achieved_topic}
-                  {lesson.planned_topic === lesson.achieved_topic && <span style={{ color: 'green', marginLeft: '8px' }}>✓</span>}
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="3" style={{ textAlign: 'center', padding: '8px' }}>No lessons available</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Progress Images</h3>
-      <div className="image-grid">
-        {previewData.images.length > 0 ? (
-          previewData.images.slice(0, 4).map((img, index) => (
-            <div key={index} className="image-container">
-              {img ? (
-                <>
-                  <img
-                    src={img}
-                    alt={`Progress ${index + 1}`}
-                    style={{ transform: `rotate(${imageRotations[img] || 0}deg)` }}
-                  />
-                  <div className="rotate-buttons">
-                    <button
-                      onClick={() => handleRotateImage(img, 'left')}
-                      className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                      aria-label={`Rotate image ${index + 1} left`}
-                    >
-                      Rotate Left
-                    </button>
-                    <button
-                      onClick={() => handleRotateImage(img, 'right')}
-                      className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                      aria-label={`Rotate image ${index + 1} right`}
-                    >
-                      Rotate Right
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <p>Image Not Available</p>
-              )}
-            </div>
-          ))
-        ) : (
-          <p style={{ gridColumn: 'span 2', textAlign: 'center' }}>No images available</p>
-        )}
-      </div>
-      <div style={{ textAlign: 'center', marginTop: '30px' }}>
-        <button
-          onClick={handleGenerateFromPreview}
-          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
-          aria-label="Generate PDF from preview"
-        >
-          Generate PDF
-        </button>
-      </div>
-      <p style={{ fontSize: '11px', textAlign: 'center', marginTop: '30px', color: '#666' }}>
-        Teacher's Signature: ____________________ | Generated: {new Date().toLocaleString()} | Powered by Koder Kids
-      </p>
-    </div>
-  </div>
-)}
       {/* Student List */}
       {Array.isArray(students) && students.length > 0 ? (
         <div className="bg-white p-6 rounded-lg shadow-lg" aria-live="polite">
@@ -936,13 +658,6 @@ const ReportsPage = () => {
                           />
                           <span className="slider"></span>
                         </label>
-                        <button
-                          onClick={() => handleOpenPreview(student.id)}
-                          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
-                          aria-label={`Preview report for ${student.name}`}
-                        >
-                          👀 Preview
-                        </button>
                         <button
                           onClick={() => handleGenerateReport(student.id)}
                           className={`bg-green-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
