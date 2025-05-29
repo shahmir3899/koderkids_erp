@@ -256,6 +256,7 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
       @page {{ 
         size: A4; 
         margin: 10mm; 
+        padding-top: 25.4mm; /* 1 inch top padding for all pages */
       }}
       body {{ 
         margin: 0; 
@@ -263,11 +264,11 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         font-family: Arial, sans-serif; 
         background-color: transparent; 
         position: relative; 
-        min-height: 277mm; /* A4 height - margins */
+        min-height: 251.6mm; /* A4 height (297mm) - margins (20mm) - top padding (25.4mm) */
       }}
       .content {{ 
-        padding: 25.4mm 15mm 10mm 15mm; /* 1 inch top padding */
-        min-height: 231.6mm; /* Adjusted for padding */
+        padding: 0mm 15mm 10mm 15mm; /* Top padding handled by @page */
+        min-height: 241.6mm; /* Adjusted for page padding */
       }}
       h1 {{ 
         font-size: 20pt; 
@@ -396,6 +397,5 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
-
 
 
