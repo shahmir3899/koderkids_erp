@@ -4,17 +4,19 @@ import { getAuthHeaders, getSchools, getClasses, API_URL } from "../api";
 import { toast } from 'react-toastify';
 import { PDFDocument } from 'pdf-lib';
 
-// Date utility functions (unchanged)
+// Function to validate YYYY-MM format
 const isValidMonth = (monthStr) => {
   if (!monthStr) return false;
   return /^\d{4}-\d{2}$/.test(monthStr) && new Date(`${monthStr}-01`).getFullYear() >= 2000;
 };
 
+// Function to validate date string
 const isValidDate = (dateStr) => {
   const date = new Date(dateStr);
   return date instanceof Date && !isNaN(date);
 };
 
+// Function to format to MM/DD/YYYY
 const formatToMMDDYYYY = (dateStr) => {
   if (!dateStr) return "";
   try {
@@ -27,6 +29,7 @@ const formatToMMDDYYYY = (dateStr) => {
   }
 };
 
+// Function to format to YYYY-MM-DD
 const formatToYYYYMMDD = (dateStr) => {
   if (!dateStr) return "";
   try {
@@ -39,7 +42,7 @@ const formatToYYYYMMDD = (dateStr) => {
   }
 };
 
-// PDF background functions (unchanged)
+// Function to fetch array buffer from URL with detailed logging
 async function fetchArrayBuffer(url) {
   console.log(`Attempting to fetch: ${url}`);
   try {
@@ -57,10 +60,11 @@ async function fetchArrayBuffer(url) {
   }
 }
 
+// Function to validate image format
 async function validateImageFormat(arrayBuffer, url) {
   const firstBytes = new Uint8Array(arrayBuffer.slice(0, 4));
-  const isJpeg = firstBytes[0] === 0xFF && firstBytes[1] === 0xD8;
-  const isPng = firstBytes[0] === 0x89 && firstBytes[1] === 0x50 && firstBytes[2] === 0x4E && firstBytes[3] === 0x47;
+  const isJpeg = firstBytes[0] === 0xFF && firstBytes[1] === 0xD8; // JPEG signature
+  const isPng = firstBytes[0] === 0x89 && firstBytes[1] === 0x50 && firstBytes[2] === 0x4E && firstBytes[3] === 0x47; // PNG signature
   if (!isJpeg && !isPng) {
     console.error(`Invalid image format for ${url}: First bytes: ${firstBytes}`);
     throw new Error(`Invalid image format for ${url}. Only PNG and JPEG are supported.`);
@@ -68,6 +72,7 @@ async function validateImageFormat(arrayBuffer, url) {
   return isJpeg;
 }
 
+// Function to add background image to PDF using the alternative approach
 async function addBackgroundToPDF(pdfBlob, backgroundImageUrl) {
   try {
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
@@ -122,6 +127,7 @@ const ReportsPage = () => {
   const [previewData, setPreviewData] = useState(null);
   const [imageRotations, setImageRotations] = useState({});
 
+  // Fetch schools on component mount
   useEffect(() => {
     const fetchSchoolList = async () => {
       try {
@@ -135,6 +141,7 @@ const ReportsPage = () => {
     fetchSchoolList();
   }, []);
 
+  // Fetch classes when selectedSchool changes
   useEffect(() => {
     const fetchClassList = async () => {
       if (!selectedSchool) {
@@ -152,16 +159,18 @@ const ReportsPage = () => {
     fetchClassList();
   }, [selectedSchool]);
 
+  // Initialize toggle state for each student when students are fetched
   useEffect(() => {
     if (students.length > 0) {
       const initialToggleState = students.reduce((acc, student) => {
-        acc[student.id] = true;
+        acc[student.id] = true; // Default to true (include background)
         return acc;
       }, {});
       setIncludeBackground(initialToggleState);
     }
   }, [students]);
 
+  // Validate and fetch students
   const fetchStudents = async () => {
     setErrorMessage("");
     setIsSearching(true);
@@ -246,6 +255,7 @@ const ReportsPage = () => {
     }
   };
 
+  // Toggle student selection for bulk generation
   const toggleStudentSelection = (studentId) => {
     setSelectedStudentIds(prev =>
       prev.includes(studentId)
@@ -254,6 +264,7 @@ const ReportsPage = () => {
     );
   };
 
+  // Select/deselect all students for bulk generation
   const toggleSelectAll = () => {
     if (selectedStudentIds.length === students.length) {
       setSelectedStudentIds([]);
@@ -262,6 +273,7 @@ const ReportsPage = () => {
     }
   };
 
+  // Generate single PDF report with or without background based on toggle
   const handleGenerateReport = async (studentId, imageIds = [], imageRotations = []) => {
     setErrorMessage("");
     setIsGenerating(prev => ({ ...prev, [studentId]: true }));
@@ -294,11 +306,13 @@ const ReportsPage = () => {
 
       let finalBlob = response.data;
 
+      // Add background image if toggle is enabled for this student
       if (includeBackground[studentId]) {
-        const backgroundImageUrl = '/bg.png';
+        const backgroundImageUrl = '/bg.png'; // Background image in public folder
         finalBlob = await addBackgroundToPDF(response.data, backgroundImageUrl);
       }
 
+      // Trigger download
       const url = window.URL.createObjectURL(finalBlob);
       const link = document.createElement('a');
       const period = mode === "month"
@@ -318,6 +332,8 @@ const ReportsPage = () => {
         ? "Invalid request parameters."
         : error.response?.status === 403
         ? "You do not have permission to generate this report."
+        : error.response?.status === 404
+        ? "Student data not found. Please check your selection."
         : "Failed to generate report. Please try again.";
       setErrorMessage(errorMsg);
       toast.error(errorMsg);
@@ -326,6 +342,7 @@ const ReportsPage = () => {
     }
   };
 
+  // Generate multiple individual PDF reports with or without background based on toggle
   const handleGenerateBulkReports = async () => {
     if (selectedStudentIds.length === 0) {
       setErrorMessage("Please select at least one student.");
@@ -337,6 +354,7 @@ const ReportsPage = () => {
     setIsGeneratingBulk(true);
 
     try {
+      // Sequentially generate reports for each student
       for (const studentId of selectedStudentIds) {
         await handleGenerateReport(studentId);
       }
@@ -358,7 +376,8 @@ const ReportsPage = () => {
     }
   };
 
-  const handlePreview = async (studentId) => {
+  // Open preview modal with student data
+  const handleOpenPreview = async (studentId) => {
     setErrorMessage("");
     try {
       const params = {
@@ -380,27 +399,44 @@ const ReportsPage = () => {
         params,
       });
 
+      if (response.data.message !== "Successfully fetched report data") {
+        throw new Error(response.data.error || "Failed to fetch preview data.");
+      }
+
       setPreviewData(response.data.data);
       setImageRotations(response.data.data.images.reduce((acc, img) => ({ ...acc, [img]: 0 }), {}));
       setPreviewStudentId(studentId);
     } catch (error) {
-      console.error("Error fetching preview data:", error);
-      toast.error("Failed to load preview data.");
+      console.error("Error fetching preview data:", error.response?.data || error.message);
+      const errorMsg = error.response?.status === 404
+        ? "Student data not found. Please check your selection."
+        : "Failed to load preview data. Please try again.";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
-  const rotateImage = (imageUrl, direction) => {
+  // Rotate image left or right
+  const handleRotateImage = (imageUrl, direction) => {
     setImageRotations(prev => ({
       ...prev,
       [imageUrl]: (prev[imageUrl] + (direction === 'left' ? -90 : 90)) % 360
     }));
   };
 
-  const generateReportFromPreview = () => {
+  // Generate PDF from preview with rotations
+  const handleGenerateFromPreview = () => {
     if (!previewStudentId || !previewData) return;
-    const imageIds = previewData.images.map(url => url.split('/').pop());
+    const imageIds = previewData.images.map(url => url.split('/').pop().split('?')[0]); // Extract filenames
     const imageRotations = previewData.images.map(url => imageRotations[url] || 0);
     handleGenerateReport(previewStudentId, imageIds, imageRotations);
+    setPreviewStudentId(null);
+    setPreviewData(null);
+    setImageRotations({});
+  };
+
+  // Close preview modal
+  const closePreview = () => {
     setPreviewStudentId(null);
     setPreviewData(null);
     setImageRotations({});
@@ -445,11 +481,11 @@ const ReportsPage = () => {
             border-radius: 50%;
           }
           input:checked + .slider {
-            background-color: #2196F3;
+            background-color: #2196F3; /* Blue when checked */
           }
           input:checked + .slider:before {
             transform: translateX(20px);
-            background-color: #fff;
+            background-color: #fff; /* White knob when checked */
           }
           .modal {
             position: fixed;
@@ -500,12 +536,14 @@ const ReportsPage = () => {
       </style>
       <h2 className="text-2xl font-bold text-gray-700 mb-6">📊 Monthly Reports</h2>
 
+      {/* Error Message */}
       {errorMessage && (
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg" role="alert" aria-live="assertive">
           {errorMessage}
         </div>
       )}
 
+      {/* Mode Selection */}
       <div className="flex gap-4 items-center mb-4">
         <label className="flex items-center">
           <input
@@ -531,7 +569,9 @@ const ReportsPage = () => {
         </label>
       </div>
 
+      {/* Date Inputs */}
       <div className="flex flex-wrap gap-4 mb-6">
+        {/* Month Selector */}
         <div className="flex flex-col min-w-[200px]">
           <label className="font-bold mb-1 text-gray-700">Month:</label>
           <input
@@ -543,6 +583,8 @@ const ReportsPage = () => {
             aria-label="Select month"
           />
         </div>
+
+        {/* Start Date */}
         <div className="flex flex-col min-w-[200px]">
           <label className="font-bold mb-1 text-gray-700">Start Date:</label>
           <input
@@ -555,6 +597,8 @@ const ReportsPage = () => {
             aria-label="Select start date"
           />
         </div>
+
+        {/* End Date */}
         <div className="flex flex-col min-w-[200px]">
           <label className="font-bold mb-1 text-gray-700">End Date:</label>
           <input
@@ -569,6 +613,7 @@ const ReportsPage = () => {
         </div>
       </div>
 
+      {/* Styling Options */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex flex-col min-w-[200px]">
           <label className="font-bold mb-1 text-gray-700">Text Color:</label>
@@ -599,6 +644,7 @@ const ReportsPage = () => {
         </div>
       </div>
 
+      {/* School and Class Selection */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex flex-col flex-1 min-w-[200px]">
           <label className="font-bold mb-1 text-gray-700">School:</label>
@@ -616,6 +662,7 @@ const ReportsPage = () => {
             ))}
           </select>
         </div>
+
         <div className="flex flex-col flex-1 min-w-[200px]">
           <label className="font-bold mb-1 text-gray-700">Class:</label>
           <select
@@ -633,6 +680,7 @@ const ReportsPage = () => {
             ))}
           </select>
         </div>
+
         <div className="flex flex-col flex-1 min-w-[200px]">
           <button
             onClick={fetchStudents}
@@ -674,16 +722,14 @@ const ReportsPage = () => {
         </div>
       </div>
 
+      {/* Preview Modal */}
       {previewStudentId && previewData && (
         <div className="modal">
           <div className="modal-content" style={{ backgroundImage: `url('/bg.png')`, backgroundSize: 'cover' }}>
             <button
-              onClick={() => {
-                setPreviewStudentId(null);
-                setPreviewData(null);
-                setImageRotations({});
-              }}
+              onClick={closePreview}
               className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded"
+              aria-label="Close preview"
             >
               Close
             </button>
@@ -755,14 +801,16 @@ const ReportsPage = () => {
                       />
                       <div className="rotate-buttons">
                         <button
-                          onClick={() => rotateImage(img, 'left')}
+                          onClick={() => handleRotateImage(img, 'left')}
                           className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                          aria-label={`Rotate image ${index + 1} left`}
                         >
                           Rotate Left
                         </button>
                         <button
-                          onClick={() => rotateImage(img, 'right')}
+                          onClick={() => handleRotateImage(img, 'right')}
                           className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                          aria-label={`Rotate image ${index + 1} right`}
                         >
                           Rotate Right
                         </button>
@@ -776,8 +824,9 @@ const ReportsPage = () => {
             </div>
             <div style={{ textAlign: 'center', marginTop: '20px' }}>
               <button
-                onClick={generateReportFromPreview}
+                onClick={handleGenerateFromPreview}
                 className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+                aria-label="Generate PDF from preview"
               >
                 Generate PDF
               </button>
@@ -789,6 +838,7 @@ const ReportsPage = () => {
         </div>
       )}
 
+      {/* Student List */}
       {Array.isArray(students) && students.length > 0 ? (
         <div className="bg-white p-6 rounded-lg shadow-lg" aria-live="polite">
           <div className="flex justify-between items-center mb-4">
@@ -878,7 +928,7 @@ const ReportsPage = () => {
                           <span className="slider"></span>
                         </label>
                         <button
-                          onClick={() => handlePreview(student.id)}
+                          onClick={() => handleOpenPreview(student.id)}
                           className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
                           aria-label={`Preview report for ${student.name}`}
                         >
