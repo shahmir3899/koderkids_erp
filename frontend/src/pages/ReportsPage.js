@@ -796,37 +796,41 @@ const ReportsPage = () => {
       </table>
       <h3 style={{ fontSize: '19px', margin: '30px 0 15px', color: textColor }}>Progress Images</h3>
       <div className="image-grid">
-        {previewData.images.slice(0, 4).map((img, index) => (
-          <div key={index} className="image-container">
-            {img ? (
-              <>
-                <img
-                  src={img}
-                  alt={`Progress ${index + 1}`}
-                  style={{ transform: `rotate(${imageRotations[img] || 0}deg)` }}
-                />
-                <div className="rotate-buttons">
-                  <button
-                    onClick={() => handleRotateImage(img, 'left')}
-                    className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                    aria-label={`Rotate image ${index + 1} left`}
-                  >
-                    Rotate Left
-                  </button>
-                  <button
-                    onClick={() => handleRotateImage(img, 'right')}
-                    className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                    aria-label={`Rotate image ${index + 1} right`}
-                  >
-                    Rotate Right
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p>Image Not Available</p>
-            )}
-          </div>
-        ))}
+        {previewData.images.length > 0 ? (
+          previewData.images.slice(0, 4).map((img, index) => (
+            <div key={index} className="image-container">
+              {img ? (
+                <>
+                  <img
+                    src={img}
+                    alt={`Progress ${index + 1}`}
+                    style={{ transform: `rotate(${imageRotations[img] || 0}deg)` }}
+                  />
+                  <div className="rotate-buttons">
+                    <button
+                      onClick={() => handleRotateImage(img, 'left')}
+                      className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                      aria-label={`Rotate image ${index + 1} left`}
+                    >
+                      Rotate Left
+                    </button>
+                    <button
+                      onClick={() => handleRotateImage(img, 'right')}
+                      className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                      aria-label={`Rotate image ${index + 1} right`}
+                    >
+                      Rotate Right
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p>Image Not Available</p>
+              )}
+            </div>
+          ))
+        ) : (
+          <p style={{ gridColumn: 'span 2', textAlign: 'center' }}>No images available</p>
+        )}
       </div>
       <div style={{ textAlign: 'center', marginTop: '30px' }}>
         <button
