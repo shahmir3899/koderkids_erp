@@ -53,61 +53,60 @@ function HomePage() {
     setCollapsedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
   const processFeeData = (data, schools = []) => {
-    if (!data || !Array.isArray(data) || data.length === 0) {
-      console.warn("No valid fee data provided");
-      return [];
-    }
-  
-    const defaultSchoolMap = {
-      3: "School A",
-      5: "School B"
-    };
-  
-    const schoolMap = schools.length > 0
-      ? schools.reduce((acc, school) => {
-          acc[school.id] = school.name || `School ${school.id}`;
-          return acc;
-        }, {})
-      : defaultSchoolMap;
-  
-    // 📅 Get the last 3 calendar months (even if API didn't send them)
-    const today = new Date();
-    const last3Months = [];
-    for (let i = 2; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      last3Months.push(d.toLocaleString('default', { month: 'short' }) + '-' + d.getFullYear());
-    }
-  
-    // 🏫 Calculate total fee per school
-    const schoolTotals = {};
-    data.forEach(entry => {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    console.warn("No valid fee data provided");
+    return [];
+  }
+
+  // Create school name mapping
+  const defaultSchoolMap = { 3: "School A", 5: "School B" };
+  const schoolMap = schools.length > 0
+    ? schools.reduce((acc, school) => {
+        acc[school.id] = school.name || `School ${school.id}`;
+        return acc;
+      }, {})
+    : defaultSchoolMap;
+
+  // Get last 3 months
+  const today = new Date();
+  const last3Months = [];
+  for (let i = 2; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    last3Months.push(d.toLocaleString('default', { month: 'short' }) + '-' + d.getFullYear());
+  }
+
+  // Process data for each month
+  const chartData = last3Months.map(month => {
+    // Filter data for the current month
+    const monthData = data.filter(entry => entry.month === month);
+
+    // Calculate fees per school for this month
+    const schoolFees = monthData.reduce((acc, entry) => {
       const schoolId = entry.school;
       const schoolName = schoolMap[schoolId] || `School ${schoolId}`;
       const total_fee = Number(entry.total_fee) || 0;
-      if (!schoolTotals[schoolName]) {
-        schoolTotals[schoolName] = 0;
-      }
-      schoolTotals[schoolName] += total_fee;
+      acc[schoolName] = (acc[schoolName] || 0) + total_fee;
+      return acc;
+    }, {});
+
+    // Get top 3 schools for this month, sorting by fee (desc) and school name (asc) for tiebreaker
+    const topSchools = Object.entries(schoolFees)
+      .map(([school, fee]) => ({ school, fee }))
+      .sort((a, b) => b.fee - a.fee || a.school.localeCompare(b.school))
+      .slice(0, 3)
+      .map(item => item.school);
+
+    // Build row for chart
+    const row = { month };
+    topSchools.forEach(school => {
+      row[school] = schoolFees[school] || 0;
     });
-  
-    // 🥇 Pick top 3 schools by fee collection
-    const topSchools = Object.keys(schoolTotals)
-      .filter(school => schoolTotals[school] > 0)
-      .sort((a, b) => schoolTotals[b] - schoolTotals[a])
-      .slice(0, 3);
-  
-    // 📊 Build chart data (even if missing months)
-    const chartData = last3Months.map(month => {
-      const row = { month };
-      topSchools.forEach(school => {
-        const entry = data.find(e => (schoolMap[e.school] || `School ${e.school}`) === school && e.month === month);
-        row[school] = entry ? Number(entry.total_fee) || 0 : 0;
-      });
-      return row;
-    });
-  
-    return chartData;
-  };
+
+    return row;
+  });
+
+  return chartData;
+};
   
 
   // Fetch classes for selected school
@@ -375,14 +374,14 @@ useEffect(() => {
           feeData.length > 0 && Object.keys(feeData[0]).length > 1 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={feeData}>
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => `PKR ${value.toLocaleString()}`} />
-                <Legend />
-                {Object.keys(feeData[0]).filter(key => key !== "month").map((school, index) => (
-                  <Bar key={index} dataKey={school} fill={["#8884d8", "#82ca9d", "#ffbb28"][index % 3]} />
-                ))}
-              </BarChart>
+  <XAxis dataKey="month" />
+  <YAxis domain={[0, 'auto']} />
+  <Tooltip formatter={(value) => `PKR ${value.toLocaleString()}`} />
+  <Legend />
+  {[...new Set(feeData.flatMap(row => Object.keys(row).filter(key => key !== "month")))].map((school, index) => (
+    <Bar key={index} dataKey={school} fill={["#8884d8", "#82ca9d", "#ffbb28", "#ff7300", "#ff4040"][index % 5]} />
+  ))}
+</BarChart>
             </ResponsiveContainer>
           ) : (
             <p className="text-gray-500 text-center">No Fee Data Available</p>

@@ -1,6 +1,8 @@
 import logging
+import re
 from django.http import HttpResponse
 from django.utils.timezone import now
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -84,6 +86,71 @@ def fetch_image(url, timeout=8, max_size=(600, 600), retries=2):
     except Exception as e:
         logger.error(f"Error fetching image from {url}: {str(e)}")
         return None
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_student_image(request, student_id, filename):
+    """
+    Delete a specific image for a student from Supabase storage.
+    Path: <student_id>/<filename>
+    """
+    logger.info(f"delete_student_image request: student_id={student_id}, filename={filename}, user={request.user.username}")
+
+    try:
+        # Validate filename format (YYYY-MM-DD_<random_string>.jpg)
+        if not re.match(r'^\d{4}-\d{2}-\d{2}_[a-zA-Z0-9]+\.jpg$', filename):
+            logger.warning(f"Invalid filename format: {filename}")
+            return Response({
+                'message': 'Invalid filename',
+                'error': 'Filename must match YYYY-MM-DD_<random_string>.jpg'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify student exists
+        student = Student.objects.filter(id=student_id).select_related('school').first()
+        if not student:
+            logger.warning(f"Student not found: {student_id}")
+            return Response({
+                'message': 'Student not found',
+                'error': f'No student with ID {student_id}'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Authorization check (same as generate_pdf)
+        if request.user.role == "Teacher":
+            if student.school_id not in request.user.assigned_schools.values_list("id", flat=True):
+                logger.warning(f"Unauthorized access by {request.user.username} to school {student.school_id}")
+                return Response({
+                    'message': 'Unauthorized',
+                    'error': 'You do not have permission to access this student’s data'
+                }, status=status.HTTP_403_FORBIDDEN)
+
+        # Construct file path in Supabase
+        file_path = f"{student_id}/{filename}"
+        logger.info(f"Attempting to delete file: {file_path}")
+
+        # Delete file from Supabase storage
+        response = supabase.storage.from_(settings.SUPABASE_BUCKET).remove([file_path])
+        if 'error' in response:
+            logger.error(f"Supabase error deleting file {file_path}: {response['error']['message']}")
+            if response['error']['statusCode'] == '404':
+                return Response({
+                    'message': 'Image not found',
+                    'error': f'Image {filename} not found for student {student_id}'
+                }, status=status.HTTP_404_NOT_FOUND)
+            return Response({
+                'message': 'Failed to delete image',
+                'error': response['error']['message']
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        logger.info(f"Successfully deleted image: {file_path}")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in delete_student_image: {str(e)}")
+        return Response({
+            'message': 'Failed to delete image',
+            'error': 'An unexpected error occurred'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 def get_date_range(mode, month, start_date, end_date):
     """Parse and validate date range for reports."""

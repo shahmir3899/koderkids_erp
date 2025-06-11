@@ -5,6 +5,7 @@ import { getAuthHeaders } from "../api";
 import { ClipLoader } from "react-spinners";
 import { toast } from "react-toastify";
 import { useAuth } from "../auth";
+import Compressor from "compressorjs";
 
 
 
@@ -123,50 +124,82 @@ const ProgressPage = () => {
     };
 
     const handleFileSelect = (event, studentId) => {
-        if (!event.target.files.length) return;  // Ensure a file is selected
-    
-        const file = event.target.files[0];
-    
-        setSelectedFiles(prev => ({
-            ...prev,
-            [studentId]: file
+    if (!event.target.files.length) return;
+
+    const file = event.target.files[0];
+    console.log(`📷 Original image size for student ${studentId}: ${(file.size / 1024).toFixed(2)} KB`);
+
+    // Show "Processing Image" toast
+    const processingToastId = toast.info("🛠️ Processing Image...", {
+      autoClose: false,
+    });
+
+    new Compressor(file, {
+      quality: 0.7, // 70% quality
+      maxWidth: 800, // Max width
+      maxHeight: 800, // Max height
+      mimeType: file.type, // Preserve original type
+      success(result) {
+        const processedFile = new File([result], file.name, { type: file.type });
+        console.log(`✅ Processed image size for student ${studentId}: ${(processedFile.size / 1024).toFixed(2)} KB`);
+
+        setSelectedFiles((prev) => ({
+          ...prev,
+          [studentId]: processedFile,
         }));
-    
-        console.log(`✅ File selected for student ${studentId}:`, file.name);
-    };
+
+        // Dismiss processing toast
+        toast.dismiss(processingToastId);
+        toast.success("✅ Image processed successfully!");
+      },
+      error(err) {
+        console.error("❌ Compression error:", err);
+        toast.dismiss(processingToastId);
+        toast.error("Failed to process image.");
+      },
+    });
+  };
     
     
 
     const handleFileUpload = async (studentId) => {
-        if (!selectedFiles[studentId]) {
-            toast.error("Please select a file first.");
-            return;
-        }
-    
-        setIsUploading(prev => ({ ...prev, [studentId]: true }));  // Set Uploading state
-        const formData = new FormData();
-        formData.append("image", selectedFiles[studentId]);
-        formData.append("student_id", studentId);
-        formData.append("session_date", sessionDate);
-    
-        try {
-            const response = await axios.post(`${API_URL}/api/upload-student-image/`, formData, {
-                headers: { "Content-Type": "multipart/form-data", ...getAuthHeaders() },
-            });
-    
-            setUploadedImages(prev => ({
-                ...prev,
-                [studentId]: response.data.image_url
-            }));
-    
-            toast.success("Image uploaded successfully!");
-        } catch (error) {
-            console.error("❌ Error uploading image:", error.response?.data || error.message);
-            toast.error("Failed to upload image.");
-        } finally {
-            setIsUploading(prev => ({ ...prev, [studentId]: false }));  // Reset Uploading state
-        }
-    };
+    if (!selectedFiles[studentId]) {
+      toast.error("Please select a file first.");
+      return;
+    }
+
+    setIsUploading((prev) => ({ ...prev, [studentId]: true }));
+
+    // Show "Uploading Image" toast
+    const uploadingToastId = toast.info("⬆️ Uploading Image...", {
+      autoClose: false,
+    });
+
+    const formData = new FormData();
+    formData.append("image", selectedFiles[studentId]);
+    formData.append("student_id", studentId);
+    formData.append("session_date", sessionDate);
+
+    try {
+      const response = await axios.post(`${API_URL}/api/upload-student-image/`, formData, {
+        headers: { "Content-Type": "multipart/form-data", ...getAuthHeaders() },
+      });
+
+      setUploadedImages((prev) => ({
+        ...prev,
+        [studentId]: response.data.image_url,
+      }));
+
+      toast.dismiss(uploadingToastId);
+      toast.success("Image uploaded successfully!");
+    } catch (error) {
+      console.error("❌ Error uploading image:", error.response?.data || error.message);
+      toast.dismiss(uploadingToastId);
+      toast.error("Failed to upload image.");
+    } finally {
+      setIsUploading((prev) => ({ ...prev, [studentId]: false }));
+    }
+  };
     
     
 

@@ -1,9 +1,9 @@
 from django.urls import path
-from .views import generate_pdf #student_report_data #preview_pdf_html
+from .views import generate_pdf, delete_student_image
 app_name = 'reports'
 urlpatterns = [
-    #path('student-report-data/', student_report_data, name='student_report_data'),
+    
     path('api/generate-pdf/', generate_pdf, name='generate_pdf'),  # Updated path
-    #path('api/preview-pdf-html/', preview_pdf_html, name='preview_pdf_html'),
+    path('api/student-progress-images/<int:student_id>/<str:filename>/', delete_student_image, name='delete_student_image'),
   
 ]

@@ -268,68 +268,98 @@ const ReportsPage = () => {
   };
 
   // Generate single PDF report with or without background based on toggle
-  const handleGenerateReport = async (studentId) => {
-    setErrorMessage("");
-    setIsGenerating(prev => ({ ...prev, [studentId]: true }));
+  // Generate single PDF report with or without background based on toggle
+// Generate single PDF report with or without background based on toggle
+const handleGenerateReport = async (studentId) => {
+  setErrorMessage("");
+  setIsGenerating(prev => ({ ...prev, [studentId]: true }));
+
+  try {
+    const params = {
+      student_id: studentId,
+      mode,
+      school_id: selectedSchool,
+      student_class: selectedClass,
+    };
+
+    if (mode === "month") {
+      params.month = selectedMonth;
+    } else {
+      params.start_date = formatToYYYYMMDD(startDate);
+      params.end_date = formatToYYYYMMDD(endDate);
+    }
+
+    const response = await axios.get(`${API_URL}/api/generate-pdf/`, {
+      headers: getAuthHeaders(),
+      params,
+      responseType: 'blob',
+    });
+
+    let finalBlob = response.data;
+
+    // Validate blob
+    if (!(finalBlob instanceof Blob)) {
+      throw new Error("Invalid PDF response: Not a blob");
+    }
+    console.log(`Received blob size: ${finalBlob.size} bytes`); // Debug log
+
+    // Add background image if toggle is enabled for this student
+    if (includeBackground[studentId]) {
+      const backgroundImageUrl = '/bg.png';
+      finalBlob = await addBackgroundToPDF(response.data, backgroundImageUrl);
+      console.log(`Blob size after adding background: ${finalBlob.size} bytes`); // Debug log
+    }
+
+    // Trigger download with updated filename
+    const url = window.URL.createObjectURL(finalBlob);
+    console.log(`Generated URL for download: ${url}`); // Debug log
+
+    const link = document.createElement('a');
+    const student = students.find(s => s.id === studentId);
+    const studentName = student ? student.name.replace(/\s+/g, '_') : 'Unknown';
+
+    let month, year;
+    if (mode === "month") {
+      const [yearStr, monthStr] = selectedMonth.split('-');
+      year = yearStr;
+      month = new Date(`${selectedMonth}-01`).toLocaleString('default', { month: 'long' });
+    } else {
+      const date = new Date(startDate);
+      year = date.getFullYear();
+      month = date.toLocaleString('default', { month: 'long' });
+    }
+    const filename = `${studentName}_${month}_${year}_Report.pdf`;
+    link.setAttribute('download', filename);
+    link.href = url;
 
     try {
-      const params = {
-        student_id: studentId,
-        mode,
-        school_id: selectedSchool,
-        student_class: selectedClass,
-      };
-
-      if (mode === "month") {
-        params.month = selectedMonth;
-      } else {
-        params.start_date = formatToYYYYMMDD(startDate);
-        params.end_date = formatToYYYYMMDD(endDate);
-      }
-
-      const response = await axios.get(`${API_URL}/api/generate-pdf/`, {
-        headers: getAuthHeaders(),
-        params,
-        responseType: 'blob',
-      });
-
-      let finalBlob = response.data;
-
-      // Add background image if toggle is enabled for this student
-      if (includeBackground[studentId]) {
-        const backgroundImageUrl = '/bg.png'; // Background image in public folder
-        finalBlob = await addBackgroundToPDF(response.data, backgroundImageUrl);
-      }
-
-      // Trigger download
-      const url = window.URL.createObjectURL(finalBlob);
-      const link = document.createElement('a');
-      const period = mode === "month"
-        ? selectedMonth.replace('-', '_')
-        : `${formatToYYYYMMDD(startDate).replace(/-/g, '')}_to_${formatToYYYYMMDD(endDate).replace(/-/g, '')}`;
-      link.href = url;
-      link.setAttribute('download', `student_report_${studentId}_${period}.pdf`);
       document.body.appendChild(link);
+      console.log("Attempting to trigger download..."); // Debug log
       link.click();
+      console.log("Download triggered successfully"); // Debug log
+      toast.success("Report downloaded successfully!");
+    } catch (downloadError) {
+      console.error("Error triggering download:", downloadError);
+      throw new Error("Failed to initiate download. Please check browser settings.");
+    } finally {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
-      toast.success("Report generated successfully!");
-    } catch (error) {
-      console.error("Error generating report:", error.response?.status, error.response?.data || error.message);
-      const errorMsg = error.response?.status === 400
-        ? "Invalid request parameters."
-        : error.response?.status === 403
-        ? "You do not have permission to generate this report."
-        : error.response?.status === 404
-        ? "Student data not found. Please check your selection."
-        : "Failed to generate report. Please try again.";
-      setErrorMessage(errorMsg);
-      toast.error(errorMsg);
-    } finally {
-      setIsGenerating(prev => ({ ...prev, [studentId]: false }));
     }
-  };
+  } catch (error) {
+    console.error("Error generating report:", error.message);
+    const errorMsg = error.response?.status === 400
+      ? "Invalid request parameters."
+      : error.response?.status === 403
+      ? "You do not have permission to generate this report."
+      : error.response?.status === 404
+      ? "Student data not found. Please check your selection."
+      : error.message || "Failed to generate report. Please try again.";
+    setErrorMessage(errorMsg);
+    toast.error(errorMsg);
+  } finally {
+    setIsGenerating(prev => ({ ...prev, [studentId]: false }));
+  }
+};
 
   // Generate multiple individual PDF reports with or without background based on toggle
   const handleGenerateBulkReports = async () => {
