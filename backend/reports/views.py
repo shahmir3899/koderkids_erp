@@ -246,19 +246,31 @@ def fetch_student_images(student_id, mode, month, start_date, image_ids=None):
     return image_urls
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def generate_pdf(request):
-    logger.info(f"generate_pdf request: {request.GET}")
+    logger.info(f"generate_pdf request: method={request.method}, data={request.data}")
     user = request.user
     try:
-        student_id = request.GET.get('student_id')
-        mode = request.GET.get('mode')
-        month = request.GET.get('month')
-        start_date = request.GET.get('start_date')
-        end_date = request.GET.get('end_date')
-        school_id = request.GET.get('school_id')
-        student_class = request.GET.get('student_class')
+        if request.method == 'POST':
+            data = request.data
+            student_id = data.get('studentData', {}).get('student_id')
+            mode = data.get('mode', 'month')
+            month = data.get('month')
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+            school_id = data.get('studentData', {}).get('school_id')
+            student_class = data.get('studentData', {}).get('student_class')
+            selected_images = data.get('selectedImages', [])
+        else:  # GET (existing logic)
+            student_id = request.GET.get('student_id')
+            mode = request.GET.get('mode')
+            month = request.GET.get('month')
+            start_date = request.GET.get('start_date')
+            end_date = request.GET.get('end_date')
+            school_id = request.GET.get('school_id')
+            student_class = request.GET.get('student_class')
+            selected_images = None
 
         if not all([student_id, mode, school_id, student_class]):
             logger.warning("Missing required parameters in generate_pdf")
@@ -281,7 +293,8 @@ def generate_pdf(request):
             logger.warning(f"Student not found: {student_id}")
             return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)
 
-        image_urls = fetch_student_images(student_id, mode, month, start_date)
+        # Use selected_images for POST, otherwise fetch default images
+        image_urls = selected_images if request.method == 'POST' and selected_images else fetch_student_images(student_id, mode, month, start_date)
         logger.info(f"Progress image URLs: {image_urls}")
         buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period)
         response = HttpResponse(buffer, content_type='application/pdf')
@@ -297,8 +310,6 @@ def generate_pdf(request):
             "message": "Failed to generate PDF",
             "error": "An unexpected error occurred"
         }, status=500)
-
-
 
 def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period):
     logger.info("Generating PDF content")
