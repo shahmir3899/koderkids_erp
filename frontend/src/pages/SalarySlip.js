@@ -303,7 +303,100 @@ const SalarySlip = () => {
   const [netPay, setNetPay] = useState(0);
   const [lineSpacing, setLineSpacing] = useState('1.5');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [teachers, setTeachers] = useState([]); // List of teachers for dropdown
+  const [selectedTeacherId, setSelectedTeacherId] = useState(""); // Selected teacher ID
+
+  // Fetch list of teachers on component mount
+  useEffect(() => {
+    const fetchTeachers = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/employees/api/teachers/', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        if (!response.ok) throw new Error(`Failed to fetch teachers: ${response.statusText}`);
+        const data = await response.json();
+        setTeachers(data);
+      } catch (err) {
+        console.error('Error fetching teachers:', err);
+        toast.error('Failed to load teacher list');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTeachers();
+  }, []);
+
+  // Fetch default dates
+  useEffect(() => {
+    const fetchDefaultDates = async () => {
+      try {
+        const response = await fetch('/employees/api/default-dates/', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        if (!response.ok) throw new Error(`Failed to fetch default dates: ${response.statusText}`);
+        const data = await response.json();
+        setFromDate(data.fromDate);
+        setTillDate(data.tillDate);
+        setPaymentDate(data.paymentDate);
+      } catch (err) {
+        console.error('Error fetching default dates:', err);
+        toast.error('Failed to load default dates');
+      }
+    };
+    fetchDefaultDates();
+  }, []);
+
+  // Fetch teacher profile data when selectedTeacherId changes
+  useEffect(() => {
+    if (!selectedTeacherId) {
+      // Reset fields when no teacher is selected
+      setName("");
+      setTitle("");
+      setSchools("");
+      setDateOfJoining("");
+      setBasicSalary(0);
+      setBankName("");
+      setAccountNumber("");
+      setEarnings([]);
+      setDeductions([]);
+      return;
+    }
+
+    const fetchTeacherProfile = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/employees/api/teacher/${selectedTeacherId}/`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        if (!response.ok) throw new Error(`Failed to fetch teacher profile: ${response.statusText}`);
+        const data = await response.json();
+        setName(data.name || "");
+        setTitle(data.title || "");
+        setSchools(data.schools.join('\n') || "");
+        setDateOfJoining(data.date_of_joining?.split('T')[0] || "");
+        setBasicSalary(data.basic_salary || 0);
+        setBankName(data.bank_name || "");
+        setAccountNumber(data.account_number || "");
+        setEarnings(data.earnings || []);
+        setDeductions(data.deductions || []);
+      } catch (err) {
+        console.error('Error fetching teacher profile:', err);
+        toast.error('Failed to load teacher profile');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTeacherProfile();
+  }, [selectedTeacherId]);
 
   // Auto-calculate on changes
   useEffect(() => {
@@ -409,6 +502,10 @@ const SalarySlip = () => {
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">{errorMessage}</div>
       )}
 
+      {isLoading && (
+        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg">Loading data...</div>
+      )}
+
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex flex-col">
           <label className="font-bold mb-1 text-gray-700" htmlFor="companyName">
@@ -427,17 +524,20 @@ const SalarySlip = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col">
             <label className="font-bold mb-1 text-gray-700" htmlFor="name">
-              Name:
+              Teacher Name:
             </label>
-            <input
+            <select
               id="name"
-              type="text"
               className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter employee name"
+              value={selectedTeacherId}
+              onChange={(e) => setSelectedTeacherId(e.target.value)}
               aria-required="true"
-            />
+            >
+              <option value="">Select a teacher</option>
+              {teachers.map(teacher => (
+                <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
+              ))}
+            </select>
           </div>
 
           <div className="flex flex-col">

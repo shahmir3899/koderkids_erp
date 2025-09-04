@@ -51,6 +51,7 @@ urlpatterns = [
     # Admin Panel
     path('admin/', admin.site.urls),
     path('api/', include('finance.urls')),  # Include finance URLs
+    path('employees/', include('employees.urls')),
 
     # JWT Authentication
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
