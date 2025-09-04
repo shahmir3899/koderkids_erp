@@ -6,6 +6,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from finance import views as finance_views  # Corrected import
+from employees import views as employee_views  # Corrected import
 from students.views import (
     # Authentication
     CustomTokenObtainPairView, FeeSummaryView, register_user, debug_cors, TeacherLessonsSummary,

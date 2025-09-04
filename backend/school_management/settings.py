@@ -83,8 +83,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'students',
     'employees',
-    'employees.apps.EmployeesConfig',
-    'students.apps.StudentsConfig',
+    
     'reports',
     'finance',
     'inventory',
