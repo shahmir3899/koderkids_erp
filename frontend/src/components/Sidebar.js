@@ -22,6 +22,7 @@ function Sidebar() {
   const [progressOpen, setProgressOpen] = useState(false);
   const [studentsOpen, setStudentsOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
 
   const username = localStorage.getItem("username") || "Unknown User";
   const role = localStorage.getItem("role") || "Not Assigned";
@@ -33,38 +34,85 @@ function Sidebar() {
       setProgressOpen(false);
       setStudentsOpen(false);
       setInventoryOpen(false);
+      setCustomOpen(false);
     }
   }, [sidebarOpen]);
 
   return (
     <aside
-      className={`h-screen bg-gray-900 text-white p-4 fixed left-0 top-0 transition-all ${
-        sidebarOpen ? "w-64" : "w-16"
-      }`}
+      style={{
+        height: "100vh",
+        backgroundColor: "#111827",
+        color: "white",
+        padding: "1rem",
+        position: "fixed",
+        left: 0,
+        top: 0,
+        transition: "all 300ms ease-in-out",
+        width: sidebarOpen ? "16rem" : "4rem",
+        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+      }}
     >
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="text-white text-xl p-2 focus:outline-none"
+        style={{
+          color: "white",
+          fontSize: "1.25rem",
+          padding: "0.5rem",
+          outline: "none",
+          backgroundColor: "transparent",
+          border: "none",
+          cursor: "pointer",
+        }}
         aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
       >
         {sidebarOpen ? "⬅" : "➲"}
       </button>
 
-      {sidebarOpen && <h2 className="text-lg font-bold">Menu</h2>}
+      {sidebarOpen && (
+        <h2
+          style={{
+            fontSize: "1.125rem",
+            fontWeight: 600,
+            marginBottom: "1rem",
+          }}
+        >
+          Menu
+        </h2>
+      )}
 
       {sidebarOpen && (
         <>
-          <p className="text-lg font-bold">👤 {username}</p>
-          <p className="text-sm italic">🎭 Role: {role}</p>
+          <p
+            style={{
+              fontSize: "1.125rem",
+              fontWeight: 500,
+              marginBottom: "0.25rem",
+            }}
+          >
+            👤 {username}
+          </p>
+          <p
+            style={{
+              fontSize: "0.75rem",
+              fontStyle: "italic",
+              marginBottom: "1rem",
+            }}
+          >
+            🎭 Role: {role}
+          </p>
         </>
       )}
 
-      <ul>
+      <ul style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
         {/* Dashboard */}
         <li
-          className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-            location.pathname.includes("dashboard") ? "bg-gray-700" : ""
-          }`}
+          style={{
+            padding: "0.5rem",
+            borderRadius: "0.25rem",
+            transition: "colors 150ms ease-in-out",
+            backgroundColor: location.pathname.includes("dashboard") ? "#374151" : "transparent",
+          }}
         >
           <Link
             to={
@@ -74,9 +122,9 @@ function Sidebar() {
                 ? "/teacherdashboard"
                 : "/publicdashboard"
             }
-            className="flex items-center"
+            style={{ display: "flex", alignItems: "center" }}
           >
-            <FontAwesomeIcon icon={faHome} className="mr-2" />
+            <FontAwesomeIcon icon={faHome} style={{ marginRight: "0.5rem" }} />
             {sidebarOpen && <span>Dashboard</span>}
           </Link>
         </li>
@@ -86,33 +134,46 @@ function Sidebar() {
           <>
             {/* Students & Fee (Collapsible) */}
             <li
-              className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
+              style={{
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                transition: "colors 150ms ease-in-out",
+              }}
               onClick={() => sidebarOpen && setStudentsOpen(!studentsOpen)}
               aria-expanded={studentsOpen}
             >
-              <FontAwesomeIcon icon={faUsers} className="mr-2" />
-              {sidebarOpen && <span className="flex-1">Students & Fee</span>}
-              {sidebarOpen && <span>{studentsOpen ? "⇨" : "⇩"}</span>}
+              <FontAwesomeIcon icon={faUsers} style={{ marginRight: "0.5rem" }} />
+              {sidebarOpen && <span style={{ flex: 1 }}>Students & Fee</span>}
+              {sidebarOpen && <span>{studentsOpen ? "▲" : "▼"}</span>}
             </li>
             {studentsOpen && (
-              <ul className="pl-4">
+              <ul style={{ paddingLeft: "1rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                 <li
-                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                    location.pathname === "/students" ? "bg-gray-700" : ""
-                  }`}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/students" ? "#374151" : "transparent",
+                  }}
                 >
-                  <Link to="/students" className="flex items-center">
-                    <FontAwesomeIcon icon={faUsers} className="mr-2" />
+                  <Link to="/students" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faUsers} style={{ marginRight: "0.5rem" }} />
                     {sidebarOpen && <span>Students</span>}
                   </Link>
                 </li>
                 <li
-                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                    location.pathname === "/fee" ? "bg-gray-700" : ""
-                  }`}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/fee" ? "#374151" : "transparent",
+                  }}
                 >
-                  <Link to="/fee" className="flex items-center">
-                    <FontAwesomeIcon icon={faWallet} className="mr-2" />
+                  <Link to="/fee" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faWallet} style={{ marginRight: "0.5rem" }} />
                     {sidebarOpen && <span>Fee</span>}
                   </Link>
                 </li>
@@ -121,101 +182,127 @@ function Sidebar() {
 
             {/* Schools */}
             <li
-              className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                location.pathname === "/schools" ? "bg-gray-700" : ""
-              }`}
+              style={{
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                transition: "colors 150ms ease-in-out",
+                backgroundColor: location.pathname === "/schools" ? "#374151" : "transparent",
+              }}
             >
-              <Link to="/schools" className="flex items-center">
-                <FontAwesomeIcon icon={faSchool} className="mr-2" />
+              <Link to="/schools" style={{ display: "flex", alignItems: "center" }}>
+                <FontAwesomeIcon icon={faSchool} style={{ marginRight: "0.5rem" }} />
                 {sidebarOpen && <span>Schools & Classes</span>}
               </Link>
             </li>
 
             {/* Progress, Lessons & Reports */}
             <li
-              className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
+              style={{
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                transition: "colors 150ms ease-in-out",
+              }}
               onClick={() => sidebarOpen && setProgressOpen(!progressOpen)}
               aria-expanded={progressOpen}
             >
-              <FontAwesomeIcon icon={faChartLine} className="mr-2" />
-              {sidebarOpen && (
-                <span className="flex-1">Progress, Lessons & Reports</span>
-              )}
-              {sidebarOpen && <span>{progressOpen ? "⇨" : "⇩"}</span>}
+              <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.5rem" }} />
+              {sidebarOpen && <span style={{ flex: 1 }}>Progress, Lessons & Reports</span>}
+              {sidebarOpen && <span>{progressOpen ? "▲" : "▼"}</span>}
             </li>
             {progressOpen && (
-              <ul className="pl-4">
+              <ul style={{ paddingLeft: "1rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                 <li
-                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                    location.pathname === "/progress" ? "bg-gray-700" : ""
-                  }`}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/progress" ? "#374151" : "transparent",
+                  }}
                 >
-                  <Link to="/progress" className="flex items-center">
-                    <FontAwesomeIcon icon={faChartLine} className="mr-2" />
+                  <Link to="/progress" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.5rem" }} />
                     {sidebarOpen && <span>Progress</span>}
                   </Link>
                 </li>
                 <li
-                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                    location.pathname === "/lessons" ? "bg-gray-700" : ""
-                  }`}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/lessons" ? "#374151" : "transparent",
+                  }}
                 >
-                  <Link to="/lessons" className="flex items-center">
-                    <FontAwesomeIcon icon={faBook} className="mr-2" />
+                  <Link to="/lessons" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faBook} style={{ marginRight: "0.5rem" }} />
                     {sidebarOpen && <span>Lessons</span>}
                   </Link>
                 </li>
                 <li
-                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                    location.pathname === "/reports" ? "bg-gray-700" : ""
-                  }`}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/reports" ? "#374151" : "transparent",
+                  }}
                 >
-                  <Link to="/reports" className="flex items-center">
-                    <FontAwesomeIcon icon={faFileAlt} className="mr-2" />
+                  <Link to="/reports" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faFileAlt} style={{ marginRight: "0.5rem" }} />
                     {sidebarOpen && <span>Reports</span>}
                   </Link>
                 </li>
-                
-
-
               </ul>
             )}
-            {/* Inventory Section */}
-<li
-  className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
-  onClick={() => sidebarOpen && setInventoryOpen(!inventoryOpen)}
-  aria-expanded={inventoryOpen}
->
-  <FontAwesomeIcon icon={faBoxesPacking} className="mr-2" />
-  {sidebarOpen && <span className="flex-1">Inventory</span>}
-  {sidebarOpen && <span>{inventoryOpen ? "⇨" : "⇩"}</span>}
-</li>
-{inventoryOpen && (
-  <ul className="pl-4">
-    <li
-      className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-        location.pathname === "/inventory" ? "bg-gray-700" : ""
-      }`}
-    >
-     <Link to="/inventory-dashboard" className="flex items-center">
-        <FontAwesomeIcon icon={faChartBar} className="mr-2" />
-        {sidebarOpen && <span>Inventory Dashboard</span>}
-      </Link>
-    </li>
-    <li
-      className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-        location.pathname === "/inventory-dashboard" ? "bg-gray-700" : ""
-      }`}
-    >
-      
-      <Link to="/inventory" className="flex items-center">
-        <FontAwesomeIcon icon={faBoxesPacking} className="mr-2" />
-        {sidebarOpen && <span>Inventory Mgmt</span>}
-      </Link>
-    </li>
-  </ul>
-)}
 
+            {/* Inventory Section */}
+            <li
+              style={{
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                transition: "colors 150ms ease-in-out",
+              }}
+              onClick={() => sidebarOpen && setInventoryOpen(!inventoryOpen)}
+              aria-expanded={inventoryOpen}
+            >
+              <FontAwesomeIcon icon={faBoxesPacking} style={{ marginRight: "0.5rem" }} />
+              {sidebarOpen && <span style={{ flex: 1 }}>Inventory</span>}
+              {sidebarOpen && <span>{inventoryOpen ? "▲" : "▼"}</span>}
+            </li>
+            {inventoryOpen && (
+              <ul style={{ paddingLeft: "1rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <li
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/inventory-dashboard" ? "#374151" : "transparent",
+                  }}
+                >
+                  <Link to="/inventory-dashboard" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faChartBar} style={{ marginRight: "0.5rem" }} />
+                    {sidebarOpen && <span>Inventory Dashboard</span>}
+                  </Link>
+                </li>
+                <li
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/inventory" ? "#374151" : "transparent",
+                  }}
+                >
+                  <Link to="/inventory" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faBoxesPacking} style={{ marginRight: "0.5rem" }} />
+                    {sidebarOpen && <span>Inventory Mgmt</span>}
+                  </Link>
+                </li>
+              </ul>
+            )}
           </>
         )}
 
@@ -224,36 +311,95 @@ function Sidebar() {
           <>
             {/* Finance Section */}
             <li
-              className="mb-2 p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center"
+              style={{
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                transition: "colors 150ms ease-in-out",
+              }}
               onClick={() => sidebarOpen && setFinanceOpen(!financeOpen)}
               aria-expanded={financeOpen}
             >
-              <FontAwesomeIcon icon={faWallet} className="mr-2" />
-              {sidebarOpen && <span className="flex-1">Finance</span>}
-              {sidebarOpen && <span>{financeOpen ? "⇨" : "⇩"}</span>}
+              <FontAwesomeIcon icon={faWallet} style={{ marginRight: "0.5rem" }} />
+              {sidebarOpen && <span style={{ flex: 1 }}>Finance</span>}
+              {sidebarOpen && <span>{financeOpen ? "▲" : "▼"}</span>}
             </li>
             {financeOpen && (
-              <ul className="pl-4">
+              <ul style={{ paddingLeft: "1rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                 <li
-                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                    location.pathname === "/finance" ? "bg-gray-700" : ""
-                  }`}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/finance" ? "#374151" : "transparent",
+                  }}
                 >
-                  <Link to="/finance" className="flex items-center">
-                    <FontAwesomeIcon icon={faChartLine} className="mr-2" />
+                  <Link to="/finance" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.5rem" }} />
                     {sidebarOpen && <span>Finance Dashboard</span>}
                   </Link>
                 </li>
                 <li
-                  className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-                    location.pathname === "/finance/transactions"
-                      ? "bg-gray-700"
-                      : ""
-                  }`}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/finance/transactions" ? "#374151" : "transparent",
+                  }}
                 >
-                  <Link to="/finance/transactions" className="flex items-center">
-                    <FontAwesomeIcon icon={faExchangeAlt} className="mr-2" />
+                  <Link to="/finance/transactions" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faExchangeAlt} style={{ marginRight: "0.5rem" }} />
                     {sidebarOpen && <span>Transactions</span>}
+                  </Link>
+                </li>
+              </ul>
+            )}
+
+            {/* Custom Section */}
+            <li
+              style={{
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                transition: "colors 150ms ease-in-out",
+              }}
+              onClick={() => sidebarOpen && setCustomOpen(!customOpen)}
+              aria-expanded={customOpen}
+            >
+              <FontAwesomeIcon icon={faFileAlt} style={{ marginRight: "0.5rem" }} />
+              {sidebarOpen && <span style={{ flex: 1 }}>Custom</span>}
+              {sidebarOpen && <span>{customOpen ? "▲" : "▼"}</span>}
+            </li>
+            {customOpen && (
+              <ul style={{ paddingLeft: "1rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <li
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/custom-report" ? "#374151" : "transparent",
+                  }}
+                >
+                  <Link to="/custom-report" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faFileAlt} style={{ marginRight: "0.5rem" }} />
+                    {sidebarOpen && <span>Custom Report</span>}
+                  </Link>
+                </li>
+                <li
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    transition: "colors 150ms ease-in-out",
+                    backgroundColor: location.pathname === "/salary-slip" ? "#374151" : "transparent",
+                  }}
+                >
+                  <Link to="/salary-slip" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faWallet} style={{ marginRight: "0.5rem" }} />
+                    {sidebarOpen && <span>Salary Slip</span>}
                   </Link>
                 </li>
               </ul>
@@ -263,19 +409,30 @@ function Sidebar() {
 
         {/* 🤖 Robot Chat (Independent) */}
         <li
-          className={`mb-2 p-2 hover:bg-gray-700 rounded ${
-            location.pathname === "/robot-chat" ? "bg-gray-700" : ""
-          }`}
+          style={{
+            padding: "0.5rem",
+            borderRadius: "0.25rem",
+            transition: "colors 150ms ease-in-out",
+            backgroundColor: location.pathname === "/robot-chat" ? "#374151" : "transparent",
+          }}
         >
-          <Link to="/robot-chat" className="flex items-center">
-            <span className="mr-2">🤖</span>
+          <Link to="/robot-chat" style={{ display: "flex", alignItems: "center" }}>
+            <span style={{ marginRight: "0.5rem" }}>🤖</span>
             {sidebarOpen && <span>Robot Chat</span>}
           </Link>
         </li>
 
         {/* 🔐 Logout */}
-        <li className="mb-2 p-2 hover:bg-gray-700 rounded flex items-center">
-          <FontAwesomeIcon icon={faLock} className="mr-2" />
+        <li
+          style={{
+            padding: "0.5rem",
+            borderRadius: "0.25rem",
+            display: "flex",
+            alignItems: "center",
+            transition: "colors 150ms ease-in-out",
+          }}
+        >
+          <FontAwesomeIcon icon={faLock} style={{ marginRight: "0.5rem" }} />
           {sidebarOpen && <LogoutButton />}
         </li>
       </ul>
