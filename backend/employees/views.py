@@ -6,9 +6,10 @@ from employees.models import TeacherProfile
 from employees.serializers import TeacherListSerializer, TeacherProfileSerializer
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from rest_framework.permissions import IsAuthenticated  # Import the class
 
 class TeacherListView(APIView):
-    permission_classes = ['rest_framework.permissions.IsAuthenticated']
+    permission_classes = [IsAuthenticated]  # Use class reference, not string
 
     def get(self, request):
         teachers = CustomUser.objects.filter(role='Teacher')
@@ -16,7 +17,7 @@ class TeacherListView(APIView):
         return Response(serializer.data)
 
 class TeacherProfileView(APIView):
-    permission_classes = ['rest_framework.permissions.IsAuthenticated']
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, teacher_id):
         try:
@@ -28,7 +29,7 @@ class TeacherProfileView(APIView):
             return Response({'error': 'Teacher or profile not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class DefaultDatesView(APIView):
-    permission_classes = ['rest_framework.permissions.IsAuthenticated']
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         today = datetime.today()

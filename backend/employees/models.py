@@ -2,6 +2,8 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from students.models import CustomUser, School  # Import from students app
+from decimal import Decimal
+basic_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(Decimal('0'))])
 
 
 class TeacherEarning(models.Model):
