@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { toast } from "react-toastify";
+import axios from "axios";
+import { getAuthHeaders } from "../api"; // Import from your api utility, as in LessonPlanModal.js and AdminDashboard.js
 
 // Fetch array buffer for background image with timeout
 async function fetchArrayBuffer(url) {
@@ -306,20 +308,18 @@ const SalarySlip = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [teachers, setTeachers] = useState([]); // List of teachers for dropdown
-  const [selectedTeacherId, setSelectedTeacherId] = useState(""); // Selected teacher ID
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
 
   // Fetch list of teachers on component mount
   useEffect(() => {
     const fetchTeachers = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch('/employees/api/teachers/', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
+        const response = await axios.get('https://koderkids-erp.onrender.com/employees/api/teachers/', {
+          headers: getAuthHeaders()
         });
-        if (!response.ok) throw new Error(`Failed to fetch teachers: ${response.statusText}`);
-        const data = await response.json();
+        const data = response.data;
+        console.log('Teachers data:', data);
         setTeachers(data);
       } catch (err) {
         console.error('Error fetching teachers:', err);
@@ -335,13 +335,10 @@ const SalarySlip = () => {
   useEffect(() => {
     const fetchDefaultDates = async () => {
       try {
-        const response = await fetch('/employees/api/default-dates/', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
+        const response = await axios.get('https://koderkids-erp.onrender.com/employees/api/default-dates/', {
+          headers: getAuthHeaders()
         });
-        if (!response.ok) throw new Error(`Failed to fetch default dates: ${response.statusText}`);
-        const data = await response.json();
+        const data = response.data;
         setFromDate(data.fromDate);
         setTillDate(data.tillDate);
         setPaymentDate(data.paymentDate);
@@ -356,7 +353,7 @@ const SalarySlip = () => {
   // Fetch teacher profile data when selectedTeacherId changes
   useEffect(() => {
     if (!selectedTeacherId) {
-      // Reset fields when no teacher is selected
+      // Reset fields
       setName("");
       setTitle("");
       setSchools("");
@@ -372,14 +369,11 @@ const SalarySlip = () => {
     const fetchTeacherProfile = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`/employees/api/teacher/${selectedTeacherId}/`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
+        const response = await axios.get(`https://koderkids-erp.onrender.com/employees/api/teacher/${selectedTeacherId}/`, {
+          headers: getAuthHeaders()
         });
-        if (!response.ok) throw new Error(`Failed to fetch teacher profile: ${response.statusText}`);
-        const data = await response.json();
-        setName(data.name || "");
+        const data = response.data;
+        setName(data.name || "Unknown");
         setTitle(data.title || "");
         setSchools(data.schools.join('\n') || "");
         setDateOfJoining(data.date_of_joining?.split('T')[0] || "");
@@ -443,7 +437,15 @@ const SalarySlip = () => {
 
   const handleGenerateSlip = async () => {
     if (!name || !title || !dateOfJoining || !fromDate || !tillDate || !paymentDate || !bankName || !accountNumber) {
-      setErrorMessage("Please fill all required fields.");
+      setErrorMessage("Please fill all required fields. Check: " + 
+        (!name ? "Name " : "") + 
+        (!title ? "Title " : "") + 
+        (!dateOfJoining ? "Date of Joining " : "") + 
+        (!fromDate ? "From Date " : "") + 
+        (!tillDate ? "Till Date " : "") + 
+        (!paymentDate ? "Payment Date " : "") + 
+        (!bankName ? "Bank Name " : "") + 
+        (!accountNumber ? "Account Number" : ""));
       toast.warning("All fields are required.");
       return;
     }
@@ -535,7 +537,7 @@ const SalarySlip = () => {
             >
               <option value="">Select a teacher</option>
               {teachers.map(teacher => (
-                <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
+                <option key={teacher.id} value={teacher.id}>{teacher.name || `Teacher ID ${teacher.id}`}</option>
               ))}
             </select>
           </div>
