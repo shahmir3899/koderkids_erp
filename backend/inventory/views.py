@@ -44,31 +44,16 @@ class InventoryItemViewSet(ModelViewSet):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def users_assigned_to_school(request):
-    school_id = request.query_params.get("school")
-    location = request.query_params.get("location")  # New optional param for location-based users
-
-    if not school_id and not location:
-        return Response({"error": "Provide either school or location parameter"}, status=400)
-
-    users = User.objects.all().distinct()
-
-    if school_id:
-        try:
-            school_id = int(school_id)
-        except ValueError:
-            return Response({"error": "Invalid school ID"}, status=400)
-        users = users.filter(assigned_schools__id=school_id)
-
-    if location:
-        # Assuming users have a 'assigned_location' field or similar; adjust based on User model
-        # For now, filter globally if location provided without school (extend User model if needed)
-        users = users.filter(assigned_location=location)  # Placeholder; implement per your User model
+    # Ignore school_id and location parameters to return all active users
+    users = User.objects.filter(is_active=True).distinct()
 
     return Response([
-        {"id": u.id, "name": u.get_full_name() or u.username}
+        {
+            "id": u.id,
+            "name": f"{u.first_name} {u.last_name}".strip() or u.username
+        }
         for u in users
     ])
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def inventory_summary(request):
