@@ -19,7 +19,7 @@ function InventoryPage() {
   const [items, setItems] = useState([]);
   const [schools, setSchools] = useState([]);
   const [selectedSchool, setSelectedSchool] = useState(null);
-  const [selectedLocation, setSelectedLocation] = useState("School"); // Default to 'School'
+  const [selectedLocation, setSelectedLocation] = useState("School");
   const [selectedItems, setSelectedItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [availableUsers, setAvailableUsers] = useState([]);
@@ -36,17 +36,23 @@ function InventoryPage() {
     { value: "Unassigned", label: "Unassigned" },
   ];
 
+  const statusOptions = [
+    { value: "", label: "All Statuses" },
+    { value: "Available", label: "Available" },
+    { value: "Assigned", label: "Assigned" },
+    { value: "Damaged", label: "Damaged" },
+    { value: "Lost", label: "Lost" },
+    { value: "Disposed", label: "Disposed" },
+  ];
+
   const initialFormState = {
     name: "",
-    unique_id: "",
     description: "",
     purchase_value: "",
     purchase_date: "",
     status: "Available",
-    category: "",
+    category: null,
     assigned_to: null,
-    school: "",
-    location: "School",
   };
 
   const {
@@ -60,18 +66,17 @@ function InventoryPage() {
   useEffect(() => {
     fetchSchools();
     fetchCategories();
+    fetchUsers();
     const storedSchool = localStorage.getItem("selected_school");
     if (storedSchool) {
       setSelectedSchool(storedSchool);
       fetchInventory(storedSchool, selectedLocation);
-      fetchUsers(storedSchool, selectedLocation);
     }
   }, []);
 
   useEffect(() => {
     if (selectedSchool || selectedLocation) {
       fetchInventory(selectedSchool, selectedLocation);
-      fetchUsers(selectedSchool, selectedLocation);
     }
   }, [selectedSchool, selectedLocation]);
 
@@ -91,7 +96,7 @@ function InventoryPage() {
       const res = await axios.get(`${API_URL}/api/inventory/categories/`, {
         headers: getAuthHeaders(),
       });
-      setCategories(res.data);
+      setCategories(res.data.map((cat) => ({ value: cat.id, label: cat.name })));
     } catch {
       toast.error("Failed to load categories.");
     }
@@ -102,7 +107,7 @@ function InventoryPage() {
     try {
       let url = `${API_URL}/api/inventory/items/`;
       const params = {};
-      if (schoolId) params.school = schoolId;
+      if (schoolId && location === "School") params.school = schoolId;
       if (location) params.location = location;
       const res = await axios.get(url, {
         params,
@@ -117,17 +122,17 @@ function InventoryPage() {
   };
 
   const fetchUsers = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/api/inventory/assigned-users/`, {
-      headers: getAuthHeaders(),
-    });
-    setAvailableUsers(
-      res.data.map((u) => ({ value: u.id, label: u.name }))
-    );
-  } catch {
-    toast.error("Failed to load users.");
-  }
-};
+    try {
+      const res = await axios.get(`${API_URL}/api/inventory/assigned-users/`, {
+        headers: getAuthHeaders(),
+      });
+      setAvailableUsers(
+        res.data.map((u) => ({ value: u.id, label: u.name }))
+      );
+    } catch {
+      toast.error("Failed to load users.");
+    }
+  };
 
   const onSubmit = async (data) => {
     const url = editingItem
@@ -142,8 +147,9 @@ function InventoryPage() {
         data: {
           ...data,
           assigned_to: data.assigned_to?.value || null,
-          category: data.category || null,
-          school: data.location === "School" ? selectedSchool : null,
+          category: data.category?.value || null,
+          school: selectedLocation === "School" ? selectedSchool : null,
+          location: selectedLocation,
         },
         headers: getAuthHeaders(),
       });
@@ -158,13 +164,22 @@ function InventoryPage() {
 
   const handleEdit = (item) => {
     reset({
-      ...item,
-      category: item.category || "",
+      name: item.name,
+      description: item.description || "",
+      purchase_value: item.purchase_value || "",
+      purchase_date: item.purchase_date || "",
+      status: item.status || "Available",
+      category: item.category
+        ? { value: item.category, label: item.category_name }
+        : null,
       assigned_to: item.assigned_to
         ? { value: item.assigned_to, label: item.assigned_to_name }
         : null,
-      location: item.location || "School",
     });
+    setSelectedLocation(item.location || "School");
+    if (item.location === "School") {
+      setSelectedSchool(item.school || null);
+    }
     setEditingItem(item.id);
   };
 
@@ -366,7 +381,68 @@ function InventoryPage() {
             />
             {errors.name && <p className="text-red-600 text-sm">{errors.name.message}</p>}
           </div>
-          {/* Add similar fields for description, purchase_value, purchase_date, status, category */}
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+              Description
+            </label>
+            <textarea
+              id="description"
+              className="p-2 border rounded w-full"
+              {...register("description")}
+            />
+          </div>
+          <div>
+            <label htmlFor="purchase_value" className="block text-sm font-medium text-gray-700">
+              Purchase Value
+            </label>
+            <input
+              id="purchase_value"
+              type="number"
+              className="p-2 border rounded w-full"
+              {...register("purchase_value", { required: "Purchase value is required" })}
+              aria-invalid={errors.purchase_value ? "true" : "false"}
+            />
+            {errors.purchase_value && <p className="text-red-600 text-sm">{errors.purchase_value.message}</p>}
+          </div>
+          <div>
+            <label htmlFor="purchase_date" className="block text-sm font-medium text-gray-700">
+              Purchase Date
+            </label>
+            <input
+              id="purchase_date"
+              type="date"
+              className="p-2 border rounded w-full"
+              {...register("purchase_date")}
+            />
+          </div>
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+              Status
+            </label>
+            <select
+              id="status"
+              className="p-2 border rounded w-full"
+              {...register("status")}
+              aria-label="Select status"
+            >
+              {statusOptions.slice(1).map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+              Category
+            </label>
+            <Select
+              id="category"
+              options={categories}
+              onChange={(opt) => setValue("category", opt)}
+              aria-label="Select category"
+            />
+          </div>
           <div>
             <label htmlFor="assigned_to" className="block text-sm font-medium text-gray-700">
               Assigned To
@@ -379,47 +455,10 @@ function InventoryPage() {
               aria-label="Select assigned user"
             />
           </div>
-          {selectedLocation === "School" && (
-            <div>
-              <label htmlFor="school" className="block text-sm font-medium text-gray-700">
-                School
-              </label>
-              <select
-                id="school"
-                className="p-2 border rounded w-full"
-                {...register("school")}
-                aria-label="Select school for item"
-              >
-                {schools.map((school) => (
-                  <option key={school.id} value={school.id}>
-                    {school.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-              Location
-            </label>
-            <select
-              id="location"
-              className="p-2 border rounded w-full"
-              {...register("location", { required: "Location is required" })}
-              aria-invalid={errors.location ? "true" : "false"}
-            >
-              {locationOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            {errors.location && <p className="text-red-600 text-sm">{errors.location.message}</p>}
-          </div>
         </div>
         <button
           type="submit"
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-green-500"
         >
           <PlusIcon className="h-5 w-5" />
           {editingItem ? "Update Item" : "Add Item"}
@@ -427,7 +466,7 @@ function InventoryPage() {
       </form>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 items-center">
         <input
           type="text"
           placeholder="Search by name or ID"
@@ -437,13 +476,16 @@ function InventoryPage() {
           aria-label="Search inventory"
         />
         <select
-          className="p-2 border rounded"
+          className="p-2 border rounded w-full sm:w-auto"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           aria-label="Filter by status"
         >
-          <option value="">All Statuses</option>
-          {/* Options for statuses */}
+          {statusOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
         </select>
         <label className="flex items-center gap-2">
           <input
@@ -458,49 +500,55 @@ function InventoryPage() {
 
       {/* Table with React Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="text-left p-2 border cursor-pointer"
-                    onClick={header.column.getToggleSortingHandler()}
-                    aria-sort={header.column.getIsSorted() ? header.column.getIsSorted() : "none"}
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                    {header.column.getIsSorted() ? (header.column.getIsSorted() === "asc" ? " 🔼" : " 🔽") : null}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="p-2 border">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {loading ? (
+          <p className="text-center p-4">Loading...</p>
+        ) : filteredItems.length === 0 ? (
+          <p className="text-center p-4 text-gray-500">No items found.</p>
+        ) : (
+          <table className="min-w-full bg-white border">
+            <thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className="text-left p-2 border cursor-pointer"
+                      onClick={header.column.getToggleSortingHandler()}
+                      aria-sort={header.column.getIsSorted() ? header.column.getIsSorted() : "none"}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getIsSorted() ? (header.column.getIsSorted() === "asc" ? " 🔼" : " 🔽") : null}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map((row) => (
+                <tr key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="p-2 border">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
         <div className="flex justify-between mt-4">
           <button
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            className="px-4 py-2 bg-gray-200 rounded"
+            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
           >
             Previous
           </button>
-          <span>Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}</span>
+          <span>Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}</span>
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            className="px-4 py-2 bg-gray-200 rounded"
+            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
           >
             Next
           </button>
@@ -524,22 +572,22 @@ function InventoryPage() {
       )}
 
       {/* Export Buttons */}
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-4">
         <button
           onClick={handleExportPDF}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
         >
           Export PDF
         </button>
         <button
           onClick={() => setShowQR(!showQR)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           {showQR ? "Hide QR Codes" : "Generate QR Codes"}
         </button>
         <button
           onClick={handleDownloadQRAsPDF}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           Download QR PDF
         </button>

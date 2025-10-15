@@ -54,7 +54,13 @@ def home(request):
 @permission_classes([IsAuthenticated])
 def get_logged_in_user(request):
     user = request.user
-    return Response({"id": user.id, 'username': user.username, 'email': user.role})
+    full_name = f"{user.first_name} {user.last_name}".strip() or "Unknown"  # Compute full name, fallback to "Unknown"
+    return Response({
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,  # Fixed typo (was 'email': user.role)
+        "fullName": full_name  # Add this
+    })
 
 class StudentViewSet(viewsets.ModelViewSet):
     
