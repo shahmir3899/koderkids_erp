@@ -379,8 +379,8 @@ const CustomReport = () => {
   const [textAreaHeight, setTextAreaHeight] = useState(256); // Initial height in pixels (h-64)
 
   useEffect(() => {
-    const storedUsername = localStorage.getItem('username') || 'Unknown';
-    setAdminName(storedUsername);
+    const storedFullName = localStorage.getItem('fullName') || 'Unknown';
+    setAdminName(storedFullName);
   }, []);
 
   const formatText = (type) => {

@@ -186,7 +186,7 @@ const TeacherDashboard = () => {
   return (
     <div className="container mx-auto p-6 space-y-8">
       <div className="bg-blue-600 text-white p-6 rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold">{loading.user ? 'Loading...' : `Welcome, ${user?.username || 'Teacher'}`}</h1>
+        <h1 className="text-3xl font-bold">{loading.user ? 'Loading...' : `Welcome, ${user?.fullName || 'Teacher'}`}</h1>
         <p>Role: {loading.user ? 'Loading...' : localStorage.getItem('role') || 'Not Assigned'}</p>
       </div>
       <div className="bg-white p-4 rounded-lg shadow-md">

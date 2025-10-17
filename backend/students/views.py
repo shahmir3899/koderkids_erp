@@ -597,22 +597,30 @@ def update_student(request, pk):
     
 @api_view(['GET'])
 def students_per_school(request):
-    """Return total students per school with school names instead of IDs."""
+    """Return total active students per school with school names instead of IDs."""
     data = (
-        Student.objects.values('school')  # Get school_id
-        .annotate(total_students=Count('id'))  # Count students per school
+        Student.objects.filter(status="Active")  # Filter for active students only
+        .values('school')  # Group by school_id
+        .annotate(total_students=Count('id'))  # Count active students per school
+        .order_by('-total_students')  # Optional: Sort by descending count for presentation
     )
 
     # Convert school_id to school name
     formatted_data = []
     for entry in data:
-        school = School.objects.filter(id=entry['school']).first()
+        try:
+            school = School.objects.get(id=entry['school'])  # Use .get() for efficiency with primary key
+            school_name = school.name
+        except School.DoesNotExist:
+            school_name = "Unknown"
+        
         formatted_data.append({
-            'school': school.name if school else "Unknown",
+            'school': school_name,
             'total_students': entry['total_students']
         })
 
     return Response(formatted_data)
+
 
 @api_view(['POST'])
 def update_fees(request):

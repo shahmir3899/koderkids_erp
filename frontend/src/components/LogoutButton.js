@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { FiLogOut } from "react-icons/fi";
 
 function LogoutButton() {
     const navigate = useNavigate();
@@ -20,11 +21,12 @@ function LogoutButton() {
                 border: "none",
                 borderRadius: "5px",
                 cursor: "pointer",
-                fontSize: "16px",
-                fontWeight: "bold",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
             }}
         >
-            Logout
+            <FiLogOut size={24} />
         </button>
     );
 }
