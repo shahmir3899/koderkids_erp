@@ -4,7 +4,6 @@ import { API_URL, getAuthHeaders } from "../api";
 import { toast } from "react-toastify";
 import html2pdf from "html2pdf.js";
 import QRCode from "react-qr-code";
-import { useForm } from "react-hook-form";
 import Select from "react-select";
 import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import {
@@ -14,553 +13,390 @@ import {
   getSortedRowModel,
   flexRender,
 } from "@tanstack/react-table";
+import AddInventory from "./AddInventory";
 
-function InventoryPage() {
+async function exportInventoryToPDF(filteredItems, userMap, locationMap, selectedLocationType, selectedLocationId) {
+  try {
+    const locationName = selectedLocationType === "School" ? (selectedLocationId ? locationMap[selectedLocationId] || "All Schools" : "All Schools") : selectedLocationType || '';
+
+    // Create HTML template for the report
+    const htmlContent = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 50px; background: url('public/bg.png') no-repeat center center / cover; }
+            h1 { text-align: center; font-size: 18pt; }
+            h2 { font-size: 12pt; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10pt; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .right-align { text-align: right; }
+            .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 8pt; color: #777; }
+          </style>
+        </head>
+        <body>
+          <h1>Inventory Report</h1>
+          <h2>Location: ${locationName}</h2>
+          <h2>Inventory Items Summary</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th class="right-align">Unique ID</th>
+               
+                <th>Assigned To</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredItems.map(item => `
+                <tr>
+                  <td>${item.name || '—'}</td>
+                  <td>${item.category_name || '—'}</td>
+                  <td class="right-align">${item.unique_id || '—'}</td>
+                  
+                  <td>${userMap[item.assigned_to] || item.assigned_to_name || '—'}</td>
+                  <td>${selectedLocationType === "School" ? (selectedLocationId ? locationMap[selectedLocationId] || "School" : "School") : item.location || '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="footer">
+            Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} | Page <span class="pageNumber"></span>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Configure html2pdf options for better rendering
+    const opt = {
+      margin: 1,
+      filename: `inventory_report_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+    };
+
+    // Generate PDF from HTML string
+    await html2pdf().set(opt).from(htmlContent).save();
+    toast.success("PDF exported successfully!");
+  } catch (error) {
+    console.error("PDF generation error:", error);
+    toast.error("Failed to generate PDF.");
+  }
+}
+
+const InventoryPage = () => {
   const [items, setItems] = useState([]);
-  const [schools, setSchools] = useState([]);
-  const [selectedSchool, setSelectedSchool] = useState(null);
-  const [selectedLocation, setSelectedLocation] = useState("School");
-  const [selectedItems, setSelectedItems] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [availableUsers, setAvailableUsers] = useState([]);
-  const [editingItem, setEditingItem] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [showUnassigned, setShowUnassigned] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [locations, setLocations] = useState([]); // Derived from models LOCATION_CHOICES
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [selectedAssignedTo, setSelectedAssignedTo] = useState(null);
+  const [selectedSchool, setSelectedSchool] = useState(null);
+  const [schools, setSchools] = useState([]); // Fetch schools if needed
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showQR, setShowQR] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Added for debugging loading issues
 
-  const locationOptions = [
-    { value: "School", label: "School" },
-    { value: "Headquarters", label: "Headquarters" },
-    { value: "Unassigned", label: "Unassigned" },
-  ];
-
+  // Status options from models (for reference, but not used in filters)
   const statusOptions = [
-    { value: "", label: "All Statuses" },
-    { value: "Available", label: "Available" },
-    { value: "Assigned", label: "Assigned" },
-    { value: "Damaged", label: "Damaged" },
-    { value: "Lost", label: "Lost" },
-    { value: "Disposed", label: "Disposed" },
+    { value: '', label: 'Select Status' },
+    { value: 'Available', label: 'Available' },
+    { value: 'Assigned', label: 'Assigned' },
+    { value: 'Damaged', label: 'Damaged' },
+    { value: 'Lost', label: 'Lost' },
+    { value: 'Disposed', label: 'Disposed' },
   ];
 
-  const initialFormState = {
-    name: "",
-    description: "",
-    purchase_value: "",
-    purchase_date: "",
-    status: "Available",
-    category: null,
-    assigned_to: null,
-  };
+  // Location options from models
+  const locationOptions = [
+    { value: 'School', label: 'School' },
+    { value: 'Headquarters', label: 'Headquarters' },
+    { value: 'Unassigned', label: 'Unassigned' },
+    // Add more if defined in models
+  ];
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    setValue,
-  } = useForm({ defaultValues: initialFormState });
-
+  // Fetch initial data (categories, users, schools, etc.)
   useEffect(() => {
-    fetchSchools();
-    fetchCategories();
-    fetchUsers();
-    const storedSchool = localStorage.getItem("selected_school");
-    if (storedSchool) {
-      setSelectedSchool(storedSchool);
-      fetchInventory(storedSchool, selectedLocation);
-    }
+    const fetchInitialData = async () => {
+      setLoading(true);
+      try {
+        const [catsRes, usersRes, schoolsRes] = await Promise.all([
+          axios.get(`${API_URL}/api/inventory/categories/`, { headers: getAuthHeaders() }),
+          axios.get(`${API_URL}/api/inventory/assigned-users/`, { headers: getAuthHeaders() }),
+          axios.get(`${API_URL}/api/schools/`, { headers: getAuthHeaders() }), // Assuming schools endpoint
+        ]);
+        console.log('Categories data:', catsRes.data); // Debug log
+        console.log('Users data:', usersRes.data);
+        console.log('Schools data:', schoolsRes.data);
+        setCategories(catsRes.data.map(c => ({ value: c.id, label: c.name })));
+        setUsers(usersRes.data.map(u => ({ value: u.id, label: u.name })));
+        setSchools(schoolsRes.data.map(s => ({ value: s.id, label: s.name })));
+        setLocations(locationOptions); // Static from models
+      } catch (error) {
+        console.error('Fetch initial data error:', error); // Debug log
+        toast.error("Failed to load initial data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInitialData();
   }, []);
 
+  // Fetch items with filters (backend filtering via query params)
   useEffect(() => {
-    if (selectedSchool || selectedLocation) {
-      fetchInventory(selectedSchool, selectedLocation);
-    }
-  }, [selectedSchool, selectedLocation]);
+    const fetchItems = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (selectedSchool) params.append('school', selectedSchool.value);
+        if (selectedAssignedTo) params.append('assigned_to', selectedAssignedTo.value);
+        if (selectedLocation) params.append('location', selectedLocation.value);
+        // Add more filters if needed
 
-  const fetchSchools = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/schools/`, {
-        headers: getAuthHeaders(),
-      });
-      setSchools(res.data);
-    } catch {
-      toast.error("Failed to load schools.");
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/inventory/categories/`, {
-        headers: getAuthHeaders(),
-      });
-      setCategories(res.data.map((cat) => ({ value: cat.id, label: cat.name })));
-    } catch {
-      toast.error("Failed to load categories.");
-    }
-  };
-
-  const fetchInventory = async (schoolId, location) => {
-    setLoading(true);
-    try {
-      let url = `${API_URL}/api/inventory/items/`;
-      const params = {};
-      if (schoolId && location === "School") params.school = schoolId;
-      if (location) params.location = location;
-      const res = await axios.get(url, {
-        params,
-        headers: getAuthHeaders(),
-      });
-      setItems(res.data);
-    } catch {
-      toast.error("Failed to load inventory.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/inventory/assigned-users/`, {
-        headers: getAuthHeaders(),
-      });
-      setAvailableUsers(
-        res.data.map((u) => ({ value: u.id, label: u.name }))
-      );
-    } catch {
-      toast.error("Failed to load users.");
-    }
-  };
-
-  const onSubmit = async (data) => {
-    const url = editingItem
-      ? `${API_URL}/api/inventory/items/${editingItem}/`
-      : `${API_URL}/api/inventory/items/`;
-    const method = editingItem ? "put" : "post";
-
-    try {
-      await axios({
-        method,
-        url,
-        data: {
-          ...data,
-          assigned_to: data.assigned_to?.value || null,
-          category: data.category?.value || null,
-          school: selectedLocation === "School" ? selectedSchool : null,
-          location: selectedLocation,
-        },
-        headers: getAuthHeaders(),
-      });
-      toast.success(editingItem ? "Item updated!" : "Item created!");
-      reset(initialFormState);
-      setEditingItem(null);
-      fetchInventory(selectedSchool, selectedLocation);
-    } catch {
-      toast.error("Failed to save item.");
-    }
-  };
-
-  const handleEdit = (item) => {
-    reset({
-      name: item.name,
-      description: item.description || "",
-      purchase_value: item.purchase_value || "",
-      purchase_date: item.purchase_date || "",
-      status: item.status || "Available",
-      category: item.category
-        ? { value: item.category, label: item.category_name }
-        : null,
-      assigned_to: item.assigned_to
-        ? { value: item.assigned_to, label: item.assigned_to_name }
-        : null,
-    });
-    setSelectedLocation(item.location || "School");
-    if (item.location === "School") {
-      setSelectedSchool(item.school || null);
-    }
-    setEditingItem(item.id);
-  };
-
-  const handleDelete = async (itemId) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
-    try {
-      await axios.delete(`${API_URL}/api/inventory/items/${itemId}/`, {
-        headers: getAuthHeaders(),
-      });
-      toast.success("Item deleted!");
-      fetchInventory(selectedSchool, selectedLocation);
-    } catch {
-      toast.error("Failed to delete item.");
-    }
-  };
-
-  const handleExportPDF = () => {
-    const table = document.getElementById("inventoryTableExport");
-    if (!table) return toast.error("Inventory table not found.");
-
-    toast.info("Generating PDF...");
-    const options = {
-      margin: 10,
-      filename: `Inventory_Report_${new Date().toISOString().slice(0, 10)}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        const res = await axios.get(`${API_URL}/api/inventory/items/?${params.toString()}`, { headers: getAuthHeaders() });
+        console.log('Items data:', res.data); // Debug log
+        setItems(res.data);
+      } catch (error) {
+        console.error('Fetch items error:', error); // Debug log
+        toast.error("Failed to load items");
+      } finally {
+        setLoading(false);
+      }
     };
-    html2pdf().set(options).from(table).save().then(() => toast.success("PDF downloaded!"));
-  };
+    fetchItems();
+  }, [selectedSchool, selectedAssignedTo, selectedLocation]);
 
-  const handleDownloadQRAsPDF = () => {
-    const content = document.getElementById("qr-pdf-content");
-    if (!content) return toast.error("QR content not found.");
-
-    toast.info("Generating QR PDF...");
-    const options = {
-      margin: 10,
-      filename: `QR_Codes_${new Date().toISOString().slice(0, 10)}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-    };
-    html2pdf().set(options).from(content).save().then(() => toast.success("QR PDF downloaded!"));
-  };
-
-  const filteredItems = useMemo(() => {
-    let result = [...items];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (item) =>
-          item.name.toLowerCase().includes(query) ||
-          item.unique_id.toLowerCase().includes(query)
-      );
-    }
-
-    if (statusFilter) {
-      result = result.filter((item) => item.status === statusFilter);
-    }
-
-    if (showUnassigned) {
-      result = result.filter((item) => !item.assigned_to);
-    }
-
-    if (selectedLocation) {
-      result = result.filter((item) => item.location === selectedLocation);
-    }
-
-    return result;
-  }, [items, searchQuery, statusFilter, showUnassigned, selectedLocation]);
-
-  const columns = useMemo(
-    () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-      },
-      {
-        accessorKey: "unique_id",
-        header: "ID",
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-      },
-      {
-        accessorKey: "assigned_to_name",
-        header: "Assigned To",
-      },
-      {
-        accessorKey: "purchase_value",
-        header: "Value",
-      },
-      {
-        accessorKey: "location",
-        header: "Location",
-      },
-      {
-        id: "actions",
-        cell: ({ row }) => (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleEdit(row.original)}
-              className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Edit item"
-            >
-              <PencilIcon className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => handleDelete(row.original.id)}
-              className="text-red-600 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500"
-              aria-label="Delete item"
-            >
-              <TrashIcon className="h-5 w-5" />
-            </button>
-          </div>
-        ),
-        header: "Actions",
-      },
-    ],
-    []
-  );
+  // Table columns
+  const columns = useMemo(() => [
+    { accessorKey: 'name', header: 'Name' },
+    { accessorKey: 'unique_id', header: 'Unique ID' },
+    { accessorKey: 'description', header: 'Description' },
+    { accessorKey: 'status', header: 'Status' },
+    { accessorKey: 'category_name', header: 'Category' },
+    { accessorKey: 'assigned_to_name', header: 'Assigned To' },
+    { accessorKey: 'location', header: 'Location' },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <div className="flex gap-2">
+          <button onClick={() => openEditModal(row.original)}><PencilIcon className="h-5 w-5" /></button>
+          <button onClick={() => handleDelete(row.original.id)}><TrashIcon className="h-5 w-5" /></button>
+        </div>
+      ),
+      header: 'Actions',
+    },
+  ], []);
 
   const table = useReactTable({
-    data: filteredItems,
+    data: items,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    initialState: { pagination: { pageSize: 10 } },
   });
 
+  // Handlers
+  const onAddSubmit = async (data) => {
+    setIsSubmitting(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/inventory/items/`, data, { headers: getAuthHeaders() });
+      setItems(prev => [...prev, response.data]);
+      toast.success("Item added successfully");
+      setAddModalOpen(false);
+    } catch (error) {
+      toast.error("Failed to add item");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onEditSubmit = async (data) => {
+    setIsSubmitting(true);
+    try {
+      const response = await axios.put(`${API_URL}/api/inventory/items/${selectedItem.id}/`, data, { headers: getAuthHeaders() });
+      setItems(prev => prev.map(i => i.id === selectedItem.id ? response.data : i));
+      toast.success("Item updated successfully");
+      setEditModalOpen(false);
+    } catch (error) {
+      toast.error("Failed to update item");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure?")) {
+      try {
+        await axios.delete(`${API_URL}/api/inventory/items/${id}/`, { headers: getAuthHeaders() });
+        setItems(prev => prev.filter(i => i.id !== id));
+        toast.success("Item deleted");
+      } catch (error) {
+        toast.error("Failed to delete item");
+      }
+    }
+  };
+
+  const openAddModal = () => {
+    setSelectedItem(null); // Clear for add
+    setAddModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+  };
+
+  const openEditModal = (item) => {
+    // Prepare initialValues, adjusting for Select values
+    const initial = {
+      ...item,
+      category: categories.find(c => c.value === item.category) || null,
+      assigned_to: users.find(u => u.value === item.assigned_to) || null,
+    };
+    setSelectedItem(initial);
+    setEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setSelectedItem(null);
+  };
+
+  const handleExportTablePDF = async () => {
+    try {
+      const userMap = users.reduce((map, u) => ({ ...map, [u.value]: u.label }), {});
+      const locationMap = locations.reduce((map, l) => ({ ...map, [l.value]: l.label }), {});
+      await exportInventoryToPDF(items, userMap, locationMap, selectedLocation?.value, selectedSchool?.value);
+    } catch (error) {
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handleDownloadQRAsPDF = () => {
+    const element = document.getElementById('qr-pdf-content');
+    html2pdf().from(element).save('qr_codes.pdf');
+  };
+
   return (
-    <div className="max-w-7xl mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-center">Inventory Management</h1>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Inventory Management</h1>
 
-      {/* Location and School Selectors */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-            Location
-          </label>
+      {/* Filters - Aligned in one row on medium+ screens */}
+      {loading ? (
+        <p>Loading filters...</p>
+      ) : (
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Select
-            id="location"
-            options={locationOptions}
-            value={locationOptions.find((opt) => opt.value === selectedLocation)}
-            onChange={(opt) => setSelectedLocation(opt.value)}
-            aria-label="Select location"
+            value={selectedSchool}
+            onChange={setSelectedSchool}
+            options={schools}
+            placeholder="Filter by School"
+            isClearable
+          />
+          <Select
+            value={selectedAssignedTo}
+            onChange={setSelectedAssignedTo}
+            options={users}
+            placeholder="Filter by Assigned To"
+            isClearable
+          />
+          <Select
+            value={selectedLocation}
+            onChange={setSelectedLocation}
+            options={locations}
+            placeholder="Filter by Location"
+            isClearable
           />
         </div>
-        {selectedLocation === "School" && (
-          <div>
-            <label htmlFor="school" className="block text-sm font-medium text-gray-700">
-              School
-            </label>
-            <select
-              id="school"
-              className="p-2 border rounded w-full"
-              value={selectedSchool || ""}
-              onChange={(e) => {
-                setSelectedSchool(e.target.value);
-                localStorage.setItem("selected_school", e.target.value);
-              }}
-              aria-label="Select school"
-            >
-              <option value="">Select School</option>
-              {schools.map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
+      )}
 
-      {/* Form for Add/Edit */}
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="bg-white p-6 rounded shadow space-y-4"
-        role="form"
-        aria-labelledby="inventory-form-title"
+      {/* Add Button */}
+      <button
+        onClick={openAddModal}
+        className="mb-4 px-4 py-2 bg-green-500 text-white rounded flex items-center gap-2"
       >
-        <h2 id="inventory-form-title" className="text-lg font-semibold">
-          {editingItem ? "Edit Item" : "Add New Item"}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Name
-            </label>
-            <input
-              id="name"
-              className="p-2 border rounded w-full"
-              {...register("name", { required: "Name is required" })}
-              aria-invalid={errors.name ? "true" : "false"}
-            />
-            {errors.name && <p className="text-red-600 text-sm">{errors.name.message}</p>}
-          </div>
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-              Description
-            </label>
-            <textarea
-              id="description"
-              className="p-2 border rounded w-full"
-              {...register("description")}
-            />
-          </div>
-          <div>
-            <label htmlFor="purchase_value" className="block text-sm font-medium text-gray-700">
-              Purchase Value
-            </label>
-            <input
-              id="purchase_value"
-              type="number"
-              className="p-2 border rounded w-full"
-              {...register("purchase_value", { required: "Purchase value is required" })}
-              aria-invalid={errors.purchase_value ? "true" : "false"}
-            />
-            {errors.purchase_value && <p className="text-red-600 text-sm">{errors.purchase_value.message}</p>}
-          </div>
-          <div>
-            <label htmlFor="purchase_date" className="block text-sm font-medium text-gray-700">
-              Purchase Date
-            </label>
-            <input
-              id="purchase_date"
-              type="date"
-              className="p-2 border rounded w-full"
-              {...register("purchase_date")}
-            />
-          </div>
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
-              id="status"
-              className="p-2 border rounded w-full"
-              {...register("status")}
-              aria-label="Select status"
-            >
-              {statusOptions.slice(1).map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-              Category
-            </label>
-            <Select
-              id="category"
-              options={categories}
-              onChange={(opt) => setValue("category", opt)}
-              aria-label="Select category"
-            />
-          </div>
-          <div>
-            <label htmlFor="assigned_to" className="block text-sm font-medium text-gray-700">
-              Assigned To
-            </label>
-            <Select
-              id="assigned_to"
-              options={availableUsers}
-              isClearable
-              onChange={(opt) => setValue("assigned_to", opt)}
-              aria-label="Select assigned user"
+        <PlusIcon className="h-5 w-5" />
+        Add New Inventory
+      </button>
+
+      {/* Table */}
+      <div className="overflow-x-auto mb-6">
+        <table className="min-w-full bg-white border">
+          <thead>
+            {table.getHeaderGroups().map(headerGroup => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map(header => (
+                  <th key={header.id} className="p-2 border">
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map(row => (
+              <tr key={row.id}>
+                {row.getVisibleCells().map(cell => (
+                  <td key={cell.id} className="p-2 border">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+            <h2 className="text-lg font-bold mb-4">Add New Item</h2>
+            <AddInventory
+              mode="add"
+              onSubmit={onAddSubmit}
+              onCancel={closeAddModal}
+              categories={categories}
+              availableUsers={users}
+              statusOptions={statusOptions.slice(1)}
+              isSubmitting={isSubmitting}
             />
           </div>
         </div>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-        >
-          <PlusIcon className="h-5 w-5" />
-          {editingItem ? "Update Item" : "Add Item"}
-        </button>
-      </form>
+      )}
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center">
-        <input
-          type="text"
-          placeholder="Search by name or ID"
-          className="p-2 border rounded flex-1"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          aria-label="Search inventory"
-        />
-        <select
-          className="p-2 border rounded w-full sm:w-auto"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          aria-label="Filter by status"
-        >
-          {statusOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={showUnassigned}
-            onChange={(e) => setShowUnassigned(e.target.checked)}
-            aria-label="Show unassigned only"
-          />
-          Show Unassigned Only
-        </label>
-      </div>
-
-      {/* Table with React Table */}
-      <div className="overflow-x-auto">
-        {loading ? (
-          <p className="text-center p-4">Loading...</p>
-        ) : filteredItems.length === 0 ? (
-          <p className="text-center p-4 text-gray-500">No items found.</p>
-        ) : (
-          <table className="min-w-full bg-white border">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="text-left p-2 border cursor-pointer"
-                      onClick={header.column.getToggleSortingHandler()}
-                      aria-sort={header.column.getIsSorted() ? header.column.getIsSorted() : "none"}
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getIsSorted() ? (header.column.getIsSorted() === "asc" ? " 🔼" : " 🔽") : null}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="p-2 border">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <div className="flex justify-between mt-4">
-          <button
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span>Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}</span>
-          <button
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
-          >
-            Next
-          </button>
+      {/* Edit Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+            <h2 className="text-lg font-bold mb-4">Edit Item</h2>
+            <AddInventory
+              mode="edit"
+              initialValues={selectedItem}
+              onSubmit={onEditSubmit}
+              onCancel={closeEditModal}
+              categories={categories}
+              availableUsers={users}
+              statusOptions={statusOptions.slice(1)}
+              isSubmitting={isSubmitting}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* QR Section */}
       {showQR && (
         <div className="my-6">
           <h2 className="text-lg font-bold mb-4">QR Codes for Filtered Items</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {filteredItems.map((item) => (
+            {items.map((item) => (
               <div key={item.id} className="border p-4 rounded shadow bg-white text-center">
                 <QRCode value={item.unique_id} size={128} />
                 <p className="mt-2 font-semibold text-sm">{item.name}</p>
@@ -574,60 +410,33 @@ function InventoryPage() {
       {/* Export Buttons */}
       <div className="flex flex-wrap gap-4">
         <button
-          onClick={handleExportPDF}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+          onClick={handleExportTablePDF}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Export advanced PDF"
         >
           Export PDF
         </button>
         <button
           onClick={() => setShowQR(!showQR)}
           className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          aria-label={showQR ? "Hide QR Codes" : "Generate QR Codes"}
         >
           {showQR ? "Hide QR Codes" : "Generate QR Codes"}
         </button>
         <button
           onClick={handleDownloadQRAsPDF}
           className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          aria-label="Download QR PDF"
         >
           Download QR PDF
         </button>
       </div>
 
       {/* Hidden Elements for Exports */}
-      <div className="hidden">
-        <table id="inventoryTableExport" className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="p-2 border">Name</th>
-              <th className="p-2 border">Unique ID</th>
-              <th className="p-2 border">Status</th>
-              <th className="p-2 border">Assigned To</th>
-              <th className="p-2 border">Value</th>
-              <th className="p-2 border">Purchase Date</th>
-              <th className="p-2 border">Category</th>
-              <th className="p-2 border">Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.map((item) => (
-              <tr key={item.id}>
-                <td className="p-2 border">{item.name}</td>
-                <td className="p-2 border">{item.unique_id}</td>
-                <td className="p-2 border">{item.status}</td>
-                <td className="p-2 border">{item.assigned_to_name || "—"}</td>
-                <td className="p-2 border">{item.purchase_value}</td>
-                <td className="p-2 border">{item.purchase_date}</td>
-                <td className="p-2 border">{item.category_name || "—"}</td>
-                <td className="p-2 border">{item.location}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
       <div id="qr-pdf-content" className="hidden p-4">
         <h2 className="text-xl font-bold mb-4">QR Codes for Filtered Inventory</h2>
         <div className="grid grid-cols-4 gap-6">
-          {filteredItems.map((item) => (
+          {items.map((item) => (
             <div key={item.id} className="border p-4 rounded shadow bg-white text-center w-[170px]">
               <QRCode value={item.unique_id} size={128} />
               <p className="mt-2 font-semibold text-sm">{item.name}</p>
@@ -638,6 +447,6 @@ function InventoryPage() {
       </div>
     </div>
   );
-}
+};
 
 export default InventoryPage;

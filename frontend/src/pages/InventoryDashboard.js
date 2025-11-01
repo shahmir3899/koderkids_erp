@@ -1,34 +1,36 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { PieChart, Pie, Tooltip, Cell } from "recharts";
+import { PieChart, Pie, Tooltip, Cell, Legend } from "recharts";
 import { API_URL, getAuthHeaders } from "../api";
 
-const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7f50", "#00c49f", "#ffbb28"];
+// Rebranded color palette for a professional, neutral theme
+const COLORS = ["#4CAF50", "#2196F3", "#FFC107", "#F44336", "#9C27B0", "#FFEB3B"];
 
 const InventoryDashboard = () => {
-  const [schoolId, setSchoolId] = useState("");
-  const [schools, setSchools] = useState([]);
+  const [locationId, setLocationId] = useState("");
+  const [locations, setLocations] = useState([]);
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    fetchSchools();
+    fetchLocations();
   }, []);
 
   useEffect(() => {
-    if (schoolId) {
-      fetchDashboard(schoolId);
+    if (locationId) {
+      fetchDashboard(locationId);
     }
-  }, [schoolId]);
+  }, [locationId]);
 
-  const fetchSchools = async () => {
+  // Rebranded function name and labels from "schools" to "locations"
+  const fetchLocations = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/schools/`, {
         headers: getAuthHeaders(),
       });
-      setSchools(res.data);
-      if (res.data.length > 0) setSchoolId(res.data[0].id);
+      setLocations(res.data);
+      if (res.data.length > 0) setLocationId(res.data[0].id);
     } catch {
-      alert("Failed to load schools");
+      alert("Failed to load locations");
     }
   };
 
@@ -45,16 +47,18 @@ const InventoryDashboard = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Inventory Dashboard</h1>
+      {/* Rebranded title for generality */}
+      <h1 className="text-2xl font-bold mb-4">Inventory Summary Dashboard</h1>
 
-      <label className="block mb-2 font-medium">Select School</label>
+      {/* Rebranded label */}
+      <label className="block mb-2 font-medium">Select Location</label>
       <select
-        className="p-2 border mb-6"
-        value={schoolId}
-        onChange={(e) => setSchoolId(e.target.value)}
+        className="p-2 border mb-6 w-full sm:w-auto"
+        value={locationId}
+        onChange={(e) => setLocationId(e.target.value)}
       >
-        {schools.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
+        {locations.map((loc) => (
+          <option key={loc.id} value={loc.id}>{loc.name}</option>
         ))}
       </select>
 
@@ -75,6 +79,7 @@ const InventoryDashboard = () => {
           </div>
 
           <div className="bg-white rounded shadow p-4">
+            {/* Rebranded header */}
             <h2 className="text-md font-bold mb-4">By Category</h2>
             <PieChart width={400} height={300}>
               <Pie
@@ -84,7 +89,7 @@ const InventoryDashboard = () => {
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
-                fill="#8884d8"
+                fill="#8884d8"  // Default fill retained, but cells use rebranded COLORS
                 label
               >
                 {stats.by_category.map((_, index) => (
@@ -92,6 +97,7 @@ const InventoryDashboard = () => {
                 ))}
               </Pie>
               <Tooltip />
+              <Legend />
             </PieChart>
           </div>
         </>

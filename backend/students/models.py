@@ -67,9 +67,11 @@ class Student(models.Model):
     phone = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
-
+    user = models.OneToOneField('students.CustomUser', on_delete=models.CASCADE, null=True, blank=True, related_name='student_profile')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
 
     class Meta:
         verbose_name = "Student"
