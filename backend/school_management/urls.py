@@ -37,6 +37,8 @@ from students.views import (
     # New APIs
     get_student_attendance_counts, get_student_achieved_topics_count, get_student_image_uploads_count,
     delete_lesson_plan,
+
+    my_student_data
 )
 
 # Register ViewSet-based routes
@@ -69,6 +71,7 @@ urlpatterns = [
     path('api/schools/', get_schools, name="schools_list"),
     path('api/students-per-school/', students_per_school, name='students_per_school'),
     path('api/new-registrations/', new_registrations, name='new_registrations'),
+    path('api/students/my-data/', my_student_data, name='my_student_data'),  # ← NEW
     path('api/schools-with-classes/', get_schools_with_classes, name='schools_with_classes'),
 
     # Fees Management
@@ -128,6 +131,7 @@ urlpatterns = [
 
     # DRF Router URLs (For ViewSets)
     path('api/', include(router.urls)),
+
 
     
 ]

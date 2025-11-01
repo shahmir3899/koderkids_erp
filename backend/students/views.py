@@ -70,14 +70,13 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-
         if user.role == "Admin":
-            return Student.objects.all()  # ✅ Admins can access all students
-        
+            return Student.objects.all()
         elif user.role == "Teacher":
-            return Student.objects.filter(school__in=user.assigned_schools.all())  # ✅ Teachers can only access their assigned schools
-
-        return Student.objects.none()  # ❌ Other users get no data
+            return Student.objects.filter(school__in=user.assigned_schools.all())
+        elif user.role == "Student":
+            return Student.objects.filter(user=user)  # ✅ Own record only
+        return Student.objects.none()
 
 
 
@@ -1831,4 +1830,25 @@ def get_student_image_uploads_count(request):
         return Response({"error": "Invalid month format. Use YYYY-MM (e.g., 2025-03)"}, status=400)
     except Exception as e:
         logger.error(f"Error in get_student_image_uploads_count: {str(e)}")
+        return Response({"error": str(e)}, status=500)
+    
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_student_data(request):
+    if request.user.role != 'Student':
+        return Response({"error": "Access denied"}, status=403)
+    
+    try:
+        student = request.user.student_profile  # ✅ Via related_name
+        if not student:
+            return Response({"error": "Student profile not linked"}, status=404)
+        
+        return Response({
+            'school': student.school.name,
+            'class': student.student_class,
+            'fees': list(Fee.objects.filter(student_id=student.id).values('month', 'balance_due', 'status')[:10]),
+            'attendance': list(Attendance.objects.filter(student=student).values('session_date', 'status').order_by('-session_date')[:30])
+        })
+    except Exception as e:
         return Response({"error": str(e)}, status=500)
