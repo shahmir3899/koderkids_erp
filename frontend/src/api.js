@@ -133,6 +133,9 @@ export const redirectUser = () => {
         case "Teacher":
             window.location.href = "/teacherdashboard";
             break;
+        case "Student":
+            window.location.href = "/student-dashboard";
+            break;    
         default:
             window.location.href = "/login";
     }

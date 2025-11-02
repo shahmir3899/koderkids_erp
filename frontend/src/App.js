@@ -16,6 +16,7 @@ import CustomReport from "./pages/CustomReport";
 import SalarySlip from "./pages/SalarySlip";
 import LessonsPage from "./pages/LessonsPage";
 import ReportsPage from "./pages/ReportsPage";
+import StudentDashboard from './pages/StudentDashboard';
 //import StudentReport from "./pages/StudentReport";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
@@ -56,8 +57,13 @@ const AutoLogout = () => {
 };
 
 function App() {
-    const role = localStorage.getItem("role"); 
-
+    const [role, setRole] = React.useState(localStorage.getItem("role") || null);
+    React.useEffect(() => {
+    const handleStorage = () => setRole(localStorage.getItem("role"));
+    window.addEventListener("storage", handleStorage);
+    handleStorage();
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
     return (
         <Router>
             <AutoLogout /> 
@@ -65,48 +71,40 @@ function App() {
                 <Sidebar />
                 <div className="ml-64 w-full p-2 bg-gray-100 min-h-screen">
                 <Routes>
-                    <Route path="/register" element={<RegisterPage />} />
-                    <Route path="/login" element={<LoginPage />} />
+      {/* ✅ Public Routes */}
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/login" element={<LoginPage />} />
 
-                    {(role === "Admin" || role === "Teacher") && (
-                        <>
-                            <Route path="/students" element={<ProtectedRoute element={<StudentsPage />} allowedRoles={["Admin", "Teacher"]} />} />
-                            <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Admin", "Teacher"]} />} />
-                            <Route path="/lessons" element={<LessonsPage />} />
-                            <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} allowedRoles={["Admin", "Teacher"]} />} />
-                            <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboard />} allowedRoles={["Teacher"]} />} />
-                            <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} allowedRoles={["Admin", "Teacher"]} />} />
-                            <Route path="/inventory-dashboard" element={<InventoryDashboard />} />
-                            <Route path="/inventory" element={<InventoryPage />} />
-                        </>
-                    )}
+      {/* ✅ Admin & Teacher Routes */}
+      <Route path="/students" element={<ProtectedRoute element={<StudentsPage />} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/lessons" element={<LessonsPage />} />
+      <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboard />} allowedRoles={["Teacher"]} />} />
+      <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/inventory-dashboard" element={<InventoryDashboard />} />
+      <Route path="/inventory" element={<InventoryPage />} />
 
-                    {role === "Admin" && (
-                        <>
-                            <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
-                            <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin"]} />} />
-                            <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Admin"]} />} />
-                            <Route path="/settings" element={<ProtectedRoute element={<SettingsPage />} allowedRoles={["Admin"]} />} />
-                            <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} allowedRoles={["Admin"]} />} />
-                            <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />
-                            <Route path="/custom-report" element={<CustomReport />} />
-                            <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin"]} />} />
-                        </>
-                    )}
+      {/* ✅ Admin Only Routes */}
+      <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
+      <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin"]} />} />
+      <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Admin"]} />} />
+      <Route path="/settings" element={<ProtectedRoute element={<SettingsPage />} allowedRoles={["Admin"]} />} />
+      <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} allowedRoles={["Admin"]} />} />
+      <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />
+      <Route path="/custom-report" element={<CustomReport />} />
+      <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin"]} />} />
 
-                    {role === "Teacher" && (
-                        <>
-                            <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Teacher"]} />} />
-                            <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Teacher"]} />} />
-                        </>
-                    )}
+      {/* ✅ Teacher Specific Routes */}
+      <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Teacher"]} />} />
+      <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Teacher"]} />} />
 
-                    {role === "Student" && (
-                        <Route path="/profile" element={<ProtectedRoute element={<LoginPage />} allowedRoles={["Student"]} />} />
-                    )}
+      {/* ✅ Student Route */}
+      <Route path="/student-dashboard" element={<ProtectedRoute element={<StudentDashboard />} allowedRoles={["Student"]} />} />
 
-                    <Route path="*" element={<Navigate to="/login" />} />
-                </Routes>
+      {/* ✅ Fallback */}
+      <Route path="*" element={<Navigate to="/login" />} />
+    </Routes>
                 </div>
                 <ToastContainer
                     position="top-right"

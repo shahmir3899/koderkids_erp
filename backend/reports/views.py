@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from students.models import Student, Attendance, LessonPlan
 from django.db.models import Count
 from datetime import datetime, timedelta
-from weasyprint import HTML
+#from weasyprint import HTML
 from supabase import create_client
 from django.conf import settings
 import requests

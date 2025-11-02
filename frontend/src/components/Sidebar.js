@@ -15,6 +15,7 @@ import {
   faLock,
   faBoxesPacking,
   faChartBar,
+  faGraduationCap,
   faWallet,
 } from "@fortawesome/free-solid-svg-icons";
 import LogoutButton from "./LogoutButton"; // Assuming this is a custom component
@@ -145,6 +146,8 @@ function Sidebar() {
                 ? "/admindashboard"
                 : role === "Teacher"
                 ? "/teacherdashboard"
+                : role === "Student"
+                ? "/student-dashboard"
                 : "/publicdashboard"
             }
             style={{ display: "flex", alignItems: "center" }}
@@ -379,7 +382,19 @@ function Sidebar() {
             )}
           </>
         )}
-
+        {/* ✅ STUDENT DASHBOARD - NEW
+        {role === "Student" && (
+          <li
+            style={getItemStyle(location.pathname === "/student-dashboard", "student-dashboard")}
+            onMouseEnter={() => setHoveredItem("student-dashboard")}
+            onMouseLeave={() => setHoveredItem(null)}
+          >
+            <Link to="/student-dashboard" style={{ display: "flex", alignItems: "center" }}>
+              <FontAwesomeIcon icon={faGraduationCap} style={{ marginRight: "0.75rem" }} />
+              {sidebarOpen && <span>My Dashboard</span>}
+            </Link>
+          </li>
+        )} */}
         {/* Robot Chat */}
         <li
           style={getItemStyle(location.pathname === "/robot-chat", "robot-chat")}
