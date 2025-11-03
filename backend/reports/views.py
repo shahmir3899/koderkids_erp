@@ -92,66 +92,75 @@ def fetch_image(url, timeout=8, max_size=(600, 600), retries=2):
 def delete_student_image(request, student_id, filename):
     """
     Delete a specific image for a student from Supabase storage.
+    Allowed for:
+      • Teachers (if the student belongs to one of their assigned schools)
+      • Students (if the image belongs to themselves)
     Path: <student_id>/<filename>
     """
-    logger.info(f"delete_student_image request: student_id={student_id}, filename={filename}, user={request.user.username}")
+    logger.info(
+        f"delete_student_image: student_id={student_id}, filename={filename}, user={request.user.username}"
+    )
 
+    # ---------- 1. Basic validation ----------
+    if not re.match(r'^\d{4}-\d{2}-\d{2}_[a-zA-Z0-9]+\.jpg$', filename):
+        return Response(
+            {"message": "Invalid filename", "error": "Filename must match YYYY-MM-DD_<random>.jpg"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # ---------- 2. Student existence ----------
+    student = Student.objects.filter(id=student_id).select_related('school').first()
+    if not student:
+        return Response(
+            {"message": "Student not found", "error": f"No student with ID {student_id}"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # ---------- 3. Authorization ----------
+    # Teacher → must be assigned to the student's school
+    if request.user.role == "Teacher":
+        if student.school_id not in request.user.assigned_schools.values_list("id", flat=True):
+            return Response(
+                {"message": "Unauthorized", "error": "You do not have permission to access this student’s data"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+    # Student → can only delete their own image
+    elif request.user.role == "Student":
+        if request.user.student_profile_id != student.id:   # assuming a FK `student_profile` on User
+            return Response(
+                {"message": "Unauthorized", "error": "You can only delete your own images"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+    else:
+        return Response(
+            {"message": "Unauthorized", "error": "Invalid user role"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # ---------- 4. Delete from Supabase ----------
+    file_path = f"{student_id}/{filename}"
     try:
-        # Validate filename format (YYYY-MM-DD_<random_string>.jpg)
-        if not re.match(r'^\d{4}-\d{2}-\d{2}_[a-zA-Z0-9]+\.jpg$', filename):
-            logger.warning(f"Invalid filename format: {filename}")
-            return Response({
-                'message': 'Invalid filename',
-                'error': 'Filename must match YYYY-MM-DD_<random_string>.jpg'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Verify student exists
-        student = Student.objects.filter(id=student_id).select_related('school').first()
-        if not student:
-            logger.warning(f"Student not found: {student_id}")
-            return Response({
-                'message': 'Student not found',
-                'error': f'No student with ID {student_id}'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-        # Authorization check (same as generate_pdf)
-        if request.user.role == "Teacher":
-            if student.school_id not in request.user.assigned_schools.values_list("id", flat=True):
-                logger.warning(f"Unauthorized access by {request.user.username} to school {student.school_id}")
-                return Response({
-                    'message': 'Unauthorized',
-                    'error': 'You do not have permission to access this student’s data'
-                }, status=status.HTTP_403_FORBIDDEN)
-
-        # Construct file path in Supabase
-        file_path = f"{student_id}/{filename}"
-        logger.info(f"Attempting to delete file: {file_path}")
-
-        # Delete file from Supabase storage
-        response = supabase.storage.from_(settings.SUPABASE_BUCKET).remove([file_path])
-        if 'error' in response:
-            logger.error(f"Supabase error deleting file {file_path}: {response['error']['message']}")
-            if response['error']['statusCode'] == '404':
-                return Response({
-                    'message': 'Image not found',
-                    'error': f'Image {filename} not found for student {student_id}'
-                }, status=status.HTTP_404_NOT_FOUND)
-            return Response({
-                'message': 'Failed to delete image',
-                'error': response['error']['message']
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        logger.info(f"Successfully deleted image: {file_path}")
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
+        resp = supabase.storage.from_(settings.SUPABASE_BUCKET).remove([file_path])
+        if resp.get("error"):
+            err = resp["error"]
+            if err.get("statusCode") == "404":
+                return Response(
+                    {"message": "Image not found", "error": f"{filename} not found for student {student_id}"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(
+                {"message": "Supabase error", "error": err.get("message")},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
     except Exception as e:
-        logger.error(f"Unexpected error in delete_student_image: {str(e)}")
-        return Response({
-            'message': 'Failed to delete image',
-            'error': 'An unexpected error occurred'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.exception("Unexpected Supabase delete error")
+        return Response(
+            {"message": "Failed to delete image", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
-
+    logger.info(f"Deleted image {file_path}")
+    return Response(status=status.HTTP_204_NO_CONTENT)
 def get_date_range(mode, month, start_date, end_date):
     """Parse and validate date range for reports."""
     logger.info(f"Getting date range: mode={mode}, month={month}, start_date={start_date}, end_date={end_date}")
