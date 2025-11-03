@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faTachometerAlt,
@@ -18,7 +19,7 @@ import {
   faGraduationCap,
   faWallet,
 } from "@fortawesome/free-solid-svg-icons";
-import LogoutButton from "./LogoutButton"; // Assuming this is a custom component
+import LogoutButton from "./LogoutButton";
 
 function Sidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -26,12 +27,14 @@ function Sidebar() {
   const [studentsOpen, setStudentsOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
-  const [progressOpen, setProgressOpen] = useState(false); // Recovered collapsible section
+  const [studentsDataOpen, setStudentsDataOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
 
   const username = localStorage.getItem("fullName") || "Unknown";
   const role = localStorage.getItem("role") || "Unknown";
   const location = useLocation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!sidebarOpen) {
@@ -39,15 +42,28 @@ function Sidebar() {
       setStudentsOpen(false);
       setInventoryOpen(false);
       setCustomOpen(false);
-      setProgressOpen(false);
+      setStudentsDataOpen(false);
     }
   }, [sidebarOpen]);
+
+  // Fixed: Toggle for non-students, navigate for students
+  const handleStudentsDataClick = () => {
+    if (user?.role === "Student") {
+      navigate("/student-progress");
+    } else {
+      setStudentsDataOpen(prev => !prev);
+    }
+  };
 
   const getItemStyle = (isSelected, itemId) => ({
     padding: "0.75rem",
     borderRadius: "0.5rem",
     transition: "background-color 150ms ease-in-out",
-    backgroundColor: isSelected ? "#C4B5FD" : (hoveredItem === itemId ? "#7C3AED" : "#5B21B6"),
+    backgroundColor: isSelected
+      ? "#C4B5FD"
+      : hoveredItem === itemId
+      ? "#7C3AED"
+      : "#5B21B6",
     fontWeight: isSelected ? 600 : 500,
     cursor: "pointer",
   });
@@ -69,8 +85,8 @@ function Sidebar() {
         flexDirection: "column",
         overflow: "hidden",
       }}
-    > 
-      {/* Toggle Button */}
+    >
+      {/* Toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         style={{
@@ -85,34 +101,19 @@ function Sidebar() {
           right: "1rem",
           top: "1rem",
         }}
-        aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
       >
-        {sidebarOpen ? "⇽" : "→"}
+        {sidebarOpen ? "Left Arrow" : "Right Arrow"}
       </button>
 
-      {/* Conditional Logo Section */}
+      {/* Logo */}
       {sidebarOpen && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            marginBottom: "1.5rem",
-            fontSize: "1.125rem",
-            fontWeight: 600,
-          }}
-        >
-          <img
-            src="whiteLogo.png"
-            alt="KoderKids Logo"
-            style={{ width: "8rem", height: "4rem", marginRight: "0.5rem" }}
-          />
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem" }}>
+          <img src="whiteLogo.png" alt="Logo" style={{ width: "8rem", height: "4rem" }} />
         </div>
       )}
-      {!sidebarOpen && (
-        <div style={{ height: "5.5rem" }} /> // Spacer matching logo height (4rem) + marginBottom (1.5rem)
-      )}
+      {!sidebarOpen && <div style={{ height: "5.5rem" }} />}
 
-      {/* Menu List - Scrollable */}
+      {/* Menu */}
       <ul
         style={{
           flex: 1,
@@ -125,14 +126,7 @@ function Sidebar() {
           paddingBottom: "4rem",
         }}
       >
-        {/* Hide scrollbar in WebKit */}
-        <style>
-          {`
-            ul::-webkit-scrollbar {
-              display: none;
-            }
-          `}
-        </style>
+        <style>{`ul::-webkit-scrollbar { display: none; }`}</style>
 
         {/* Dashboard */}
         <li
@@ -157,40 +151,30 @@ function Sidebar() {
           </Link>
         </li>
 
-        {/* Admin & Teacher Section */}
+        {/* Students & Fee - Admin/Teacher */}
         {(role === "Admin" || role === "Teacher") && (
           <>
-            {/* Students & Fee */}
             <li
               style={getItemStyle(false, "students-fee")}
               onMouseEnter={() => setHoveredItem("students-fee")}
               onMouseLeave={() => setHoveredItem(null)}
               onClick={() => sidebarOpen && setStudentsOpen(!studentsOpen)}
-              aria-expanded={studentsOpen}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
                 <FontAwesomeIcon icon={faUsers} style={{ marginRight: "0.75rem" }} />
                 {sidebarOpen && <span style={{ flex: 1 }}>Students & Fee</span>}
-                {sidebarOpen && <span>{studentsOpen ? "▲" : "▼"}</span>}
+                {sidebarOpen && <span>{studentsOpen ? "Up Arrow" : "Down Arrow"}</span>}
               </div>
             </li>
             {studentsOpen && sidebarOpen && (
-              <ul style={{ paddingLeft: "0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <li
-                  style={getItemStyle(location.pathname === "/students", "students")}
-                  onMouseEnter={() => setHoveredItem("students")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+              <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
+                <li style={getItemStyle(location.pathname === "/students", "students")}>
                   <Link to="/students" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faUser} style={{ marginRight: "0.75rem" }} />
                     <span>Students</span>
                   </Link>
                 </li>
-                <li
-                  style={getItemStyle(location.pathname === "/fee", "fee")}
-                  onMouseEnter={() => setHoveredItem("fee")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+                <li style={getItemStyle(location.pathname === "/fee", "fee")}>
                   <Link to="/fee" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faFileInvoiceDollar} style={{ marginRight: "0.75rem" }} />
                     <span>Fee</span>
@@ -198,60 +182,53 @@ function Sidebar() {
                 </li>
               </ul>
             )}
+          </>
+        )}
 
-            {/* School & Classes */}
-            <li
-              style={getItemStyle(location.pathname === "/schools", "schools")}
-              onMouseEnter={() => setHoveredItem("schools")}
-              onMouseLeave={() => setHoveredItem(null)}
-            >
-              <Link to="/schools" style={{ display: "flex", alignItems: "center" }}>
-                <FontAwesomeIcon icon={faSchool} style={{ marginRight: "0.75rem" }} />
-                {sidebarOpen && <span>School & Classes</span>}
-              </Link>
-            </li>
+        {/* School & Classes - Admin/Teacher */}
+        {(role === "Admin" || role === "Teacher") && (
+          <li
+            style={getItemStyle(location.pathname === "/schools", "schools")}
+            onMouseEnter={() => setHoveredItem("schools")}
+            onMouseLeave={() => setHoveredItem(null)}
+          >
+            <Link to="/schools" style={{ display: "flex", alignItems: "center" }}>
+              <FontAwesomeIcon icon={faSchool} style={{ marginRight: "0.75rem" }} />
+              {sidebarOpen && <span>School & Classes</span>}
+            </Link>
+          </li>
+        )}
 
-            {/* Recovered Progress, Lessons & Reports (Collapsible) */}
+        {/* Students Data (Progress, Lessons, Report) - Admin/Teacher */}
+        {(role === "Admin" || role === "Teacher") && (
+          <>
             <li
-              style={getItemStyle(false, "progress")}
-              onMouseEnter={() => setHoveredItem("progress")}
+              style={getItemStyle(false, "students-data")}
+              onMouseEnter={() => setHoveredItem("students-data")}
               onMouseLeave={() => setHoveredItem(null)}
-              onClick={() => sidebarOpen && setProgressOpen(!progressOpen)}
-              aria-expanded={progressOpen}
+              onClick={handleStudentsDataClick}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
-                <FontAwesomeIcon icon={faUser} style={{ marginRight: "0.75rem" }} />
+                <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.75rem" }} />
                 {sidebarOpen && <span style={{ flex: 1 }}>Students Data</span>}
-                {sidebarOpen && <span>{progressOpen ? "▲" : "▼"}</span>}
+                {sidebarOpen && <span>{studentsDataOpen ? "Up Arrow" : "Down Arrow"}</span>}
               </div>
             </li>
-            {progressOpen && sidebarOpen && (
-              <ul style={{ paddingLeft: "0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <li
-                  style={getItemStyle(location.pathname === "/progress", "progress-sub")}
-                  onMouseEnter={() => setHoveredItem("progress-sub")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+            {studentsDataOpen && sidebarOpen && (
+              <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
+                <li style={getItemStyle(location.pathname === "/progress", "progress")}>
                   <Link to="/progress" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.75rem" }} />
                     <span>Progress</span>
                   </Link>
                 </li>
-                <li
-                  style={getItemStyle(location.pathname === "/lessons", "lessons")}
-                  onMouseEnter={() => setHoveredItem("lessons")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+                <li style={getItemStyle(location.pathname === "/lessons", "lessons")}>
                   <Link to="/lessons" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faChalkboardUser} style={{ marginRight: "0.75rem" }} />
                     <span>Lessons</span>
                   </Link>
                 </li>
-                <li
-                  style={getItemStyle(location.pathname === "/reports", "report")}
-                  onMouseEnter={() => setHoveredItem("report")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+                <li style={getItemStyle(location.pathname === "/reports", "report")}>
                   <Link to="/reports" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faChartBar} style={{ marginRight: "0.75rem" }} />
                     <span>Report</span>
@@ -259,38 +236,33 @@ function Sidebar() {
                 </li>
               </ul>
             )}
+          </>
+        )}
 
-            {/* Inventory */}
+        {/* Inventory - Admin/Teacher */}
+        {(role === "Admin" || role === "Teacher") && (
+          <>
             <li
               style={getItemStyle(false, "inventory")}
               onMouseEnter={() => setHoveredItem("inventory")}
               onMouseLeave={() => setHoveredItem(null)}
               onClick={() => sidebarOpen && setInventoryOpen(!inventoryOpen)}
-              aria-expanded={inventoryOpen}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
                 <FontAwesomeIcon icon={faBoxesPacking} style={{ marginRight: "0.75rem" }} />
                 {sidebarOpen && <span style={{ flex: 1 }}>Inventory</span>}
-                {sidebarOpen && <span>{inventoryOpen ? "▲" : "▼"}</span>}
+                {sidebarOpen && <span>{inventoryOpen ? "Up Arrow" : "Down Arrow"}</span>}
               </div>
             </li>
             {inventoryOpen && sidebarOpen && (
-              <ul style={{ paddingLeft: "0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <li
-                  style={getItemStyle(location.pathname === "/inventory-dashboard", "invt-dashboard")}
-                  onMouseEnter={() => setHoveredItem("invt-dashboard")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+              <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
+                <li style={getItemStyle(location.pathname === "/inventory-dashboard", "invt-dashboard")}>
                   <Link to="/inventory-dashboard" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faChartBar} style={{ marginRight: "0.75rem" }} />
                     <span>Invt Dashboard</span>
                   </Link>
                 </li>
-                <li
-                  style={getItemStyle(location.pathname === "/inventory", "invt-mgmt")}
-                  onMouseEnter={() => setHoveredItem("invt-mgmt")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+                <li style={getItemStyle(location.pathname === "/inventory", "invt-mgmt")}>
                   <Link to="/inventory" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faBoxesPacking} style={{ marginRight: "0.75rem" }} />
                     <span>Invt Mgmt</span>
@@ -301,39 +273,30 @@ function Sidebar() {
           </>
         )}
 
+        {/* Finance & Custom - Admin Only */}
         {role === "Admin" && (
           <>
-            {/* Finance */}
             <li
               style={getItemStyle(false, "finance")}
               onMouseEnter={() => setHoveredItem("finance")}
               onMouseLeave={() => setHoveredItem(null)}
               onClick={() => sidebarOpen && setFinanceOpen(!financeOpen)}
-              aria-expanded={financeOpen}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
                 <FontAwesomeIcon icon={faWallet} style={{ marginRight: "0.75rem" }} />
                 {sidebarOpen && <span style={{ flex: 1 }}>Finance</span>}
-                {sidebarOpen && <span>{financeOpen ? "▲" : "▼"}</span>}
+                {sidebarOpen && <span>{financeOpen ? "Up Arrow" : "Down Arrow"}</span>}
               </div>
             </li>
             {financeOpen && sidebarOpen && (
-              <ul style={{ paddingLeft: "0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <li
-                  style={getItemStyle(location.pathname === "/finance", "fin-dashboard")}
-                  onMouseEnter={() => setHoveredItem("fin-dashboard")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+              <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
+                <li style={getItemStyle(location.pathname === "/finance", "fin-dashboard")}>
                   <Link to="/finance" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faChartBar} style={{ marginRight: "0.75rem" }} />
                     <span>Fin Dashboard</span>
                   </Link>
                 </li>
-                <li
-                  style={getItemStyle(location.pathname === "/finance/transactions", "transactions")}
-                  onMouseEnter={() => setHoveredItem("transactions")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+                <li style={getItemStyle(location.pathname === "/finance/transactions", "transactions")}>
                   <Link to="/finance/transactions" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faExchangeAlt} style={{ marginRight: "0.75rem" }} />
                     <span>Transactions</span>
@@ -342,37 +305,27 @@ function Sidebar() {
               </ul>
             )}
 
-            {/* Custom */}
             <li
               style={getItemStyle(false, "custom")}
               onMouseEnter={() => setHoveredItem("custom")}
               onMouseLeave={() => setHoveredItem(null)}
               onClick={() => sidebarOpen && setCustomOpen(!customOpen)}
-              aria-expanded={customOpen}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
                 <FontAwesomeIcon icon={faFileAlt} style={{ marginRight: "0.75rem" }} />
                 {sidebarOpen && <span style={{ flex: 1 }}>Custom</span>}
-                {sidebarOpen && <span>{customOpen ? "▲" : "▼"}</span>}
+                {sidebarOpen && <span>{customOpen ? "Up Arrow" : "Down Arrow"}</span>}
               </div>
             </li>
             {customOpen && sidebarOpen && (
-              <ul style={{ paddingLeft: "0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <li
-                  style={getItemStyle(location.pathname === "/custom-report", "custom-report")}
-                  onMouseEnter={() => setHoveredItem("custom-report")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+              <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
+                <li style={getItemStyle(location.pathname === "/custom-report", "custom-report")}>
                   <Link to="/custom-report" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faFileAlt} style={{ marginRight: "0.75rem" }} />
                     <span>Custom Report</span>
                   </Link>
                 </li>
-                <li
-                  style={getItemStyle(location.pathname === "/salary-slip", "salary-slip")}
-                  onMouseEnter={() => setHoveredItem("salary-slip")}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
+                <li style={getItemStyle(location.pathname === "/salary-slip", "salary-slip")}>
                   <Link to="/salary-slip" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faFileInvoiceDollar} style={{ marginRight: "0.75rem" }} />
                     <span>Salary Slip</span>
@@ -382,41 +335,38 @@ function Sidebar() {
             )}
           </>
         )}
-        {/* ✅ STUDENT DASHBOARD - NEW
+
+        {/* Student: Simple Progress */}
         {role === "Student" && (
           <li
-            style={getItemStyle(location.pathname === "/student-dashboard", "student-dashboard")}
-            onMouseEnter={() => setHoveredItem("student-dashboard")}
+            style={getItemStyle(location.pathname === "/student-progress", "progress")}
+            onMouseEnter={() => setHoveredItem("progress")}
             onMouseLeave={() => setHoveredItem(null)}
+            onClick={handleStudentsDataClick}
           >
-            <Link to="/student-dashboard" style={{ display: "flex", alignItems: "center" }}>
-              <FontAwesomeIcon icon={faGraduationCap} style={{ marginRight: "0.75rem" }} />
-              {sidebarOpen && <span>My Dashboard</span>}
-            </Link>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.75rem" }} />
+              {sidebarOpen && <span>Progress</span>}
+            </div>
           </li>
-        )} */}
-        {/* Robot Chat */}
+        )}
+
+        {/* Robot Chat - All */}
         <li
           style={getItemStyle(location.pathname === "/robot-chat", "robot-chat")}
           onMouseEnter={() => setHoveredItem("robot-chat")}
           onMouseLeave={() => setHoveredItem(null)}
         >
           <Link to="/robot-chat" style={{ display: "flex", alignItems: "center" }}>
-  <FontAwesomeIcon icon={faRobot} style={{ marginRight: "0.75rem" }} />
-  {sidebarOpen && <span>Robot Chat</span>}
-</Link>
+            <FontAwesomeIcon icon={faRobot} style={{ marginRight: "0.75rem" }} />
+            {sidebarOpen && <span>Robot Chat</span>}
+          </Link>
         </li>
       </ul>
 
-      {/* Bottom Footer - Name/Role and Logout */}
+      {/* Footer */}
       {sidebarOpen && (
-        <div
-          style={{
-            backgroundColor: "#6D28D9",
-            padding: "1rem 0 0.5rem",
-            marginTop: "auto",
-          }}
-        >
+        <div style={{ backgroundColor: "#6D28D9", padding: "1rem 0 0.5rem", marginTop: "auto" }}>
           <div style={{ marginBottom: "0.5rem" }}>
             <p style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>{username}</p>
             <p style={{ fontSize: "0.875rem", fontStyle: "italic", margin: 0 }}>{role}</p>
@@ -425,12 +375,7 @@ function Sidebar() {
         </div>
       )}
       {!sidebarOpen && (
-        <div
-          style={{
-            marginTop: "auto",
-            padding: "0.75rem 0",
-          }}
-        >
+        <div style={{ marginTop: "auto", padding: "0.75rem 0" }}>
           <FontAwesomeIcon icon={faLock} style={{ display: "block", textAlign: "center" }} />
         </div>
       )}

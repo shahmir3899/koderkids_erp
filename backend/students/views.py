@@ -1833,22 +1833,63 @@ def get_student_image_uploads_count(request):
         return Response({"error": str(e)}, status=500)
     
 
+# students/views.py   (or wherever the endpoint lives)
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import Student, Fee, Attendance   # adjust import path if needed
+from django.db.models import F
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_student_data(request):
+    """
+    Returns the logged-in student's profile + fees + attendance.
+    Includes the **student id** that the frontend needs for image upload.
+    """
+    # ------------------------------------------------------------------
+    # 1. Role guard
+    # ------------------------------------------------------------------
     if request.user.role != 'Student':
         return Response({"error": "Access denied"}, status=403)
-    
+
+    # ------------------------------------------------------------------
+    # 2. Get the related Student profile
+    # ------------------------------------------------------------------
     try:
-        student = request.user.student_profile  # ✅ Via related_name
-        if not student:
-            return Response({"error": "Student profile not linked"}, status=404)
-        
-        return Response({
-            'school': student.school.name,
-            'class': student.student_class,
-            'fees': list(Fee.objects.filter(student_id=student.id).values('month', 'balance_due', 'status')[:10]),
-            'attendance': list(Attendance.objects.filter(student=student).values('session_date', 'status').order_by('-session_date')[:30])
-        })
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
+        # `student_profile` is the reverse relation from User → Student
+        student = request.user.student_profile
+    except AttributeError:
+        return Response(
+            {"error": "Student profile not linked to this user"},
+            status=404,
+        )
+
+    # ------------------------------------------------------------------
+    # 3. Serialize the data
+    # ------------------------------------------------------------------
+    data = {
+        # **Essential fields for the UI**
+        "id": student.id,                                   # <-- NEW
+        "name": f"{student.user.first_name} {student.user.last_name}".strip()
+                or student.user.username,                  # fallback
+        "school": student.school.name,
+        "class": student.student_class,
+
+        # Optional but already present
+        "fees": list(
+            Fee.objects.filter(student=student)
+            .values("month", "balance_due", "status")
+            .order_by("-month")[:10]
+        ),
+        "attendance": list(
+            Attendance.objects.filter(student=student)
+            .annotate(session_date=F("date"))   # if the field is called `date`
+            .values("session_date", "status")
+            .order_by("-session_date")[:30]
+        ),
+    }
+
+    return Response(data, status=200)

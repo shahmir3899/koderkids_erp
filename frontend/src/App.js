@@ -17,6 +17,7 @@ import SalarySlip from "./pages/SalarySlip";
 import LessonsPage from "./pages/LessonsPage";
 import ReportsPage from "./pages/ReportsPage";
 import StudentDashboard from './pages/StudentDashboard';
+import StudentProgressPage from "./pages/StudentProgressPage";
 //import StudentReport from "./pages/StudentReport";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
@@ -79,6 +80,8 @@ function App() {
       <Route path="/students" element={<ProtectedRoute element={<StudentsPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/lessons" element={<LessonsPage />} />
+      <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Admin", "Teacher"]} />} />
+
       <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboard />} allowedRoles={["Teacher"]} />} />
       <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} allowedRoles={["Admin", "Teacher"]} />} />
@@ -88,7 +91,6 @@ function App() {
       {/* ✅ Admin Only Routes */}
       <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin"]} />} />
-      <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Admin"]} />} />
       <Route path="/settings" element={<ProtectedRoute element={<SettingsPage />} allowedRoles={["Admin"]} />} />
       <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />
@@ -101,7 +103,7 @@ function App() {
 
       {/* ✅ Student Route */}
       <Route path="/student-dashboard" element={<ProtectedRoute element={<StudentDashboard />} allowedRoles={["Student"]} />} />
-
+      <Route path="/student-progress" element={<StudentProgressPage />} />
       {/* ✅ Fallback */}
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>
