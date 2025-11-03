@@ -29,7 +29,6 @@ from django.conf import settings
 from students.models import StudentImage
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Fee, School
 from .serializers import FeeSummarySerializer
 
 
@@ -1880,13 +1879,12 @@ def my_student_data(request):
 
         # Optional but already present
         "fees": list(
-            Fee.objects.filter(student=student)
+            Fee.objects.filter(student_id=student.id)
             .values("month", "balance_due", "status")
             .order_by("-month")[:10]
         ),
         "attendance": list(
             Attendance.objects.filter(student=student)
-            .annotate(session_date=F("date"))   # if the field is called `date`
             .values("session_date", "status")
             .order_by("-session_date")[:30]
         ),

@@ -43,12 +43,7 @@ const ProgressPage = () => {
     const [loadingStudent, setLoadingStudent] = useState(""); 
     const [selectedFiles, setSelectedFiles] = useState({});
     const [currentPage, setCurrentPage] = useState(1);
-    const [isStudentMode, setIsStudentMode] = useState(false);
-    const [myStudentId, setMyStudentId] = useState(null);
-    const [myStudentData, setMyStudentData] = useState(null);
-    const [myCurrentImage, setMyCurrentImage] = useState(null);
-    const [mySelectedFile, setMySelectedFile] = useState(null);
-    const [myIsUploading, setMyIsUploading] = useState(false);
+ 
     const studentsPerPage = 5; // Number of students per page
     const indexOfLastStudent = currentPage * studentsPerPage;
     const indexOfFirstStudent = indexOfLastStudent - studentsPerPage;
