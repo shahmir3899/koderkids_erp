@@ -19,53 +19,50 @@ const StudentProgressPage = () => {
   const [fetchError, setFetchError] = useState(null);
   const [sessionDate] = useState(new Date().toISOString().split("T")[0]);
 
-  useEffect(() => {
-    if (authLoading) return;
+useEffect(() => {
+  if (authLoading) return;
 
-    const init = async () => {
-     
+  const init = async () => {
+    try {
+      // 1. Get profile
+      const profileRes = await axios.get(`${API_URL}/api/students/my-data/`, {
+        headers: getAuthHeaders(),
+      });
+      const data = profileRes.data;
 
-      try {
-        console.log("Fetching student data from:", `${API_URL}/api/students/my-data/`);
-        const profileRes = await axios.get(`${API_URL}/api/students/my-data/`, {
-          headers: getAuthHeaders(),
-        });
-        console.log("Profile response:", profileRes.data);
+      const student = {
+        id: data.id,
+        name: data.name,
+        school: data.school,
+        class: data.class,
+      };
+      setStudentData(student);
 
-        const data = profileRes.data;
-        setStudentData({
-          id: data.id,
-          name: data.name,
-          school: data.school,
-          class: data.class,
-        });
+      // 2. Get image using correct endpoint
+      const imgRes = await axios.get(`${API_URL}/api/student-images/`, {
+        headers: getAuthHeaders(),
+        params: {
+          school: student.school,
+          class: student.class,
+          session_date: sessionDate,
+          student_id: student.id,
+        },
+      });
 
-        // Fetch image after studentData is set
-        try {
-          console.log("Fetching image for student ID:", data.id);
-          const imgRes = await axios.get(
-            `${API_URL}/api/get-student-images/?student_id=${data.id}&session_date=${sessionDate}`,
-            { headers: getAuthHeaders() }
-          );
-          console.log("Images response:", imgRes.data);
-          if (imgRes.data.images?.length > 0) {
-            setCurrentImage(imgRes.data.images[0].url);
-          }
-        } catch (imgErr) {
-          console.warn("No image found or image fetch failed:", imgErr);
-          // Don't block UI if image fails
-        }
-      } catch (err) {
-        console.error("Profile fetch failed:", err.response || err);
-        setFetchError("Failed to load your profile. Check console.");
-        toast.error("Failed to load profile");
-      } finally {
-        setLoading(false);
+      const images = imgRes.data?.images || [];
+      if (images.length > 0) {
+        setCurrentImage(images[0]);
       }
-    };
+    } catch (err) {
+      console.error("Fetch failed:", err.response || err);
+      toast.error("Failed to load profile or image");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    init();
-  }, [authLoading, user, sessionDate]);
+  init();
+}, [authLoading, sessionDate]);
 
   // -----------------------------------------------------------------
   // RENDER: Loading
@@ -104,28 +101,32 @@ const StudentProgressPage = () => {
   // SAFE: studentData exists → render UI
   // -----------------------------------------------------------------
   const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    const processingToast = toast.info("Processing image...", { autoClose: false });
+  const processingToast = toast.info("Processing image...", { autoClose: false });
 
-    new Compressor(file, {
-      quality: 0.7,
-      maxWidth: 800,
-      maxHeight: 800,
-      mimeType: file.type,
-      success: (compressed) => {
-        const compressedFile = new File([compressed], file.name, { type: file.type });
-        setSelectedFile(compressedFile);
-        toast.dismiss(processingToast);
-        toast.success("Image ready!");
-      },
-      error: () => {
-        toast.dismiss(processingToast);
-        toast.error("Failed to process image");
-      },
-    });
-  };
+  new Compressor(file, {
+    quality: 0.7,
+    maxWidth: 800,
+    maxHeight: 800,
+    success: (compressed) => {
+      // FORCE .jpg
+      const baseName = file.name.split('.').slice(0, -1).join('.') || 'image';
+      const jpgFile = new File([compressed], `${baseName}.jpg`, {
+        type: 'image/jpeg',
+      });
+
+      setSelectedFile(jpgFile);
+      toast.dismiss(processingToast);
+      toast.success("Image ready!");
+    },
+    error: () => {
+      toast.dismiss(processingToast);
+      toast.error("Failed to process image");
+    },
+  });
+};
 
   const handleUpload = async () => {
   if (!selectedFile || !studentData?.id) {
@@ -168,19 +169,71 @@ const StudentProgressPage = () => {
 };
 
  const handleDelete = async () => {
-  if (!currentImage || !studentData?.id) return;
+  if (!currentImage || !studentData?.id) {
+    toast.error("No image to delete.");
+    return;
+  }
+
+  let filename = null;
 
   try {
+    // Parse URL safely
     const url = new URL(currentImage);
-    const filename = url.pathname.split('/').pop();
+    const pathParts = url.pathname.split("/");
+    filename = pathParts[pathParts.length - 1]; // Safely get last part
 
-    await axios.delete(
-      `${API_URL}/api/student-progress-images/${studentData.id}/${filename}`,
-      { headers: getAuthHeaders() }
-    );
+    // Remove query parameters (e.g., ?token=abc)
+    const queryIndex = filename.indexOf("?");
+    if (queryIndex !== -1) {
+      filename = filename.substring(0, queryIndex);
+    }
+
+    // If still empty or invalid, fallback
+    if (!filename || filename.trim() === "") {
+      throw new Error("Invalid filename from URL");
+    }
+  } catch (err) {
+    // Fallback: assume currentImage is already a filename (e.g., from upload response)
+    filename = typeof currentImage === "string" ? currentImage : null;
+    if (!filename) {
+      toast.error("Invalid image URL or filename.");
+      return;
+    }
+
+    // Clean query params just in case
+    const queryIndex = filename.indexOf("?");
+    if (queryIndex !== -1) {
+      filename = filename.substring(0, queryIndex);
+    }
+  }
+
+  // --- Now safely force .jpg ---
+  if (typeof filename !== "string") {
+    toast.error("Invalid filename format.");
+    return;
+  }
+
+  const lowerFilename = filename.toLowerCase();
+  if (!lowerFilename.endsWith('.jpg')) {
+    // Strip extension and force .jpg
+    const dotIndex = filename.lastIndexOf('.');
+    filename = (dotIndex !== -1 ? filename.substring(0, dotIndex) : filename) + '.jpg';
+  }
+
+  // --- Final validation ---
+  if (!/^\d{4}-\d{2}-\d{2}_[a-zA-Z0-9]+\.jpg$/.test(filename)) {
+    toast.error("Filename format not supported for deletion.");
+    return;
+  }
+
+  try {
+    const deleteUrl = `${API_URL}/api/student-progress-images/${studentData.id}/${filename}/`;
+    console.log("Deleting:", deleteUrl);
+
+    await axios.delete(deleteUrl, { headers: getAuthHeaders() });
 
     setCurrentImage(null);
-    toast.success("Image deleted");
+    toast.success("Image deleted!");
   } catch (err) {
     console.error("Delete failed:", err.response || err);
     toast.error(err.response?.data?.error || "Failed to delete image");

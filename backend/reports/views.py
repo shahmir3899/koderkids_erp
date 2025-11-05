@@ -87,80 +87,113 @@ def fetch_image(url, timeout=8, max_size=(600, 600), retries=2):
         logger.error(f"Error fetching image from {url}: {str(e)}")
         return None
 
+# @api_view(['DELETE'])
+# @permission_classes([IsAuthenticated])
+# def delete_student_image(request, student_id, filename):
+#     """
+#     Delete a specific image for a student from Supabase storage.
+#     Allowed for:
+#       • Teachers (if the student belongs to one of their assigned schools)
+#       • Students (if the image belongs to themselves)
+#     Path: <student_id>/<filename>
+#     """
+#     logger.info(
+#         f"delete_student_image: student_id={student_id}, filename={filename}, user={request.user.username}"
+#     )
+
+#     # ---------- 1. Basic validation ----------
+#     if not re.match(r'^\d{4}-\d{2}-\d{2}_[a-zA-Z0-9]+\.jpg$', filename):
+#         return Response(
+#             {"message": "Invalid filename", "error": "Filename must match YYYY-MM-DD_<random>.jpg"},
+#             status=status.HTTP_400_BAD_REQUEST,
+#         )
+
+#     # ---------- 2. Student existence ----------
+#     student = Student.objects.filter(id=student_id).select_related('school').first()
+#     if not student:
+#         return Response(
+#             {"message": "Student not found", "error": f"No student with ID {student_id}"},
+#             status=status.HTTP_404_NOT_FOUND,
+#         )
+
+#     # ---------- 3. Authorization ----------
+#     # Teacher → must be assigned to the student's school
+#     if request.user.role == "Teacher":
+#         if student.school_id not in request.user.assigned_schools.values_list("id", flat=True):
+#             return Response(
+#                 {"message": "Unauthorized", "error": "You do not have permission to access this student’s data"},
+#                 status=status.HTTP_403_FORBIDDEN,
+#             )
+#     # Student → can only delete their own image
+#     elif request.user.role == "Student":
+#         if request.user.student_profile_id != student.id:   # assuming a FK `student_profile` on User
+#             return Response(
+#                 {"message": "Unauthorized", "error": "You can only delete your own images"},
+#                 status=status.HTTP_403_FORBIDDEN,
+#             )
+#     else:
+#         return Response(
+#             {"message": "Unauthorized", "error": "Invalid user role"},
+#             status=status.HTTP_403_FORBIDDEN,
+#         )
+
+#     # ---------- 4. Delete from Supabase ----------
+#     file_path = f"{student_id}/{filename}"
+#     try:
+#         resp = supabase.storage.from_(settings.SUPABASE_BUCKET).remove([file_path])
+#         if resp.get("error"):
+#             err = resp["error"]
+#             if err.get("statusCode") == "404":
+#                 return Response(
+#                     {"message": "Image not found", "error": f"{filename} not found for student {student_id}"},
+#                     status=status.HTTP_404_NOT_FOUND,
+#                 )
+#             return Response(
+#                 {"message": "Supabase error", "error": err.get("message")},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             )
+#     except Exception as e:
+#         logger.exception("Unexpected Supabase delete error")
+#         return Response(
+#             {"message": "Failed to delete image", "error": str(e)},
+#             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#         )
+
+#     logger.info(f"Deleted image {file_path}")
+#     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_student_image(request, student_id, filename):
-    """
-    Delete a specific image for a student from Supabase storage.
-    Allowed for:
-      • Teachers (if the student belongs to one of their assigned schools)
-      • Students (if the image belongs to themselves)
-    Path: <student_id>/<filename>
-    """
-    logger.info(
-        f"delete_student_image: student_id={student_id}, filename={filename}, user={request.user.username}"
-    )
+    logger.info(f"delete_student_image: student_id={student_id}, filename={filename}, user={request.user.username}")
 
-    # ---------- 1. Basic validation ----------
+    # 1. Validate filename
     if not re.match(r'^\d{4}-\d{2}-\d{2}_[a-zA-Z0-9]+\.jpg$', filename):
-        return Response(
-            {"message": "Invalid filename", "error": "Filename must match YYYY-MM-DD_<random>.jpg"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        return Response({"message": "Invalid filename"}, status=400)
 
-    # ---------- 2. Student existence ----------
-    student = Student.objects.filter(id=student_id).select_related('school').first()
-    if not student:
-        return Response(
-            {"message": "Student not found", "error": f"No student with ID {student_id}"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    # ---------- 3. Authorization ----------
-    # Teacher → must be assigned to the student's school
-    if request.user.role == "Teacher":
-        if student.school_id not in request.user.assigned_schools.values_list("id", flat=True):
-            return Response(
-                {"message": "Unauthorized", "error": "You do not have permission to access this student’s data"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-    # Student → can only delete their own image
-    elif request.user.role == "Student":
-        if request.user.student_profile_id != student.id:   # assuming a FK `student_profile` on User
-            return Response(
-                {"message": "Unauthorized", "error": "You can only delete your own images"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-    else:
-        return Response(
-            {"message": "Unauthorized", "error": "Invalid user role"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-
-    # ---------- 4. Delete from Supabase ----------
-    file_path = f"{student_id}/{filename}"
+    # 2. Get student
     try:
-        resp = supabase.storage.from_(settings.SUPABASE_BUCKET).remove([file_path])
-        if resp.get("error"):
-            err = resp["error"]
-            if err.get("statusCode") == "404":
-                return Response(
-                    {"message": "Image not found", "error": f"{filename} not found for student {student_id}"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-            return Response(
-                {"message": "Supabase error", "error": err.get("message")},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-    except Exception as e:
-        logger.exception("Unexpected Supabase delete error")
-        return Response(
-            {"message": "Failed to delete image", "error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        student = Student.objects.select_related('school').get(id=student_id)
+    except Student.DoesNotExist:
+        return Response({"message": "Student not found"}, status=404)
 
-    logger.info(f"Deleted image {file_path}")
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    # 3. Authorization
+    is_owner = student.user == request.user
+    is_teacher = student.school in request.user.schools.all() if hasattr(request.user, 'schools') else False
+
+    if not (is_owner or is_teacher):
+        return Response({"message": "Permission denied"}, status=403)
+
+    # 4. Delete from Supabase
+    try:
+        supabase.storage.from_('student-progress').remove([f"{student_id}/{filename}"])
+        logger.info(f"Deleted {filename} for student {student_id}")
+        return Response({"message": "Image deleted successfully"}, status=200)
+    except Exception as e:
+        logger.error(f"Supabase delete failed: {str(e)}")
+        return Response({"error": "Failed to delete from storage"}, status=500)
+
 def get_date_range(mode, month, start_date, end_date):
     """Parse and validate date range for reports."""
     logger.info(f"Getting date range: mode={mode}, month={month}, start_date={start_date}, end_date={end_date}")
