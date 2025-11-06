@@ -17,11 +17,11 @@ import chardet
 class BookViewSet(ReadOnlyModelViewSet):
     queryset = Book.objects.prefetch_related("topics__children")
     serializer_class = BookSerializer
-    #permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
 
 @api_view(['POST'])
-#@permission_classes([AllowAny])  # Change later
+@permission_classes([IsAuthenticated]) 
 def upload_csv(request):
     if 'csv_file' not in request.FILES:
         return Response({"error": "No file"}, status=400)

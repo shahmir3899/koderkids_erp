@@ -31,7 +31,9 @@ import CSVUpload from './components/CSVUpload';
 
 import { logout } from "./api"; 
 
-export const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+//export const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const REACT_APP_BACKEND_URL = 'http://127.0.0.1:8000/api/books/books/';
+
 
 const AutoLogout = () => {
     const timeoutRef = useRef(null);
