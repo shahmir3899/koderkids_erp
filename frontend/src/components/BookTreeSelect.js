@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { getAuthHeaders } from '../api';
 
-const API_URL = 'http://127.0.0.1:8000/api/books/books/';
+const API_URL = `${process.env.REACT_APP_API_URL}/api/books/books`;
 
 export default function BookTreeSelect({ onSelectTopic = () => {} }) {
   const [books, setBooks] = useState([]);
@@ -43,36 +43,43 @@ export default function BookTreeSelect({ onSelectTopic = () => {} }) {
   }, []);
 
   // --- Render a node (topic) ---
-  const renderNode = (node, level = 0) => (
-    <div
-      key={node.id}
-      style={{
-        marginLeft: level * 28,
-        marginBottom: 6,
-      }}
-    >
+  const renderNode = (node, level = 0) => {
+    // Use the `code` field directly – it already contains "1.58", "1.59", …
+    const displayCode = node.code ?? '';
+
+    return (
       <div
-        onClick={() => onSelectTopic(node)}
+        key={node.id}
         style={{
-          cursor: 'pointer',
-          padding: '8px 12px',
-          backgroundColor: '#eef7ff',
-          borderRadius: 8,
-          display: 'inline-block',
-          fontSize: '14.5px',
-          fontWeight: 500,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          transition: 'background-color 0.2s',
+          marginLeft: level * 28,
+          marginBottom: 6,
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#d0ebff')}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#eef7ff')}
       >
-        <strong style={{ color: '#1a73e8' }}>{node.code}</strong>{' '}
-        <span style={{ color: '#333' }}>{node.title}</span>
+        <div
+          onClick={() => onSelectTopic(node)}
+          style={{
+            cursor: 'pointer',
+            padding: '8px 12px',
+            backgroundColor: '#eef7ff',
+            borderRadius: 8,
+            display: 'inline-block',
+            fontSize: '14.5px',
+            fontWeight: 500,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            transition: 'background-color 0.2s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#d0ebff')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#eef7ff')}
+        >
+          <strong style={{ color: '#1a73e8' }}>{displayCode}</strong>{' '}
+          <span style={{ color: '#333' }}>{node.title}</span>
+        </div>
+
+        {/* Recurse for nested children – keep the same level indentation */}
+        {node.children?.map((child) => renderNode(child, level + 1))}
       </div>
-      {node.children?.map((child) => renderNode(child, level + 1))}
-    </div>
-  );
+    );
+  };
 
   // --- Render states ---
   if (loading) {
@@ -113,6 +120,7 @@ export default function BookTreeSelect({ onSelectTopic = () => {} }) {
       <h3 style={{ margin: '0 0 1.5rem', color: '#1a73e8', fontSize: '1.4rem' }}>
         Select Topic for Lesson
       </h3>
+
       {books.map((book) => (
         <div key={book.id} style={{ marginBottom: '2rem' }}>
           <h4
@@ -126,6 +134,7 @@ export default function BookTreeSelect({ onSelectTopic = () => {} }) {
           >
             {book.title}
           </h4>
+
           {book.topics?.length ? (
             book.topics.map((topic) => renderNode(topic))
           ) : (
