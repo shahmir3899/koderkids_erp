@@ -83,7 +83,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'students',
     'employees',
-    
+    'books',
     'reports',
     'finance',
     'inventory',

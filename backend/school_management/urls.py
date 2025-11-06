@@ -131,7 +131,8 @@ urlpatterns = [
 
     # DRF Router URLs (For ViewSets)
     path('api/', include(router.urls)),
-
+    # Books 
+    path('api/books/', include('books.urls')),
 
     
 ]

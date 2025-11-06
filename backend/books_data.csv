@@ -1,0 +1,78 @@
+Book,Topic,Class Activity,Home Activity
+Book 1,1.1 Introduction to Computers,,
+Book 1,1.2 Basic Computer Hardware,Class Activity 1: Identify the Parts of the Computer,Home Activity 1: Draw and Label
+Book 1,1.3 Using Paint for Simple Drawing,Class Activity 2: Open and Explore Paint,Home Activity 2: Paint Message
+Book 1,1.3 Using Paint for Simple Drawing,Class Activity 3: Draw a Simple House in Paint,Home Activity 3: Create Your Dream House
+Book 1,1.3 Using Paint for Simple Drawing,Class Activity 4: Draw and Color a Robot,
+Book 1,1.3 Using Paint for Simple Drawing,Class Activity 5: Create a Name Card,
+Book 1,1.4 Exploring the Calculator,Class Activity 6: Practice Basic Math Operations in Calculator,Home Activity 4: Be a Number Wizard!
+Book 1,1.4 Exploring the Calculator,Class Activity 7: Practice Basic Math in Calculator,Home Activity 5: Calculator Art
+Book 1,1.4 Exploring the Calculator,Class Activity 8: Math Story Time,
+Book 1,1.5 Chapter Wrap-Up,,
+Book 1,2.1 Getting to Know Scratch Jr,Class Activity 1: Scratch Jr Tour,Home Activity 1: Meet the Blocks
+Book 1,2.2 Creating Your First Project,Class Activity 2: Create a Moving Character in Scratch Jr,Home Activity 1: Make It Walk
+Book 1,2.2 Creating Your First Project,Class Activity 3: Decorate the Stage,Home Activity 2: Add a Surprise
+Book 1,2.3 Moving Characters with Blocks,Class Activity 4: Create a Moving Character in Scratch Jr,Home Activity 3: Speed Challenge
+Book 1,2.3 Moving Characters with Blocks,Class Activity 5: Coding Race,
+Book 1,2.4 Creating Simple Animations,Class Activity 6: Create a Talking Character Animation,Home Activity 4: Dance & Tell
+Book 1,2.4 Creating Simple Animations,Class Activity 7: Code a Dance,
+Book 1,2.5 Creating Scenes with Multiple Pages,Class Activity 8: New Scene (Multipage),Home Activity 5: Story Time Challenge
+Book 1,2.5 Creating Scenes with Multiple Pages,Class Activity 9: My First Story,
+Book 1,2.6 Chapter Wrap-Up,,
+Book 1,3.1 Introduction to VEXcode VR,Class Activity 1: Explore the Site,Home Activity 1: VEXcode VR Safari
+Book 1,3.2 Moving the Virtual Robot,Class Activity 2: Move Robot Forward,Home Activity 2: Long Drive
+Book 1,3.2 Moving the Virtual Robot,Class Activity 3: Drive Backward,Home Activity 3: Robot Zigzag
+Book 1,3.3 Programming a Simple Path,Class Activity 4: Program the Robot to Move and Turn,Home Activity 4: Maze Designer
+Book 1,3.3 Programming a Simple Path,Class Activity 5: Square Challenge,
+Book 1,3.4 Testing Robot Movements,Class Activity 6: Adjust and Test the Robot’s Path,Home Activity 5: Maze Designer
+Book 1,3.4 Testing Robot Movements,Class Activity 7: Fix My Robot!,
+Book 1,3.5 Make a Robot Dance!,Class Activity 8: Robot Dance Party,Home Activity 6: Music + Robot
+Book 1,3.6 Challenge Time!,Class Activity 9: Treasure Hunt,Home Activity 7: Robot to the Rescue!
+Book 1,3.7 Chapter Wrap-Up,,
+Book 1,4.1 What is Python?,,
+Book 1,4.2 Basics of Python,,
+Book 1,4.3 Using Google Colab for Python Programming,,
+Book 1,4.4 Writing Your First Python Program,"Class Activity 1: ""Hello, World!"" Program",
+Book 1,4.5 Variables in Python,Class Activity 2: Let us make some Boxes,
+Book 1,4.6 More about variables,,Home Activity 1: Variables
+Book 1,4.7 Mathematics in Python,Class Activity 3: Add Two Numbers Using Python,Home Activity 2: Some mathematics
+Book 1,4.8 Some more Codes,,Home Activity 3: Use print function
+Book 1,4.9 Chapter Wrap-Up,,
+Book 1,5.1 What is PowerPoint?,,
+Book 1,5.2 Designing Your First Slide,Class Activity 1: Create Your First Slide,
+Book 1,5.3 Adding Text and Images,Class Activity 2: Add a Slide with Text and Images,
+Book 1,5.4 Creating a 3-Slide Presentation,Class Activity 3: Build Your 3-Slide Presentation,
+Book 1,5.5 Saving and Presenting Your PowerPoint,Class Activity 4: Present Your PowerPoint,
+Book 1,6.1 Building Stories in Scratch Jr,,
+Book 1,6.2 Adding Characters and Backgrounds,Class Activity 1: Add Multiple Characters and Change the Background,
+Book 1,6.3 Making Characters Talk,Class Activity 2: Make Two Characters Talk,
+Book 1,6.4 Moving and Interacting with Blocks,Class Activity 3: Make Characters Move and Interact,
+Book 1,6.5 Creating Scenes with Multiple Pages,Class Activity 4: Add a New Scene to Your Story,
+Book 1,6.6 Sharing Your First Story,Class Activity 5: Share Your Story,
+Book 1,6.7 Chapter Wrap-Up,,
+Book 1,7.1 What is the Internet?,Class Activity 1: Open a Web Browser,Home Activity 1: Draw the Internet
+Book 1,7.2 Safe Web Browsing,Class Activity 2: Spot Safe Websites,Home Activity 2: Internet Rules Poster
+Book 1,7.3 Searching for Information,Class Activity 3: Search Safari,Home Activity 3: Fact Finder
+Book 1,7.4 Saving Favorite Websites,Class Activity 4: Bookmark a Website,Home Activity 4: Bookmark Treasure
+Book 1,7.5 Chapter Wrap-Up,,
+Book 1,8.1 What is Canva,Class Activity 1: Open Canva,Home Activity 1: Dream Design
+Book 1,8.2 Creating Your First Design,Class Activity 2: Make an Eid Poster,Home Activity 2: Poster Power
+Book 1,8.3 Adding Colors and Shapes,Class Activity 3: Shape Party,Home Activity 3: Color Splash
+Book 1,8.4 Sharing Your Artwork,Class Activity 4: Art Gallery,Home Activity 4: Art Show
+Book 1,8.5 Chapter Wrap-Up,,
+Book 1,9.1 What is AI,Class Activity 1: AI Detective,Home Activity 1: AI Imagination
+Book 1,9.2 Exploring AI with Questions,Class Activity 2: Chat with AI,Home Activity: Story Starter
+Book 1,9.4 Playing Games with AI,Class Activity 4: AI Riddle Game,Home Activity 3: Riddle Creator
+Book 1,9.5 Chapter Wrap-Up,,
+Book 1,10.1 What is inside Kit,,
+Book 1,10.2 Light System (Bulb and Holder),Class Activity 1: Hold and Guess,Home Activity 1: Hold and Guess
+Book 1,10.3 Power System (Battery and Wire),Class Activity 2: Feel the Power,Home Activity 2: Wire Drawing
+Book 1,10.4 Motion System (Motor and Fan Blade),Class Activity 3: Spin Test,Home Activity 3: Fan Art
+Book 1,10.5 Control System (Switchgear and Spring Clip),Class Activity 4: Switch Play,Home Activity 4: Clip Craft
+Book 1,10.6 Extra Connector (Paper Clip),Class Activity 5: Clip and Bend,Home Activity 5: Clip Design
+Book 1,10.7 Lighting a Bulb,Class Activity 6: Bulb Light,Home Activity 6: Home Glow
+Book 1,10.8 Running a Motor,Class Activity 7: Motor Spin,Home Activity 7: Spin Fun
+Book 1,10.9 Making a Switch Work,Class Activity 8: Switch Control,Home Activity 8: Switch Play
+Book 1,10.10 Building a Simple Fan,Class Activity 9: Fan Build,Home Activity 9: Fan Breeze
+Book 1,10.11 Creating a Paper Clip Circuit,Class Activity 10: Clip Circuit,Home Activity 10: Clip Challenge
+Book 1,10.12 Chapter Wrap-Up,,

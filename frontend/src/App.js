@@ -26,6 +26,8 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css"; 
 import RobotChat from "./components/RobotChat";
 import InventoryPage from './pages/InventoryPage';
+import BookTreeSelect from './components/BookTreeSelect';
+import CSVUpload from './components/CSVUpload';
 
 import { logout } from "./api"; 
 
@@ -104,6 +106,11 @@ function App() {
       {/* ✅ Student Route */}
       <Route path="/student-dashboard" element={<ProtectedRoute element={<StudentDashboard />} allowedRoles={["Student"]} />} />
       <Route path="/student-progress" element={<StudentProgressPage />} />
+
+        {/* NEW ROUTES: Add these two – protected */}
+      <Route path="/books-tree" element={<ProtectedRoute element={<BookTreeSelect/>} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/books-upload" element={<ProtectedRoute element={CSVUpload} allowedRoles={["Admin", "Teacher"]} />} />
+
       {/* ✅ Fallback */}
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>

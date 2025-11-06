@@ -16,7 +16,10 @@ import {
   faLock,
   faBoxesPacking,
   faChartBar,
-  faGraduationCap,
+  faChevronLeft,
+  faChevronRight,
+  faChevronUp,
+  faChevronDown,
   faWallet,
 } from "@fortawesome/free-solid-svg-icons";
 import LogoutButton from "./LogoutButton";
@@ -102,7 +105,7 @@ function Sidebar() {
           top: "1rem",
         }}
       >
-        {sidebarOpen ? "Left Arrow" : "Right Arrow"}
+        {sidebarOpen ? <FontAwesomeIcon icon={faChevronLeft} /> : <FontAwesomeIcon icon={faChevronRight} />}
       </button>
 
       {/* Logo */}
@@ -161,10 +164,12 @@ function Sidebar() {
               onClick={() => sidebarOpen && setStudentsOpen(!studentsOpen)}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
-                <FontAwesomeIcon icon={faUsers} style={{ marginRight: "0.75rem" }} />
-                {sidebarOpen && <span style={{ flex: 1 }}>Students & Fee</span>}
-                {sidebarOpen && <span>{studentsOpen ? "Up Arrow" : "Down Arrow"}</span>}
-              </div>
+              <FontAwesomeIcon icon={faUsers} style={{ marginRight: "0.75rem" }} />
+              {sidebarOpen && <span style={{ flex: 1 }}>Students & Fee</span>}
+              {sidebarOpen && (
+                <FontAwesomeIcon icon={studentsOpen ? faChevronUp : faChevronDown} />
+              )}
+            </div>
             </li>
             {studentsOpen && sidebarOpen && (
               <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
@@ -211,8 +216,9 @@ function Sidebar() {
               <div style={{ display: "flex", alignItems: "center" }}>
                 <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.75rem" }} />
                 {sidebarOpen && <span style={{ flex: 1 }}>Students Data</span>}
-                {sidebarOpen && <span>{studentsDataOpen ? "Up Arrow" : "Down Arrow"}</span>}
-              </div>
+                {sidebarOpen && (
+                      <FontAwesomeIcon icon={studentsDataOpen ? faChevronUp : faChevronDown} />
+                    )}              </div>
             </li>
             {studentsDataOpen && sidebarOpen && (
               <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
@@ -251,7 +257,9 @@ function Sidebar() {
               <div style={{ display: "flex", alignItems: "center" }}>
                 <FontAwesomeIcon icon={faBoxesPacking} style={{ marginRight: "0.75rem" }} />
                 {sidebarOpen && <span style={{ flex: 1 }}>Inventory</span>}
-                {sidebarOpen && <span>{inventoryOpen ? "Up Arrow" : "Down Arrow"}</span>}
+                {sidebarOpen && (
+      <FontAwesomeIcon icon={inventoryOpen ? faChevronUp : faChevronDown} />
+    )}
               </div>
             </li>
             {inventoryOpen && sidebarOpen && (
@@ -282,11 +290,13 @@ function Sidebar() {
               onMouseLeave={() => setHoveredItem(null)}
               onClick={() => sidebarOpen && setFinanceOpen(!financeOpen)}
             >
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <FontAwesomeIcon icon={faWallet} style={{ marginRight: "0.75rem" }} />
-                {sidebarOpen && <span style={{ flex: 1 }}>Finance</span>}
-                {sidebarOpen && <span>{financeOpen ? "Up Arrow" : "Down Arrow"}</span>}
-              </div>
+             <div style={{ display: "flex", alignItems: "center" }}>
+    <FontAwesomeIcon icon={faWallet} style={{ marginRight: "0.75rem" }} />
+    {sidebarOpen && <span style={{ flex: 1 }}>Finance</span>}
+    {sidebarOpen && (
+      <FontAwesomeIcon icon={financeOpen ? faChevronUp : faChevronDown} />
+    )}
+  </div>
             </li>
             {financeOpen && sidebarOpen && (
               <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
@@ -314,8 +324,9 @@ function Sidebar() {
               <div style={{ display: "flex", alignItems: "center" }}>
                 <FontAwesomeIcon icon={faFileAlt} style={{ marginRight: "0.75rem" }} />
                 {sidebarOpen && <span style={{ flex: 1 }}>Custom</span>}
-                {sidebarOpen && <span>{customOpen ? "Up Arrow" : "Down Arrow"}</span>}
-              </div>
+                {sidebarOpen && (
+                      <FontAwesomeIcon icon={customOpen ? faChevronUp : faChevronDown} />
+                    )}              </div>
             </li>
             {customOpen && sidebarOpen && (
               <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
