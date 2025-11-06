@@ -7,7 +7,7 @@ from students.models import School   # adjust import as needed
 
 class Book(models.Model):
     title = models.CharField(max_length=200)
-    order = models.PositiveIntegerField(default=0)    
+    #order = models.PositiveIntegerField(default=0)    
     isbn = models.CharField(max_length=13, blank=True, null=True, unique=True)
     school = models.ForeignKey(School, on_delete=models.SET_NULL, null=True, blank=True)
     cover = models.ImageField(upload_to="books/covers/", blank=True)
