@@ -38,6 +38,18 @@ class Topic(MPTTModel):
     #   {"type": "home",  "title": "Home Activity 1",  "content": "<p>Worksheet...</p>", "order": 1}
     # ]
 
+    type = models.CharField(
+        max_length=20,
+        choices=[
+            ('chapter', 'Chapter'),
+            ('lesson', 'Lesson'),
+            ('activity', 'Activity'),
+        ],
+        default='lesson'
+    )
+    class Meta:
+        unique_together = ('book', 'code', 'type')  # ADD THIS LINE
+    
     class MPTTMeta:
         order_insertion_by = ["code"]
 
