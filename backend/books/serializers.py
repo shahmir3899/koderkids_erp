@@ -11,7 +11,7 @@ class ActivityBlockSerializer(serializers.Serializer):
 
 
 class TopicSerializer(serializers.ModelSerializer):
-    activity_blocks = ActivityBlockSerializer(many=True, read_only=True)
+    activity_blocks = serializers.SerializerMethodField()
     children = serializers.SerializerMethodField()
 
     class Meta:
@@ -24,6 +24,12 @@ class TopicSerializer(serializers.ModelSerializer):
             "children",
             "type",   # This is correct — Topic HAS type
         ]
+
+    def get_activity_blocks(self, obj):
+        blocks = obj.activity_blocks
+        if isinstance(blocks, dict):
+            blocks = [blocks]  # Wrap single dict in list for consistency
+        return ActivityBlockSerializer(blocks, many=True).data
 
     def get_children(self, obj):
         return TopicSerializer(obj.get_children(), many=True, context=self.context).data
