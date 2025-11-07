@@ -22,6 +22,7 @@ class TopicSerializer(serializers.ModelSerializer):
             "title",
             "activity_blocks",
             "children",
+            "type",   # This is correct — Topic HAS type
         ]
 
     def get_children(self, obj):
@@ -33,4 +34,4 @@ class BookSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Book
-        fields = ["id", "title", "isbn", "school", "cover", "topics", "type",]
+        fields = ["id", "title", "isbn", "school", "cover", "topics", ]
