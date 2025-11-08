@@ -17,7 +17,7 @@ import chardet
 class BookViewSet(ReadOnlyModelViewSet):
     queryset = Book.objects.prefetch_related("topics__children")
     serializer_class = BookSerializer
-    permission_classes = [IsAuthenticated]
+    #permission_classes = [IsAuthenticated]
 
 
 @api_view(['POST'])

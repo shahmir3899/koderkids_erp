@@ -74,6 +74,7 @@ class Command(BaseCommand):
                     self.stdout.write(f"  Created lesson: {code}")
 
                 # === ACTIVITIES ===
+                # === ACTIVITIES ===
                 for act_type, content in [("class", class_content), ("home", home_content)]:
                     if not content:
                         continue
@@ -83,7 +84,18 @@ class Command(BaseCommand):
                     lesson_orders[key] = order
 
                     act_code = f"{code}.{act_type}.{order}"
-                    act_title = f"{act_type.capitalize()} Activity – {title}"
+                    activity_prefix = "Class" if act_type == "class" else "Home"
+
+                    # Extract number and description from CSV content
+                    if ':' in content:
+                        prefix, desc = content.split(":", 1)
+                        import re
+                        num_match = re.search(r'\d+', prefix)
+                        activity_number = int(num_match.group()) if num_match else order
+                        act_title = f"{activity_prefix} Activity {activity_number} – {desc.strip()}"
+                    else:
+                        act_title = f"{activity_prefix} Activity {order} – {content.strip()}"
+
                     act_payload = {
                         "type": act_type,
                         "order": order,
@@ -97,7 +109,7 @@ class Command(BaseCommand):
                     }
 
                     if dry_run:
-                        self.stdout.write(f"    [DRY] Would create: {act_code}")
+                        self.stdout.write(f"    [DRY] Would create: {act_code} | {act_title}")
                         created_count += 1
                         continue
 
@@ -109,8 +121,7 @@ class Command(BaseCommand):
                     )
                     if act_created:
                         created_count += 1
-                        self.stdout.write(f"    Created activity: {act_code}")
-
+                        self.stdout.write(f"    Created: {act_title}")
         if not dry_run:
             Topic.objects.rebuild()
             self.stdout.write(self.style.SUCCESS(f"Imported {created_count} nodes. Tree rebuilt."))

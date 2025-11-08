@@ -11,15 +11,27 @@ class ActivityBlockSerializer(serializers.Serializer):
 
 
 class TopicSerializer(serializers.ModelSerializer):
+    display_title = serializers.SerializerMethodField()
     activity_blocks = serializers.SerializerMethodField()
     children = serializers.SerializerMethodField()
-
+    def get_display_title(self, obj):
+        if obj.type == 'chapter':
+            # Remove leading number: "1 Chapter 1: ..." → "Chapter 1: ..."
+            title = obj.title
+            if title and title[0].isdigit():
+                title = title.split(" ", 1)[1]  # Remove first word if digit
+            return title
+        elif obj.type == 'activity':
+            return obj.title  # Already has "Class Activity 1 – ..."
+        else:
+            return f"{obj.code} {obj.title}"  # Lesson: 1.1 Title
+        
     class Meta:
         model = Topic
         fields = [
             "id",
             "code",
-            "title",
+            "display_title",
             "activity_blocks",
             "children",
             "type",
