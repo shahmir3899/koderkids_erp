@@ -1,0 +1,17 @@
+.book-tree-select { font-family: system-ui, sans-serif; line-height: 1.5; }
+.header { margin: 0 0 1rem; color: #1a73e8; font-size: 1.4rem; }
+.search { width: 100%; padding: 0.6rem 1rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+.book { margin-bottom: 2rem; }
+.book-title { margin: 0.5rem 0 0.75rem; font-weight: 600; color: #333; }
+.node { cursor: pointer; padding: 0.5rem 0.75rem; border-radius: 6px; background: #eef7ff; margin: 2px 0; display: flex; align-items: center; transition: background 0.2s; }
+.node:hover { background: #d0ebff; }
+.toggle { margin-right: 0.5rem; font-weight: bold; color: #555; }
+.code { margin-right: 0.5rem; color: #1a73e8; font-weight: 600; }
+.title { flex: 1; }
+.chapter { font-weight: 600; background: #e3f2fd; }
+.lesson  { background: #f5f5f5; }
+.activity { background: #fff3e0; font-size: 0.9rem; }
+.msg { padding: 1rem; text-align: center; border-radius: 6px; margin: 1rem 0; }
+.msg.info { background: #e3f2fd; color: #1565c0; }
+.msg.error { background: #ffebee; color: #c62828; }
+.empty { margin-left: 1.5rem; color: #999; font-style: italic; }

@@ -1,6 +1,7 @@
 // src/components/BookTreeSelect.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getAuthHeaders } from '../api';
+import './BookTreeSelect.css'; // Optional – create this file or remove line
 
 const API_URL = `${process.env.REACT_APP_API_URL}/api/books/books`;
 
@@ -8,139 +9,148 @@ export default function BookTreeSelect({ onSelectTopic = () => {} }) {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState(new Set());
 
+  /* ---------- FETCH BOOKS ---------- */
   useEffect(() => {
     const fetchBooks = async () => {
       try {
         const headers = getAuthHeaders();
-
         if (!headers.Authorization) {
-          setError('Login required – no token found.');
-          setLoading(false);
-          return;
+          throw new Error('Login required – no token found.');
         }
 
-        const response = await fetch(API_URL, { headers });
-
-        if (!response.ok) {
-          if (response.status === 401) throw new Error('Unauthorized – please log in again.');
-          if (response.status === 404) throw new Error('API endpoint not found.');
-          throw new Error(`Server error: ${response.status}`);
+        const res = await fetch(API_URL, { headers });
+        if (!res.ok) {
+          if (res.status === 401) throw new Error('Unauthorized – please log in again.');
+          throw new Error(`Server error: ${res.status}`);
         }
 
-        const data = await response.json();
-        console.log('[BookTreeSelect] Books loaded:', data);
+        const data = await res.json();
         setBooks(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error('[BookTreeSelect] Fetch failed:', err);
         setError(err.message || 'Failed to load books.');
       } finally {
         setLoading(false);
       }
     };
-
     fetchBooks();
   }, []);
 
-  // --- Render a node (topic) ---
+  /* ---------- SEARCH FILTER ---------- */
+  const filteredBooks = useMemo(() => {
+    if (!search.trim()) return books;
+
+    const lower = search.toLowerCase();
+    const filterTopic = (t) => {
+      const matches =
+        t.display_title.toLowerCase().includes(lower) ||
+        (t.code && t.code.toLowerCase().includes(lower));
+
+      if (!matches && !t.children?.length) return null;
+
+      const filteredChildren = t.children
+        ?.map(filterTopic)
+        .filter(Boolean);
+
+      return {
+        ...t,
+        children: filteredChildren.length ? filteredChildren : undefined,
+      };
+    };
+
+    return books.map((b) => ({
+      ...b,
+      topics: b.topics?.map(filterTopic).filter(Boolean),
+    }));
+  }, [books, search]);
+
+  /* ---------- EXPAND / COLLAPSE ---------- */
+  const toggle = useCallback((id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  /* ---------- RENDER ONE NODE ---------- */
   const renderNode = (node, level = 0) => {
-    // Use the `code` field directly – it already contains "1.58", "1.59", …
-    const displayCode = node.code ?? '';
+    const isChapter = node.type === 'chapter';
+    const isLesson = node.type === 'lesson';
+    const isActivity = node.type === 'activity';
+    const hasChildren = !!node.children?.length;
+    const isOpen = expanded.has(node.id);
 
     return (
       <div
         key={node.id}
-        style={{
-          marginLeft: level * 28,
-          marginBottom: 6,
-        }}
+        style={{ marginLeft: level * 24 }}
+        role="treeitem"
+        aria-expanded={hasChildren ? isOpen : undefined}
       >
         <div
-          onClick={() => onSelectTopic(node)}
-          style={{
-            cursor: 'pointer',
-            padding: '8px 12px',
-            backgroundColor: '#eef7ff',
-            borderRadius: 8,
-            display: 'inline-block',
-            fontSize: '14.5px',
-            fontWeight: 500,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            transition: 'background-color 0.2s',
+          className={`node ${isChapter ? 'chapter' : isLesson ? 'lesson' : 'activity'}`}
+          onClick={() => {
+            if (hasChildren) toggle(node.id);
+            onSelectTopic(node);
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#d0ebff')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#eef7ff')}
+          title={node.display_title}
         >
-          <strong style={{ color: '#1a73e8' }}>{displayCode}</strong>{' '}
-          <span style={{ color: '#333' }}>{node.title}</span>
+          {hasChildren && (
+            <span className="toggle">
+              {isOpen ? '▼' : '▶'}
+            </span>
+          )}
+
+          {node.code && !isChapter && (
+            <strong className="code">{node.code}</strong>
+          )}
+
+          <span className="title">{node.display_title}</span>
         </div>
 
-        {/* Recurse for nested children – keep the same level indentation */}
-        {node.children?.map((child) => renderNode(child, level + 1))}
+        {hasChildren && isOpen && (
+          <div role="group">
+            {node.children.map((c) => renderNode(c, level + 1))}
+          </div>
+        )}
       </div>
     );
   };
 
-  // --- Render states ---
+  /* ---------- UI STATES ---------- */
   if (loading) {
-    return (
-      <div style={{ padding: '1.5rem', textAlign: 'center', color: '#666' }}>
-        <p>Loading books from server...</p>
-      </div>
-    );
+    return <div className="msg info">Loading books…</div>;
   }
-
   if (error) {
-    return (
-      <div
-        style={{
-          padding: '1.5rem',
-          background: '#ffebee',
-          border: '1px solid #ffcdd2',
-          borderRadius: 8,
-          color: '#c62828',
-          margin: '1rem 0',
-        }}
-      >
-        <strong>Error:</strong> {error}
-      </div>
-    );
+    return <div className="msg error">Error: {error}</div>;
   }
-
   if (!books.length) {
-    return (
-      <div style={{ padding: '1.5rem', color: '#999', fontStyle: 'italic' }}>
-        No books available. Please import a CSV first.
-      </div>
-    );
+    return <div className="msg">No books available. Import a CSV first.</div>;
   }
 
   return (
-    <div style={{ padding: '1rem 0' }}>
-      <h3 style={{ margin: '0 0 1.5rem', color: '#1a73e8', fontSize: '1.4rem' }}>
-        Select Topic for Lesson
-      </h3>
+    <div className="book-tree-select">
+      <h3 className="header">Select Topic for Lesson</h3>
 
-      {books.map((book) => (
-        <div key={book.id} style={{ marginBottom: '2rem' }}>
-          <h4
-            style={{
-              margin: '0.5rem 0 1rem',
-              color: '#333',
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              paddingLeft: 4,
-            }}
-          >
-            {book.title}
-          </h4>
+      <input
+        type="text"
+        placeholder="Search topics…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="search"
+      />
+
+      {filteredBooks.map((book) => (
+        <div key={book.id} className="book">
+          <h4 className="book-title">{book.title}</h4>
 
           {book.topics?.length ? (
-            book.topics.map((topic) => renderNode(topic))
+            <div role="tree">{book.topics.map((t) => renderNode(t, 0))}</div>
           ) : (
-            <p style={{ marginLeft: 28, color: '#999', fontStyle: 'italic' }}>
-              No topics in this book.
-            </p>
+            <p className="empty">No topics in this book.</p>
           )}
         </div>
       ))}
