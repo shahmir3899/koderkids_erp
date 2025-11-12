@@ -1,17 +1,313 @@
-.book-tree-select { font-family: system-ui, sans-serif; line-height: 1.5; }
-.header { margin: 0 0 1rem; color: #1a73e8; font-size: 1.4rem; }
-.search { width: 100%; padding: 0.6rem 1rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
-.book { margin-bottom: 2rem; }
-.book-title { margin: 0.5rem 0 0.75rem; font-weight: 600; color: #333; }
-.node { cursor: pointer; padding: 0.5rem 0.75rem; border-radius: 6px; background: #eef7ff; margin: 2px 0; display: flex; align-items: center; transition: background 0.2s; }
-.node:hover { background: #d0ebff; }
-.toggle { margin-right: 0.5rem; font-weight: bold; color: #555; }
-.code { margin-right: 0.5rem; color: #1a73e8; font-weight: 600; }
-.title { flex: 1; }
-.chapter { font-weight: 600; background: #e3f2fd; }
-.lesson  { background: #f5f5f5; }
-.activity { background: #fff3e0; font-size: 0.9rem; }
-.msg { padding: 1rem; text-align: center; border-radius: 6px; margin: 1rem 0; }
-.msg.info { background: #e3f2fd; color: #1565c0; }
-.msg.error { background: #ffebee; color: #c62828; }
-.empty { margin-left: 1.5rem; color: #999; font-style: italic; }
+/* src/components/BookTreeSelect.css */
+.book-tree-select {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 500;
+  line-height: 1.5;
+  background: #f8f9fc;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Header */
+.select-header {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #5e35b1;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.5px;
+}
+
+/* Search */
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.search-input:focus {
+  outline: none;
+  border-color: #7e57c2;
+  box-shadow: 0 0 0 4px rgba(126,87,194,0.2);
+}
+
+/* Book Section */
+.book-section {
+  margin-bottom: 2rem;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  border: 1px solid #eee;
+}
+
+.book-title {
+  background: linear-gradient(135deg, #7e57c2, #5e35b1);
+  color: white;
+  padding: 0.9rem 1.2rem;
+  font-weight: 600;
+  font-size: 1.15rem;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+/* Tree Root */
+.tree-root {
+  padding: 0.5rem 0;
+}
+
+/* Tree Node */
+.tree-node {
+  position: relative;
+  margin: 4px 0;
+}
+
+/* Vertical Line */
+.tree-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -16px;
+  width: 2px;
+  background: #bbb;
+}
+.tree-node:last-child::before {
+  height: 28px;
+}
+
+/* Horizontal Line */
+.node-header::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -16px;
+  width: 16px;
+  height: 2px;
+  background: #bbb;
+  transform: translateY(-50%);
+}
+
+/* First child fix */
+.node-children > .tree-node:first-child::before {
+  top: 28px;
+}
+
+/* Node Header – MATCH SIDEBAR FONT */
+.node-header {
+  display: flex;
+  align-items: center;
+  padding: 0.8rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;           /* Same as sidebar */
+  position: relative;
+  user-select: none;
+}
+.node-header:hover {
+  background: #ede7f6;
+  transform: translateX(2px);
+  box-shadow: 0 4px 12px rgba(126,87,194,0.15);
+}
+.node-header.sel {
+  background: #ede7f6 !important;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px #7e57c2;
+}
+
+/* Font Sizes – EXACTLY LIKE SIDEBAR */
+.chapter .node-title   { font-size: 1.2rem; }   /* Sidebar chapter */
+.lesson .node-title    { font-size: 1.1rem; }   /* Sidebar lesson */
+.activity .node-title  { font-size: 1.1rem; }   /* Sidebar activity */
+
+/* Icons */
+.toggle-icon {
+  width: 1.2em;
+  height: 1.2em;
+  margin-right: 0.8rem;
+  color: #7e57c2;
+  transition: transform 0.2s ease;
+}
+.node-header[aria-expanded="true"] .toggle-icon {
+  transform: rotate(90deg);
+}
+
+.type-icon {
+  width: 1.4em;
+  height: 1.4em;
+  margin-right: 0.8rem;
+  color: #5e35b1;
+}
+
+/* Node Types – Same colors as sidebar */
+.chapter {
+  color: #4a148c;
+  background: #e8eaf6;
+}
+.lesson {
+  color: #1a237e;
+  background: #e3f2fd;
+}
+.activity {
+  color: #1b5e20;
+  background: #e8f5e8;
+}
+
+/* Title */
+.node-title {
+  flex: 1;
+}
+
+/* Children */
+.node-children {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  max-height: 3000px;
+}
+.node-children[aria-hidden="true"] {
+  max-height: 0;
+}
+
+/* Messages */
+.status-msg {
+  padding: 1.2rem;
+  text-align: center;
+  border-radius: 10px;
+  font-weight: 500;
+  margin: 1rem 0;
+}
+.status-msg.info {
+  background: #e8eaf6;
+  color: #1a237e;
+}
+.status-msg.error {
+  background: #ffebee;
+  color: #c62828;
+}
+.empty-message {
+  padding: 1.5rem 2rem;
+  color: #7e57c2;
+  font-style: italic;
+  font-size: 1.1rem;
+  background: #f3e5f5;
+  border-radius: 8px;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.h {
+  display: flex;
+  align-items: center;
+  padding: 0.8rem 1.2rem;
+  cursor: default;
+}
+
+.toggle-icon {
+  width: 1.2em;
+  margin-right: 0.8rem;
+  cursor: pointer;
+  color: #555;
+}
+
+.toggle-icon:hover {
+  color: #007bff;
+}
+
+.title-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.title-wrapper:hover {
+  background-color: #f0f8ff;
+  color: #007bff;
+}
+
+.ttl {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 1.1rem;
+}
+
+/* New: Search Icon Styles */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  color: #7e57c2;
+  font-size: 1.2rem;
+}
+.srch .inp {
+  padding-left: 2.5rem; /* Space for icon */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 600px) {
+  .n {
+    margin-left: calc(var(--level) * 16px); /* Assuming --level var for lvl */
+  }
+  .node-title {
+    font-size: 1rem; /* Slight reduction for mobile */
+  }
+}
+/* Multi-select enhancements */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex: 1;
+  gap: 8px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.node-header.checked {
+  background: #e3f2fd !important;
+  font-weight: 600;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #999;
+  cursor: pointer;
+}
+
+.clear-btn:hover {
+  color: #333;
+}

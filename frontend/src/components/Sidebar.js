@@ -51,7 +51,7 @@ function Sidebar() {
 
   // Fixed: Toggle for non-students, navigate for students
   const handleStudentsDataClick = () => {
-    if (user?.role === "Student") {
+    if (role === "Student") {
       navigate("/student-progress");
     } else {
       setStudentsDataOpen(prev => !prev);

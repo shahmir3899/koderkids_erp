@@ -1,12 +1,25 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { getSchools, getAuthHeaders, getClasses, addLesson } from "../api";
 import { toast } from "react-toastify";
 import { ClipLoader } from "react-spinners";
 import "react-toastify/dist/ReactToastify.css";
 import "./LessonPlanModal.css";
+import BookTreeSelect from "./BookTreeSelect"; // ← NEW: Import
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPlus,      // “Add Selected Dates” button
+  faSave,      // Save button (optional – you can add later)
+  faTimes,     // Close icon (×) and Cancel button
+  
+} from "@fortawesome/free-solid-svg-icons";
 
-// Helper function to add ordinal suffix (e.g., 1st, 2nd, 3rd, 4th)
+// --------------------------------------------------------------
+// NEW: Shared book data state
+// --------------------------------------------------------------
+const API_BOOKS = `${process.env.REACT_APP_API_URL}/api/books/books`;
+
+// Helper: ordinal suffix
 const getOrdinalSuffix = (day) => {
   const j = day % 10;
   const k = day % 100;
@@ -16,7 +29,7 @@ const getOrdinalSuffix = (day) => {
   return "th";
 };
 
-// Helper function to format dates as "3rd Feb 2025, Tuesday"
+// Helper: format date
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   const day = date.getUTCDate();
@@ -39,10 +52,54 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [allDates, setAllDates] = useState([]);
   const [selectedDates, setSelectedDates] = useState([]);
-  const [newLessons, setNewLessons] = useState([]);
+  const [newLessons, setNewLessons] = useState([]); // ← Now holds { session_date, planned_topic_id, planned_topic_display }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [editingIndex, setEditingIndex] = useState(null); // ← NEW: for topic selector
+  // NEW: Shared book data (fetched once per modal open)
+  const [bookTreeData, setBookTreeData] = useState(null);
+  const [bookTreeLoading, setBookTreeLoading] = useState(false);
+  const [bookTreeError, setBookTreeError] = useState(null);
+  const [selectedTopicIds, setSelectedTopicIds] = useState([]);
+
+  // --------------------------------------------------------------
+  // Fetch books ONCE when modal opens
+  // --------------------------------------------------------------
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset when modal closes
+      setBookTreeData(null);
+      setBookTreeError(null);
+      return;
+    }
+
+    const fetchBooksOnce = async () => {
+      setBookTreeLoading(true);
+      setBookTreeError(null);
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) throw new Error("Login required");
+
+        const res = await fetch(API_BOOKS, { headers });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status}${txt ? `: ${txt}` : ""}`);
+        }
+        const data = await res.json();
+        setBookTreeData(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setBookTreeError(err.message || "Failed to load books");
+        toast.error("Failed to load book topics");
+      } finally {
+        setBookTreeLoading(false);
+      }
+    };
+
+    fetchBooksOnce();
+  }, [isOpen]); // ← Only runs when modal opens/closes
+
+  
 
   // Memoized fetchSchools
   const fetchSchools = useCallback(async () => {
@@ -79,136 +136,188 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
     }
   }, [selectedSchool]);
 
-  useEffect(() => {
-    fetchSchools();
-  }, [fetchSchools]);
-
-  useEffect(() => {
-    fetchClasses();
-  }, [fetchClasses]);
-
-  useEffect(() => {
-    const fetchTeacher = async () => {
-      try {
-        setLoading(true);
-        toast.info("Loading lesson plan form...", { toastId: "loadingLessonForm", autoClose: false });
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/user/`, {
-          headers: getAuthHeaders(),
-        });
-        if (response.data?.id) {
-          setTeacherId(response.data.id);
-        } else {
-          setError("Could not fetch teacher ID. Please try again.");
-          toast.error("Could not fetch teacher ID.");
-        }
-      } catch (error) {
-        const message = error.response?.status === 401 ? "Unauthorized access. Please log in again." : "Error fetching user data.";
-        setError(message);
-        console.error("Error fetching user:", error.response?.data || error.message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
-        toast.dismiss("loadingLessonForm");
-      }
-    };
-    if (isOpen) fetchTeacher();
-  }, [isOpen]);
-
-  const handleMonthChange = useCallback((e) => {
-    setSelectedMonth(e.target.value);
-    setHasUnsavedChanges(true);
-    if (!e.target.value) {
-      setAllDates([]);
-      setSelectedDates([]);
-      setNewLessons([]);
-      setError("");
-      return;
+  // Fetch teacher ID from JWT
+  const fetchTeacherId = useCallback(async () => {
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/user/`, { headers });
+      setTeacherId(res.data.id);
+    } catch (err) {
+      console.error("Failed to fetch teacher ID:", err);
     }
-    const [year, month] = e.target.value.split("-");
-    const days = [];
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getDate();
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(Date.UTC(year, month - 1, day));
-      const formattedDate = date.toISOString().split("T")[0];
-      days.push(formattedDate);
-    }
-    setAllDates(days);
-    setSelectedDates([]);
-    setNewLessons([]);
-    setError("");
   }, []);
 
-  const toggleDateSelection = (date) => {
-    setHasUnsavedChanges(true);
-    setSelectedDates((prev) =>
-      prev.includes(date) ? prev.filter((d) => d !== date) : [...prev, date]
-    );
+  // Generate dates for selected month
+  const generateDatesForMonth = useCallback((year, month) => {
+    const dates = [];
+    const date = new Date(Date.UTC(year, month, 1));
+    while (date.getUTCMonth() === month) {
+      dates.push(new Date(date));
+      date.setUTCDate(date.getUTCDate() + 1);
+    }
+    return dates;
+  }, []);
+
+  // Handle month change
+  const handleMonthChange = (e) => {
+    const value = e.target.value;
+    setSelectedMonth(value);
+    if (value) {
+      const [year, month] = value.split("-").map(Number);
+      const dates = generateDatesForMonth(year, month - 1);
+      setAllDates(dates);
+      setSelectedDates([]);
+    } else {
+      setAllDates([]);
+      setSelectedDates([]);
+    }
   };
 
+  // Toggle date selection
+  const toggleDateSelection = (date) => {
+    const dateStr = date.toISOString().split("T")[0];
+    setSelectedDates((prev) =>
+      prev.includes(dateStr)
+        ? prev.filter((d) => d !== dateStr)
+        : [...prev, dateStr]
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  // Generate new lessons
   const generateNewLessons = () => {
     if (selectedDates.length === 0) {
-      setError("Please select at least one date for new lessons.");
-      toast.error("Select at least one date.");
+      toast.warn("Please select at least one date.");
       return;
     }
-    const generatedLessons = selectedDates.map((date) => ({
+    const generated = selectedDates.map((date) => ({
       session_date: date,
-      planned_topic: "",
+      planned_topic_id: null,
+      planned_topic_display: "",
     }));
-    setNewLessons(generatedLessons);
+    setNewLessons((prev) => [...prev, ...generated]);
+    setSelectedDates([]);
+    setHasUnsavedChanges(true);
+    toast.success(`${selectedDates.length} date(s) added.`);
+  };
+
+    // Open topic selector
+   
+
+//   // Handle topic select
+//   const handleTopicSelect = (index, node) => {
+//   setNewLessons((prev) => {
+//     const updated = [...prev];
+//     updated[index] = {
+//       ...updated[index],
+//       planned_topic_id: node.id,
+//       planned_topic_display: node.display_title,
+//     };
+//     console.log("Updated newLessons:", updated); // Log the updated array
+//     return updated;
+//   });
+//   setEditingIndex(null);
+//   setHasUnsavedChanges(true);
+// };
+    const openTopicSelector = (index) => {
+  setSelectedTopicIds(newLessons[index]?.planned_topic_ids || []);
+  setEditingIndex(index);
+};
+
+  const handleTopicSelect = (ids) => {
+  const updated = [...newLessons];
+  updated[editingIndex] = {
+    ...updated[editingIndex],
+    planned_topic_ids: ids,
+    planned_topic_display: ids.length > 0 ? `${ids.length} topic(s) selected` : "Select topics"
+  };
+  setNewLessons(updated);
+  setEditingIndex(null);
+};
+  // Clear topic
+  const clearTopic = (index) => {
+  const updated = [...newLessons];
+  updated[index] = {
+    ...updated[index],
+    planned_topic_ids: [],           // ← Clear IDs
+    planned_topic_display: undefined // ← Remove display text
+  };
+  setNewLessons(updated);
+};
+
+  // // Form validation
+  // const isFormValid = () => {
+  //   return (
+  //     selectedSchool &&
+  //     selectedClass &&
+  //     teacherId &&
+  //     newLessons.length > 0 &&
+  //     newLessons.every((l) => l.planned_topic_id != null)
+  //   );
+  // };
+  const formValid = useMemo(() => {
+  const valid = (
+    selectedSchool != null &&
+    selectedClass != null &&
+    teacherId != null &&
+    newLessons.length > 0 &&
+    newLessons.every((l) => 
+      Array.isArray(l.planned_topic_ids) && l.planned_topic_ids.length > 0
+    )
+  );
+  console.log("formValid computed:", valid);
+  console.log("Current newLessons:", newLessons);
+  return valid;
+}, [selectedSchool, selectedClass, teacherId, newLessons]);
+  // Handle submit
+    const handleSubmit = async () => {
+    if (!formValid || loading) return;
+
+    setLoading(true);
     setError("");
-    setHasUnsavedChanges(true);
-  };
 
-  const handleInputChange = (index, field, value) => {
-    setHasUnsavedChanges(true);
-    const updatedNewLessons = [...newLessons];
-    updatedNewLessons[index][field] = value;
-    setNewLessons(updatedNewLessons);
-  };
-
-  const isFormValid = () => {
-    return (
-      selectedSchool &&
-      selectedClass &&
-      teacherId &&
-      newLessons.length > 0 &&
-      newLessons.every((lesson) => lesson.session_date && lesson.planned_topic.trim())
-    );
-  };
-
-  const handleSubmit = async () => {
-    if (!isFormValid()) {
-      toast.error("Please fill all required fields: school, class, and lesson topics.");
-      return;
-    }
-
-    let toastId = null;
     try {
-      setLoading(true);
-      toastId = toast.info(`Saving lessons for ${formatDate(selectedDates[0])} - ${selectedClass}...`, { autoClose: false });
+      const payload = {
+        school_id: selectedSchool,
+        student_class: selectedClass,
+        lessons: newLessons.map(l => ({
+          session_date: l.session_date,
+          planned_topic_ids: l.planned_topic_ids || []  // ← CRITICAL
+        })),
+      };
 
-      for (const lesson of newLessons) {
-        await addLesson({
-          school_id: selectedSchool,
-          student_class: selectedClass,
-          teacher_id: teacherId,
-          session_date: lesson.session_date,
-          planned_topic: lesson.planned_topic,
-        });
-      }
+      console.log("Final payload:", payload); // Debug
 
-      toast.success("Lessons saved successfully!");
-      resetForm();
-      onClose();
-    } catch (error) {
-      const message = error.response?.status === 400 ? "Invalid lesson data." : "Failed to save lessons.";
-      toast.error(message);
-      console.error("Error adding new lessons:", error.response?.data || error.message);
-      setError(message);
+      const result = await addLesson(payload);
+      console.log("API Response:", result);
+
+      toast.success("Lesson plans created successfully!");
+
+      // DO NOT CALL onClose() HERE
+      // Keep modal open for more entries
+
+      // Optional: Reset form for next entry
+      setSelectedDates([]);
+      setNewLessons([]);
+      // Keep school/class/month selected if you want
+    } catch (err) {
+      console.error("Add lesson error:", err);
+      setError(err.message || "Failed to save lessons");
+      toast.error("Failed to save lessons");
     } finally {
       setLoading(false);
-      if (toastId) toast.dismiss(toastId);
+    }
+  };
+  // Handle close with unsaved changes
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      if (window.confirm("You have unsaved changes. Close anyway?")) {
+        onClose();
+        resetForm();
+      }
+    } else {
+      onClose();
+      resetForm();
     }
   };
 
@@ -219,126 +328,151 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
     setAllDates([]);
     setSelectedDates([]);
     setNewLessons([]);
-    setError("");
+    setEditingIndex(null);
     setHasUnsavedChanges(false);
   };
 
-  const handleClose = () => {
-    if (hasUnsavedChanges && !window.confirm("You have unsaved changes. Are you sure you want to close?")) {
-      return;
+  // Load data on mount
+  useEffect(() => {
+    if (isOpen) {
+      fetchSchools();
+      fetchTeacherId();
     }
-    resetForm();
-    onClose();
-  };
+  }, [isOpen, fetchSchools, fetchTeacherId]);
+
+  useEffect(() => {
+    fetchClasses();
+  }, [fetchClasses]);
 
   if (!isOpen) return null;
 
-  return (
-    <div className="modal-overlay" role="dialog" aria-labelledby="modal-title">
-      <div className="modal-container">
-        {/* Updated Descriptive Text */}
-        <p className="text-gray-600 mb-4">
-  Choose your <span className="font-bold">School, Class, Month (Date ranges)</span> to view all dates. Then check your working days to see space for entering <span className="font-bold">your planned lesson</span>.
-</p>
+return (
+  <div
+  className={`modal-overlay ${isOpen ? "visible" : ""}`}
+  onClick={handleClose} // Close when clicking overlay
+>
+  <div
+    className="modal-content"
+    onClick={(e) => e.stopPropagation()} // Prevent close when clicking inside
+  >
+      <div className="modal-header">
+        <h2 id="modal-title">{mode === "add" ? "Add" : "Edit"} Lesson Plan</h2>
+        <button onClick={handleClose} className="btn-close" aria-label="Close modal">
+          ×
+        </button>
+      </div>
 
-        <h2 id="modal-title" className="modal-title">📅 Add Lesson Plan</h2>
+      {loading && (
+        <div className="loading-overlay">
+          <ClipLoader size={50} color={"#123abc"} />
+        </div>
+      )}
 
-        {loading && (
-  <div className="flex justify-center items-center" aria-live="polite">
-    <ClipLoader color="#000000" size={30} />
-  </div>
-)}
-        {error && <p className="error-text" aria-live="assertive">{error}</p>}
+      {error && <div className="error-message">{error}</div>}
 
-        <fieldset className="form-group">
-          <legend className="form-label">School</legend>
+      <div className="modal-body">
+        {/* School Selection */}
+        <fieldset disabled={loading}>
+          <label htmlFor="school-select">Select School</label>
           <select
-            aria-label="Select school"
-            className="form-select"
+            id="school-select"
             value={selectedSchool}
-            onChange={(e) => setSelectedSchool(e.target.value)}
-            disabled={loading}
+            onChange={(e) => {
+              setSelectedSchool(e.target.value);
+              setSelectedClass("");
+              setHasUnsavedChanges(true);
+            }}
+            className="form-select"
           >
             <option value="">-- Select School --</option>
-            {schools.map((school) => (
-              <option key={school.id} value={school.id}>
-                {school.name}
+            {schools.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
           </select>
         </fieldset>
 
-        <fieldset className="form-group">
-          <legend className="form-label">Class</legend>
-          <select
-            aria-label="Select class"
-            className="form-select"
-            value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
-            disabled={!selectedSchool || loading}
-          >
-            <option value="">-- Select Class --</option>
-            {classes.map((cls) => (
-              <option key={cls} value={cls}>
-                {cls}
-              </option>
-            ))}
-          </select>
-        </fieldset>
-
-        <fieldset className="form-group">
-          <legend className="form-label">Select Month</legend>
-          <input
-            type="month"
-            aria-label="Select month"
-            className="form-input"
-            value={selectedMonth}
-            onChange={handleMonthChange}
-            disabled={loading}
-          />
-        </fieldset>
-
-        {allDates.length > 0 && (
-          <fieldset className="form-group">
-            <legend className="form-label">Select Lesson Dates</legend>
-            {/* New Descriptive Text Before Dates */}
-           <p className="text-gray-600 mb-2">
-  Select your <span style={{ fontWeight: 'bold' }}>working days</span> and click <span style={{ fontWeight: 'bold' }}>Add Selected Dates</span>
-</p>
-            <div className="date-checkboxes" role="group" aria-label="Select lesson dates">
-              {allDates.map((date) => (
-                <div key={date} className="date-checkbox-item">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${formatDate(date)}`}
-                      checked={selectedDates.includes(date)}
-                      onChange={() => toggleDateSelection(date)}
-                      disabled={loading}
-                      className="checkbox-input"
-                    />
-                    <span>{formatDate(date)}</span>
-                  </label>
-                </div>
+        {/* Class Selection */}
+        {selectedSchool && (
+          <fieldset disabled={loading}>
+            <label htmlFor="class-select">Select Class</label>
+            <select
+              id="class-select"
+              value={selectedClass}
+              onChange={(e) => {
+                setSelectedClass(e.target.value);
+                setHasUnsavedChanges(true);
+              }}
+              className="form-select"
+            >
+              <option value="">-- Select Class --</option>
+              {classes.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
+            </select>
+          </fieldset>
+        )}
+
+        {/* Month Selection */}
+        {selectedClass && (
+          <fieldset disabled={loading}>
+            <label htmlFor="month-select">Select Month</label>
+            <input
+              id="month-select"
+              type="month"
+              value={selectedMonth}
+              onChange={handleMonthChange}
+              className="form-input"
+            />
+          </fieldset>
+        )}
+
+        {/* Date Selection */}
+        {allDates.length > 0 && (
+          <fieldset disabled={loading}>
+            <legend>Select Dates</legend>
+            <div className="dates-grid">
+              {allDates.map((date) => {
+                const dateStr = date.toISOString().split("T")[0];
+                return (
+                  <div key={dateStr} className="date-item">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedDates.includes(dateStr)}
+                        onChange={() => toggleDateSelection(date)}
+                        disabled={loading}
+                        className="checkbox-input"
+                        aria-label={`Select date ${formatDate(date)}`}
+                      />
+                      <span>{formatDate(date)}</span>
+                    </label>
+                  </div>
+                );
+              })}
             </div>
             <button
               onClick={generateNewLessons}
               className="btn btn-primary mt-2"
-              disabled={loading}
+              disabled={loading || selectedDates.length === 0}
               aria-label="Add selected dates"
             >
-              ➕ Add Selected Dates
+              <FontAwesomeIcon icon={faPlus} className="mr-2" /> Add Selected Dates
             </button>
           </fieldset>
         )}
 
+        {/* Lessons Table */}
         <div className="table-container">
           <table className="lesson-table" aria-describedby="modal-title">
             <thead>
               <tr>
                 <th scope="col">Date</th>
                 <th scope="col">Planned Topic</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -346,20 +480,45 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
                 <tr key={`new-${index}`} className="new-lesson">
                   <td>{formatDate(lesson.session_date)}</td>
                   <td>
-                    <textarea
-                      aria-label={`Enter topic for lesson on ${formatDate(lesson.session_date)}`}
-                      className="form-textarea"
-                      value={lesson.planned_topic}
-                      onChange={(e) => handleInputChange(index, "planned_topic", e.target.value)}
-                      placeholder="Enter topic for this lesson"
-                      disabled={loading}
-                    />
+                    {lesson.planned_topic_display ? (
+                      <span className="selected-topic-display">
+                        {lesson.planned_topic_display}
+                      </span>
+                    ) : (
+                      <em className="text-muted">No topic selected</em>
+                    )}
                   </td>
+                  <td>
+  {/* Show how many topics are selected (or “No topics”) */}
+  {lesson.planned_topic_ids?.length > 0 
+    ? `${lesson.planned_topic_ids.length} topic${lesson.planned_topic_ids.length > 1 ? 's' : ''} selected`
+    : "No topics"}
+
+  {/* Open / Change button */}
+  <button
+    onClick={() => openTopicSelector(index)}
+    className="btn btn-sm btn-outline ml-2"
+    disabled={loading}
+  >
+    {lesson.planned_topic_ids?.length > 0 ? "Change" : "Select"}
+  </button>
+
+  {/* Clear button – only when something is selected */}
+  {lesson.planned_topic_ids?.length > 0 && (
+    <button
+      onClick={() => clearTopic(index)}
+      className="btn btn-sm btn-danger ml-1"
+      disabled={loading}
+    >
+      Clear
+    </button>
+  )}
+</td>
                 </tr>
               ))}
               {newLessons.length === 0 && (
                 <tr>
-                  <td colSpan="2" className="empty-table-text">
+                  <td colSpan="3" className="empty-table-text">
                     No lessons added. Select dates to add new lessons.
                   </td>
                 </tr>
@@ -368,27 +527,107 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
           </table>
         </div>
 
-        <div className="modal-actions">
+  {/* Topic Selector Modal */}
+{editingIndex !== null && (
+  <div className="topic-selector-overlay">
+    <div className="topic-selector-modal">
+      <button
+        onClick={() => setEditingIndex(null)}
+        className="close-icon"
+        aria-label="Close topic selector"
+      >
+        <FontAwesomeIcon icon={faTimes} />
+      </button>
+
+      <h3>
+        Select Topic for{" "}
+        {formatDate(newLessons[editingIndex].session_date)}
+      </h3>
+
+      {bookTreeLoading && (
+        <div className="text-center p-4">
+          <ClipLoader size={30} color="#7e57c2" />
+          <p className="mt-2">Loading topics...</p>
+        </div>
+      )}
+
+      {bookTreeError && (
+        <div className="text-center p-4 text-danger">
+          <p>{bookTreeError}</p>
           <button
-            onClick={handleSubmit}
-            className="btn btn-success"
-            disabled={loading || !isFormValid()}
-            aria-label="Save new lessons"
+            onClick={async () => {
+              setBookTreeLoading(true);
+              try {
+                const headers = getAuthHeaders();
+                const res = await fetch(API_BOOKS, { headers });
+                const data = await res.json();
+                setBookTreeData(Array.isArray(data) ? data : []);
+                setBookTreeError(null);
+              } catch {
+                setBookTreeError("Retry failed");
+              } finally {
+                setBookTreeLoading(false);
+              }
+            }}
+            className="btn btn-sm btn-outline mt-2"
           >
-            Save New Lessons
-          </button>
-          <button
-            onClick={handleClose}
-            className="btn btn-danger"
-            disabled={loading}
-            aria-label="Cancel and close modal"
-          >
-            Cancel
+            Retry
           </button>
         </div>
+      )}
+
+      {bookTreeData && !bookTreeLoading && !bookTreeError && (
+        <BookTreeSelect
+          books={bookTreeData}
+          selectedIds={selectedTopicIds}                 // <-- NEW
+          onSelect={handleTopicSelect}                  // <-- NEW (receives array)
+        />
+      )}
+
+      <button
+        onClick={() => setEditingIndex(null)}
+        className="btn btn-danger mt-3"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+      </div>
+
+      {/* SINGLE, CLEAN MODAL ACTIONS */}
+      <div className="modal-actions">
+        <button
+          onClick={handleSubmit}
+          className="btn btn-success"
+          disabled={loading || !formValid}
+        >
+          {loading ? "Saving..." : "Save & Continue"}
+        </button>
+
+        <button
+          onClick={async () => {
+            await handleSubmit();
+            onClose();
+          }}
+          className="btn btn-primary"
+          disabled={loading || !formValid}
+        >
+          <FontAwesomeIcon icon={faSave} className="mr-2" />
+          Save & Close
+        </button>
+
+        <button
+          onClick={onClose}
+          className="btn btn-danger"
+          disabled={loading}
+        >
+          Cancel
+        </button>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default LessonPlanModal;

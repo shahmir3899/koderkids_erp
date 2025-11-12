@@ -15,7 +15,7 @@ class Command(BaseCommand):
         csv_file = options["csv_file"]
         dry_run = options["dry_run"]
 
-        book, _ = Book.objects.get_or_create(title="Book 1")
+        book, _ = Book.objects.get_or_create(title="Book 2")
 
         # Track order per (lesson_code, activity_type)
         lesson_orders = {}

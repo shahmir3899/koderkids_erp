@@ -31,8 +31,8 @@ import CSVUpload from './components/CSVUpload';
 
 import { logout } from "./api"; 
 
-//export const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-export const REACT_APP_BACKEND_URL = 'http://127.0.0.1:8000/api/books/books/';
+export const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
 
 
 const AutoLogout = () => {
@@ -94,7 +94,7 @@ function App() {
 
       {/* ✅ Admin Only Routes */}
       <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
-      <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin"]} />} />
+      <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/settings" element={<ProtectedRoute element={<SettingsPage />} allowedRoles={["Admin"]} />} />
       <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />

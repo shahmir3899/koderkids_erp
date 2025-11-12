@@ -4,7 +4,7 @@ import os
 import random
 from django.http import JsonResponse
 from django.utils.timezone import now
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, F, Case, When, IntegerField, FloatField
 from django.db import IntegrityError
 from rest_framework import viewsets, status, serializers
 from rest_framework.response import Response
@@ -16,7 +16,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import make_password
 from .models import Student, Fee, School, Attendance, LessonPlan, CustomUser
-from .serializers import StudentSerializer, SchoolSerializer, AttendanceSerializer, LessonPlanSerializer
+from .serializers import StudentSerializer, SchoolSerializer, AttendanceSerializer, LessonPlanSerializer, FeeSummarySerializer
 from django.shortcuts import render
 from django.db.models.functions import Round, Cast
 from django.db.models import Q, Count, Case, When, IntegerField, FloatField
@@ -28,11 +28,6 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 from students.models import StudentImage
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from .serializers import FeeSummarySerializer
-
-
-from django.db.models import Count, Case, When, IntegerField, FloatField
 from django.db.models.functions import Round
 from django.contrib.postgres.aggregates import ArrayAgg
 from datetime import datetime, timedelta
@@ -42,6 +37,7 @@ from .serializers import (
     LessonStatusSerializer, SchoolLessonsSerializer, StudentEngagementSerializer
 )
 
+from students.serializers import LessonPlanSerializer
 
 
 
@@ -834,6 +830,51 @@ def create_new_month_fees(request):
         "records_created": len(new_fees)
     }, status=201)
 
+# views.py (add this new function)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def bulk_create_lesson_plans(request):
+    """Bulk create lesson plans (for multiple dates/topics)"""
+    teacher = request.user
+
+    if teacher.role != 'Teacher':
+        return Response({"error": "Only teachers can create lesson plans."}, status=403)
+
+    school_id = request.data.get('school_id')
+    student_class = request.data.get('student_class')
+    lessons = request.data.get('lessons', [])  # List of {'session_date': date, 'planned_topic_id': id (nullable)}
+
+    if not school_id or not student_class or not lessons:
+        return Response({"error": "School ID, class, and lessons list required."}, status=400)
+
+    try:
+        school = School.objects.get(id=school_id)
+        if not teacher.assigned_schools.filter(id=school.id).exists():
+            return Response({"error": "You are not assigned to this school."}, status=403)
+
+        created = []
+        for lesson_data in lessons:
+            serializer = LessonPlanSerializer(data={
+                'session_date': lesson_data.get('session_date'),
+                'student_class': student_class,
+                'planned_topic_id': lesson_data.get('planned_topic_id'),
+                'school': school_id,
+                'teacher': teacher.id,
+            })
+            if serializer.is_valid():
+                plan = serializer.save()
+                created.append(LessonPlanSerializer(plan).data)
+            else:
+                return Response(serializer.errors, status=400)
+
+        return Response({"message": "Lesson plans created successfully!", "data": created}, status=200)
+
+    except School.DoesNotExist:
+        return Response({"error": "Invalid school ID."}, status=400)
+    except IntegrityError:
+        return Response({"error": "Duplicate lesson plan detected."}, status=400)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_attendance(request):
@@ -945,51 +986,140 @@ def update_attendance(request, attendance_id):
         return Response({"error": "Attendance record not found."}, status=404)
 
 
+# views.py (replace the existing function)
+# students/views.py   (or wherever the view lives)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_lesson_plan(request):
-    """Allows teachers to create or update lesson plans for a session"""
     teacher = request.user
-
     if teacher.role != 'Teacher':
         return Response({"error": "Only teachers can create lesson plans."}, status=403)
 
-    session_date = request.data.get('session_date')
-    student_class = request.data.get('student_class')
-    planned_topic = request.data.get('planned_topic')
-    school_id = request.data.get('school_id')
+    data = request.data
 
-    if not all([session_date, student_class, planned_topic, school_id]):
-        return Response({"error": "Invalid data provided. All fields are required."}, status=400)
+    # CASE 1: Bulk array of lessons (each with school_id, student_class)
+    if isinstance(data, list):
+        lessons_data = data
+        created_plans = []
 
-    try:
-        school = School.objects.get(id=school_id)
-        if not teacher.assigned_schools.filter(id=school.id).exists():
-            return Response({"error": "You are not assigned to this school."}, status=403)
+        for lesson_data in lessons_data:
+            school_id = lesson_data.get('school_id')
+            student_class = lesson_data.get('student_class')
+            session_date = lesson_data.get('session_date')
+            planned_topic_ids = lesson_data.get('planned_topic_ids', [])
+            planned_topic_id = lesson_data.get('planned_topic_id')  # backward compat
 
-        lesson_plan, created = LessonPlan.objects.update_or_create(
-            session_date=session_date,
-            teacher=teacher,
-            student_class=student_class,
-            school=school,
-            defaults={"planned_topic": planned_topic}
-        )
+            if not all([school_id, student_class, session_date]):
+                return Response({
+                    "error": "Each lesson must include school_id, student_class, session_date."
+                }, status=400)
 
-        action = "created" if created else "updated"
+            # School access check
+            try:
+                school = School.objects.get(id=school_id)
+                if not teacher.assigned_schools.filter(id=school.id).exists():
+                    return Response({"error": f"Not assigned to school {school_id}"}, status=403)
+            except School.DoesNotExist:
+                return Response({"error": f"Invalid school_id: {school_id}"}, status=400)
+
+            # Duplicate check
+            if LessonPlan.objects.filter(
+                session_date=session_date,
+                teacher=teacher,
+                student_class=student_class,
+                school=school
+            ).exists():
+                return Response({
+                    "error": f"Duplicate lesson for {session_date}"
+                }, status=400)
+
+            # Build serializer data
+            serializer_data = {
+                'session_date': session_date,
+                'student_class': student_class,
+                'school': school_id,
+                'teacher': teacher.id,
+            }
+            if planned_topic_ids:
+                serializer_data['planned_topic_ids'] = planned_topic_ids
+            elif planned_topic_id is not None:
+                serializer_data['planned_topic_ids'] = [planned_topic_id]
+
+            serializer = LessonPlanSerializer(data=serializer_data)
+            if serializer.is_valid():
+                plan = serializer.save()
+                created_plans.append(LessonPlanSerializer(plan).data)
+            else:
+                return Response(serializer.errors, status=400)
+
         return Response({
-            "message": f"Lesson plan {action} successfully!",
-            "action": action,
-            "data": LessonPlanSerializer(lesson_plan).data
-        }, status=200)
+            "message": "Lesson plans created successfully!",
+            "data": created_plans
+        }, status=201)
 
-    except School.DoesNotExist:
-        return Response({"error": "Invalid school ID."}, status=400)
-    except IntegrityError:
-        return Response({"error": "Duplicate lesson plan detected."}, status=400)
+    # CASE 2: Original format { school_id, student_class, lessons: [...] }
+    else:
+        school_id = data.get('school_id')
+        student_class = data.get('student_class')
+        lessons_data = data.get('lessons', [])
 
+        if not all([school_id, student_class, lessons_data]):
+            return Response({"error": "Missing required fields."}, status=400)
 
+        try:
+            school = School.objects.get(id=school_id)
+            if not teacher.assigned_schools.filter(id=school.id).exists():
+                return Response({"error": "You are not assigned to this school."}, status=403)
+        except School.DoesNotExist:
+            return Response({"error": "Invalid school ID."}, status=400)
+
+        created_plans = []
+        for lesson_data in lessons_data:
+            session_date = lesson_data.get('session_date')
+            planned_topic_ids = lesson_data.get('planned_topic_ids', [])
+            planned_topic_id = lesson_data.get('planned_topic_id')
+
+            if not session_date:
+                return Response({"error": "session_date required."}, status=400)
+
+            if LessonPlan.objects.filter(
+                session_date=session_date,
+                teacher=teacher,
+                student_class=student_class,
+                school=school
+            ).exists():
+                return Response({"error": f"Duplicate for {session_date}"}, status=400)
+
+            serializer_data = {
+                'session_date': session_date,
+                'student_class': student_class,
+                'school': school_id,
+                'teacher': teacher.id,
+            }
+            if planned_topic_ids:
+                serializer_data['planned_topic_ids'] = planned_topic_ids
+            elif planned_topic_id is not None:
+                serializer_data['planned_topic_ids'] = [planned_topic_id]
+
+            serializer = LessonPlanSerializer(data=serializer_data)
+            if serializer.is_valid():
+                plan = serializer.save()
+                created_plans.append(LessonPlanSerializer(plan).data)
+            else:
+                return Response(serializer.errors, status=400)
+
+        return Response({
+            "message": "Lesson plans created successfully!",
+            "data": created_plans
+        }, status=201)
+    
+
+    
 from django.db.models import Q
 
+# views.py (replace the existing function)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_lesson_plan(request, session_date, school_id, student_class):
@@ -1000,35 +1130,25 @@ def get_lesson_plan(request, session_date, school_id, student_class):
     try:
         logger.info(f"🔍 Fetching lessons for date: {session_date}, school: {school_id}, class: {student_class}")
 
-        # Query for lessons on the given date
         lessons = LessonPlan.objects.filter(
             session_date=session_date,
             school_id=school_id,
             student_class=student_class
         )
 
-        # ✅ If no lessons exist, return an empty list with 200 OK
         if not lessons.exists():
             logger.warning(f"⚠️ No lessons found for {session_date}, school {school_id}, class {student_class}. Returning empty list.")
             return JsonResponse({"lessons": []}, safe=False, status=200)
 
-        # Serialize and return lesson data
-        lesson_data = [
-            {
-                "id": lesson.id,
-                "session_date": lesson.session_date,
-                "planned_topic": lesson.planned_topic,
-                "achieved_topic": lesson.achieved_topic,
-            }
-            for lesson in lessons
-        ]
-
-        return JsonResponse({"lessons": lesson_data}, safe=False, status=200)
+        # CHANGED: Use serializer (outputs display_title for planned_topic)
+        serializer = LessonPlanSerializer(lessons, many=True)
+        return JsonResponse({"lessons": serializer.data}, safe=False, status=200)
 
     except Exception as e:
         logger.error(f"❌ Error fetching lessons: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
 
+# views.py (replace the existing function)
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_achieved_topic(request, lesson_plan_id):
@@ -1051,11 +1171,11 @@ def update_achieved_topic(request, lesson_plan_id):
         lesson_plan.achieved_topic = achieved_topic
         lesson_plan.save()
 
+        # CHANGED: Use serializer for response (includes display_title for planned_topic)
         return Response({"message": "Achieved topic updated successfully!", "data": LessonPlanSerializer(lesson_plan).data})
+
     except LessonPlan.DoesNotExist:
         return Response({"error": "Lesson plan not found."}, status=404)
-    
-
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
@@ -1834,11 +1954,7 @@ def get_student_image_uploads_count(request):
 
 # students/views.py   (or wherever the endpoint lives)
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from .models import Student, Fee, Attendance   # adjust import path if needed
-from django.db.models import F
+
 
 
 @api_view(['GET'])

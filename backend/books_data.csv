@@ -1,78 +1,75 @@
 Book,Topic,Class Activity,Home Activity
-Book 1,1.1 Introduction to Computers,,
-Book 1,1.2 Basic Computer Hardware,Class Activity 1: Identify the Parts of the Computer,Home Activity 1: Draw and Label
-Book 1,1.3 Using Paint for Simple Drawing,Class Activity 2: Open and Explore Paint,Home Activity 2: Paint Message
-Book 1,1.3 Using Paint for Simple Drawing,Class Activity 3: Draw a Simple House in Paint,Home Activity 3: Create Your Dream House
-Book 1,1.3 Using Paint for Simple Drawing,Class Activity 4: Draw and Color a Robot,
-Book 1,1.3 Using Paint for Simple Drawing,Class Activity 5: Create a Name Card,
-Book 1,1.4 Exploring the Calculator,Class Activity 6: Practice Basic Math Operations in Calculator,Home Activity 4: Be a Number Wizard!
-Book 1,1.4 Exploring the Calculator,Class Activity 7: Practice Basic Math in Calculator,Home Activity 5: Calculator Art
-Book 1,1.4 Exploring the Calculator,Class Activity 8: Math Story Time,
-Book 1,1.5 Chapter Wrap-Up,,
-Book 1,2.1 Getting to Know Scratch Jr,Class Activity 1: Scratch Jr Tour,Home Activity 1: Meet the Blocks
-Book 1,2.2 Creating Your First Project,Class Activity 2: Create a Moving Character in Scratch Jr,Home Activity 1: Make It Walk
-Book 1,2.2 Creating Your First Project,Class Activity 3: Decorate the Stage,Home Activity 2: Add a Surprise
-Book 1,2.3 Moving Characters with Blocks,Class Activity 4: Create a Moving Character in Scratch Jr,Home Activity 3: Speed Challenge
-Book 1,2.3 Moving Characters with Blocks,Class Activity 5: Coding Race,
-Book 1,2.4 Creating Simple Animations,Class Activity 6: Create a Talking Character Animation,Home Activity 4: Dance & Tell
-Book 1,2.4 Creating Simple Animations,Class Activity 7: Code a Dance,
-Book 1,2.5 Creating Scenes with Multiple Pages,Class Activity 8: New Scene (Multipage),Home Activity 5: Story Time Challenge
-Book 1,2.5 Creating Scenes with Multiple Pages,Class Activity 9: My First Story,
-Book 1,2.6 Chapter Wrap-Up,,
-Book 1,3.1 Introduction to VEXcode VR,Class Activity 1: Explore the Site,Home Activity 1: VEXcode VR Safari
-Book 1,3.2 Moving the Virtual Robot,Class Activity 2: Move Robot Forward,Home Activity 2: Long Drive
-Book 1,3.2 Moving the Virtual Robot,Class Activity 3: Drive Backward,Home Activity 3: Robot Zigzag
-Book 1,3.3 Programming a Simple Path,Class Activity 4: Program the Robot to Move and Turn,Home Activity 4: Maze Designer
-Book 1,3.3 Programming a Simple Path,Class Activity 5: Square Challenge,
-Book 1,3.4 Testing Robot Movements,Class Activity 6: Adjust and Test the Robot’s Path,Home Activity 5: Maze Designer
-Book 1,3.4 Testing Robot Movements,Class Activity 7: Fix My Robot!,
-Book 1,3.5 Make a Robot Dance!,Class Activity 8: Robot Dance Party,Home Activity 6: Music + Robot
-Book 1,3.6 Challenge Time!,Class Activity 9: Treasure Hunt,Home Activity 7: Robot to the Rescue!
-Book 1,3.7 Chapter Wrap-Up,,
-Book 1,4.1 What is Python?,,
-Book 1,4.2 Basics of Python,,
-Book 1,4.3 Using Google Colab for Python Programming,,
-Book 1,4.4 Writing Your First Python Program,"Class Activity 1: ""Hello, World!"" Program",
-Book 1,4.5 Variables in Python,Class Activity 2: Let us make some Boxes,
-Book 1,4.6 More about variables,,Home Activity 1: Variables
-Book 1,4.7 Mathematics in Python,Class Activity 3: Add Two Numbers Using Python,Home Activity 2: Some mathematics
-Book 1,4.8 Some more Codes,,Home Activity 3: Use print function
-Book 1,4.9 Chapter Wrap-Up,,
-Book 1,5.1 What is PowerPoint?,,
-Book 1,5.2 Designing Your First Slide,Class Activity 1: Create Your First Slide,
-Book 1,5.3 Adding Text and Images,Class Activity 2: Add a Slide with Text and Images,
-Book 1,5.4 Creating a 3-Slide Presentation,Class Activity 3: Build Your 3-Slide Presentation,
-Book 1,5.5 Saving and Presenting Your PowerPoint,Class Activity 4: Present Your PowerPoint,
-Book 1,6.1 Building Stories in Scratch Jr,,
-Book 1,6.2 Adding Characters and Backgrounds,Class Activity 1: Add Multiple Characters and Change the Background,
-Book 1,6.3 Making Characters Talk,Class Activity 2: Make Two Characters Talk,
-Book 1,6.4 Moving and Interacting with Blocks,Class Activity 3: Make Characters Move and Interact,
-Book 1,6.5 Creating Scenes with Multiple Pages,Class Activity 4: Add a New Scene to Your Story,
-Book 1,6.6 Sharing Your First Story,Class Activity 5: Share Your Story,
-Book 1,6.7 Chapter Wrap-Up,,
-Book 1,7.1 What is the Internet?,Class Activity 1: Open a Web Browser,Home Activity 1: Draw the Internet
-Book 1,7.2 Safe Web Browsing,Class Activity 2: Spot Safe Websites,Home Activity 2: Internet Rules Poster
-Book 1,7.3 Searching for Information,Class Activity 3: Search Safari,Home Activity 3: Fact Finder
-Book 1,7.4 Saving Favorite Websites,Class Activity 4: Bookmark a Website,Home Activity 4: Bookmark Treasure
-Book 1,7.5 Chapter Wrap-Up,,
-Book 1,8.1 What is Canva,Class Activity 1: Open Canva,Home Activity 1: Dream Design
-Book 1,8.2 Creating Your First Design,Class Activity 2: Make an Eid Poster,Home Activity 2: Poster Power
-Book 1,8.3 Adding Colors and Shapes,Class Activity 3: Shape Party,Home Activity 3: Color Splash
-Book 1,8.4 Sharing Your Artwork,Class Activity 4: Art Gallery,Home Activity 4: Art Show
-Book 1,8.5 Chapter Wrap-Up,,
-Book 1,9.1 What is AI,Class Activity 1: AI Detective,Home Activity 1: AI Imagination
-Book 1,9.2 Exploring AI with Questions,Class Activity 2: Chat with AI,Home Activity: Story Starter
-Book 1,9.4 Playing Games with AI,Class Activity 4: AI Riddle Game,Home Activity 3: Riddle Creator
-Book 1,9.5 Chapter Wrap-Up,,
-Book 1,10.1 What is inside Kit,,
-Book 1,10.2 Light System (Bulb and Holder),Class Activity 1: Hold and Guess,Home Activity 1: Hold and Guess
-Book 1,10.3 Power System (Battery and Wire),Class Activity 2: Feel the Power,Home Activity 2: Wire Drawing
-Book 1,10.4 Motion System (Motor and Fan Blade),Class Activity 3: Spin Test,Home Activity 3: Fan Art
-Book 1,10.5 Control System (Switchgear and Spring Clip),Class Activity 4: Switch Play,Home Activity 4: Clip Craft
-Book 1,10.6 Extra Connector (Paper Clip),Class Activity 5: Clip and Bend,Home Activity 5: Clip Design
-Book 1,10.7 Lighting a Bulb,Class Activity 6: Bulb Light,Home Activity 6: Home Glow
-Book 1,10.8 Running a Motor,Class Activity 7: Motor Spin,Home Activity 7: Spin Fun
-Book 1,10.9 Making a Switch Work,Class Activity 8: Switch Control,Home Activity 8: Switch Play
-Book 1,10.10 Building a Simple Fan,Class Activity 9: Fan Build,Home Activity 9: Fan Breeze
-Book 1,10.11 Creating a Paper Clip Circuit,Class Activity 10: Clip Circuit,Home Activity 10: Clip Challenge
-Book 1,10.12 Chapter Wrap-Up,,
+Book 2,1.1 Understanding Pixel Art Basics,Class Activity 1: Draw a Pixel Festival Icon,Home Activity 1: Design a pixel art icon for your favorite food
+Book 2,1.2 Making Pixel Art Move: Simple Animations,Class Activity 2 - Animate Your Pixel Icon,Home Activity 2: Copy a paint drawing file to a new folder called “My Art.”
+Book 2,1.3 Building Pixel Scenes and Characters,Class Activity 3 - Create a Pixel Scene,
+Book 2,1.4 Designing a 5-Panel Pixel Story,Class Activity 4 - Build a 5-Frame Pixel Story,
+Book 2,1.5 Chapter 1 Summary and Pixel Art Challenge!,,
+Book 2,"2.1 Understanding How AI ""Learns""",Class Activity 1 - Collect Examples for AI,"Home Activity 1: Open your model, Add a third class called ""Surprised Face"" and collect examples for it!"
+Book 2,2.2 Training and Testing Your AI,Class Activity 2 - Train and Test Your AI Model,"Home Activity 2: Use your ""MyFacesAI"" project from before."
+Book 2,2.3 Using Sound and Pose for AI,Class Activity 3 - Create a Sound or Pose Model,
+Book 2,2.4 Building Your Own AI Invention Plan,Class Activity 4 - Plan Your AI Invention,Home Activity 3: Create a simple Teachable Machine project to recognize something fun related to your family!
+Book 2,2.5 Chapter 2 Summary and AI Challenge!,,
+,,,
+Book 2,3.1 Introduction to Scratch Interface,Class Activity 1 - Move the Scratch Cat,Home Activity 1: Make the Scratch Cat move in a new project and save it.
+Book 2,3.2 Creating Simple Animations,Class Activity 2 - Make the Cat Dance,Home Activity 2: Create an animation where the Scratch Cat says a Pakistani greeting.
+Book 2,3.3 Adding Interactions with Events,Class Activity 3 - Build a Clickable Greeting Card,Home Activity 3: Make a greeting card for a Pakistani festival like Eid.
+Book 2,3.4 Building a Mini-Game,Class Activity 4 - Create a “Catch the Mango”,
+Book 2,3.5 Chapter 3 Summary and Final Home Activity,,Home Activity 4: Code a new game where the Scratch Cat catches kites.
+,,,
+Book 2,4.1 Navigating an Obstacle Course,Class Activity 1 - Program a Robot Path,Home Activity 1: Program a robot to move in a straight line in a new playground.
+Book 2,4.2 Using Loops to Repeat Actions,Class Activity 2 - Loop a Robot Movement,Home Activity 2: Use a loop to make the robot turn in a circle.
+Book 2,4.3 Using Sensors to Avoid Obstacles,Class Activity 3 - Avoid Obstacles with Sensors,
+Book 2,4.4 Creating a Robot Challenge,Class Activity 4 - Code a Maze Challenge,
+Book 2,4.5 Chapter 4 Summary and Final Home Activity,,Code a robot to explore a new playground / maze.
+,,,
+Book 2,5.1 Introduction to Variables in Python,Class Activity 1 - Create a Number Variable,Home Activity 1: Create a variable for your roll number and print it.
+Book 2,5.2 Using input() to Get User Input,Class Activity 2 - Ask for a Name,Home Activity 2: Make a program that asks for your favorite color and prints it.
+Book 2,5.3 Writing Programs with Variables and Input,Class Activity 3 - Create a Food Program,Home Activity 3: Create a program that asks for a favorite animal and prints a sentence about it.
+Book 2,5.4 Creating a Simple Quiz Program,Class Activity 4 - Build a Quiz Game,Home Activity 4: Make a quiz program with a question about a Pakistani festival.
+Book 2,5.5 Chapter 5 Summary and Final Home Activity,,Code a program that asks for your favorite city in Pakistan and prints a fact about it.
+,,,
+Book 2,6.1 Exploring AI Image Tools,Class Activity 1 - Create a Camel Image,"Home Activity 1 :Create an AI image of a Pakistani animal like a Markhor. 
+ Add details like in Jungle, in Woods, On mountains etc"
+Book 2,6.2 Adding Details to Prompts,Class Activity 2 - Create a Bird Image,Home Activity 2 : Make an AI image of a fruit like a mango tree. Add more details to prompt..
+Book 2,6.3 Creating Scenes with AI,Class Activity 3 - Create a Festival Scene,Home Activity 3 : Create an AI scene of a Pakistani landmark like the Badshahi Mosque.
+Book 2,6.4 Complex Prompts for Big Ideas,Class Activity 4 - Create a Superhero Scene,Home Activity 4 : Make an AI image of a Pakistani story scene.
+Book 2,6.5 Chapter 6 Summary and Final Home Activity,,Home Activity 5 :Code a prompt in Colab for a family picnic image.
+,,,
+Book 2,7.1 Exploring Google Drive,Class Activity 1 - Create a School Folder,Home Activity 1: Create a folder for family photos online
+Book 2,7.2 Creating File in Google Drive,Class Activity 2 - Make a Story File,Home Activity 2 : Write a short online note about your favorite animal.
+Book 2,7.3 Organizing File in Folders,Class Activity 3 - Organize a File,Home Activity 3: Move a file to a new online folder for drawings
+Book 2,7.4 Editing Files in Google Drive,Class Activity 4 - Edit Your Story File,Home Activity 4 : Edit an online story with a new sentence about a festival.
+Book 2,7.5 Deleting Files Safely,Class Activity 5 - Delete a Test File,Home Activity 5: Create and delete another file in presence of family.
+Book 2,7.5 Deleting Files Safely,Class Activity 6 - Delete and Restore a file,Home Activity 6: Delete an old online note and restore it
+Book 2,7.5 Chapter 7 Summary and Final Home Activity,,
+,,,
+Book 2,8.1 Revisiting Canva Basics,Class Activity 1 - Create an Art Show Poster,Home Activity 1 : Edit a family poster online.
+Book 2,8.2 Exploring Advanced Canva Features,Class Activity 2 - Create an Invitation Card,"Home Activity 2 : Add a Pakistani touch, like “at Badshahi Mosque.”"
+Book 2,8.3 Creating Animations in Canva,Class Activity 3 - Design an Animated Post,Home Activity 3 : Add more Animations to Basant card.
+Book 2,8.4 Designing Presentations,Class Activity 4 - Create a 3-Slide Presentation,Home Activity 4 :Design an interactive family story slide online.
+Book 2,8.5 Collaborative Design Projects,Class Activity 5 - Design a Newsletter,
+Book 2,8.5 Chapter 8 Summary and Final Home Activity,,
+,,,
+Book 2,9.1 Exploring Arduino Hardware,Class Activity 1 - Explore the Arduino Kit,Home Activity 1: Draw an Arduino board and label three parts at home.
+Book 2,9.2 Setting Up the Arduino Software,Class Activity 2 - Setup the Software,Home Activity 2: Open the Arduino IDE at home and draw the toolbar buttons.
+Book 2,9.3 Making an LED Blink,Class Activity 3 - Blink an LED,Home Activity 3: Draw a blinking LED and write what the code does.
+Book 2,9.4 Building a Simple Circuit,Class Activity 4 - Build an LED Circuit,Home Activity 4: Draw your LED circuit and label the parts.
+Book 2,9.5 Chapter 09 Summary,,Research a simple Arduino project online (with adult help) and draw it.
+,,,
+Book 2,10.1 Exploring AI Audio Tools,Class Activity 1 - Create a Simple Melody,Home Activity 1: Create a melody for your favorite sound at home.
+Book 2,10.2 Designing Sound Effects,Class Activity 2 - Create a Kite Sound Effect,Home Activity 2: Design a sound effect for a Pakistani instrument like a tabla.
+Book 2,10.3 Creating a Short Song with AI,Class Activity 3 - Create a Festival Song,Home Activity 3: Create a short song about a Pakistani landmark like Minar-e-Pakistan.
+Book 2,10.4 Building an Audio Project,Class Activity 4 - Create a Market Sound Story,Home Activity 4: Add sounds to a family story at home.
+Book 2,10.5 Create a Podcast Intro,Class Activity 5 - Design a Podcast Intro,Home Activity 5: Create a podcast intro for a Basant festival.
+Book 2,10.6 Chapter 10 Summary and Final Home Activity,,
+,,,
+Book 2,"11.1 Understanding ""Triggers"" and ""Actions""",Class Activity 1 - Identify Triggers and Actions,"Home Activity 1:With a parent, find one trigger and action pair in your home routine"
+Book 2,11.2 Building Simple Computer Chains (Workflows),Class Activity 2 - Draw Your First Computer Chain,Home Activity 2: Draw a simple chain (workflow) for how your favorite app works
+Book 2,"11.3 Connecting Different Computer ""Tools"" (Apps)",Class Activity 3 - Imagine Connecting Your Favorite Apps,
+Book 2,11.4 Planning a 5-Step Computer Automation Project,Class Activity 4 - Plan Your Automation Invention,
+Book 2,11.5 Chapter 11 Summary and Automation Challenge!,,Home Activity 3: Create a pixel art picture about your family
+,,,
+Book 2,12.1: Exploring the M3D GO Kit,"Class Activity 1: Unpack, Identify, and Attach Kit Parts",Home Activity 1: Practice Kit Identification
+Book 2,12.2: Setting Up and Connecting the Robot,Class Activity 2 - Connect and Verify Your Robot Setup,Home Activity 2 : Reconnect and Verify
+Book 2,12.3 Introduction to Basic Robot Activities,Class Activity 3: Free Robot Movements and Exploration,Home Activity 3: Customize Free Movements
+Book 2,12.4 Chapter 12 Summary and Final Home Activity,,Final Home Activity: Combined Setup and Movement Review

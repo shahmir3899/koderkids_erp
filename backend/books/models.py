@@ -2,14 +2,19 @@
 # books/models.py
 from django.db import models
 from mptt.models import MPTTModel, TreeForeignKey
-from students.models import School   # adjust import as needed
+#from students.models import School   # adjust import as needed
 
 
 class Book(models.Model):
     title = models.CharField(max_length=200)
     #order = models.PositiveIntegerField(default=0)    
     isbn = models.CharField(max_length=13, blank=True, null=True, unique=True)
-    school = models.ForeignKey(School, on_delete=models.SET_NULL, null=True, blank=True)
+    school = models.ForeignKey(
+        'students.School',  # ← String reference
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
     cover = models.ImageField(upload_to="books/covers/", blank=True)
 
     class Meta:
@@ -55,3 +60,7 @@ class Topic(MPTTModel):
 
     def __str__(self):
         return f"{self.book} – {self.code or ''} {self.title}".strip()
+    
+    @property
+    def display_title(self):
+        return f"{self.code} {self.title}".strip() if self.code else self.title

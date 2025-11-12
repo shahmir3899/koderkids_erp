@@ -1,159 +1,176 @@
 // src/components/BookTreeSelect.js
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { getAuthHeaders } from '../api';
-import './BookTreeSelect.css'; // Optional – create this file or remove line
+import React, { useState, useMemo, useCallback } from 'react';
+import PropTypes from 'prop-types';
+import debounce from 'lodash/debounce';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faChevronRight,
+  faChevronDown,
+  faBook,
+  faFolder,
+  faFileAlt,
+  faSearch,
+} from '@fortawesome/free-solid-svg-icons';
+import './BookTreeSelect.css';
 
-const API_URL = `${process.env.REACT_APP_API_URL}/api/books/books`;
-
-export default function BookTreeSelect({ onSelectTopic = () => {} }) {
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function BookTreeSelect({ 
+  onSelect = () => {}, 
+  selectedIds = [], 
+  books = [] 
+}) {
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState(new Set());
+  const [open, setOpen] = useState(new Set());
+  const [checked, setChecked] = useState(new Set(selectedIds));
 
-  /* ---------- FETCH BOOKS ---------- */
-  useEffect(() => {
-    const fetchBooks = async () => {
-      try {
-        const headers = getAuthHeaders();
-        if (!headers.Authorization) {
-          throw new Error('Login required – no token found.');
-        }
+  // SEARCH
+  const setDeb = useMemo(() => debounce(setSearch, 250), []);
+  const onSearch = e => setDeb(e.target.value);
+  const clearSearch = () => { setSearch(''); setDeb.cancel(); };
 
-        const res = await fetch(API_URL, { headers });
-        if (!res.ok) {
-          if (res.status === 401) throw new Error('Unauthorized – please log in again.');
-          throw new Error(`Server error: ${res.status}`);
-        }
+  // TOGGLE NODE
+  const toggle = useCallback(id => setOpen(s => {
+    const ns = new Set(s);
+    ns.has(id) ? ns.delete(id) : ns.add(id);
+    return ns;
+  }), []);
 
-        const data = await res.json();
-        setBooks(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError(err.message || 'Failed to load books.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBooks();
-  }, []);
-
-  /* ---------- SEARCH FILTER ---------- */
-  const filteredBooks = useMemo(() => {
-    if (!search.trim()) return books;
-
-    const lower = search.toLowerCase();
-    const filterTopic = (t) => {
-      const matches =
-        t.display_title.toLowerCase().includes(lower) ||
-        (t.code && t.code.toLowerCase().includes(lower));
-
-      if (!matches && !t.children?.length) return null;
-
-      const filteredChildren = t.children
-        ?.map(filterTopic)
-        .filter(Boolean);
-
-      return {
-        ...t,
-        children: filteredChildren.length ? filteredChildren : undefined,
-      };
-    };
-
-    return books.map((b) => ({
-      ...b,
-      topics: b.topics?.map(filterTopic).filter(Boolean),
-    }));
-  }, [books, search]);
-
-  /* ---------- EXPAND / COLLAPSE ---------- */
-  const toggle = useCallback((id) => {
-    setExpanded((prev) => {
+  // TOGGLE CHECKBOX
+  const toggleCheck = useCallback((id, children = []) => {
+    setChecked(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        children.forEach(child => next.delete(child.id));
+      } else {
+        next.add(id);
+        children.forEach(child => next.add(child.id));
+      }
       return next;
     });
   }, []);
 
-  /* ---------- RENDER ONE NODE ---------- */
-  const renderNode = (node, level = 0) => {
-    const isChapter = node.type === 'chapter';
-    const isLesson = node.type === 'lesson';
-    const isActivity = node.type === 'activity';
-    const hasChildren = !!node.children?.length;
-    const isOpen = expanded.has(node.id);
+  // SEND SELECTED
+  const handleDone = () => {
+    const selected = Array.from(checked);
+    onSelect(selected);
+  };
+
+  // FILTER TREE
+  const tree = useMemo(() => {
+    const q = search.toLowerCase();
+    const filter = n => {
+      const hit = n.display_title.toLowerCase().includes(q) ||
+                  (n.code && n.code.toLowerCase().includes(q));
+      if (!hit && !n.children?.length) return null;
+      const ch = n.children?.map(filter).filter(Boolean) ?? [];
+      return { ...n, children: ch.length ? ch : undefined };
+    };
+
+    return books.map(b => ({
+      ...b,
+      topics: (b.topics || [])
+        .filter(t => t.code && !t.code.includes('.'))
+        .map(filter)
+        .filter(Boolean)
+    }));
+  }, [books, search]);
+
+  // RENDER NODE
+  const Node = (n, lvl = 0) => {
+    const hasChildren = !!n.children?.length;
+    const isOpen = open.has(n.id);
+    const isChecked = checked.has(n.id);
+    const childIds = n.children?.map(c => c.id) || [];
+
+    const getIcon = () => {
+      switch (n.type) {
+        case 'chapter': return faBook;
+        case 'lesson':  return faFolder;
+        case 'activity': return faFileAlt;
+        default: return faFileAlt;
+      }
+    };
 
     return (
       <div
-        key={node.id}
-        style={{ marginLeft: level * 24 }}
+        key={n.id}
+        className="tree-node"
+        style={{ marginLeft: lvl * 24 }}
         role="treeitem"
         aria-expanded={hasChildren ? isOpen : undefined}
+        aria-level={lvl + 1}
       >
-        <div
-          className={`node ${isChapter ? 'chapter' : isLesson ? 'lesson' : 'activity'}`}
-          onClick={() => {
-            if (hasChildren) toggle(node.id);
-            onSelectTopic(node);
-          }}
-          title={node.display_title}
-        >
+        <div className={`node-header ${n.type} ${isChecked ? 'checked' : ''}`}>
           {hasChildren && (
-            <span className="toggle">
-              {isOpen ? '▼' : '▶'}
-            </span>
+            <FontAwesomeIcon
+              icon={isOpen ? faChevronDown : faChevronRight}
+              className="toggle-icon"
+              onClick={() => toggle(n.id)}
+            />
           )}
-
-          {node.code && !isChapter && (
-            <strong className="code">{node.code}</strong>
-          )}
-
-          <span className="title">{node.display_title}</span>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={() => toggleCheck(n.id, n.children || [])}
+            />
+            <FontAwesomeIcon icon={getIcon()} className="type-icon" />
+            <span className="node-title">{n.display_title}</span>
+          </label>
         </div>
 
         {hasChildren && isOpen && (
-          <div role="group">
-            {node.children.map((c) => renderNode(c, level + 1))}
+          <div className="node-children" role="group">
+            {n.children.map(c => Node(c, lvl + 1))}
           </div>
         )}
       </div>
     );
   };
 
-  /* ---------- UI STATES ---------- */
-  if (loading) {
-    return <div className="msg info">Loading books…</div>;
-  }
-  if (error) {
-    return <div className="msg error">Error: {error}</div>;
-  }
-  if (!books.length) {
-    return <div className="msg">No books available. Import a CSV first.</div>;
-  }
-
   return (
     <div className="book-tree-select">
-      <h3 className="header">Select Topic for Lesson</h3>
+      <h3 className="select-header">Select Topics (Multi)</h3>
+      
+      <div className="search-wrapper">
+        <FontAwesomeIcon icon={faSearch} className="search-icon" />
+        <input
+          placeholder="Search topics…"
+          onChange={onSearch}
+          className="search-input"
+        />
+        {search && <button onClick={clearSearch} className="clear-btn">×</button>}
+      </div>
 
-      <input
-        type="text"
-        placeholder="Search topics…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="search"
-      />
+      <div className="tree-root">
+        {tree.map(b => (
+          <div key={b.id} className="book-section">
+            <h4 className="book-title">{b.title}</h4>
+            {b.topics.length ? (
+              <div role="tree">
+                {b.topics.map(t => Node(t))}
+              </div>
+            ) : (
+              <p className="empty-message">No matching topics.</p>
+            )}
+          </div>
+        ))}
+      </div>
 
-      {filteredBooks.map((book) => (
-        <div key={book.id} className="book">
-          <h4 className="book-title">{book.title}</h4>
-
-          {book.topics?.length ? (
-            <div role="tree">{book.topics.map((t) => renderNode(t, 0))}</div>
-          ) : (
-            <p className="empty">No topics in this book.</p>
-          )}
-        </div>
-      ))}
+      <div className="modal-actions">
+        <button onClick={handleDone} className="btn btn-success">
+          Done ({checked.size} selected)
+        </button>
+        <button onClick={() => setChecked(new Set())} className="btn btn-outline">
+          Clear All
+        </button>
+      </div>
     </div>
   );
 }
+
+BookTreeSelect.propTypes = {
+  onSelect: PropTypes.func,
+  selectedIds: PropTypes.array,
+  books: PropTypes.array,
+};

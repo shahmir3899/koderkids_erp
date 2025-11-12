@@ -1,8 +1,10 @@
 from django.db import models
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ObjectDoesNotExist
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-#from students.models import School  # at the top
+from books.models import Topic  # NEW: Import Topic at the top (add this line)
 
 
 
@@ -119,22 +121,71 @@ class Attendance(models.Model):
     class Meta:
         unique_together = ('student', 'session_date')  # Prevent duplicate attendance records
 
+
 class LessonPlan(models.Model):
-    session_date = models.DateField()
-    teacher = models.ForeignKey('students.CustomUser', on_delete=models.CASCADE)
-    school = models.ForeignKey('students.School', on_delete=models.CASCADE)
-    student_class = models.CharField(max_length=50)  # Class name (e.g., Grade 5)
-    planned_topic = models.TextField()  # Auto-filled lesson
-    achieved_topic = models.TextField(blank=True, null=True)  # Updated after session
+    session_date   = models.DateField()
+    teacher        = models.ForeignKey('students.CustomUser', on_delete=models.CASCADE)
+    school         = models.ForeignKey('students.School', on_delete=models.CASCADE)
+    student_class  = models.CharField(max_length=50)
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    planned_topic = models.TextField(blank=True, null=True)
+    #achieved_topic = models.TextField(blank=True, null=True),
 
+    planned_topics = models.ManyToManyField(
+    'books.Topic',
+    blank=True,
+    related_name='planned_lessons',
+    #through='LessonTopicAssociation',  # Optional: Custom through model if needed for extra fields later
+     )
+    achieved_topic = models.TextField(blank=True, null=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now_add=True)
     class Meta:
-        unique_together = ('session_date', 'teacher', 'student_class')  # Prevent duplicate lesson plans
+        unique_together = (
+            ('session_date', 'teacher', 'student_class', 'school'),
+        )
 
-    def __str__(self):
-        return f"{self.session_date} - {self.student_class} - {self.teacher.username}"
+
+    def _build_planned_topic_from_fks(self) -> str | None:
+        """
+        Returns concatenated formatted topics:
+            Book <title>
+            Chapter <chapter-code>
+            Topic: <topic-code> <topic-title>
+            ---
+            [Next topic...]
+        """
+        topics = self.planned_topics.select_related('book', 'parent__book').all()
+        if not topics.exists():
+            return None
+
+        formatted_topics = []
+        for topic in topics:
+            # ----- 1. Book title (direct or via parent) -----
+            book = topic.book or (topic.parent.book if topic.parent else None)
+            book_title = getattr(book, "title", "Unknown") or "Unknown"
+
+            # ----- 2. Chapter code (only if parent is a chapter) -----
+            chapter_code = ""
+            if topic.parent and getattr(topic.parent, "type", "") == "chapter":
+                chapter_code = getattr(topic.parent, "code", "").strip()
+
+            # ----- 3. Topic line – use only the *first two* parts of code -----
+            raw_code = getattr(topic, "code", "").strip()
+            # Split on '.' and keep at most the first two parts (e.g. "9.2.class.1" → "9.2")
+            short_code = ".".join(raw_code.split(".", 2)[:2]) if raw_code else ""
+            topic_title = getattr(topic, "title", "").strip()
+            topic_line = f"{short_code} {topic_title}".strip()
+            if not topic_line:
+                topic_line = topic_title or "Unnamed Topic"
+
+            formatted_topics.append(
+                f"{book_title}\n"
+                f"Chapter {chapter_code}\n"
+                f"Topic: {topic_line}"
+            )
+
+        return "---\n".join(formatted_topics)
 
 
 class StudentImage(models.Model):

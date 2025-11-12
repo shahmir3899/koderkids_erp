@@ -142,9 +142,10 @@ function LessonsPage() {
     };
 
     const handleEdit = (lessonId, currentTopic) => {
-        setEditingLessonId(lessonId);
-        setEditedTopic(currentTopic);
-    };
+    console.log("Editing lesson:", lessonId, "Current topic:", currentTopic);
+    setEditingLessonId(lessonId);
+    setEditedTopic(currentTopic || "");
+};
 
     const handleSave = async (lessonId) => {
         setSaveLoading(lessonId);
@@ -528,65 +529,79 @@ function LessonsPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {lessons.map((lesson) => (
-                                    <tr key={lesson.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="p-3 border border-gray-300 text-gray-600">
-                                            {formatDateWithDay(lesson.session_date)}
-                                        </td>
-                                        <td className="p-3 border border-gray-300 text-gray-600">
-                                            {lesson.school_name}
-                                        </td>
-                                        <td className="p-3 border border-gray-300 text-gray-600">
-                                            {lesson.student_class}
-                                        </td>
-                                        <td className="p-3 border border-gray-300 text-gray-600">
-                                            {editingLessonId === lesson.id ? (
-                                                <input
-                                                    type="text"
-                                                    value={editedTopic}
-                                                    onChange={(e) => setEditedTopic(e.target.value)}
-                                                    className="p-2 border border-gray-300 rounded-lg w-full"
-                                                />
-                                            ) : (
-                                                lesson.planned_topic
-                                            )}
-                                        </td>
-                                        <td className="p-3 border border-gray-300 text-gray-600">
-                                            {editingLessonId === lesson.id ? (
-                                                <button
-                                                    onClick={() => handleSave(lesson.id)}
-                                                    className="btn btn-primary mr-2"
-                                                    disabled={saveLoading === lesson.id}
-                                                >
-                                                    {saveLoading === lesson.id ? (
-                                                        <ClipLoader color="#ffffff" size={20} />
-                                                    ) : (
-                                                        "Save"
-                                                    )}
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => handleEdit(lesson.id, lesson.planned_topic)}
-                                                    className="btn btn-primary mr-2"
-                                                >
-                                                    Edit
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => handleDelete(lesson.id)}
-                                                className="btn btn-danger"
-                                                disabled={deleteLoading === lesson.id}
-                                            >
-                                                {deleteLoading === lesson.id ? (
-                                                    <ClipLoader color="#ffffff" size={20} />
-                                                ) : (
-                                                    "Delete"
-                                                )}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
+    {lessons.map((lesson) => (
+        <tr key={lesson.id} className="hover:bg-gray-50 transition-colors">
+            <td className="p-3 border border-gray-300 text-gray-600">
+                {formatDateWithDay(lesson.session_date)}
+            </td>
+            <td className="p-3 border border-gray-300 text-gray-600">
+                {lesson.school_name}
+            </td>
+            <td className="p-3 border border-gray-300 text-gray-600">
+                {lesson.student_class}
+            </td>
+            <td className="p-3 border border-gray-300 text-gray-600">
+                {editingLessonId === lesson.id ? (
+                    <textarea
+                        value={editedTopic}
+                        onChange={(e) => setEditedTopic(e.target.value)}
+                        className="p-2 border border-gray-300 rounded-lg w-full min-h-[100px] text-black resize-vertical"
+                        placeholder="Edit planned topic..."
+                        autoFocus
+                    />
+                ) : (
+                    <div className="whitespace-pre-line">
+                        {lesson.planned_topic || "(No topic planned)"}
+                    </div>
+                )}
+            </td>
+            <td className="p-3 border border-gray-300 text-gray-600">
+                {editingLessonId === lesson.id ? (
+                    <>
+                        <button
+                            onClick={() => handleSave(lesson.id)}
+                            className="btn btn-primary mr-2"
+                            disabled={saveLoading === lesson.id}
+                        >
+                            {saveLoading === lesson.id ? (
+                                <ClipLoader color="#ffffff" size={20} />
+                            ) : (
+                                "Save"
+                            )}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setEditingLessonId(null);
+                                setEditedTopic("");
+                            }}
+                            className="btn btn-secondary mr-2"
+                        >
+                            Cancel
+                        </button>
+                    </>
+                ) : (
+                    <button
+                        onClick={() => handleEdit(lesson.id, lesson.planned_topic)}
+                        className="btn btn-primary mr-2"
+                    >
+                        Edit
+                    </button>
+                )}
+                <button
+                    onClick={() => handleDelete(lesson.id)}
+                    className="btn btn-danger"
+                    disabled={deleteLoading === lesson.id}
+                >
+                    {deleteLoading === lesson.id ? (
+                        <ClipLoader color="#ffffff" size={20} />
+                    ) : (
+                        "Delete"
+                    )}
+                </button>
+            </td>
+        </tr>
+    ))}
+</tbody>
                         </table>
                     </div>
                     <div className="flex justify-center mt-4 gap-4">

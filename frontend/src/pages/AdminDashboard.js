@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useMemo, useReducer } from "react";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend, Treemap, Cell } from "recharts";
-import { ClipLoader } from "react-spinners";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  LabelList, 
+  ResponsiveContainer, 
+  Cell 
+} from "recharts";import { ClipLoader } from "react-spinners";
 import { toast } from "react-toastify";
 import axios from "axios";
 
@@ -88,11 +97,66 @@ const processFeeData = (data, schools = []) => {
 /**
  * Students Per School Treemap Component.
  */
-const StudentsPerSchoolTreemap = ({ data, collapsed, onToggle }) => {
+// const StudentsPerSchoolTreemap = ({ data, collapsed, onToggle }) => {
+//   const COLORS = [
+//     "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF",
+//     "#FF9F40", "#E7E9ED", "#C3E6CB", "#F06292", "#4DD0E1"
+//   ];
+
+//   const totalStudents = useMemo(() => {
+//     return data.reduce((sum, entry) => sum + (entry.total_students || 0), 0);
+//   }, [data]);
+
+//   return (
+//     <div className="bg-white p-6 rounded-lg shadow-md">
+//       <div className="flex justify-between items-center mb-4">
+//         <h2 className="text-xl font-semibold text-gray-700">Students Enrolled Per School</h2>
+//         <button
+//           onClick={onToggle}
+//           onKeyDown={(e) => e.key === 'Enter' && onToggle()}
+//           className="text-blue-600 hover:text-blue-800"
+//           aria-label={collapsed ? "Expand Students Per School" : "Collapse Students Per School"}
+//         >
+//           {collapsed ? "Expand ▼" : "Collapse ▲"}
+//         </button>
+//       </div>
+//       {!collapsed && (
+//         <>
+//           <ResponsiveContainer width="100%" height={300}>
+//             <Treemap
+//               data={data}
+//               dataKey="total_students"
+//               nameKey="school"
+//               ratio={4 / 3}
+//             >
+//               {data.map((entry, index) => (
+//                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+//               ))}
+//               <Tooltip formatter={(value) => `${value} students`} />
+//             </Treemap>
+//           </ResponsiveContainer>
+//           <div className="mt-4">
+//             <p className="text-lg font-medium text-gray-800">
+//               Total Number of Enrolled Students: {totalStudents.toLocaleString()}
+//             </p>
+//           </div>
+//         </>
+//       )}
+//     </div>
+//   );
+// };
+/**
+ * Students Per School Bar Chart Component.
+ */
+const StudentsPerSchoolBarChart = ({ data, collapsed, onToggle }) => {
   const COLORS = [
     "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF",
     "#FF9F40", "#E7E9ED", "#C3E6CB", "#F06292", "#4DD0E1"
   ];
+
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => b.total_students - a.total_students);
+  }, [data]);
 
   const totalStudents = useMemo(() => {
     return data.reduce((sum, entry) => sum + (entry.total_students || 0), 0);
@@ -113,18 +177,32 @@ const StudentsPerSchoolTreemap = ({ data, collapsed, onToggle }) => {
       </div>
       {!collapsed && (
         <>
-          <ResponsiveContainer width="100%" height={300}>
-            <Treemap
-              data={data}
-              dataKey="total_students"
-              nameKey="school"
-              ratio={4 / 3}
+          <ResponsiveContainer width="100%" height={Math.max(300, sortedData.length * 40)}>
+            <BarChart 
+              data={sortedData} 
+              layout="vertical" 
+              margin={{ top: 10, right: 30, left: 150, bottom: 10 }}  // Increased left margin for name visibility
             >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" />
+              <YAxis 
+                type="category" 
+                dataKey="school" 
+                width={140}  // Explicit width to ensure labels fit
+                tick={{ fontSize: 12 }}  // Smaller font if needed for fit
+              />
               <Tooltip formatter={(value) => `${value} students`} />
-            </Treemap>
+              <Bar 
+                dataKey="total_students" 
+                radius={[0, 10, 10, 0]}  // Rounded corners on the right end
+                barSize={20}  // Consistent bar height for better appearance
+              >
+                {sortedData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+                <LabelList dataKey="total_students" position="right" fill="#333" />  // Labels for values
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
           <div className="mt-4">
             <p className="text-lg font-medium text-gray-800">
@@ -135,8 +213,7 @@ const StudentsPerSchoolTreemap = ({ data, collapsed, onToggle }) => {
       )}
     </div>
   );
-};
-
+};   
 /**
  * Fee Per Month Bar Chart Component.
  */
@@ -161,7 +238,7 @@ const FeePerMonthChart = ({ data, collapsed, onToggle }) => {
               <XAxis dataKey="month" />
               <YAxis />
               <Tooltip />
-              <Legend />
+              
               {Object.keys(data[0])
                 .filter(key => key !== "month")
                 .map((key, index) => (
@@ -816,7 +893,7 @@ function HomePage() {
       </header>
 
       <div className="space-y-6">
-        <StudentsPerSchoolTreemap
+        <StudentsPerSchoolBarChart
           data={studentsState.data}
           collapsed={collapsedSections.studentsPerSchool}
           onToggle={() => toggleSection("studentsPerSchool")}
