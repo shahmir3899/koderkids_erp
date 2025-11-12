@@ -15,18 +15,7 @@ class TopicSerializer(serializers.ModelSerializer):
     display_title = serializers.SerializerMethodField()
     activity_blocks = serializers.SerializerMethodField()
     children = serializers.SerializerMethodField()
-    def get_display_title(self, obj):
-        if obj.type == 'chapter':
-            # Remove leading number: "1 Chapter 1: ..." → "Chapter 1: ..."
-            title = obj.title
-            if title and title[0].isdigit():
-                title = title.split(" ", 1)[1]  # Remove first word if digit
-            return title
-        elif obj.type == 'activity':
-            return obj.title  # Already has "Class Activity 1 – ..."
-        else:
-            return f"{obj.code} {obj.title}"  # Lesson: 1.1 Title
-        
+
     class Meta:
         model = Topic
         fields = [
@@ -38,30 +27,68 @@ class TopicSerializer(serializers.ModelSerializer):
             "type",
         ]
 
+    # ------------------------------------------------------------------ #
+    # 1. Display title
+    # ------------------------------------------------------------------ #
+    def get_display_title(self, obj):
+        if obj.type == "chapter":
+            title = obj.title
+            # Strip leading number: "1 Chapter 1: ..." → "Chapter 1: ..."
+            parts = title.split(" ", 1)
+            if parts and parts[0].isdigit():
+                title = parts[1]
+            return title
+        if obj.type == "activity":
+            return obj.title
+        return f"{obj.code} {obj.title}".strip()
+
+    # ------------------------------------------------------------------ #
+    # 2. Activity blocks
+    # ------------------------------------------------------------------ #
     def get_activity_blocks(self, obj):
         blocks = obj.activity_blocks or []
         if isinstance(blocks, dict):
             blocks = [blocks]
 
-        # Normalize missing fields
         normalized = []
         for i, block in enumerate(blocks):
-            normalized.append({
-                "type": block.get("type", "class"),
-                "title": block.get("title", f"{block.get('type', 'Activity').capitalize()} Activity"),
-                "content": block.get("content", ""),
-                "order": block.get("order", i)
-            })
+            normalized.append(
+                {
+                    "type": block.get("type", "class"),
+                    "title": block.get(
+                        "title",
+                        f"{block.get('type', 'Activity').capitalize()} Activity",
+                    ),
+                    "content": block.get("content", ""),
+                    "order": block.get("order", i),
+                }
+            )
         return ActivityBlockSerializer(normalized, many=True).data
 
+    # ------------------------------------------------------------------ #
+    # 3. Children – **depth-controlled** and **lightweight**
+    # ------------------------------------------------------------------ #
     def get_children(self, obj):
-        q = self.context.get('q', '').lower()
-        children = obj.get_children()
+        # Stop recursion after 3 levels (chapter → lesson → activity)
+        depth = self.context.get("depth", 0)
+        if depth >= 3:
+            return []
+
+        q = self.context.get("q", "").lower()
+        children_qs = obj.get_children().only("id", "code", "title", "type", "parent_id")
+
         if q:
-            children = children.filter(
-                Q(title__icontains=q) | Q(code__icontains=q) | Q(display_title__icontains=q)
+            children_qs = children_qs.filter(
+                Q(title__icontains=q) | Q(code__icontains=q)
             )
-        return TopicSerializer(children, many=True, context=self.context).data
+
+        # Pass increased depth to nested calls
+        child_context = self.context.copy()
+        child_context["depth"] = depth + 1
+
+        return TopicSerializer(
+            children_qs, many=True, context=child_context
+        ).data
 
 
 class BookSerializer(serializers.ModelSerializer):
@@ -72,21 +99,24 @@ class BookSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "isbn", "school", "cover", "topics"]
 
     def get_topics(self, obj):
-        q = self.context.get('q', '').lower()
-        root_topics = obj.topics.filter(parent=None)
+        q = self.context.get("q", "").lower()
+        root_qs = obj.topics.filter(parent=None).only(
+            "id", "code", "title", "type", "book_id"
+        )
+
         if q:
-            # Find all topics matching query
-            matching_topics = obj.topics.filter(
+            # Find matching topics + all their ancestors
+            matching = obj.topics.filter(
                 Q(title__icontains=q) | Q(code__icontains=q)
             )
-            # Include ancestors to preserve tree structure
             ancestor_ids = set()
-            for topic in matching_topics:
-                ancestor_ids.update(topic.get_ancestors(include_self=True).values_list('id', flat=True))
-            root_topics = root_topics.filter(id__in=ancestor_ids)
-        return TopicSerializer(root_topics, many=True, context=self.context).data
+            for t in matching:
+                ancestor_ids.update(
+                    t.get_ancestors(include_self=True).values_list("id", flat=True)
+                )
+            root_qs = root_qs.filter(id__in=ancestor_ids)
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation['topics'] = self.get_topics(instance)
-        return representation
+        # Start depth counter at 0
+        ctx = self.context.copy()
+        ctx["depth"] = 0
+        return TopicSerializer(root_qs, many=True, context=ctx).data

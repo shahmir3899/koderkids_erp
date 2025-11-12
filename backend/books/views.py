@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 # books/views.py
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from .models import Book
@@ -16,37 +13,40 @@ from django.db.models import Prefetch
 
 
 class BookViewSet(ReadOnlyModelViewSet):
-    queryset = Book.objects.prefetch_related(
-        Prefetch("topics", queryset=Book.objects.none()),  # Placeholder for root topics
-        "topics__children",
-        "topics__children__children"  # Deeper prefetch for up to 3 levels (chapter > lesson > activity)
-    )
+    """
+    Return a book with its *root* topics (parent=None).  
+    Nested children are added by the serializer up to a safe depth.
+    """
+    # Prefetch only the direct topics of the book.
+    # No deep __children chains – they cause the FieldError you saw.
+    queryset = Book.objects.prefetch_related("topics")
     serializer_class = BookSerializer
     permission_classes = [IsAuthenticated]
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['request'] = self.request
+        context["request"] = self.request
         return context
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated]) 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def upload_csv(request):
-    if 'csv_file' not in request.FILES:
+    if "csv_file" not in request.FILES:
         return Response({"error": "No file"}, status=400)
 
-    file = request.FILES['csv_file']
-    path = default_storage.save('tmp/' + file.name, file)
+    file = request.FILES["csv_file"]
+    path = default_storage.save("tmp/" + file.name, file)
     full_path = default_storage.path(path)
 
     # Auto-detect encoding
-    with open(full_path, 'rb') as f:
+    with open(full_path, "rb") as f:
         raw = f.read(10000)
-        encoding = chardet.detect(raw)['encoding'] or 'utf-8'
+        encoding = chardet.detect(raw)["encoding"] or "utf-8"
 
     # Reuse your import logic
     from books.management.commands.import_books import Command
+
     cmd = Command()
     cmd.handle(csv_file=full_path)
 
