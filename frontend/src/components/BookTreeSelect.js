@@ -1,5 +1,5 @@
 // src/components/BookTreeSelect.js
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import debounce from 'lodash/debounce';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -16,16 +16,38 @@ import './BookTreeSelect.css';
 export default function BookTreeSelect({ 
   onSelect = () => {}, 
   selectedIds = [], 
-  books = [] 
 }) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(new Set());
   const [checked, setChecked] = useState(new Set(selectedIds));
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   // SEARCH
   const setDeb = useMemo(() => debounce(setSearch, 250), []);
   const onSearch = e => setDeb(e.target.value);
   const clearSearch = () => { setSearch(''); setDeb.cancel(); };
+
+  // FETCH BOOKS WITH SEARCH
+  const fetchBooks = useCallback(async (q = '') => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/books/?q=${encodeURIComponent(q)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },  // Assume auth token
+      });
+      if (!response.ok) throw new Error('Fetch failed');
+      const data = await response.json();
+      setBooks(data);
+    } catch (error) {
+      console.error('Error fetching books:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBooks(search);
+  }, [search, fetchBooks]);
 
   // TOGGLE NODE
   const toggle = useCallback(id => setOpen(s => {
@@ -54,26 +76,6 @@ export default function BookTreeSelect({
     const selected = Array.from(checked);
     onSelect(selected);
   };
-
-  // FILTER TREE
-  const tree = useMemo(() => {
-    const q = search.toLowerCase();
-    const filter = n => {
-      const hit = n.display_title.toLowerCase().includes(q) ||
-                  (n.code && n.code.toLowerCase().includes(q));
-      if (!hit && !n.children?.length) return null;
-      const ch = n.children?.map(filter).filter(Boolean) ?? [];
-      return { ...n, children: ch.length ? ch : undefined };
-    };
-
-    return books.map(b => ({
-      ...b,
-      topics: (b.topics || [])
-        .filter(t => t.code && !t.code.includes('.'))
-        .map(filter)
-        .filter(Boolean)
-    }));
-  }, [books, search]);
 
   // RENDER NODE
   const Node = (n, lvl = 0) => {
@@ -142,20 +144,24 @@ export default function BookTreeSelect({
         {search && <button onClick={clearSearch} className="clear-btn">×</button>}
       </div>
 
-      <div className="tree-root">
-        {tree.map(b => (
-          <div key={b.id} className="book-section">
-            <h4 className="book-title">{b.title}</h4>
-            {b.topics.length ? (
-              <div role="tree">
-                {b.topics.map(t => Node(t))}
-              </div>
-            ) : (
-              <p className="empty-message">No matching topics.</p>
-            )}
-          </div>
-        ))}
-      </div>
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <div className="tree-root">
+          {books.map(b => (
+            <div key={b.id} className="book-section">
+              <h4 className="book-title">{b.title}</h4>
+              {b.topics.length ? (
+                <div role="tree">
+                  {b.topics.map(t => Node(t))}
+                </div>
+              ) : (
+                <p className="empty-message">No matching topics.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="modal-actions">
         <button onClick={handleDone} className="btn btn-success">
@@ -172,5 +178,4 @@ export default function BookTreeSelect({
 BookTreeSelect.propTypes = {
   onSelect: PropTypes.func,
   selectedIds: PropTypes.array,
-  books: PropTypes.array,
 };

@@ -12,12 +12,22 @@ from rest_framework import status
 from django.core.files.storage import default_storage
 import csv
 import chardet
+from django.db.models import Prefetch
 
 
 class BookViewSet(ReadOnlyModelViewSet):
-    queryset = Book.objects.prefetch_related("topics__children")
+    queryset = Book.objects.prefetch_related(
+        Prefetch("topics", queryset=Book.objects.none()),  # Placeholder for root topics
+        "topics__children",
+        "topics__children__children"  # Deeper prefetch for up to 3 levels (chapter > lesson > activity)
+    )
     serializer_class = BookSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 @api_view(['POST'])

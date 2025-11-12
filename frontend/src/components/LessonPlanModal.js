@@ -360,7 +360,15 @@ return (
         <button onClick={handleClose} className="btn-close" aria-label="Close modal">
           ×
         </button>
+
       </div>
+      <div className="modal-instructions">
+  <p>
+    Choose your <strong>School</strong>, <strong>Class</strong>, <strong>Month (Date ranges)</strong> to view all dates. 
+    Then check your working days to see space for entering your planned lesson.
+  </p>
+</div>
+
 
       {loading && (
         <div className="loading-overlay">

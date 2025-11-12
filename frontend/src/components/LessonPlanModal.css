@@ -509,3 +509,20 @@
   border: 1px solid var(--border);
   border-radius: 6px;
 }
+.modal-instructions {
+  background-color: #f8f9fa;
+  border-left: 4px solid #007bff;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.modal-instructions p {
+  margin: 0;
+}
+
+.modal-instructions strong {
+  color: #0056b3;
+}
