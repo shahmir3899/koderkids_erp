@@ -11,13 +11,14 @@ import {
   faPlus,      // “Add Selected Dates” button
   faSave,      // Save button (optional – you can add later)
   faTimes,     // Close icon (×) and Cancel button
+  faBook,
   
 } from "@fortawesome/free-solid-svg-icons";
 
 // --------------------------------------------------------------
 // NEW: Shared book data state
 // --------------------------------------------------------------
-const API_BOOKS = `${process.env.REACT_APP_API_URL}/api/books/books`;
+//const API_BOOKS = `${process.env.REACT_APP_API_URL}/api/books/books/{id}/`;
 
 // Helper: ordinal suffix
 const getOrdinalSuffix = (day) => {
@@ -62,43 +63,79 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
   const [bookTreeLoading, setBookTreeLoading] = useState(false);
   const [bookTreeError, setBookTreeError] = useState(null);
   const [selectedTopicIds, setSelectedTopicIds] = useState([]);
-
+  const [showBookGrid, setShowBookGrid] = useState(false);   // show grid modal
+  const [basicBooks, setBasicBooks] = useState([]);         // id + title only
+  const [selectedBookId, setSelectedBookId] = useState(null);
+  const [fullBook, setFullBook] = useState(null);           // the ONE book with topics.
+  const [tempSelectedTopicIds, setTempSelectedTopicIds] = useState([]);
   // --------------------------------------------------------------
   // Fetch books ONCE when modal opens
   // --------------------------------------------------------------
-  useEffect(() => {
-    if (!isOpen) {
-      // Reset when modal closes
-      setBookTreeData(null);
-      setBookTreeError(null);
-      return;
+  // --------------------------------------------------------------
+// UPDATED: Fetch basic list → then full details for each book
+// --------------------------------------------------------------
+useEffect(() => {
+  if (!isOpen) {
+    // reset everything when modal closes
+    setBookTreeData(null);
+    setBasicBooks([]);
+    setFullBook(null);
+    setSelectedBookId(null);
+    setShowBookGrid(false);
+    setBookTreeError(null);
+    return;
+  }
+
+  const loadBookList = async () => {
+    setBookTreeLoading(true);
+    setBookTreeError(null);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers.Authorization) throw new Error('Login required');
+
+      // 1. Only the *list* – very small payload
+      const listRes = await fetch(`${process.env.REACT_APP_API_URL}/api/books/books/`, { headers });
+      if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
+      const list = await listRes.json();
+
+      setBasicBooks(Array.isArray(list) ? list : []);
+      //setShowBookGrid(true);               // ← open the grid automatically
+    } catch (err) {
+      setBookTreeError(err.message || 'Failed to load book list');
+      toast.error('Failed to load books');
+    } finally {
+      setBookTreeLoading(false);
     }
+  };
 
-    const fetchBooksOnce = async () => {
-      setBookTreeLoading(true);
-      setBookTreeError(null);
-      try {
-        const headers = getAuthHeaders();
-        if (!headers.Authorization) throw new Error("Login required");
+  loadBookList();
+}, [isOpen]);
 
-        const res = await fetch(API_BOOKS, { headers });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status}${txt ? `: ${txt}` : ""}`);
-        }
-        const data = await res.json();
-        setBookTreeData(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setBookTreeError(err.message || "Failed to load books");
-        toast.error("Failed to load book topics");
-      } finally {
-        setBookTreeLoading(false);
-      }
-    };
+const loadFullBook = async (bookId) => {
+  setBookTreeLoading(true);
+  setBookTreeError(null);
+  try {
+    const headers = getAuthHeaders();
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/books/books/${bookId}/`, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-    fetchBooksOnce();
-  }, [isOpen]); // ← Only runs when modal opens/closes
+    setFullBook(data);
+    setSelectedBookId(bookId);
+    setShowBookGrid(false);               // close grid
 
+    // ---- AUTO-OPEN TREE FOR THE LESSON THAT TRIGGERED THE GRID ----
+    if (editingIndex !== null) {
+      setSelectedTopicIds(newLessons[editingIndex]?.planned_topic_ids || []);
+      // editingIndex stays the same → tree opens immediately
+    }
+  } catch (err) {
+    setBookTreeError(err.message);
+    toast.error('Failed to load book topics');
+  } finally {
+    setBookTreeLoading(false);
+  }
+};
   
 
   // Memoized fetchSchools
@@ -219,20 +256,51 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
 //   setEditingIndex(null);
 //   setHasUnsavedChanges(true);
 // };
-    const openTopicSelector = (index) => {
-  setSelectedTopicIds(newLessons[index]?.planned_topic_ids || []);
+    const openTopicSelector = async (index) => {
+  // If we already have a book → open the tree directly
+  if (fullBook) {
+    setTempSelectedTopicIds(newLessons[index]?.planned_topic_ids || []);  // Initialize temp with current selections
+    setSelectedTopicIds(newLessons[index]?.planned_topic_ids || []);      // Optional: Sync for display if needed
+    setEditingIndex(index);
+    return;
+  }
+
+  // No book yet → show the grid (fetch list if it’s empty)
+  if (basicBooks.length === 0) {
+    setBookTreeLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const r = await fetch(`${process.env.REACT_APP_API_URL}/api/books/books/`, { headers });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const list = await r.json();
+      setBasicBooks(Array.isArray(list) ? list : []);
+    } catch (e) {
+      setBookTreeError(e.message);
+      toast.error('Failed to load book list');
+      setBookTreeLoading(false);
+      return;
+    } finally {
+      setBookTreeLoading(false);
+    }
+  }
+
   setEditingIndex(index);
+  setShowBookGrid(true);
 };
 
-  const handleTopicSelect = (ids) => {
+  const confirmTopicSelection = () => {
+  if (editingIndex === null) return;
+
   const updated = [...newLessons];
   updated[editingIndex] = {
     ...updated[editingIndex],
-    planned_topic_ids: ids,
-    planned_topic_display: ids.length > 0 ? `${ids.length} topic(s) selected` : "Select topics"
+    planned_topic_ids: tempSelectedTopicIds,
+    planned_topic_display: tempSelectedTopicIds.length > 0 ? `${tempSelectedTopicIds.length} topic(s) selected` : "Select topics"
   };
   setNewLessons(updated);
-  setEditingIndex(null);
+  setHasUnsavedChanges(true);
+  setEditingIndex(null);  // Close the modal
+  setTempSelectedTopicIds([]);  // Clear temp state
 };
   // Clear topic
   const clearTopic = (index) => {
@@ -535,12 +603,181 @@ return (
           </table>
         </div>
 
-  {/* Topic Selector Modal */}
-{editingIndex !== null && (
+       {/* ──────────────────────────────────────────────────────────────
+          BOOK GRID – appears right after the modal opens (instead of the tree)
+      ────────────────────────────────────────────────────────────── */}
+      {showBookGrid && (
+        <div className="topic-selector-overlay">
+          <div className="topic-selector-modal book-grid-modal">
+            {/* close X */}
+            <button
+              onClick={() => {
+                setShowBookGrid(false);
+                setEditingIndex(null);
+              }}
+              className="close-icon"
+              aria-label="Close book grid"
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+
+            <h3>Select a Book</h3>
+
+            {/* loading */}
+            {bookTreeLoading && (
+              <div className="text-center p-4">
+                <ClipLoader size={30} color="#7e57c2" />
+                <p className="mt-2">Loading Book Topics…</p>
+              </div>
+            )}
+
+            {/* error */}
+            {bookTreeError && (
+              <div className="text-center p-4 text-danger">
+                <p>{bookTreeError}</p>
+                <button
+                  onClick={() => {
+                    setBookTreeLoading(true);
+                    // retry the list fetch (same code you already have in useEffect)
+                    const retry = async () => {
+                      try {
+                        const headers = getAuthHeaders();
+                        const r = await fetch(`${process.env.REACT_APP_API_URL}/api/books/books/`, { headers });
+                        const list = await r.json();
+                        setBasicBooks(Array.isArray(list) ? list : []);
+                        setBookTreeError(null);
+                      } catch {
+                        setBookTreeError('Retry failed');
+                      } finally {
+                        setBookTreeLoading(false);
+                      }
+                    };
+                    retry();
+                  }}
+                  className="btn btn-sm btn-outline mt-2"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* grid */}
+            {!bookTreeLoading && !bookTreeError && (
+              <div className="books-grid">
+                {basicBooks.map((b) => (
+                  <button
+                    key={b.id}
+                    className="book-btn"
+                    onClick={() => loadFullBook(b.id)}
+                  >
+                    <FontAwesomeIcon icon={faBook} className="book-icon" />
+                    <span>{b.title}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+  onClick={() => {
+    setEditingIndex(null);
+    setTempSelectedTopicIds([]);  // Discard temp changes
+  }}
+  className="btn btn-danger mt-3"
+>
+  Close
+</button>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────────
+          TOPIC SELECTOR – appears **after** a book has been chosen
+      ────────────────────────────────────────────────────────────── */}
+            {/* ────────────────────── BOOK GRID (opens on “Select”) ────────────────────── */}
+      {showBookGrid && (
+        <div className="topic-selector-overlay">
+          <div className="topic-selector-modal book-grid-modal">
+            <button
+              onClick={() => {
+                setShowBookGrid(false);
+                setEditingIndex(null);
+              }}
+              className="close-icon"
+              aria-label="Close book grid"
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+
+            <h3>Select a Book</h3>
+
+            {bookTreeLoading && (
+              <div className="text-center p-4">
+                <ClipLoader size={30} color="#7e57c2" />
+                <p className="mt-2">Loading books…</p>
+              </div>
+            )}
+
+            {bookTreeError && (
+              <div className="text-center p-4 text-danger">
+                <p>{bookTreeError}</p>
+                <button
+                  onClick={async () => {
+                    setBookTreeLoading(true);
+                    try {
+                      const headers = getAuthHeaders();
+                      const r = await fetch(`${process.env.REACT_APP_API_URL}/api/books/books/`, { headers });
+                      const list = await r.json();
+                      setBasicBooks(Array.isArray(list) ? list : []);
+                      setBookTreeError(null);
+                    } catch {
+                      setBookTreeError('Retry failed');
+                    } finally {
+                      setBookTreeLoading(false);
+                    }
+                  }}
+                  className="btn btn-sm btn-outline mt-2"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            <div className="books-grid">
+              {basicBooks.map((b) => (
+                <button
+                  key={b.id}
+                  className="book-btn"
+                  onClick={() => loadFullBook(b.id)}
+                >
+                  <FontAwesomeIcon icon={faBook} className="book-icon" />
+                  <span>{b.title}</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setShowBookGrid(false);
+                setEditingIndex(null);
+              }}
+              className="btn btn-danger mt-3"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ────────────────────── TOPIC TREE (after a book is chosen) ────────────────────── */}
+      {editingIndex !== null && !showBookGrid && fullBook && (
   <div className="topic-selector-overlay">
     <div className="topic-selector-modal">
+      {/* Close X */}
       <button
-        onClick={() => setEditingIndex(null)}
+        onClick={() => {
+          setEditingIndex(null);
+          setTempSelectedTopicIds([]);
+        }}
         className="close-icon"
         aria-label="Close topic selector"
       >
@@ -548,14 +785,15 @@ return (
       </button>
 
       <h3>
-        Select Topic for{" "}
+        Select Topics for{" "}
         {formatDate(newLessons[editingIndex].session_date)}
+        {fullBook && ` – ${fullBook.title}`}
       </h3>
 
       {bookTreeLoading && (
         <div className="text-center p-4">
           <ClipLoader size={30} color="#7e57c2" />
-          <p className="mt-2">Loading topics...</p>
+          <p className="mt-2">Loading topics…</p>
         </div>
       )}
 
@@ -563,20 +801,7 @@ return (
         <div className="text-center p-4 text-danger">
           <p>{bookTreeError}</p>
           <button
-            onClick={async () => {
-              setBookTreeLoading(true);
-              try {
-                const headers = getAuthHeaders();
-                const res = await fetch(API_BOOKS, { headers });
-                const data = await res.json();
-                setBookTreeData(Array.isArray(data) ? data : []);
-                setBookTreeError(null);
-              } catch {
-                setBookTreeError("Retry failed");
-              } finally {
-                setBookTreeLoading(false);
-              }
-            }}
+            onClick={() => loadFullBook(selectedBookId)}
             className="btn btn-sm btn-outline mt-2"
           >
             Retry
@@ -584,20 +809,34 @@ return (
         </div>
       )}
 
-      {bookTreeData && !bookTreeLoading && !bookTreeError && (
+      {fullBook && !bookTreeLoading && !bookTreeError && (
         <BookTreeSelect
-          books={bookTreeData}
-          selectedIds={selectedTopicIds}                 // <-- NEW
-          onSelect={handleTopicSelect}                  // <-- NEW (receives array)
+          books={[fullBook]}
+          selectedIds={tempSelectedTopicIds}
+          onSelect={(ids) => setTempSelectedTopicIds(ids)}
         />
       )}
 
-      <button
-        onClick={() => setEditingIndex(null)}
-        className="btn btn-danger mt-3"
-      >
-        Close
-      </button>
+      {/* NEW FOOTER – LEFT CONFIRM, RIGHT CANCEL */}
+      <div className="topic-selector-footer">
+        <button
+          onClick={confirmTopicSelection}
+          className="btn btn-primary"
+          disabled={tempSelectedTopicIds.length === 0}
+        >
+          Confirm ({tempSelectedTopicIds.length} selected)
+        </button>
+
+        <button
+          onClick={() => {
+            setEditingIndex(null);
+            setTempSelectedTopicIds([]);
+          }}
+          className="btn btn-danger"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   </div>
 )}

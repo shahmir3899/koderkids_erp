@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import InventoryDashboard from './pages/InventoryDashboard';
 import Sidebar from "./components/Sidebar";
 import ProgressPage from "./pages/ProgressPage";
+import BookSelectPage from "./components/BookSelectPage";
 import CustomReport from "./pages/CustomReport";
 import SalarySlip from "./pages/SalarySlip";
 import LessonsPage from "./pages/LessonsPage";
@@ -26,12 +27,11 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css"; 
 import RobotChat from "./components/RobotChat";
 import InventoryPage from './pages/InventoryPage';
-import BookTreeSelect from './components/BookTreeSelect';
 import CSVUpload from './components/CSVUpload';
 
 import { logout } from "./api"; 
 
-export const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const REACT_APP_BACKEND_URL = process.env.REACT_APP_API_URL;
 
 
 
@@ -110,7 +110,7 @@ function App() {
       <Route path="/student-progress" element={<StudentProgressPage />} />
 
         {/* NEW ROUTES: Add these two – protected */}
-      <Route path="/books-tree" element={<ProtectedRoute element={<BookTreeSelect/>} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/books-tree" element={<ProtectedRoute element={<BookSelectPage/>} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/books-upload" element={<ProtectedRoute element={CSVUpload} allowedRoles={["Admin", "Teacher"]} />} />
 
       {/* ✅ Fallback */}

@@ -3,13 +3,11 @@ from rest_framework import serializers
 from .models import Book, Topic
 from django.db.models import Q
 
-
 class ActivityBlockSerializer(serializers.Serializer):
     type = serializers.CharField()
     title = serializers.CharField(required=False, allow_blank=True, default="")
     content = serializers.CharField(required=False, allow_blank=True, default="")
     order = serializers.IntegerField()
-
 
 class TopicSerializer(serializers.ModelSerializer):
     display_title = serializers.SerializerMethodField()
@@ -27,13 +25,9 @@ class TopicSerializer(serializers.ModelSerializer):
             "type",
         ]
 
-    # ------------------------------------------------------------------ #
-    # 1. Display title
-    # ------------------------------------------------------------------ #
     def get_display_title(self, obj):
         if obj.type == "chapter":
             title = obj.title
-            # Strip leading number: "1 Chapter 1: ..." → "Chapter 1: ..."
             parts = title.split(" ", 1)
             if parts and parts[0].isdigit():
                 title = parts[1]
@@ -42,9 +36,6 @@ class TopicSerializer(serializers.ModelSerializer):
             return obj.title
         return f"{obj.code} {obj.title}".strip()
 
-    # ------------------------------------------------------------------ #
-    # 2. Activity blocks
-    # ------------------------------------------------------------------ #
     def get_activity_blocks(self, obj):
         blocks = obj.activity_blocks or []
         if isinstance(blocks, dict):
@@ -65,30 +56,35 @@ class TopicSerializer(serializers.ModelSerializer):
             )
         return ActivityBlockSerializer(normalized, many=True).data
 
-    # ------------------------------------------------------------------ #
-    # 3. Children – **depth-controlled** and **lightweight**
-    # ------------------------------------------------------------------ #
     def get_children(self, obj):
-        # Stop recursion after 3 levels (chapter → lesson → activity)
         depth = self.context.get("depth", 0)
         if depth >= 3:
             return []
 
         q = self.context.get("q", "").lower()
-        children_qs = obj.get_children().only("id", "code", "title", "type", "parent_id")
+        children_qs = obj.get_children().defer("activity_blocks")  # Defer heavy JSONField unless needed
 
         if q:
             children_qs = children_qs.filter(
                 Q(title__icontains=q) | Q(code__icontains=q)
             )
 
-        # Pass increased depth to nested calls
         child_context = self.context.copy()
         child_context["depth"] = depth + 1
 
-        return TopicSerializer(
-            children_qs, many=True, context=child_context
-        ).data
+        return TopicSerializer(children_qs, many=True, context=child_context).data
+
+# books/serializers.py
+
+class BookListSerializer(serializers.ModelSerializer):
+    """
+    Used only for /api/books/books/ (list)
+    No topics → fast
+    """
+    class Meta:
+        model = Book
+        fields = ["id", "title", "isbn", "school", "cover"]
+        read_only_fields = fields
 
 
 class BookSerializer(serializers.ModelSerializer):
@@ -100,23 +96,32 @@ class BookSerializer(serializers.ModelSerializer):
 
     def get_topics(self, obj):
         q = self.context.get("q", "").lower()
-        root_qs = obj.topics.filter(parent=None).only(
-            "id", "code", "title", "type", "book_id"
-        )
+        root_qs = obj.topics.filter(parent=None).defer("activity_blocks")  # Defer heavy fields
 
-        if q:
-            # Find matching topics + all their ancestors
-            matching = obj.topics.filter(
-                Q(title__icontains=q) | Q(code__icontains=q)
-            )
-            ancestor_ids = set()
-            for t in matching:
-                ancestor_ids.update(
-                    t.get_ancestors(include_self=True).values_list("id", flat=True)
-                )
-            root_qs = root_qs.filter(id__in=ancestor_ids)
+        if not q:
+            ctx = self.context.copy()
+            ctx["depth"] = 0
+            return TopicSerializer(root_qs, many=True, context=ctx).data
 
-        # Start depth counter at 0
+        # Find matching topics (1 query)
+        matching_qs = obj.topics.filter(
+            Q(title__icontains=q) | Q(code__icontains=q)
+        ).only("id", "tree_id", "lft", "rgt")
+
+        if not matching_qs.exists():
+            return []
+
+        # Build a combined filter for all ancestors (including self)
+        filters = Q()
+        for tree_id, lft, rgt in matching_qs.values_list("tree_id", "lft", "rgt"):
+            filters |= Q(tree_id=tree_id, lft__lte=lft, rgt__gte=rgt)  # Includes self and ancestors
+
+        # Fetch all relevant nodes in 1 query
+        relevant_nodes = obj.topics.filter(filters).values_list("id", flat=True).distinct()
+
+        # Filter roots to only those in relevant paths
+        root_qs = root_qs.filter(id__in=relevant_nodes)
+
         ctx = self.context.copy()
         ctx["depth"] = 0
         return TopicSerializer(root_qs, many=True, context=ctx).data
