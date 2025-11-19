@@ -21,6 +21,7 @@ from django.shortcuts import render
 from django.db.models.functions import Round, Cast
 from django.db.models import Q, Count, Case, When, IntegerField, FloatField
 from django.db.models.functions import Round
+from django.db import transaction
 import logging
 import uuid  # Add this import
 from django.core.files.storage import default_storage
@@ -366,48 +367,68 @@ def get_students(request):
     user = request.user
 
     if request.method == 'POST':
-        try:
-            data = request.data
-            school_id = data.get("school")
-
-            if not school_id:
-                return Response({"error": "School ID is required"}, status=400)
+            
 
             try:
-                school = School.objects.get(id=school_id)
-            except School.DoesNotExist:
-                return Response({"error": "Invalid school ID"}, status=400)
+                data = request.data
+                school_id = data.get("school")
+                password = data.get("password")  # From frontend
 
-            # ✅ Auto-generate unique reg_num
-            school_code = ''.join(word[0].upper() for word in school.name.strip().split())
-            year = datetime.now().year % 100
-            existing_count = Student.objects.filter(school=school).count() + 1
-            reg_num = f"{year:02d}-KK-{school_code}-{existing_count:03d}"
+                if not school_id:
+                    return Response({"error": "School ID is required"}, status=400)
+                if not password:
+                    return Response({"error": "Password is required"}, status=400)
 
-            while Student.objects.filter(reg_num=reg_num).exists():
-                existing_count += 1
+                try:
+                    school = School.objects.get(id=school_id)
+                except School.DoesNotExist:
+                    return Response({"error": "Invalid school ID"}, status=400)
+
+                # ─────── Generate reg_num exactly as before (server-side) ───────
+                school_code = ''.join(word[0].upper() for word in school.name.strip().split())
+                year = datetime.now().year % 100
+                existing_count = Student.objects.filter(school=school).count() + 1
                 reg_num = f"{year:02d}-KK-{school_code}-{existing_count:03d}"
 
-            student = Student.objects.create(
-                name=data.get("name"),
-                reg_num=reg_num,
-                school=school,
-                student_class=data.get("student_class"),
-                monthly_fee=data.get("monthly_fee"),
-                phone=data.get("phone"),
-                date_of_registration=data.get("date_of_registration")
-            )
+                while Student.objects.filter(reg_num=reg_num).exists() or CustomUser.objects.filter(username=reg_num).exists():
+                    existing_count += 1
+                    reg_num = f"{year:02d}-KK-{school_code}-{existing_count:03d}"
 
-            return Response({
-                "message": "Student added successfully",
-                "id": student.id,
-                "reg_num": student.reg_num
-            }, status=201)
+                # ─────── Atomic: Create User + Student together ───────
+                with transaction.atomic():
+                    # 1. Create CustomUser with username = reg_num
+                    user = CustomUser.objects.create(
+                        username=reg_num,                  # ← EXACTLY the reg_num
+                        first_name=data.get("name", "").split()[0],
+                        role="Student",
+                        password=make_password(password)
+                    )
 
-        except Exception as e:
-            logger.error(f"❌ Error adding student: {str(e)}")
-            return Response({"error": str(e)}, status=400)
+                    # 2. Create Student and link it
+                    student = Student.objects.create(
+                        name=data.get("name"),
+                        reg_num=reg_num,                   # same as username
+                        school=school,
+                        student_class=data.get("student_class"),
+                        monthly_fee=data.get("monthly_fee"),
+                        phone=data.get("phone"),
+                        gender=data.get("gender", "Male"),
+                        date_of_registration=data.get("date_of_registration") or datetime.now().date(),
+                        user=user                          # OneToOne link
+                    )
 
+                return Response({
+                    "message": "Student added successfully",
+                    "id": student.id,
+                    "reg_num": student.reg_num,
+                    "username": user.username,             # same as reg_num
+                    "login_info": f"Username: {reg_num} | Password: (as set)"
+                }, status=201)
+
+            except Exception as e:
+                logger.error(f"❌ Error adding student: {str(e)}")
+                return Response({"error": str(e)}, status=400)
+    
     elif request.method == 'GET':  # ✅ Handle fetching students
         school_name = request.GET.get("school", "")
         student_class = request.GET.get("class", "")

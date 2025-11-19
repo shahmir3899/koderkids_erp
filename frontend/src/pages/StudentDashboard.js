@@ -59,7 +59,7 @@ const StudentDashboard = () => {
                 {data.fees.map((fee, i) => (
                   <tr key={i} className="border-t">
                     <td className="p-3">{fee.month}</td>
-                    <td className="p-3 font-bold">₹{fee.balance_due}</td>
+                    <td className="p-3 font-bold">PKR{fee.balance_due}</td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded text-sm ${
                         fee.status === 'Paid' ? 'bg-green-200' : 'bg-red-200'

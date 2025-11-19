@@ -487,3 +487,9 @@ input:focus, select:focus {
 .textbox:hover {
   @apply border-blue-400;
 }
+.fc .fc-daygrid-event {
+  white-space: normal !important;
+  height: auto !important;
+  padding: 4px !important;
+  border-radius: 6px !important;
+}

@@ -13,7 +13,9 @@ function AddStudentPopup({ onClose }) {
         monthly_fee: "",
         phone: "",
         date_of_registration: "",
-        gender: ""
+        gender: "",
+        password: "",          // ← NEW
+        confirm_password: ""   // ← NEW
     });
 
     const [schools, setSchools] = useState([]);
@@ -53,61 +55,6 @@ function AddStudentPopup({ onClose }) {
         fetchSchools();
     }, []);
 
-    // useEffect(() => {
-    //     async function fetchStudentsAndGenerateRegNum() {
-    //         //if (!formData.school || schools.length === 0) return;  // ✅ Wait for schools to be ready
-    //         if (!formData.school || schools.length === 0) {
-    //             setFormData(prev => ({ ...prev, reg_num: "" }));
-    //             return;
-    //         }
-
-    //         setLoading(true);
-    //         setError(null);
-    //         try {
-    //             const token = localStorage.getItem("access");
-    //             if (!token) {
-    //                 setError("Authentication token missing. Please log in again.");
-    //                 return;
-    //             }
-
-    //             const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/students/`, {
-    //                 headers: { Authorization: `Bearer ${token}` },
-    //                 params: { school: formData.school }
-    //             });
-
-    //             const studentList = response.data.students || response.data || [];
-    //             setStudents(studentList);
-
-    //             const year = new Date().getFullYear().toString().slice(-2);
-    //             const kkPrefix = "KK";
-    //             const selectedSchool = schools.find(s => s.id === parseInt(formData.school));
-    //             const schoolInitials = selectedSchool ? getSchoolInitials(selectedSchool.name) : "";
-    //             const baseRegNum = `${year}-${kkPrefix}-${schoolInitials}-`;
-
-    //             const allRegNums = studentList
-    //                 .map(student => student.reg_num)
-    //                 .filter(reg => reg && reg.includes(`-${kkPrefix}-${schoolInitials}-`))
-    //                 .map(reg => parseInt(reg.split("-").pop(), 10) || 0);
-
-    //             const nextNumber = allRegNums.length > 0 
-    //                 ? Math.max(...allRegNums) + 1
-    //                 : 1 ;
-    //             const paddedNumber = String(nextNumber).padStart(3, "0");
-    //             const newRegNum = `${baseRegNum}${paddedNumber}`;
-
-    //             setFormData(prev => ({ ...prev, reg_num: newRegNum }));
-    //         } catch (err) {
-    //             setError("Failed to fetch students. Using default reg_num.");
-    //             console.error("Error fetching students:", err.response?.data || err.message);
-    //             const selectedSchool = schools.find(s => s.id === parseInt(formData.school));
-    //             const schoolInitials = selectedSchool ? getSchoolInitials(selectedSchool.name) : "";
-    //             setFormData(prev => ({ ...prev, reg_num: `25-KK-${schoolInitials}-033` }));
-    //         } finally {
-    //             setLoading(false);
-    //         }
-    //     }
-    //     fetchStudentsAndGenerateRegNum();
-    // }, [formData.school, schools]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -115,77 +62,126 @@ function AddStudentPopup({ onClose }) {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // const getSchoolInitials = (schoolName) => {
-    //     if (!schoolName) return "";
-    //     const words = schoolName.trim().split(" ");
-    //     if (words.length === 1) {
-    //         return words[0].toUpperCase();
-    //     }
-    //     return words
-    //         .map(word => word.charAt(0).toUpperCase())
-    //         .join("")
-    //         .slice(0, 5);
-    // };
+  
 
     const handleSubmit = async () => {
-        setIsSubmitting(true); // Set submitting state to true
-        try {
-            console.log("Form Data before submission:", formData);
-            const token = localStorage.getItem("access");
-            if (!token) {
-                toast.error("Authentication error. Please log in again.", {
-                    position: "top-right",
-                    autoClose: 3000,
-                });
-                setIsSubmitting(false); // Reset submitting state
-                return;
-            }
+    setIsSubmitting(true);
 
-            if (!formData.name || !formData.school || !formData.student_class || 
-                !formData.monthly_fee || !formData.phone || !formData.date_of_registration || 
-                !formData.gender) {
-                toast.error("Please fill all fields.", {
-                    position: "top-right",
-                    autoClose: 3000,
-                });
-                setIsSubmitting(false); // Reset submitting state
-                return;
-            }
+    try {
+        console.log("Form Data before submission:", formData);
 
-            const { reg_num, ...studentData } = {
-                ...formData,
-                school: parseInt(formData.school),
-                date_of_registration: formData.date_of_registration || new Date().toISOString().split('T')[0]
-              };
-              
-
-            console.log("Sending to backend:", studentData);
-            const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/students/`, studentData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            toast.success(`Student added successfully! Reg#: ${response.data?.reg_num}`, {
-
+        const token = localStorage.getItem("access");
+        if (!token) {
+            toast.error("Authentication error. Please log in again.", {
                 position: "top-right",
                 autoClose: 3000,
             });
-
-            setTimeout(() => {
-                onClose();
-            }, 3000);
-        } catch (err) {
-            console.error("Error adding student:", err.response?.data || err.message);
-            toast.error(`Failed to add student! ${err.response?.data?.detail || "Check console."}`, {
-                position: "top-right",
-                autoClose: 5000,
-            });
-        } finally {
-            setIsSubmitting(false); // Reset submitting state in all cases
+            setIsSubmitting(false);
+            return;
         }
-    };
+
+        // ─────── Required field validation (updated to include password) ───────
+        if (
+            !formData.name ||
+            !formData.school ||
+            !formData.student_class ||
+            !formData.monthly_fee ||
+            !formData.phone ||
+            !formData.date_of_registration ||
+            !formData.gender ||
+            !formData.password
+        ) {
+            toast.error("Please fill all required fields, including password.", {
+                position: "top-right",
+                autoClose: 4000,
+            });
+            setIsSubmitting(false);
+            return;
+        }
+
+        // ─────── Password strength and confirmation check ───────
+        if (formData.password.length < 6) {
+            toast.error("Password must be at least 6 characters long.", {
+                position: "top-right",
+                autoClose: 4000,
+            });
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (formData.password !== formData.confirm_password) {
+            toast.error("Passwords do not match. Please confirm the password correctly.", {
+                position: "top-right",
+                autoClose: 4000,
+            });
+            setIsSubmitting(false);
+            return;
+        }
+
+        // ─────── Prepare clean payload (exclude unnecessary fields) ───────
+        const payload = {
+            name: formData.name,
+            school: parseInt(formData.school),
+            student_class: formData.student_class,
+            monthly_fee: parseFloat(formData.monthly_fee),
+            phone: formData.phone,
+            gender: formData.gender,
+            password: formData.password,  // ← Critical: sent to backend
+            date_of_registration:
+                formData.date_of_registration || new Date().toISOString().split("T")[0],
+        };
+
+        console.log("Sending to backend:", payload);
+
+        // ─────── API call ───────
+        const response = await axios.post(
+            `${process.env.REACT_APP_API_URL}/api/students/`,
+            payload,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        // ─────── Success: Show login credentials clearly ───────
+        toast.success(
+            <div style={{ lineHeight: "1.6" }}>
+                <strong>Student added successfully!</strong>
+                <br />
+                <strong>Username (Reg#):</strong> {response.data.reg_num}
+                <br />
+                <strong>Password:</strong> {formData.password}
+                <br />
+                <small>Student can now log in immediately.</small>
+            </div>,
+            {
+                position: "top-right",
+                autoClose: 10000,
+                closeButton: true,
+            }
+        );
+
+        // Close popup after 3 seconds
+        setTimeout(() => {
+            onClose();
+        }, 3000);
+
+    } catch (err) {
+        console.error("Error adding student:", err.response?.data || err.message);
+        const errorMsg =
+            err.response?.data?.error ||
+            err.response?.data?.detail ||
+            "Failed to add student. Please try again.";
+        toast.error(errorMsg, {
+            position: "top-right",
+            autoClose: 6000,
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
+};
 
     return (
         <div className="modal-overlay">
@@ -290,7 +286,35 @@ function AddStudentPopup({ onClose }) {
                         <option value="Other">Other</option>
                     </select>
                 </div>
+                                <div className="input-group">
+                    <label className="label">
+                        Login Password: <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                        name="password"
+                        type="password"
+                        value={formData.password || ""}
+                        onChange={handleInputChange}
+                        placeholder="Set strong password for student login"
+                        className="input"
+                        required
+                    />
+                </div>
 
+                <div className="input-group">
+                    <label className="label">
+                        Confirm Password: <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                        name="confirm_password"
+                        type="password"
+                        value={formData.confirm_password || ""}
+                        onChange={handleInputChange}
+                        placeholder="Re-type password"
+                        className="input"
+                        required
+                    />
+                </div>
                 <div className="input-group">
                     <label className="label">Date of Registration:</label>
                     <input

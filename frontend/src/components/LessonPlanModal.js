@@ -59,7 +59,7 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null); // ← NEW: for topic selector
   // NEW: Shared book data (fetched once per modal open)
-  const [bookTreeData, setBookTreeData] = useState(null);
+  //const [bookTreeData, setBookTreeData] = useState(null);
   const [bookTreeLoading, setBookTreeLoading] = useState(false);
   const [bookTreeError, setBookTreeError] = useState(null);
   const [selectedTopicIds, setSelectedTopicIds] = useState([]);
@@ -77,7 +77,7 @@ const LessonPlanModal = ({ isOpen, onClose, mode = "add" }) => {
 useEffect(() => {
   if (!isOpen) {
     // reset everything when modal closes
-    setBookTreeData(null);
+    //setBookTreeData(null);
     setBasicBooks([]);
     setFullBook(null);
     setSelectedBookId(null);
