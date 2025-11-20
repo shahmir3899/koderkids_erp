@@ -100,14 +100,14 @@ function AddStudentPopup({ onClose }) {
         }
 
         // ─────── Password strength and confirmation check ───────
-        if (formData.password.length < 6) {
-            toast.error("Password must be at least 6 characters long.", {
-                position: "top-right",
-                autoClose: 4000,
-            });
-            setIsSubmitting(false);
-            return;
-        }
+        // if (formData.password.length < 6) {
+        //     toast.error("Password must be at least 6 characters long.", {
+        //         position: "top-right",
+        //         autoClose: 4000,
+        //     });
+        //     setIsSubmitting(false);
+        //     return;
+        // }
 
         if (formData.password !== formData.confirm_password) {
             toast.error("Passwords do not match. Please confirm the password correctly.", {

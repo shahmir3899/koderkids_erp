@@ -14,7 +14,7 @@ from supabase import create_client
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, get_user_model
 from .models import Student, Fee, School, Attendance, LessonPlan, CustomUser
 from .serializers import StudentSerializer, SchoolSerializer, AttendanceSerializer, LessonPlanSerializer, FeeSummarySerializer
 from django.shortcuts import render
@@ -397,11 +397,12 @@ def get_students(request):
                 # ─────── Atomic: Create User + Student together ───────
                 with transaction.atomic():
                     # 1. Create CustomUser with username = reg_num
-                    user = CustomUser.objects.create(
+                    User = get_user_model()
+                    user = User.objects.create_user(
                         username=reg_num,                  # ← EXACTLY the reg_num
-                        first_name=data.get("name", "").split()[0],
+                        first_name=data.get("name", "").split(maxsplit=1)[0] if data.get("name") else "",
                         role="Student",
-                        password=make_password(password)
+                        password=password
                     )
 
                     # 2. Create Student and link it
