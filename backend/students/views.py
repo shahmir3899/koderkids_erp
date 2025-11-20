@@ -14,7 +14,8 @@ from supabase import create_client
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import make_password, get_user_model
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth import get_user_model
 from .models import Student, Fee, School, Attendance, LessonPlan, CustomUser
 from .serializers import StudentSerializer, SchoolSerializer, AttendanceSerializer, LessonPlanSerializer, FeeSummarySerializer
 from django.shortcuts import render
