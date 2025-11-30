@@ -5,12 +5,36 @@ from .models import LessonPlan, StudentImage
 from books.models import Topic
 
 class StudentSerializer(serializers.ModelSerializer):
-    school_id = serializers.PrimaryKeyRelatedField(queryset=School.objects.all())  # ✅ Fix school_id reference
+    # ✅ FIX: Use 'school' as the source for school_id field
+    # This maps the incoming 'school' field to the model's 'school' ForeignKey
+    school = serializers.PrimaryKeyRelatedField(queryset=School.objects.all())
+    
+    # Read-only field to return school name in responses
     school_name = serializers.CharField(source='school.name', read_only=True)
 
     class Meta:
         model = Student
         fields = '__all__'
+    
+    def validate(self, attrs):
+        """Debug logging for validation"""
+        print(f"🔍 StudentSerializer.validate() called with attrs: {attrs}")
+        return super().validate(attrs)
+    
+    def update(self, instance, validated_data):
+        """Debug logging for update"""
+        print(f"🔍 StudentSerializer.update() called")
+        print(f"🔍 Instance: {instance}")
+        print(f"🔍 Validated data: {validated_data}")
+        return super().update(instance, validated_data)
+    
+    def to_representation(self, instance):
+        """Customize the output to include school name instead of just ID"""
+        representation = super().to_representation(instance)
+        # Replace school ID with school name for display
+        if instance.school:
+            representation['school'] = instance.school.name
+        return representation
 
 class FeeSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)  # Get student name

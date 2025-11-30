@@ -1,750 +1,698 @@
-import React, { useRef, useState, useEffect } from "react";
-import axios from "axios";
-import { getSchools, getClasses } from "../api";
-import { getAuthHeaders } from "../api";
-import { ClipLoader } from "react-spinners";
-import { toast } from "react-toastify";
-import { useAuth } from "../auth";
-import Compressor from "compressorjs";
+// ============================================
+// PROGRESS PAGE - Refactored Version v2
+// ============================================
+// Location: src/pages/ProgressPage.js
+//
+// FEATURES:
+// - Uses FilterBar with showDate (single school fetch, no duplicate)
+// - Uses DataTable for student list with custom renders
+// - Uses AttendanceButton for status toggle
+// - Uses CompactRichTextEditor for achieved lessons
+// - Uses ImageUploadModal for image uploads
+// - Uses ProgressIndicator for completion status
+// - Uses Pagination component
+// - Bulk "Mark All Present" action
+// - Clean, compact hybrid UI
 
+import React, { useState, useCallback, useMemo } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { getAuthHeaders } from '../api';
+import { useAuth } from '../auth';
 
+// Common Components
+import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
+import { DataTable } from '../components/common/tables/DataTable';
+import { FilterBar } from '../components/common/filters/FilterBar';
+import { Pagination } from '../components/common/ui/Pagination';
+import { AttendanceButton } from '../components/common/ui/AttendanceButton';
+import { ProgressIndicator } from '../components/common/ui/ProgressIndicator';
+import { CompactRichTextEditor } from '../components/common/ui/CompactRichTextEditor';
+import { ImageUploadModal } from '../components/common/modals/ImageUploadModal';
+
+// ============================================
+// CONSTANTS
+// ============================================
 
 const API_URL = process.env.REACT_APP_API_URL;
-console.log("API URL:", process.env.REACT_APP_API_URL);
 
+const STUDENTS_PER_PAGE = 5;
 
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 const ProgressPage = () => {
-    const { user } = useAuth();
-    console.log("User object:", user);
-    const [schools, setSchools] = useState([]);
-    const [classes, setClasses] = useState([]);
-    const [students, setStudents] = useState([]);
-    const [attendanceData, setAttendanceData] = useState({});
-    const [achievedLessons, setAchievedLessons] = useState({});
-    const [sessionDate, setSessionDate] = useState("");
-    const [selectedSchool, setSelectedSchool] = useState("");
-    const [studentClass, setStudentClass] = useState("");
-    const [plannedTopic, setPlannedTopic] = useState("");
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [lessonPlan, setLessonPlan] = useState(null);
-    const [lessonPlanData, setLessonPlanData] = useState(null);
-    const [showTable, setShowTable] = useState(false);
-    const [uploadedImages, setUploadedImages] = useState({});
-    const [expandedStudent, setExpandedStudent] = useState(null);
-    const fileInputRefs = useRef({});
-    const [loading, setLoading] = useState(true);
-    const [isSearching, setIsSearching] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isUploading, setIsUploading] = useState({});
-    const [error, setError] = useState(null);
-    const [isRetrying, setIsRetrying] = useState(false);
-    const [isUserLoading, setIsUserLoading] = useState(true); // Add this state
-    const [loadingStudent, setLoadingStudent] = useState(""); 
-    const [selectedFiles, setSelectedFiles] = useState({});
-    const [currentPage, setCurrentPage] = useState(1);
- 
-    const studentsPerPage = 5; // Number of students per page
-    const indexOfLastStudent = currentPage * studentsPerPage;
-    const indexOfFirstStudent = indexOfLastStudent - studentsPerPage;
-    const currentStudents = students.slice(indexOfFirstStudent, indexOfLastStudent);
-    
+  const { user } = useAuth();
 
+  // ============================================
+  // STATE
+  // ============================================
 
-    // Fetch assigned schools for the logged-in teacher
-    useEffect(() => {
-        const loadInitialData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const data = await getSchools();
-                if (!Array.isArray(data)) {
-                    throw new Error("Invalid schools data format.");
-                }
-                setSchools(data);
-            } catch (err) {
-                const errorMessage = err.message || "Failed to load schools.";
-                setError(errorMessage);
-                toast.error(errorMessage);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadInitialData();
-    }, []);
+  // Filter state (received from FilterBar)
+  const [filters, setFilters] = useState({
+    date: '',
+    schoolId: '',
+    className: '',
+  });
 
-    useEffect(() => {
-        const checkUser = async () => {
-            if (!user) {
-                setIsUserLoading(true);
-                // Optional: Retry fetching user data if needed
-                try {
-                    // Simulate a delay or retry logic if useAuth doesn't handle it
-                    setTimeout(() => {
-                        setIsUserLoading(false);
-                    }, 1000); // Adjust delay as needed
-                } catch (error) {
-                    console.error("Error checking user:", error);
-                    setIsUserLoading(false);
-                }
-            } else {
-                setIsUserLoading(false);
-            }
-        };
-        checkUser();
-    }, [user]);
+  // Data state
+  const [students, setStudents] = useState([]);
+  const [attendanceData, setAttendanceData] = useState({});
+  const [achievedLessons, setAchievedLessons] = useState({});
+  const [uploadedImages, setUploadedImages] = useState({});
+  const [plannedTopic, setPlannedTopic] = useState('');
 
-    useEffect(() => {
-        async function fetchClassesBySchool() {
-            if (!selectedSchool) return;
+  // UI state
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
-            try {
-                const response = await getClasses(selectedSchool);
-                if (Array.isArray(response)) {
-                    const uniqueClasses = [...new Set(response)].sort((a, b) => a - b);
-                    const formattedClasses = uniqueClasses.map(cls => ({
-                        id: cls,
-                        name: `Class ${cls}`
-                    }));
-                    setClasses([{ id: "", name: "Select Class" }, ...formattedClasses]);
-                } else {
-                    throw new Error("Invalid classes data format.");
-                }
-            } catch (err) {
-                console.error("❌ Error fetching classes:", err);
-                toast.error("Failed to fetch classes.");
-            }
-        }
-        fetchClassesBySchool();
-    }, [selectedSchool]);
+  // Modal state
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [selectedStudentForImage, setSelectedStudentForImage] = useState(null);
 
-    const openFileDialog = (studentId) => {
-        if (fileInputRefs.current[studentId]) {
-            fileInputRefs.current[studentId].click();
-        }
-    };
+  // ============================================
+  // DERIVED VALUES
+  // ============================================
 
-    const handleFileSelect = (event, studentId) => {
-    if (!event.target.files.length) return;
+  // Paginated students
+  const paginatedStudents = useMemo(() => {
+    const startIndex = (currentPage - 1) * STUDENTS_PER_PAGE;
+    return students.slice(startIndex, startIndex + STUDENTS_PER_PAGE);
+  }, [students, currentPage]);
 
-    const file = event.target.files[0];
-    console.log(`📷 Original image size for student ${studentId}: ${(file.size / 1024).toFixed(2)} KB`);
+  // Progress calculation
+  const progressStats = useMemo(() => {
+    const total = students.length;
+    const completed = students.filter((s) => {
+      const hasAttendance = attendanceData[s.id]?.status;
+      const hasLesson = achievedLessons[s.id]?.trim();
+      return hasAttendance && hasLesson;
+    }).length;
+    return { completed, total };
+  }, [students, attendanceData, achievedLessons]);
 
-    // Show "Processing Image" toast
-    const processingToastId = toast.info("🛠️ Processing Image...", {
-      autoClose: false,
-    });
+  // ============================================
+  // HANDLERS
+  // ============================================
 
-    new Compressor(file, {
-      quality: 0.7, // 70% quality
-      maxWidth: 800, // Max width
-      maxHeight: 800, // Max height
-      mimeType: file.type, // Preserve original type
-      success(result) {
-        const processedFile = new File([result], file.name, { type: file.type });
-        console.log(`✅ Processed image size for student ${studentId}: ${(processedFile.size / 1024).toFixed(2)} KB`);
+  // Handle filter submission from FilterBar
+  const handleFilter = useCallback(async (filterValues) => {
+    const { date, schoolId, className } = filterValues;
 
-        setSelectedFiles((prev) => ({
-          ...prev,
-          [studentId]: processedFile,
-        }));
-
-        // Dismiss processing toast
-        toast.dismiss(processingToastId);
-        toast.success("✅ Image processed successfully!");
-      },
-      error(err) {
-        console.error("❌ Compression error:", err);
-        toast.dismiss(processingToastId);
-        toast.error("Failed to process image.");
-      },
-    });
-  };
-    
-    
-
-    const handleFileUpload = async (studentId) => {
-    if (!selectedFiles[studentId]) {
-      toast.error("Please select a file first.");
+    if (!date || !schoolId || !className) {
+      toast.error('Please select date, school, and class.');
       return;
     }
 
-    setIsUploading((prev) => ({ ...prev, [studentId]: true }));
+    setFilters({ date, schoolId, className });
+    setIsSearching(true);
+    setHasSearched(true);
+    setCurrentPage(1);
 
-    // Show "Uploading Image" toast
-    const uploadingToastId = toast.info("⬆️ Uploading Image...", {
-      autoClose: false,
-    });
-
-    const formData = new FormData();
-    formData.append("image", selectedFiles[studentId]);
-    formData.append("student_id", studentId);
-    formData.append("session_date", sessionDate);
+    // Clear previous data
+    setStudents([]);
+    setAttendanceData({});
+    setAchievedLessons({});
+    setUploadedImages({});
+    setPlannedTopic('');
 
     try {
-      const response = await axios.post(`${API_URL}/api/upload-student-image/`, formData, {
-        headers: { "Content-Type": "multipart/form-data", ...getAuthHeaders() },
+      // Format date for API (MM/DD/YYYY)
+      const [year, month, day] = date.split('-');
+      const formattedDate = `${month}/${day}/${year}`;
+
+      // Fetch students
+      const response = await axios.get(`${API_URL}/api/students-prog/`, {
+        params: {
+          school_id: schoolId,
+          class_id: className,
+          session_date: formattedDate,
+        },
+        headers: getAuthHeaders(),
       });
 
+      const fetchedStudents = response.data.students || [];
+      setStudents(fetchedStudents);
+
+      // Process attendance and achieved lessons
+      const newAttendanceData = {};
+      const newAchievedLessons = {};
+
+      fetchedStudents.forEach((student) => {
+        if (student.status && student.status !== 'N/A') {
+          newAttendanceData[student.id] = { status: student.status };
+        }
+        if (student.achieved_topic) {
+          newAchievedLessons[student.id] = student.achieved_topic;
+        }
+      });
+
+      setAttendanceData(newAttendanceData);
+      setAchievedLessons(newAchievedLessons);
+
+      // Fetch planned topic
+      try {
+        const lessonResponse = await axios.get(
+          `${API_URL}/api/lesson-plan/${date}/${schoolId}/${className}/`,
+          { headers: getAuthHeaders() }
+        );
+
+        if (lessonResponse.data.lessons?.length > 0) {
+          setPlannedTopic(lessonResponse.data.lessons[0].planned_topic);
+        } else {
+          setPlannedTopic('No topic planned for this date.');
+        }
+      } catch (err) {
+        console.error('Error fetching planned topic:', err);
+        setPlannedTopic('Failed to fetch planned topic.');
+      }
+
+      // Fetch student images
+      const newUploadedImages = {};
+      for (const student of fetchedStudents) {
+        try {
+          const imageResponse = await axios.get(`${API_URL}/api/student-images/`, {
+            params: { student_id: student.id, session_date: date },
+            headers: getAuthHeaders(),
+          });
+
+          if (imageResponse.data.images?.length > 0) {
+            newUploadedImages[student.id] = imageResponse.data.images[0];
+          }
+        } catch (err) {
+          // Silently fail for individual image fetches
+        }
+      }
+
+      setUploadedImages(newUploadedImages);
+
+      if (fetchedStudents.length > 0) {
+        toast.success(`Loaded ${fetchedStudents.length} students.`);
+      } else {
+        toast.info('No students found for the selected criteria.');
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      toast.error('Failed to fetch data. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Attendance change handler
+  const handleAttendanceChange = useCallback((studentId, status) => {
+    setAttendanceData((prev) => ({
+      ...prev,
+      [studentId]: { ...prev[studentId], status },
+    }));
+  }, []);
+
+  // Mark all present
+  const handleMarkAllPresent = useCallback(() => {
+    const newAttendanceData = { ...attendanceData };
+    students.forEach((student) => {
+      newAttendanceData[student.id] = { status: 'Present' };
+    });
+    setAttendanceData(newAttendanceData);
+    toast.success('All students marked as Present.');
+  }, [students, attendanceData]);
+
+  // Achieved lesson change handler
+  const handleAchievedChange = useCallback((studentId, text) => {
+    setAchievedLessons((prev) => ({
+      ...prev,
+      [studentId]: text,
+    }));
+  }, []);
+
+  // Open image upload modal
+  const openImageModal = useCallback((student) => {
+    setSelectedStudentForImage(student);
+    setImageModalOpen(true);
+  }, []);
+
+  // Close image upload modal
+  const closeImageModal = useCallback(() => {
+    setImageModalOpen(false);
+    setSelectedStudentForImage(null);
+  }, []);
+
+  // Image upload handler (passed to modal)
+  const handleImageUpload = useCallback(async (studentId, file, sessionDate) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('student_id', studentId);
+    formData.append('session_date', sessionDate);
+
+    const response = await axios.post(`${API_URL}/api/upload-student-image/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data', ...getAuthHeaders() },
+    });
+
+    return response.data.image_url;
+  }, []);
+
+  // Update uploaded image after successful upload
+  const handleImageUploadComplete = useCallback((imageUrl) => {
+    if (selectedStudentForImage) {
       setUploadedImages((prev) => ({
         ...prev,
-        [studentId]: response.data.image_url,
+        [selectedStudentForImage.id]: imageUrl,
       }));
+    }
+  }, [selectedStudentForImage]);
 
-      toast.dismiss(uploadingToastId);
-      toast.success("Image uploaded successfully!");
-    } catch (error) {
-      console.error("❌ Error uploading image:", error.response?.data || error.message);
-      toast.dismiss(uploadingToastId);
-      toast.error("Failed to upload image.");
+  // Delete image
+  const handleDeleteImage = useCallback((studentId) => {
+    setUploadedImages((prev) => {
+      const updated = { ...prev };
+      delete updated[studentId];
+      return updated;
+    });
+    toast.success('Image removed.');
+  }, []);
+
+  // Submit handler
+  const handleSubmit = useCallback(async () => {
+    if (!filters.date || !filters.schoolId || !filters.className) {
+      toast.error('Please search for students first.');
+      return;
+    }
+
+    if (students.length === 0) {
+      toast.error('No students to submit.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const newAttendanceRecords = [];
+
+      const attendanceUpdates = students.map((student) => {
+        const attendanceId = student.attendance_id || null;
+        const status = attendanceData[student.id]?.status || 'N/A';
+        const achievedTopic = achievedLessons[student.id] || '';
+        const lessonPlanId = student.lesson_plan_id || null;
+
+        if (!attendanceId) {
+          newAttendanceRecords.push({
+            student_id: student.id,
+            session_date: filters.date,
+            status: status,
+            achieved_topic: achievedTopic,
+            lesson_plan_id: lessonPlanId,
+          });
+        }
+
+        return {
+          attendance_id: attendanceId,
+          status,
+          achieved_topic: achievedTopic,
+          lesson_plan_id: lessonPlanId,
+        };
+      });
+
+      // Create new attendance records
+      if (newAttendanceRecords.length > 0) {
+        await axios.post(
+          `${API_URL}/api/attendance/`,
+          {
+            session_date: filters.date,
+            attendance: newAttendanceRecords,
+          },
+          { headers: getAuthHeaders() }
+        );
+      }
+
+      // Update existing attendance records
+      for (const update of attendanceUpdates) {
+        if (!update.attendance_id) continue;
+
+        await axios.put(
+          `${API_URL}/api/attendance/update/${update.attendance_id}/`,
+          update,
+          { headers: getAuthHeaders() }
+        );
+      }
+
+      toast.success('Progress saved successfully!');
+    } catch (err) {
+      console.error('Error saving progress:', err);
+      toast.error(`Failed to save: ${err.response?.data?.detail || err.message}`);
     } finally {
-      setIsUploading((prev) => ({ ...prev, [studentId]: false }));
+      setIsSubmitting(false);
     }
-  };
-    
-    
+  }, [filters, students, attendanceData, achievedLessons]);
 
-    const handleFileDelete = (studentId) => {
-        setUploadedImages(prev => {
-            const updated = { ...prev };
-            delete updated[studentId];
-            return updated;
-        });
-        setSelectedFile(null);
-        if (fileInputRefs.current[studentId]) {
-            fileInputRefs.current[studentId].value = null;
-        }
-    };
+  // ============================================
+  // TABLE COLUMNS
+  // ============================================
 
-    const handleSearch = async () => {
-        if (!sessionDate || !selectedSchool || !studentClass) {
-            toast.error("Please select a date, school, and class before searching.");
-            return;
-        }
-    
-        setIsSearching(true);
-        toast.info("Fetching student and lesson data...");
-    
-        try {
-            // Clear previous state
-            setAttendanceData({});
-            setAchievedLessons({});
-            setStudents([]);
-            setLessonPlan(null);
-            setShowTable(false);
-            setUploadedImages({});
-            setPlannedTopic(""); // Reset previous topic
-            setLoadingStudent(""); // Reset student name display
-    
-            console.log("Raw sessionDate (YYYY-MM-DD):", sessionDate);
-    
-            // Format date for API (MM/DD/YYYY format)
-            const [year, month, day] = sessionDate.split("-");
-            if (!year || !month || !day) {
-                throw new Error("Invalid date format in sessionDate. Expected YYYY-MM-DD.");
-            }
-            const formattedDate = `${month}/${day}/${year}`;
-            console.log("Formatted sessionDate (MM/DD/YYYY):", formattedDate);
-    
-            // 🔹 Fetch Student Data
-            const response = await axios.get(`${API_URL}/api/students-prog/`, {
-                params: {
-                    school_id: selectedSchool,
-                    class_id: studentClass,
-                    session_date: formattedDate
-                },
-                headers: getAuthHeaders(),
-            });
-    
-            console.log("API Response (students):", response.data);
-    
-            const fetchedStudents = response.data.students || [];
-            setStudents(fetchedStudents);
-            setLessonPlan(response.data.lesson_plan || null);
-    
-            // Process attendance and achieved lessons
-            const newAttendanceData = {};
-            const newAchievedLessons = {};
-            fetchedStudents.forEach((student, index) => {
-                setTimeout(() => {
-                    setLoadingStudent(student.name); // Update UI with current student name
-            
-                    toast.info(`Loading data for ${student.name}...`, {
-                        autoClose: 1000, // Message disappears after 1s
-                        toastId: `student-${student.id}`, // Prevent duplicate toasts
-                    });
-            
-                    // Process attendance & achieved lessons
-                    if (student.status && student.status !== "N/A") {
-                        newAttendanceData[student.id] = { status: student.status };
-                    }
-                    if (student.achieved_topic) {
-                        newAchievedLessons[student.id] = student.achieved_topic;
-                    }
-            
-                    // If last student, clear loading message
-                    if (index === fetchedStudents.length - 1) {
-                        setTimeout(() => setLoadingStudent(""), 1000);
-                    }
-                }, index * 500); // Stagger messages so they appear one by one
-            });
-            
-    
-            setAttendanceData(newAttendanceData);
-            setAchievedLessons(newAchievedLessons);
-    
-            // 🔹 Fetch the Planned Topic from the Lesson Table
-            try {
-                const lessonResponse = await axios.get(`${API_URL}/api/lesson-plan/${sessionDate}/${selectedSchool}/${studentClass}/`, {
-                    headers: getAuthHeaders(),
-                });
-                
-    
-                console.log("Lesson Plan API Response:", lessonResponse.data);
-    
-                if (lessonResponse.data.lessons.length > 0) {
-                    setPlannedTopic(lessonResponse.data.lessons[0].planned_topic);
-                    console.log("✅ Planned Topic Set:", lessonResponse.data.lessons[0].planned_topic);
-                } else {
-                    setPlannedTopic("No topic planned for this date.");
-                    console.log("❌ No Lesson Plan Found, setting default message.");
-                }
-                
-            } catch (error) {
-                console.error("❌ Error fetching planned topic:", error.response?.data || error.message);
-                setPlannedTopic("Failed to fetch planned topic.");
-            }
-    
-            // 🔹 Fetch Student Images
-            const newUploadedImages = {};
-            for (const student of fetchedStudents) {
-                try {
-                    const imageResponse = await axios.get(`${API_URL}/api/student-images/`, {
-                        params: {
-                            student_id: student.id,
-                            session_date: sessionDate // Use raw YYYY-MM-DD format
-                        },
-                        headers: getAuthHeaders(),
-                    });
-    
-                    if (imageResponse.data.images && imageResponse.data.images.length > 0) {
-                        newUploadedImages[student.id] = imageResponse.data.images[0];
-                    }
-                } catch (error) {
-                    console.error(`❌ Error fetching images for student ${student.id}:`, error.response?.data || error.message);
-                }
-            }
-    
-            setUploadedImages(newUploadedImages);
-    
-            // 🔹 Show the Table if Data Exists
-            if (fetchedStudents.length > 0) {
-                setShowTable(true);
-                toast.success("Data loaded successfully.");
-            } else {
-                setShowTable(false);
-                toast.info("No students found for the selected criteria.");
-            }
-        } catch (error) {
-            console.error("❌ Error fetching data:", error.response?.data || error.message);
-            setError("Failed to fetch data.");
-            toast.error("Failed to fetch data. Please try again.");
-        } finally {
-            setIsSearching(false);
-        }
-    };
-    
+  const columns = useMemo(() => [
+    {
+      key: 'name',
+      label: 'Student Name',
+      sortable: true,
+      width: '200px',
+      render: (value) => (
+        <span style={{ fontWeight: '500', color: '#1F2937' }}>{value}</span>
+      ),
+    },
+    {
+      key: 'attendance',
+      label: 'Status',
+      sortable: false,
+      width: '120px',
+      align: 'center',
+      render: (_, row) => (
+        <AttendanceButton
+          status={attendanceData[row.id]?.status}
+          onChange={(status) => handleAttendanceChange(row.id, status)}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'achieved',
+      label: 'Achieved Lesson',
+      sortable: false,
+      render: (_, row) => (
+        <CompactRichTextEditor
+          value={achievedLessons[row.id] || ''}
+          onChange={(text) => handleAchievedChange(row.id, text)}
+          placeholder="Enter achieved lesson..."
+        />
+      ),
+    },
+    {
+      key: 'image',
+      label: 'Image',
+      sortable: false,
+      width: '150px',
+      align: 'center',
+      render: (_, row) => {
+        const image = uploadedImages[row.id];
+        const imageUrl = typeof image === 'object' ? image?.signedURL : image;
 
-    const handleAttendanceChange = (studentId, status) => {
-        setAttendanceData({
-            ...attendanceData,
-            [studentId]: { ...attendanceData[studentId], status }
-        });
-    };
-
-    const handleAchievedChange = (studentId, topic) => {
-        setAchievedLessons({
-            ...achievedLessons,
-            [studentId]: topic
-        });
-    };
-
-    const handleSubmit = async () => {
-        if (!sessionDate || !selectedSchool || !studentClass) {
-            toast.error("Please select a date, school, and class before submitting.");
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            let newAttendanceRecords = [];
-
-            const attendanceUpdates = students.map(student => {
-                const attendanceId = student.attendance_id || null;
-                const status = attendanceData[student.id]?.status || "N/A";
-                const achievedTopic = achievedLessons[student.id] || "";
-                const lessonPlanId = student.lesson_plan_id || null;
-
-                if (!attendanceId) {
-                    newAttendanceRecords.push({
-                        student_id: student.id,
-                        session_date: sessionDate,
-                        status: status,
-                        achieved_topic: achievedTopic,
-                        lesson_plan_id: lessonPlanId
-                    });
-                }
-
-                return { attendance_id: attendanceId, status, achieved_topic: achievedTopic, lesson_plan_id: lessonPlanId };
-            });
-
-            console.log("Submitting attendance payload:", {
-                session_date: sessionDate,
-                attendance: newAttendanceRecords
-            });
-
-            if (newAttendanceRecords.length > 0) {
-                const createResponse = await axios.post(`${API_URL}/api/attendance/`, {
-                    session_date: sessionDate,
-                    attendance: newAttendanceRecords
-                }, {
-                    headers: getAuthHeaders(),
-                });
-                console.log("✅ Attendance response:", createResponse.data);
-            }
-
-            for (const update of attendanceUpdates) {
-                if (!update.attendance_id) continue;
-
-                await axios.put(`${API_URL}/api/attendance/update/${update.attendance_id}/`, update, {
-                    headers: getAuthHeaders(),
-                });
-            }
-
-            toast.success("Attendance and achieved topics updated successfully!");
-        } catch (error) {
-            const errorDetails = error.response?.data || error.response || error.message || "Unknown error";
-            console.error("❌ Error updating attendance:", errorDetails);
-            toast.error(`Failed to update attendance: ${JSON.stringify(errorDetails)}`);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleDateChange = (e) => {
-        const newDate = e.target.value;
-        setSessionDate(newDate);
-    };
-
-    const toggleAccordion = (studentId) => {
-        setExpandedStudent(expandedStudent === studentId ? null : studentId);
-    };
-
-    const handleRetry = async () => {
-        setIsRetrying(true);
-        setError(null);
-        setLoading(true);
-        setIsRetrying(false);
-    };
-
-    if (!user) {
         return (
-            <div className="flex items-center justify-center p-6 min-h-screen bg-gray-50">
-                <ClipLoader color="#000000" size={50} />
-            </div>
-        );
-    }
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => openImageModal(row)}
+              style={{
+                padding: '0.375rem 0.625rem',
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563EB')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3B82F6')}
+            >
+              📷 {imageUrl ? 'Change' : 'Upload'}
+            </button>
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center p-6 min-h-screen bg-gray-50">
-                <ClipLoader color="#000000" size={50} />
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="p-6 text-red-500 flex flex-col items-center">
-                <p>{error}</p>
+            {imageUrl && (
+              <>
+                <img
+                  src={imageUrl}
+                  alt="Uploaded"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '0.25rem',
+                    objectFit: 'cover',
+                    border: '1px solid #E5E7EB',
+                  }}
+                  onError={(e) => (e.target.style.display = 'none')}
+                />
                 <button
-                    className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                    onClick={handleRetry}
-                    disabled={isRetrying}
-                    aria-label="Retry fetching data"
+                  onClick={() => handleDeleteImage(row.id)}
+                  style={{
+                    padding: '0.25rem',
+                    backgroundColor: '#EF4444',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '0.25rem',
+                    fontSize: '0.7rem',
+                    cursor: 'pointer',
+                    lineHeight: 1,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#DC2626')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#EF4444')}
+                  title="Remove image"
                 >
-                    {isRetrying ? "Retrying..." : "Retry"}
+                  ✕
                 </button>
-            </div>
+              </>
+            )}
+          </div>
         );
-    }
+      },
+    },
+  ], [attendanceData, achievedLessons, uploadedImages, handleAttendanceChange, handleAchievedChange, openImageModal, handleDeleteImage]);
 
+  // ============================================
+  // STYLES
+  // ============================================
+
+  const pageContainerStyle = {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '1.5rem',
+  };
+
+  const headerStyle = {
+    fontSize: '1.75rem',
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: '1.5rem',
+    textAlign: 'center',
+  };
+
+  const plannedTopicStyle = {
+    padding: '1rem',
+    backgroundColor: '#EFF6FF',
+    borderRadius: '0.5rem',
+    borderLeft: '4px solid #3B82F6',
+    marginBottom: '1rem',
+  };
+
+  const actionBarStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '1rem',
+    marginBottom: '1rem',
+    padding: '1rem',
+    backgroundColor: '#F9FAFB',
+    borderRadius: '0.5rem',
+  };
+
+  const bulkActionStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  };
+
+  const submitContainerStyle = {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginTop: '1.5rem',
+  };
+
+  const submitButtonStyle = {
+    padding: '0.75rem 2rem',
+    backgroundColor: isSubmitting ? '#9CA3AF' : '#10B981',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '0.5rem',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  };
+
+  const emptyStateStyle = {
+    padding: '3rem',
+    textAlign: 'center',
+    color: '#9CA3AF',
+    backgroundColor: '#F9FAFB',
+    borderRadius: '0.5rem',
+  };
+
+  // ============================================
+  // RENDER - Loading State
+  // ============================================
+
+  if (!user) {
     return (
-        <div className="container p-6 bg-gray-50 min-h-screen">
-            <h1 class="heading-primary">SESSION PROGRESS</h1>
-
-            <div className="flex items-center gap-4 mb-8">
-                <div className="form-group flex flex-col flex-1 min-w-[200px]">
-                    <label className="font-bold mb-2 text-gray-700">Session Date:</label>
-                    <input
-                        type="date"
-                        value={sessionDate}
-                        onChange={handleDateChange}
-                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    />
-                </div>
-
-                <div className="form-group flex flex-col flex-1 min-w-[200px]">
-                    <label className="font-bold mb-2 text-gray-700">School:</label>
-                    <select
-                        value={selectedSchool}
-                        onChange={e => setSelectedSchool(e.target.value)}
-                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    >
-                        <option value="">Select School</option>
-                        {schools.map(school => (
-                            <option key={school.id} value={school.id}>{school.name}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="form-group flex flex-col flex-1 min-w-[200px]">
-                    <label className="font-bold mb-2 text-gray-700">Class:</label>
-                    <select
-                        value={studentClass}
-                        onChange={e => setStudentClass(e.target.value)}
-                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    >
-                        {classes.map(cls => (
-                            <option key={cls.id} value={cls.id}>{cls.name}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <button
-    onClick={handleSearch}
-    className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
-    disabled={isSearching}
->
-    {isSearching ? "🔍 Searching..." : "🔍 Fetch Students"}
-</button>
-            </div>
-            {loadingStudent && (
-                <div className="text-center text-blue-500 font-semibold my-2">
-                    🔄 Loading data for <span className="font-bold">{loadingStudent}</span>...
-                </div>
-            )}
-
-            {showTable && (
-                <>
-                    <div className="mb-4 p-3 bg-gray-100 rounded-lg">
-                        <strong className="text-gray-700">Planned Lesson:</strong> {plannedTopic}
-                        {lessonPlanData && (
-                            <>
-                                {/* <p><strong>Teacher:</strong> {lessonPlanData.teacher_name}</p>
-                                <p><strong>School:</strong> {lessonPlanData.school_name}</p> */}
-                            </>
-                        )}
-                    </div>
-
-                    <div className="accordion">
-                        {/* {students.map(student => (
-                            <div className="accordion-item" key={student.id}>
-                                <div className="accordion-header" onClick={() => toggleAccordion(student.id)}>
-                                    <div className="flex items-center justify-between w-full">
-                                        <div className="w-[300px] truncate text-gray-600 font-medium" title={student.name}>
-                                            {student.name}
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <button
-                                                className={`button attendance-button ${attendanceData[student.id]?.status === "Present" ? "present" : attendanceData[student.id]?.status === "Absent" ? "absent" : ""}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleAttendanceChange(student.id,
-                                                        attendanceData[student.id]?.status === "Present" ? "Absent" : "Present"
-                                                    );
-                                                }}
-                                            >
-                                                {attendanceData[student.id]?.status || "Set Attendance"}
-                                            </button>
-                                            <span className="accordion-toggle">
-                                                {expandedStudent === student.id ? "▼" : "▶"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="accordion-content" style={{ display: expandedStudent === student.id ? "block" : "none" }}>
-                                    <div className="flex flex-col gap-4 max-w-md">
-                                        <div>
-                                            <label className="block font-bold mb-2 text-gray-700">Achieved Lesson:</label>
-                                            <textarea
-                                                value={achievedLessons[student.id] || ""}
-                                                onChange={e => handleAchievedChange(student.id, e.target.value)}
-                                                rows="3"
-                                                className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors resize-vertical"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block font-bold mb-2 text-gray-700">Upload Image:</label>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    ref={(el) => (fileInputRefs.current[student.id] = el)}
-                                                    className="hidden"
-                                                    onChange={(event) => handleFileSelect(event, student.id)}
-                                                />
-                                                <button
-                                                    className="button action-button browse"
-                                                    onClick={() => openFileDialog(student.id)}
-                                                >
-                                                    Browse
-                                                </button>
-                                                <button
-                                                    className={`button action-button upload ${selectedFiles[student.id] ? 'enabled' : 'disabled'}`}
-                                                    onClick={() => handleFileUpload(student.id)}
-                                                    disabled={!selectedFiles[student.id] || isUploading[student.id]}
-                                                >
-                                                    {isUploading[student.id] ? "Uploading..." : "Upload"}
-                                                </button>
-                                                {uploadedImages[student.id] && (
-                                                    <>
-                                                        <img 
-                                                            src={typeof uploadedImages[student.id] === "object" ? uploadedImages[student.id].signedURL : uploadedImages[student.id]} 
-                                                            alt="Uploaded" 
-                                                            className="w-20 h-20 rounded-lg border border-gray-300 object-cover"
-                                                            onError={(e) => e.target.style.display = "none"} // Hide if image fails to load
-                                                        />
-                                                        <button
-                                                            className="button action-button delete"
-                                                            onClick={() => handleFileDelete(student.id)}
-                                                        >
-                                                            Delete
-                                                        </button>
-                                                    </>
-                                                )}
-
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))} */}
-                        {currentStudents.map(student => (
-    <div className="accordion-item" key={student.id}>
-        <div className="accordion-header" onClick={() => toggleAccordion(student.id)}>
-            <div className="flex items-center justify-between w-full">
-                <div className="w-[300px] truncate text-gray-600 font-medium" title={student.name}>
-                    {student.name}
-                </div>
-                <div className="flex items-center gap-4">
-                    <button
-                        className={`button attendance-button ${
-                            attendanceData[student.id]?.status === "Present" ? "present" : "absent"
-                        }`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleAttendanceChange(student.id, attendanceData[student.id]?.status === "Present" ? "Absent" : "Present");
-                        }}
-                    >
-                        {attendanceData[student.id]?.status || "Set Attendance"}
-                    </button>
-                    <span className="accordion-toggle">
-                        {expandedStudent === student.id ? "▼" : "▶"}
-                    </span>
-                </div>
-            </div>
-        </div>
-
-        {expandedStudent === student.id && (
-            <div className="accordion-content">
-                <div className="flex flex-col gap-4 max-w-md">
-                    <div>
-                        <label className="block font-bold mb-2 text-gray-700">Achieved Lesson:</label>
-                        <textarea
-                            value={achievedLessons[student.id] || ""}
-                            onChange={(e) => handleAchievedChange(student.id, e.target.value)}
-                            rows="3"
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors resize-vertical"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block font-bold mb-2 text-gray-700">Upload Image:</label>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                ref={(el) => (fileInputRefs.current[student.id] = el)}
-                                className="hidden"
-                                onChange={(event) => handleFileSelect(event, student.id)}
-                            />
-                            <button className="button action-button browse" onClick={() => openFileDialog(student.id)}>
-                                Browse
-                            </button>
-                            <button
-                                className={`button action-button upload ${selectedFiles[student.id] ? "enabled" : "disabled"}`}
-                                onClick={() => handleFileUpload(student.id)}
-                                disabled={!selectedFiles[student.id] || isUploading[student.id]}
-                            >
-                                {isUploading[student.id] ? "Uploading..." : "Upload"}
-                            </button>
-
-                            {uploadedImages[student.id] && (
-                                <>
-                                    <img
-                                        src={typeof uploadedImages[student.id] === "object" ? uploadedImages[student.id].signedURL : uploadedImages[student.id]}
-                                        alt="Uploaded"
-                                        className="w-20 h-20 rounded-lg border border-gray-300 object-cover"
-                                        onError={(e) => (e.target.style.display = "none")}
-                                    />
-                                    <button className="button action-button delete" onClick={() => handleFileDelete(student.id)}>
-                                        Delete
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
-    </div>
-))}
-<div className="flex justify-center gap-4 mt-4">
-    <button 
-        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-        disabled={currentPage === 1}
-        className="px-4 py-2 bg-blue-500 text-white rounded-lg"
-    >
-        Previous
-    </button>
-    <span>Page {currentPage} of {Math.ceil(students.length / studentsPerPage)}</span>
-    <button 
-        onClick={() => setCurrentPage(prev => (prev < Math.ceil(students.length / studentsPerPage) ? prev + 1 : prev))}
-        disabled={currentPage === Math.ceil(students.length / studentsPerPage)}
-        className="px-4 py-2 bg-blue-500 text-white rounded-lg"
-    >
-        Next
-    </button>
-</div>
-    
-                    </div>
-
-                    <div className="mt-6 text-right">
-                        <button
-                            onClick={handleSubmit}
-                            className="button bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? "Submitting..." : "Submit"}
-                        </button>
-                    </div>
-                </>
-            )}
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <LoadingSpinner size="large" message="Loading..." />
+      </div>
     );
+  }
+
+  // ============================================
+  // RENDER - Main Content
+  // ============================================
+
+  return (
+    <div style={pageContainerStyle}>
+      {/* Page Header */}
+      <h1 style={headerStyle}>📊 Session Progress</h1>
+
+      {/* Filter Bar */}
+      <FilterBar
+        showDate={true}
+        showSchool={true}
+        showClass={true}
+        showMonth={false}
+        preventFutureDates={true}
+        submitButtonText="🔍 Fetch Students"
+        showResetButton={true}
+        onFilter={handleFilter}
+      />
+
+      {/* Loading State */}
+      {isSearching && (
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <LoadingSpinner size="large" message="Fetching students..." />
+        </div>
+      )}
+
+      {/* Results Section */}
+      {!isSearching && hasSearched && students.length > 0 && (
+        <>
+          {/* Planned Topic */}
+          <div style={plannedTopicStyle}>
+            <strong style={{ color: '#1E40AF' }}>📚 Planned Lesson:</strong>{' '}
+            <span style={{ color: '#374151' }}>{plannedTopic}</span>
+          </div>
+
+          {/* Action Bar */}
+          <div style={actionBarStyle}>
+            <div style={bulkActionStyle}>
+              <button
+                onClick={handleMarkAllPresent}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#10B981',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10B981')}
+              >
+                ✓ Mark All Present
+              </button>
+            </div>
+
+            <ProgressIndicator
+              completed={progressStats.completed}
+              total={progressStats.total}
+              label="Progress:"
+              size="medium"
+            />
+          </div>
+
+          {/* Data Table */}
+          <DataTable
+            data={paginatedStudents}
+            columns={columns}
+            loading={false}
+            emptyMessage="No students found"
+            striped={true}
+            hoverable={true}
+          />
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={students.length}
+            itemsPerPage={STUDENTS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
+
+          {/* Submit Button */}
+          <div style={submitContainerStyle}>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              style={submitButtonStyle}
+              onMouseEnter={(e) => {
+                if (!isSubmitting) e.currentTarget.style.backgroundColor = '#059669';
+              }}
+              onMouseLeave={(e) => {
+                if (!isSubmitting) e.currentTarget.style.backgroundColor = '#10B981';
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size="tiny" />
+                  Saving...
+                </>
+              ) : (
+                <>✅ Save Progress</>
+              )}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Empty State */}
+      {!isSearching && hasSearched && students.length === 0 && (
+        <div style={emptyStateStyle}>
+          <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+            No students found for the selected criteria.
+          </p>
+          <p style={{ fontSize: '0.875rem' }}>
+            Try selecting a different date, school, or class.
+          </p>
+        </div>
+      )}
+
+      {/* Initial State */}
+      {!hasSearched && !isSearching && (
+        <div style={emptyStateStyle}>
+          <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+            👆 Select date, school, and class above
+          </p>
+          <p style={{ fontSize: '0.875rem' }}>
+            Then click "Fetch Students" to load student data.
+          </p>
+        </div>
+      )}
+
+      {/* Image Upload Modal */}
+      <ImageUploadModal
+        isOpen={imageModalOpen}
+        onClose={closeImageModal}
+        studentName={selectedStudentForImage?.name || ''}
+        studentId={selectedStudentForImage?.id}
+        sessionDate={filters.date}
+        onUploadComplete={handleImageUploadComplete}
+        uploadHandler={handleImageUpload}
+      />
+    </div>
+  );
 };
 
 export default ProgressPage;

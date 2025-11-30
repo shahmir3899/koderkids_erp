@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from 'react-toastify';
 import { ClipLoader } from 'react-spinners';
 import 'react-toastify/dist/ReactToastify.css';
+import React, { useState, useEffect } from "react";
+import styles from "./AddStudentPopup.module.css";   // ← ADD THIS LINE
+
+
 
 function AddStudentPopup({ onClose }) {
     const [formData, setFormData] = useState({
@@ -184,9 +187,9 @@ function AddStudentPopup({ onClose }) {
 };
 
     return (
-        <div className="modal-overlay">
+        <div className="styles.modal-overlay">
             <div className="modal">
-                <h2 className="modal-header">Add New Student</h2>
+                <h2 className="styles.modal-header">Add New Student</h2>
 
                 {loading && (
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>

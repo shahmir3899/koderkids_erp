@@ -1,392 +1,731 @@
-import React, { useEffect, useState, useRef } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
-import { API_URL, getAuthHeaders } from "../api";
+// ============================================
+// IMAGE MANAGEMENT MODAL - Optimized Version
+// ============================================
+// Location: src/pages/ImageManagementModal.js
+//
+// OPTIMIZATIONS:
+// - Extracted ImageCard component for better performance
+// - Uses LoadingSpinner component
+// - Consolidated styles
+// - Improved accessibility
+// - Better selection UX with visual feedback
+// - useCallback for handlers to prevent re-renders
+// - Native lazy loading for images
+// - Cleaner code structure
 
-// Custom SVG placeholder for failed image loads
-const PlaceholderSVG = () => (
-  <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="100" height="100" rx="10" fill="#e0e0e0" />
-    <path d="M30 30 L70 70 M70 30 L30 70" stroke="#666" strokeWidth="5" />
-    <text x="50" y="50" fontSize="12" textAnchor="middle" fill="#666">Image Unavailable</text>
-  </svg>
-);
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { API_URL, getAuthHeaders } from '../api';
+import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 
-const ImageManagementModal = ({ studentId, selectedMonth, startDate, endDate, mode, onClose }) => {
+// ============================================
+// CONSTANTS
+// ============================================
+
+const MAX_SELECTIONS = 4;
+
+// ============================================
+// STYLES
+// ============================================
+
+const styles = {
+  overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backdropFilter: 'blur(4px)',
+  },
+  modal: {
+    background: 'linear-gradient(135deg, #FFFFFF 0%, #F3F4F6 100%)',
+    padding: '1.5rem',
+    borderRadius: '1rem',
+    maxWidth: '900px',
+    width: '95%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1rem',
+    paddingBottom: '1rem',
+    borderBottom: '1px solid #E5E7EB',
+  },
+  title: {
+    fontSize: '1.5rem',
+    fontWeight: 'bold',
+    color: '#1F2937',
+    margin: 0,
+  },
+  selectionBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.5rem 1rem',
+    backgroundColor: '#EFF6FF',
+    borderRadius: '9999px',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    color: '#1D4ED8',
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+    gap: '1rem',
+    marginBottom: '1.5rem',
+  },
+  footer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: '1rem',
+    borderTop: '1px solid #E5E7EB',
+  },
+  footerHint: {
+    fontSize: '0.875rem',
+    color: '#6B7280',
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: '0.75rem',
+  },
+  confirmButton: {
+    padding: '0.75rem 1.5rem',
+    background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '0.5rem',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    transition: 'all 0.2s ease',
+  },
+  confirmButtonDisabled: {
+    background: '#9CA3AF',
+    cursor: 'not-allowed',
+  },
+  cancelButton: {
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#F3F4F6',
+    color: '#374151',
+    border: '1px solid #D1D5DB',
+    borderRadius: '0.5rem',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  errorMessage: {
+    padding: '0.75rem 1rem',
+    backgroundColor: '#FEE2E2',
+    color: '#DC2626',
+    borderRadius: '0.5rem',
+    marginBottom: '1rem',
+    fontSize: '0.875rem',
+  },
+  emptyState: {
+    padding: '3rem',
+    textAlign: 'center',
+    color: '#6B7280',
+  },
+  emptyIcon: {
+    fontSize: '3rem',
+    marginBottom: '1rem',
+  },
+};
+
+// ============================================
+// IMAGE CARD COMPONENT
+// ============================================
+
+const ImageCard = React.memo(({ 
+  image, 
+  index, 
+  isSelected, 
+  selectionOrder,
+  onSelect, 
+  onDelete,
+  disabled,
+}) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  const cardStyle = {
+    position: 'relative',
+    borderRadius: '0.75rem',
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    boxShadow: isSelected 
+      ? '0 0 0 3px #3B82F6, 0 4px 12px rgba(59, 130, 246, 0.3)' 
+      : '0 1px 3px rgba(0, 0, 0, 0.1)',
+    transition: 'all 0.2s ease',
+    cursor: disabled && !isSelected ? 'not-allowed' : 'pointer',
+    opacity: disabled && !isSelected ? 0.5 : 1,
+    transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+  };
+
+  const imageContainerStyle = {
+    position: 'relative',
+    width: '100%',
+    height: '120px',
+    backgroundColor: '#F3F4F6',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
+  const imageStyle = {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    opacity: imageLoaded ? 1 : 0,
+    transition: 'opacity 0.3s ease',
+  };
+
+  const selectionBadgeStyle = {
+    position: 'absolute',
+    top: '8px',
+    left: '8px',
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    backgroundColor: isSelected ? '#3B82F6' : 'rgba(255, 255, 255, 0.9)',
+    border: isSelected ? 'none' : '2px solid #D1D5DB',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.75rem',
+    fontWeight: 'bold',
+    color: isSelected ? '#FFFFFF' : '#9CA3AF',
+    zIndex: 10,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    transition: 'all 0.2s ease',
+  };
+
+  const deleteButtonStyle = {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    backgroundColor: '#EF4444',
+    color: '#FFFFFF',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.875rem',
+    cursor: 'pointer',
+    zIndex: 10,
+    opacity: 0.9,
+    transition: 'all 0.2s ease',
+  };
+
+  const dateStyle = {
+    padding: '0.5rem',
+    fontSize: '0.75rem',
+    fontWeight: '500',
+    color: '#374151',
+    textAlign: 'center',
+    backgroundColor: isSelected ? '#EFF6FF' : '#F9FAFB',
+    borderTop: '1px solid #E5E7EB',
+  };
+
+  const handleClick = (e) => {
+    if (e.target.closest('button')) return;
+    if (!disabled || isSelected) {
+      onSelect(image);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!disabled || isSelected) {
+        onSelect(image);
+      }
+    }
+  };
+
+  const extractDate = (filename) => {
+    const name = filename.split('?')[0];
+    const dateMatch = name.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (dateMatch) {
+      const date = new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+    return 'Unknown Date';
+  };
+
+  return (
+    <div
+      style={cardStyle}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      role="checkbox"
+      aria-checked={isSelected}
+      aria-label={`Image from ${extractDate(image.name)}${isSelected ? ', selected' : ''}`}
+      tabIndex={0}
+    >
+      {/* Selection Badge */}
+      <div style={selectionBadgeStyle}>
+        {isSelected ? selectionOrder : ''}
+      </div>
+
+      {/* Delete Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(image.name);
+        }}
+        style={deleteButtonStyle}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#DC2626';
+          e.currentTarget.style.transform = 'scale(1.1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#EF4444';
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+        aria-label={`Delete image from ${extractDate(image.name)}`}
+      >
+        ✕
+      </button>
+
+      {/* Image Container */}
+      <div style={imageContainerStyle}>
+        {!imageLoaded && !imageError && (
+          <div style={{ position: 'absolute' }}>
+            <LoadingSpinner size="small" />
+          </div>
+        )}
+        
+        {imageError ? (
+          <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '1rem' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>🖼️</div>
+            <div style={{ fontSize: '0.625rem' }}>Image unavailable</div>
+          </div>
+        ) : (
+          <img
+            src={image.url}
+            alt={`Progress - ${extractDate(image.name)}`}
+            style={imageStyle}
+            loading="lazy"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
+          />
+        )}
+      </div>
+
+      {/* Date Label */}
+      <div style={dateStyle}>
+        {extractDate(image.name)}
+      </div>
+    </div>
+  );
+});
+
+ImageCard.displayName = 'ImageCard';
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+const getMonthsBetweenDates = (startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const months = new Set();
+  let current = new Date(start);
+  
+  while (current <= end) {
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    months.add(`${year}-${month}`);
+    current.setMonth(current.getMonth() + 1);
+    current.setDate(1);
+  }
+  
+  return Array.from(months);
+};
+
+/**
+ * Extract filename from URL for comparison
+ * URLs may have different query params (signed URL tokens), so we compare by filename
+ */
+const extractFilename = (url) => {
+  if (!url) return '';
+  return url.split('/').pop().split('?')[0];
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
+const ImageManagementModal = ({ 
+  studentId, 
+  selectedMonth, 
+  startDate, 
+  endDate, 
+  mode, 
+  onClose,
+  initialSelectedImages = [], // NEW: Accept pre-selected images
+}) => {
+  // State
   const [images, setImages] = useState([]);
-  const [selectedImages, setSelectedImages] = useState([]); // Track selected images
+  const [selectedImages, setSelectedImages] = useState(initialSelectedImages);
   const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
-  const imageRefs = useRef({}); // Ref for lazy loading
+  const [error, setError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(null);
 
+  // Fetch images on mount
   useEffect(() => {
     const fetchImages = async () => {
       setIsLoading(true);
-      setErrorMessage("");
-      console.log("Fetching images - Starting request", { studentId, selectedMonth, startDate, endDate, mode });
+      setError('');
+
       try {
         let imageData = [];
-        if (mode === "month") {
-          const params = { student_id: studentId, month: selectedMonth };
-          console.log("Month mode payload:", params);
+
+        if (mode === 'month') {
           const response = await axios.get(`${API_URL}/api/student-progress-images/`, {
             headers: getAuthHeaders(),
-            params,
+            params: { student_id: studentId, month: selectedMonth },
           });
-          console.log("Month mode response:", response.data);
           imageData = response.data.progress_images || [];
-        } else if (mode === "range") {
+        } else if (mode === 'range') {
           const months = getMonthsBetweenDates(startDate, endDate);
-          console.log("Range mode months:", months);
-          for (const month of months) {
-            const params = { student_id: studentId, month };
-            console.log("Range mode payload for month:", params);
-            const response = await axios.get(`${API_URL}/api/student-progress-images/`, {
-              headers: getAuthHeaders(),
-              params,
-            });
-            console.log("Range mode response for month:", response.data);
-            imageData = [...imageData, ...(response.data.progress_images || [])];
-          }
-          imageData = Array.from(new Set(imageData.map((img) => img.signedURL))).map((url) =>
-            imageData.find((img) => img.signedURL === url)
+          
+          // Fetch all months in parallel for better performance
+          const responses = await Promise.all(
+            months.map((month) =>
+              axios.get(`${API_URL}/api/student-progress-images/`, {
+                headers: getAuthHeaders(),
+                params: { student_id: studentId, month },
+              })
+            )
           );
+
+          // Combine and deduplicate
+          const allImages = responses.flatMap((r) => r.data.progress_images || []);
+          const uniqueUrls = new Set();
+          imageData = allImages.filter((img) => {
+            if (uniqueUrls.has(img.signedURL)) return false;
+            uniqueUrls.add(img.signedURL);
+            return true;
+          });
         }
 
+        // Process images
         const validImages = imageData
           .map((img) => ({
-            name: img.signedURL.split("/").pop().split("?")[0] || "Unknown",
-            url: img.signedURL || "",
+            name: img.signedURL.split('/').pop().split('?')[0] || 'Unknown',
+            url: img.signedURL || '',
           }))
           .filter((img) => img.url);
-        console.log("Processed images:", validImages);
+
         setImages(validImages);
-        if (validImages.length === 0) {
-          setErrorMessage("No images available for this student.");
+
+        // IMPORTANT: Sync initial selections with fresh URLs
+        // The initialSelectedImages may have old signed URLs, so we match by filename
+        if (initialSelectedImages.length > 0 && validImages.length > 0) {
+          const initialFilenames = initialSelectedImages.map(extractFilename);
+          const matchedUrls = [];
+          
+          // Preserve the original selection order
+          initialFilenames.forEach((filename) => {
+            const matchedImage = validImages.find(
+              (img) => extractFilename(img.url) === filename
+            );
+            if (matchedImage) {
+              matchedUrls.push(matchedImage.url);
+            }
+          });
+          
+          if (matchedUrls.length > 0) {
+            setSelectedImages(matchedUrls);
+          }
         }
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching images:", error.response?.data || error.message);
-        setErrorMessage("Failed to load images. Please try again.");
-        toast.error(`Failed to load images: ${error.response?.data?.error || error.message}`);
+
+        if (validImages.length === 0) {
+          setError('No images available for this student in the selected period.');
+        }
+      } catch (err) {
+        console.error('Error fetching images:', err);
+        setError('Failed to load images. Please try again.');
+        toast.error('Failed to load images');
+      } finally {
         setIsLoading(false);
       }
     };
 
     fetchImages();
-  }, [studentId, selectedMonth, startDate, endDate, mode]);
+  }, [studentId, selectedMonth, startDate, endDate, mode, initialSelectedImages]);
 
-  const handleImageSelect = (img) => {
-    if (selectedImages.includes(img.url)) {
-      setSelectedImages(selectedImages.filter((url) => url !== img.url));
-    } else if (selectedImages.length < 4) {
-      setSelectedImages([...selectedImages, img.url]);
-    } else {
-      toast.error("You can only select up to 4 images.");
-    }
-  };
-
-  const handleConfirmSelection = () => {
-    onClose(selectedImages); // Pass selected images back
-  };
-
-  const handleDeleteImage = async (filename) => {
-    if (window.confirm("Are you sure you want to delete this image?")) {
-      try {
-        console.log("Deleting image - Payload:", { studentId, filename });
-        await axios.delete(`${API_URL}/api/student-progress-images/${studentId}/${filename}/`, {
-          headers: getAuthHeaders(),
-        });
-        console.log("Delete response:", { status: 204 });
-        setImages(images.filter((img) => img.name !== filename));
-        setSelectedImages(selectedImages.filter((url) => !images.find((img) => img.name === filename)?.url));
-        toast.success("Image deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting image:", error.response?.data || error.message);
-        const errorMsg =
-          error.response?.status === 404
-            ? "Image not found."
-            : error.response?.status === 403
-            ? "You do not have permission to delete this image."
-            : "Failed to delete image. Please try again.";
-        setErrorMessage(errorMsg);
-        toast.error(errorMsg);
+  // Handlers
+  const handleImageSelect = useCallback((image) => {
+    setSelectedImages((prev) => {
+      // Check if already selected (by URL or filename)
+      const isAlreadySelected = prev.includes(image.url) || 
+        prev.some((url) => extractFilename(url) === extractFilename(image.url));
+      
+      if (isAlreadySelected) {
+        // Remove by matching URL or filename
+        return prev.filter((url) => 
+          url !== image.url && extractFilename(url) !== extractFilename(image.url)
+        );
       }
-    }
-  };
-
-  const getMonthsBetweenDates = (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const months = new Set();
-    let current = new Date(start);
-    while (current <= end) {
-      const year = current.getFullYear();
-      const month = String(current.getMonth() + 1).padStart(2, "0");
-      months.add(`${year}-${month}`);
-      current.setMonth(current.getMonth() + 1);
-      current.setDate(1);
-    }
-    return Array.from(months);
-  };
-
-  const extractDateFromFilename = (filename) => {
-    const name = filename.split("?")[0];
-    const dateMatch = name.match(/(\d{4})-(\d{2})-(\d{2})_/);
-    return dateMatch ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}` : "Unknown Date";
-  };
-
-  // Lazy loading intersection observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && imageRefs.current[entry.target.dataset.index]) {
-            entry.target.src = entry.target.dataset.src;
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { rootMargin: "50px", threshold: 0.1 }
-    );
-
-    Object.values(imageRefs.current).forEach((img) => {
-      if (img) observer.observe(img);
+      
+      if (prev.length >= MAX_SELECTIONS) {
+        toast.warning(`You can only select up to ${MAX_SELECTIONS} images.`);
+        return prev;
+      }
+      
+      return [...prev, image.url];
     });
+  }, []);
 
-    return () => observer.disconnect();
-  }, [images]);
+  const handleDeleteImage = useCallback(async (filename) => {
+    if (!window.confirm('Are you sure you want to delete this image? This cannot be undone.')) {
+      return;
+    }
 
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          zIndex: 1000,
-          background: "rgba(0, 0, 0, 0.5)", // Transparent overlay
-        }}
-      >
-        <div
-          style={{
-            background: "linear-gradient(135deg, #e0e0e0 0%, #d3e0ea 100%)", // Grey to blue gradient on modal
-            padding: "20px",
-            borderRadius: "12px",
-            maxWidth: "600px",
-            width: "90%",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-          }}
-        >
-          <p style={{ textAlign: "center", color: "#333" }}>Loading images...</p>
-        </div>
-      </div>
-    );
-  }
+    setIsDeleting(filename);
+
+    try {
+      await axios.delete(
+        `${API_URL}/api/student-progress-images/${studentId}/${filename}/`,
+        { headers: getAuthHeaders() }
+      );
+
+      // Remove from images list
+      setImages((prev) => prev.filter((img) => img.name !== filename));
+      
+      // Remove from selection if selected
+      setSelectedImages((prev) => {
+        const imageToRemove = images.find((img) => img.name === filename);
+        return imageToRemove ? prev.filter((url) => url !== imageToRemove.url) : prev;
+      });
+
+      toast.success('Image deleted successfully');
+    } catch (err) {
+      console.error('Error deleting image:', err);
+      const errorMsg =
+        err.response?.status === 404
+          ? 'Image not found.'
+          : err.response?.status === 403
+          ? 'You do not have permission to delete this image.'
+          : 'Failed to delete image.';
+      toast.error(errorMsg);
+    } finally {
+      setIsDeleting(null);
+    }
+  }, [studentId, images]);
+
+  const handleConfirm = useCallback(() => {
+    onClose(selectedImages);
+  }, [onClose, selectedImages]);
+
+  const handleCancel = useCallback(() => {
+    onClose(null);
+  }, [onClose]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        handleCancel();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [handleCancel]);
+
+  // Memoized selection order map - uses filename for matching
+  const selectionOrderMap = useMemo(() => {
+    const map = {};
+    selectedImages.forEach((url, index) => {
+      map[url] = index + 1;
+      // Also map by filename for fallback matching
+      const filename = extractFilename(url);
+      if (filename) {
+        map[`filename:${filename}`] = index + 1;
+      }
+    });
+    return map;
+  }, [selectedImages]);
+
+  // Helper to check if an image is selected (matches by URL or filename)
+  const isImageSelected = useCallback((imageUrl) => {
+    if (selectedImages.includes(imageUrl)) return true;
+    // Fallback: check by filename
+    const filename = extractFilename(imageUrl);
+    return selectedImages.some((url) => extractFilename(url) === filename);
+  }, [selectedImages]);
+
+  // Helper to get selection order
+  const getSelectionOrder = useCallback((imageUrl) => {
+    if (selectionOrderMap[imageUrl]) return selectionOrderMap[imageUrl];
+    // Fallback: check by filename
+    const filename = extractFilename(imageUrl);
+    return selectionOrderMap[`filename:${filename}`] || null;
+  }, [selectionOrderMap]);
+
+  // Check if max selections reached
+  const isMaxReached = selectedImages.length >= MAX_SELECTIONS;
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-        background: "rgba(0, 0, 0, 0.5)", // Transparent overlay
-      }}
+      style={styles.overlay}
       role="dialog"
+      aria-modal="true"
       aria-labelledby="modal-title"
-      onClick={onClose}
+      onClick={handleCancel}
     >
-      <div
-        style={{
-          background: "linear-gradient(135deg, #e0e0e0 0%, #d3e0ea 100%)", // Grey to blue gradient on modal
-          padding: "20px",
-          borderRadius: "12px",
-          maxWidth: "800px",
-          width: "90%",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: "0 8px 16px rgba(0, 0, 0, 0.2)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 id="modal-title" style={{ marginBottom: "10px", fontSize: "1.5rem", color: "#333" }}>
-          Student Images
-        </h2>
-        {errorMessage && (
-          <p style={{ color: "#dc3545", marginBottom: "10px", fontWeight: "bold", animation: "blink 1s infinite" }}>
-            {errorMessage}
-            <style>{`@keyframes blink { 50% { opacity: 0; } }`}</style>
-          </p>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div style={styles.header}>
+          <h2 id="modal-title" style={styles.title}>
+            📸 Select Images
+          </h2>
+          <div style={styles.selectionBadge}>
+            <span>{selectedImages.length}</span>
+            <span>/</span>
+            <span>{MAX_SELECTIONS}</span>
+            <span>selected</span>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && !isLoading && images.length === 0 && (
+          <div style={styles.errorMessage}>{error}</div>
         )}
-        {images.length === 0 && !isLoading ? (
-          <p style={{ color: "#dc3545", textAlign: "center", fontWeight: "bold" }}>
-            No images available for this student.
-          </p>
+
+        {/* Content */}
+        {isLoading ? (
+          <div style={{ padding: '3rem', textAlign: 'center' }}>
+            <LoadingSpinner size="large" message="Loading images..." />
+          </div>
+        ) : images.length === 0 ? (
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>📷</div>
+            <p style={{ margin: 0, fontWeight: '500' }}>No images available</p>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem' }}>
+              There are no progress images for this student in the selected period.
+            </p>
+          </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-              gap: "15px",
-              marginBottom: "15px",
-              padding: "10px",
-              "@media (max-width: 600px)": {
-                gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
-              },
-            }}
-          >
-            {images.map((img, index) => (
+          <>
+            {/* Selection hint when max reached */}
+            {isMaxReached && (
               <div
-                key={img.url + index}
                 style={{
-                  width: "120px",
-                  height: "150px",
-                  position: "relative",
-                  borderRadius: "8px",
-                  overflow: "hidden",
-                  transition: "all 0.3s ease",
-                  boxShadow: selectedImages.includes(img.url) ? "0 0 10px #007bff" : "0 2px 4px rgba(0, 0, 0, 0.1)",
-                  "&:hover": {
-                    transform: "scale(1.05)",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
-                  },
-                }}
-                onClick={(e) => {
-                  if (e.target.tagName !== "BUTTON") handleImageSelect(img); // Avoid triggering on button click
+                  padding: '0.75rem 1rem',
+                  backgroundColor: '#FEF3C7',
+                  color: '#92400E',
+                  borderRadius: '0.5rem',
+                  marginBottom: '1rem',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={selectedImages.includes(img.url)}
-                  onChange={() => handleImageSelect(img)} // Keep for accessibility
-                  style={{
-                    position: "absolute",
-                    top: "5px",
-                    left: "5px",
-                    width: "20px",
-                    height: "20px",
-                    cursor: "pointer",
-                    zIndex: 10,
-                  }}
-                  aria-label={`Select image ${index + 1}`}
-                />
-                <img
-                  ref={(el) => (imageRefs.current[index] = el)}
-                  data-index={index}
-                  data-src={img.url}
-                  src={imageRefs.current[index] ? "" : img.url} // Lazy load
-                  alt={`Image ${index + 1}`}
-                  style={{
-                    width: "100%",
-                    height: "120px",
-                    objectFit: "cover",
-                    display: isLoading ? "none" : "block",
-                    opacity: 0,
-                    animation: "fadeIn 0.5s forwards",
-                  }}
-                  onLoad={(e) => {
-                    console.log(`Image ${index} loaded`);
-                    e.target.style.opacity = 1;
-                  }}
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.parentElement.innerHTML = <PlaceholderSVG />;
-                  }}
-                />
-                <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "5px",
-                    fontSize: "12px",
-                    color: "#666",
-                    background: "rgba(255, 255, 255, 0.8)",
-                    borderRadius: "0 0 8px 8px",
-                  }}
-                >
-                  {extractDateFromFilename(img.name)}
-                </div>
-                <button
-                  onClick={() => handleDeleteImage(img.name)}
-                  style={{
-                    position: "absolute",
-                    top: "5px",
-                    right: "5px",
-                    background: "#dc3545",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "50%",
-                    width: "20px",
-                    height: "20px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    transition: "background 0.3s",
-                    "&:hover": {
-                      background: "#bd2130",
-                    },
-                    zIndex: 20, // Ensure it stays above the checkbox
-                  }}
-                  aria-label={`Delete image ${index + 1}`}
-                >
-                  ✕
-                </button>
+                <span>⚠️</span>
+                <span>Maximum {MAX_SELECTIONS} images selected. Deselect an image to choose a different one.</span>
               </div>
-            ))}
-          </div>
+            )}
+
+            {/* Image Grid */}
+            <div style={styles.grid}>
+              {images.map((image, index) => {
+                const selected = isImageSelected(image.url);
+                const order = getSelectionOrder(image.url);
+                
+                return (
+                  <ImageCard
+                    key={image.url}
+                    image={image}
+                    index={index}
+                    isSelected={selected}
+                    selectionOrder={order}
+                    onSelect={handleImageSelect}
+                    onDelete={handleDeleteImage}
+                    disabled={isMaxReached && !selected}
+                  />
+                );
+              })}
+            </div>
+          </>
         )}
-        <div style={{ marginTop: "20px", textAlign: "right" }}>
-          <button
-            onClick={handleConfirmSelection}
-            style={{
-              padding: "10px 20px",
-              background: "linear-gradient(90deg, #007bff, #0056b3)",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              marginRight: "10px",
-              transition: "all 0.3s",
-              "&:hover": {
-                background: "linear-gradient(90deg, #0056b3, #003366)",
-                transform: "scale(1.05)",
-              },
-            }}
-            aria-label={`Confirm ${selectedImages.length} selected images`}
-          >
-            Confirm Selection ({selectedImages.length}/4)
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              padding: "10px 20px",
-              background: "#6c757d",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              transition: "all 0.3s",
-              "&:hover": {
-                background: "#5a6268",
-                transform: "scale(1.05)",
-              },
-            }}
-            aria-label="Close modal"
-          >
-            Close
-          </button>
+
+        {/* Footer */}
+        <div style={styles.footer}>
+          <div style={styles.footerHint}>
+            {images.length > 0 && (
+              <>
+                💡 Click images to select (max {MAX_SELECTIONS}). 
+                Selected images will appear in the report.
+              </>
+            )}
+          </div>
+          
+          <div style={styles.buttonGroup}>
+            <button
+              onClick={handleCancel}
+              style={styles.cancelButton}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#E5E7EB';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#F3F4F6';
+              }}
+            >
+              Cancel
+            </button>
+            
+            <button
+              onClick={handleConfirm}
+              disabled={selectedImages.length === 0}
+              style={{
+                ...styles.confirmButton,
+                ...(selectedImages.length === 0 ? styles.confirmButtonDisabled : {}),
+              }}
+              onMouseEnter={(e) => {
+                if (selectedImages.length > 0) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              ✓ Confirm Selection ({selectedImages.length})
+            </button>
+          </div>
         </div>
       </div>
     </div>

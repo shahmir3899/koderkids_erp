@@ -40,14 +40,6 @@ def fetch_image(url, timeout=8, max_size=(600, 600), retries=2):
         return None
 
     try:
-        url_path = url.split('?')[0]
-        extension = url_path.split('.')[-1].lower()
-        supported_formats = {'jpeg': b'\xff\xd8', 'jpg': b'\xff\xd8', 'png': b'\x89PNG'}
-        if extension not in supported_formats:
-            logger.warning(f"Unsupported image format: {extension}")
-            return None
-
-        expected_signature = supported_formats[extension]
         headers = {'User-Agent': 'Mozilla/5.0', 'Accept-Encoding': 'identity'}
 
         session = requests.Session()
@@ -59,108 +51,53 @@ def fetch_image(url, timeout=8, max_size=(600, 600), retries=2):
         response.raise_for_status()
 
         content = response.content
-        if not content.startswith(expected_signature):
-            logger.warning(f"Invalid image signature for {extension}: {content[:8].hex()}")
+        
+        # Detect actual image format from file signature, not extension
+        if content.startswith(b'\xff\xd8'):
+            actual_format = 'JPEG'
+            logger.info(f"Detected JPEG image from {url}")
+        elif content.startswith(b'\x89PNG'):
+            actual_format = 'PNG'
+            logger.info(f"Detected PNG image from {url}")
+        elif content.startswith(b'GIF87a') or content.startswith(b'GIF89a'):
+            actual_format = 'GIF'
+            logger.info(f"Detected GIF image from {url}")
+        elif content.startswith(b'RIFF') and content[8:12] == b'WEBP':
+            actual_format = 'WEBP'
+            logger.info(f"Detected WEBP image from {url}")
+        else:
+            logger.warning(f"Unsupported or unrecognized image format: {content[:12].hex()}")
             return None
 
         img = PILImage.open(BytesIO(content))
-        if img.mode in ('RGBA', 'LA'):
+        
+        # Convert RGBA/LA/P to RGB for PDF compatibility
+        if img.mode in ('RGBA', 'LA', 'P'):
             background = PILImage.new('RGB', img.size, (255, 255, 255))
-            background.paste(img, mask=img.split()[-1])
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
             img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
 
         if max_size:
             img.thumbnail(max_size, PILImage.LANCZOS)
 
         output_buffer = BytesIO()
-        img_format = 'JPEG' if extension in ('jpeg', 'jpg') else 'PNG'
-        img.save(output_buffer, format=img_format, quality=70)
+        # Always save as JPEG for PDF (better compression and compatibility)
+        img.save(output_buffer, format='JPEG', quality=85, optimize=True)
         output_buffer.seek(0)
 
         if output_buffer.getbuffer().nbytes > 3 * 1024 * 1024:
             logger.warning(f"Image size too large: {output_buffer.getbuffer().nbytes} bytes")
             return None
 
-        logger.info(f"Successfully fetched image from {url}")
+        logger.info(f"Successfully fetched and converted image from {url} (format: {actual_format})")
         return output_buffer
     except Exception as e:
         logger.error(f"Error fetching image from {url}: {str(e)}")
         return None
-
-# @api_view(['DELETE'])
-# @permission_classes([IsAuthenticated])
-# def delete_student_image(request, student_id, filename):
-#     """
-#     Delete a specific image for a student from Supabase storage.
-#     Allowed for:
-#       • Teachers (if the student belongs to one of their assigned schools)
-#       • Students (if the image belongs to themselves)
-#     Path: <student_id>/<filename>
-#     """
-#     logger.info(
-#         f"delete_student_image: student_id={student_id}, filename={filename}, user={request.user.username}"
-#     )
-
-#     # ---------- 1. Basic validation ----------
-#     if not re.match(r'^\d{4}-\d{2}-\d{2}_[a-zA-Z0-9]+\.jpg$', filename):
-#         return Response(
-#             {"message": "Invalid filename", "error": "Filename must match YYYY-MM-DD_<random>.jpg"},
-#             status=status.HTTP_400_BAD_REQUEST,
-#         )
-
-#     # ---------- 2. Student existence ----------
-#     student = Student.objects.filter(id=student_id).select_related('school').first()
-#     if not student:
-#         return Response(
-#             {"message": "Student not found", "error": f"No student with ID {student_id}"},
-#             status=status.HTTP_404_NOT_FOUND,
-#         )
-
-#     # ---------- 3. Authorization ----------
-#     # Teacher → must be assigned to the student's school
-#     if request.user.role == "Teacher":
-#         if student.school_id not in request.user.assigned_schools.values_list("id", flat=True):
-#             return Response(
-#                 {"message": "Unauthorized", "error": "You do not have permission to access this student’s data"},
-#                 status=status.HTTP_403_FORBIDDEN,
-#             )
-#     # Student → can only delete their own image
-#     elif request.user.role == "Student":
-#         if request.user.student_profile_id != student.id:   # assuming a FK `student_profile` on User
-#             return Response(
-#                 {"message": "Unauthorized", "error": "You can only delete your own images"},
-#                 status=status.HTTP_403_FORBIDDEN,
-#             )
-#     else:
-#         return Response(
-#             {"message": "Unauthorized", "error": "Invalid user role"},
-#             status=status.HTTP_403_FORBIDDEN,
-#         )
-
-#     # ---------- 4. Delete from Supabase ----------
-#     file_path = f"{student_id}/{filename}"
-#     try:
-#         resp = supabase.storage.from_(settings.SUPABASE_BUCKET).remove([file_path])
-#         if resp.get("error"):
-#             err = resp["error"]
-#             if err.get("statusCode") == "404":
-#                 return Response(
-#                     {"message": "Image not found", "error": f"{filename} not found for student {student_id}"},
-#                     status=status.HTTP_404_NOT_FOUND,
-#                 )
-#             return Response(
-#                 {"message": "Supabase error", "error": err.get("message")},
-#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             )
-#     except Exception as e:
-#         logger.exception("Unexpected Supabase delete error")
-#         return Response(
-#             {"message": "Failed to delete image", "error": str(e)},
-#             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#         )
-
-#     logger.info(f"Deleted image {file_path}")
-#     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['DELETE'])
@@ -362,7 +299,8 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
         img_buffer = fetch_image(url)
         if img_buffer:
             img_data = base64.b64encode(img_buffer.read()).decode("utf-8")
-            img_mime = "image/jpeg" if url.lower().endswith(('.jpg', '.jpeg')) else "image/png"
+            # fetch_image always returns JPEG format
+            img_mime = "image/jpeg"
             progress_images.append((img_data, img_mime))
             logger.info(f"Progress image fetched: {url}")
         else:
@@ -517,5 +455,3 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
-
-

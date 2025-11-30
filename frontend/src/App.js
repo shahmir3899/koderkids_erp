@@ -19,6 +19,7 @@ import LessonsPage from "./pages/LessonsPage";
 import ReportsPage from "./pages/ReportsPage";
 import StudentDashboard from './pages/StudentDashboard';
 import StudentProgressPage from "./pages/StudentProgressPage";
+import TestComponents from "./pages/TestComponents"
 //import StudentReport from "./pages/StudentReport";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
@@ -74,7 +75,7 @@ function App() {
             <AutoLogout /> 
             <div className="flex m-0">
                 <Sidebar />
-                <div className="ml-64 w-full p-2 bg-gray-100 min-h-screen">
+                <div className="ml-56 w-full p-2 bg-gray-100 min-h-screen">
                 <Routes>
       {/* ✅ Public Routes */}
       <Route path="/register" element={<RegisterPage />} />
@@ -85,7 +86,15 @@ function App() {
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/lessons" element={<LessonsPage />} />
       <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Admin", "Teacher"]} />} />
-
+        <Route 
+  path="/test-components" 
+  element={
+    <ProtectedRoute 
+      element={<TestComponents />} 
+      allowedRoles={["Admin", "Teacher"]} 
+    />
+  } 
+/>
       <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboard />} allowedRoles={["Teacher"]} />} />
       <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} allowedRoles={["Admin", "Teacher"]} />} />

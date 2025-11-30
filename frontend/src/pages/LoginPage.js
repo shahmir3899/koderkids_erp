@@ -74,22 +74,29 @@ function LoginPage() {
     overflow: "hidden",
     fontFamily: "'Rubik', 'Poppins', sans-serif", // Added Poppins for branded typography
     flexDirection: isMobile ? "column" : "row", // Stack on mobile
+    flexDirection: isMobile ? "column" : "row",
+    alignItems: isMobile ? "center" : "center",   // Center form vertically on mobile
+    justifyContent: isMobile ? "center" : "flex-start",
+    padding: isMobile ? "2rem" : "0",             // Add padding on mobile if needed
   };
 
-  const mockupStyles = {
+    const mockupStyles = {
     position: "relative",
-    marginRight: isMobile ? "0" : "0rem",
-    marginBottom: isMobile ? "0rem" : "0",
-    transform: isMobile ? "none" : "rotate(-15deg) scale(0.67)",
+    flexShrink: 0,                    // Prevent it from shrinking
+    width: isMobile ? "0" : "auto",   // On mobile: zero width → takes no space
+    minWidth: isMobile ? "0" : "500px", // Adjust 500px to your design needs
+    height: isMobile ? "0" : "100vh",   // On mobile: zero height
+    marginRight: isMobile ? "0" : "2rem",
+    marginBottom: isMobile ? "0" : "0",
+    transform: isMobile ? "none" : "rotate(-15deg) scale(0.8)",
     transformOrigin: "top left",
-    width: isMobile ? "100%" : "800px",
-    height: isMobile ? "auto" : "800px",
-    maxWidth: "100%",
-    display: isMobile ? "none" : "block", // Hide mockup on mobile for simplicity
-    backgroundImage: "url('/thematic-illustration.svg')", // Replace with actual thematic SVG or PNG path
+    backgroundImage: "url('/thematic-illustration.svg')",
     backgroundSize: "contain",
     backgroundRepeat: "no-repeat",
     backgroundPosition: "center",
+    pointerEvents: "none",            // Optional: ignore mouse events
+    opacity: isMobile ? 0 : 1,        // Extra safety
+    overflow: "hidden",
   };
 
   const formContainerStyles = {

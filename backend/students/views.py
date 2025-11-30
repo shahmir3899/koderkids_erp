@@ -23,6 +23,7 @@ from django.db.models.functions import Round, Cast
 from django.db.models import Q, Count, Case, When, IntegerField, FloatField
 from django.db.models.functions import Round
 from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
 import logging
 import uuid  # Add this import
 from django.core.files.storage import default_storage
@@ -60,22 +61,10 @@ def get_logged_in_user(request):
     })
 
 class StudentViewSet(viewsets.ModelViewSet):
-    
-    queryset = Student.objects.all().select_related("school_id")  # ✅ Fix ForeignKey reference
+    queryset = Student.objects.all()
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated]  # ✅ Require authentication
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.role == "Admin":
-            return Student.objects.all()
-        elif user.role == "Teacher":
-            return Student.objects.filter(school__in=user.assigned_schools.all())
-        elif user.role == "Student":
-            return Student.objects.filter(user=user)  # ✅ Own record only
-        return Student.objects.none()
-
-
+    filter_backends = [DjangoFilterBackend]                    # ← THIS LINE IS MISSING OR WRONG
+    filterset_fields = ['school', 'student_class', 'status']
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):

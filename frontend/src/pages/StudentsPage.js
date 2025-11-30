@@ -1,581 +1,515 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import AddStudentPopup from "./AddStudentPopup";
-import { updateStudent, deleteStudent, getStudents } from "../api";
-import axios from "axios";
-import { ClipLoader } from "react-spinners"; // Import ClipLoader
-import { toast } from "react-toastify"; // Import toast for notifications (if not already imported)
+// ============================================
+// STUDENTS PAGE - Refactored Version
+// Client-side filtering with data load on mount
+// Fixed: School filtering by NAME (not ID)
+// ============================================
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
+import { fetchStudents as fetchStudentsAPI, updateStudent, deleteStudent } from '../services/studentService';
+import { toast } from 'react-toastify';
+
+// Common Components
+import { DataTable } from '../components/common/tables/DataTable';
+import { ErrorDisplay } from '../components/common/ui/ErrorDisplay';
+import { FilterBar } from '../components/common/filters/FilterBar';
+import { useSchools } from '../hooks/useSchools';
+import { Button } from '../components/common/ui/Button';
+
+// Page-Specific Components
+import AddStudentPopup from './AddStudentPopup';
+import { StudentDetailsModal } from '../components/students/StudentDetailsModal';
 
 function StudentsPage() {
-    const [students, setStudents] = useState([]);
-    const [selectedStudent, setSelectedStudent] = useState(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [schoolFilter, setSchoolFilter] = useState("All Schools");
-    const [classFilter, setClassFilter] = useState("All Classes");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [isEditing, setIsEditing] = useState(false);
-    const [isAdding, setIsAdding] = useState(false);
-    const [schools, setSchools] = useState([]);
-    const [classes, setClasses] = useState([]);
-    const [showResults, setShowResults] = useState(false);
-    const [sortBy, setSortBy] = useState("name");
-    const [sortOrder, setSortOrder] = useState("asc");
-    const [isSubmitting, setIsSubmitting] = useState(false); // For save changes
-    const [isDeleting, setIsDeleting] = useState(false); // For delete action
+  // ============================================
+  // STATE MANAGEMENT
+  // ============================================
 
-    const availableClasses = useMemo(() => {
-        if (students.length === 0) return ["All Classes"];
+  // Data States
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [classes, setClasses] = useState(['All Classes']);
 
-        const uniqueClasses = Array.from(new Set(students.map(student => student.student_class)))
-            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  // UI States
+  const [isEditing, setIsEditing] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  
+  const [currentFilters, setCurrentFilters] = useState({
+    schoolId: '',
+    className: '',
+  });
 
-        console.log("📚 Updated Class Filter Options:", uniqueClasses);
-        return ["All Classes", ...uniqueClasses];
-    }, [students]);
+  // Loading States (Consolidated)
+  const [loading, setLoading] = useState({
+    students: false,
+    submit: false,
+    delete: false,
+  });
 
-    const fetchStudents = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+  // Error State
+  const [error, setError] = useState(null);
 
-        try {
-            const filteredSchool = schoolFilter !== "All Schools" ? schoolFilter : null;
-            const filteredClass = classFilter !== "All Classes" ? classFilter : null;
+  // Use Schools Hook
+  const { schools } = useSchools();
 
-            console.log(`🔍 Fetching students for School: ${filteredSchool}, Class: ${filteredClass}`);
+  // ============================================
+  // HELPER: Get school name from school ID
+  // ============================================
+  const getSchoolNameById = useCallback((schoolId) => {
+    if (!schoolId || !schools || schools.length === 0) return null;
+    const school = schools.find(s => String(s.id) === String(schoolId));
+    return school ? school.name : null;
+  }, [schools]);
 
-            const response = await getStudents(filteredSchool, filteredClass);
+  // ============================================
+  // DATA FETCHING
+  // ============================================
 
-            if (!Array.isArray(response)) {
-                console.error("❌ Error: Expected an array but received:", response);
-                return;
-            }
-            console.log("✅ Raw Student Data from Backend:", response); // Debugging: See what's received
+  // Fetch ALL students once (no filters - we filter client-side)
+  const fetchStudents = useCallback(async () => {
+    setLoading((prev) => ({ ...prev, students: true }));
+    setError(null);
 
-            // Check if school is being received as a string
-        response.forEach(student => {
-            if (typeof student.school === "string") {
-                console.warn(`⚠️ Student ${student.name} has school as a string: ${student.school}`);
-            }
+    try {
+      console.log('🔍 Fetching ALL students from server...');
+
+      const response = await fetchStudentsAPI({
+        schoolId: '',
+        studentClass: '',
+        status: 'Active'
+      });
+
+      if (!Array.isArray(response)) {
+        console.error('❌ Error: Expected an array but received:', response);
+        setError('Invalid data received from server');
+        setStudents([]);
+        return;
+      }
+
+      console.log('✅ Student Data Loaded:', response.length, 'students');
+      
+      // Debug: Log sample student structure
+      if (response.length > 0) {
+        console.log('📋 Sample student structure:', {
+          id: response[0].id,
+          name: response[0].name,
+          school: response[0].school,
+          schoolType: typeof response[0].school,
+          student_class: response[0].student_class,
         });
-            setStudents(response);
-            setShowResults(true);
-        } catch (error) {
-            console.error("Error fetching students:", error);
-            setError("Failed to fetch students.");
-        } finally {
-            setLoading(false);
+      }
+      
+      setStudents(response);
+
+    } catch (err) {
+      console.error('Error fetching students:', err);
+      setError('Failed to fetch students.');
+      toast.error('Failed to fetch students');
+    } finally {
+      setLoading((prev) => ({ ...prev, students: false }));
+    }
+  }, []);
+
+  // ============================================
+  // EFFECTS
+  // ============================================
+
+  // Fetch ALL students once on mount
+  useEffect(() => {
+    console.log('📦 Page Mount: Fetching all students...');
+    fetchStudents();
+  }, [fetchStudents]);
+
+  // Extract classes when students load OR when school filter changes
+  useEffect(() => {
+    if (students.length > 0) {
+      let sourceStudents = students;
+
+      // If school is selected, filter to that school's students for class extraction
+      if (currentFilters.schoolId && schools.length > 0) {
+        const selectedSchoolName = getSchoolNameById(currentFilters.schoolId);
+        console.log('🏫 Looking for school name:', selectedSchoolName);
+        
+        if (selectedSchoolName) {
+          sourceStudents = students.filter(s => {
+            // Normalize both strings: trim whitespace and newlines, lowercase
+            const studentSchool = String(s.school || '').trim().toLowerCase();
+            const filterSchool = selectedSchoolName.trim().toLowerCase();
+            return studentSchool === filterSchool;
+          });
         }
-    }, [schoolFilter, classFilter]);
+        console.log(`🏫 Filtered to school "${selectedSchoolName}": ${sourceStudents.length} students`);
+      }
 
-    async function fetchAllClasses(schoolId) {
-        try {
-            console.log("🔄 Fetching students and extracting classes...");
+      const uniqueClasses = Array.from(
+        new Set(sourceStudents.map((student) => student.student_class).filter(Boolean))
+      ).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
 
-            const token = localStorage.getItem("access");
-            if (!token) {
-                console.error("❌ No authentication token found!");
-                return;
-            }
+      setClasses(['All Classes', ...uniqueClasses]);
+      console.log('✅ Extracted Classes:', uniqueClasses);
+    }
+  }, [students, currentFilters.schoolId, schools, getSchoolNameById]);
 
-            if (!schoolId) {
-                console.error("❌ No school selected! Cannot fetch classes.");
-                return;
-            }
+  // ============================================
+  // FILTER HANDLERS
+  // ============================================
 
-            console.log("📌 Fetching classes for school:", schoolId);
+  const handleFilter = (filters) => {
+    console.log('🔍 Search clicked with filters:', filters);
+    
+    // Normalize the filters from FilterBar
+    const normalizedFilters = {
+      schoolId: filters.schoolId || filters.school || '',
+      className: filters.className || filters.class || '',
+    };
+    
+    console.log('🔍 Normalized filters:', normalizedFilters);
+    
+    // Get school name for debugging
+    if (normalizedFilters.schoolId && schools.length > 0) {
+      const schoolName = getSchoolNameById(normalizedFilters.schoolId);
+      console.log('🏫 Will filter by school name:', schoolName);
+    }
+    
+    setCurrentFilters(normalizedFilters);
+    setHasSearched(true);
+  };
 
-            const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/students/?school=${schoolId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
+  // ============================================
+  // STUDENT ACTIONS
+  // ============================================
 
-            console.log("✅ Fetched Student Data:", response.data);
+  const handleViewDetails = (student) => {
+    setSelectedStudent(student);
+    setIsEditing(false);
+  };
 
-            if (Array.isArray(response.data)) {
-                const extractedClasses = [...new Set(response.data.map(student => student.student_class))];
-                setClasses(["All Classes", ...extractedClasses]);
-                console.log("📚 Extracted Classes:", extractedClasses);
-            } else {
-                console.error("❌ Unexpected API response:", response.data);
-            }
-        } catch (error) {
-            console.error("❌ Error fetching students:", error);
-        }
+  const handleCloseDetails = () => {
+    setSelectedStudent(null);
+    setIsEditing(false);
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveChanges = async (updatedStudent) => {
+    console.log('📝 Updating student:', updatedStudent);
+
+    if (!updatedStudent.student_class) {
+      toast.error('⚠️ Please select a valid class.');
+      return;
     }
 
-    useEffect(() => {
-        console.log("🔄 Students data after refresh:", students);
-        if (students.length > 0) {
-            const uniqueClasses = Array.from(new Set(students.map(student => student.student_class)))
-                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    if (!updatedStudent.school) {
+      toast.error('⚠️ Please select a valid school.');
+      return;
+    }
 
-            console.log("✅ Extracted Classes from Students:", uniqueClasses);
-            setClasses(["All Classes", ...uniqueClasses]);
+    setLoading((prev) => ({ ...prev, submit: true }));
+
+    try {
+      const studentData = {
+        reg_num: updatedStudent.reg_num,
+        name: updatedStudent.name,
+        school: Number(updatedStudent.school),
+        student_class: String(updatedStudent.student_class),
+        monthly_fee: updatedStudent.monthly_fee ? Number(updatedStudent.monthly_fee) : null,
+        phone: updatedStudent.phone || '',
+      };
+
+      console.log('📡 Sending update request with:', studentData);
+
+      const updated = await updateStudent(selectedStudent.id, studentData);
+      console.log('✅ Student updated successfully:', updated);
+
+      // Update local state
+      setStudents((prev) =>
+        prev.map((s) => (s.id === selectedStudent.id ? updated : s))
+      );
+      setSelectedStudent(updated);
+      setIsEditing(false);
+
+      toast.success('✅ Student updated successfully!');
+    } catch (error) {
+      console.error('❌ Error updating student:', error);
+
+      if (error.response) {
+        console.log('🚨 Backend Error Response:', error.response.data);
+        const errorMessage = typeof error.response.data === 'object'
+          ? JSON.stringify(error.response.data)
+          : error.response.data.error || 'Unknown Error';
+        toast.error(`⚠️ Update Failed: ${errorMessage}`);
+      } else {
+        toast.error('⚠️ Failed to update student.');
+      }
+    } finally {
+      setLoading((prev) => ({ ...prev, submit: false }));
+    }
+  };
+
+  const handleDeleteStudent = async (studentId) => {
+    setLoading((prev) => ({ ...prev, delete: true }));
+
+    try {
+      await deleteStudent(studentId);
+      console.log('✅ Student deleted successfully');
+
+      // Remove from local state
+      setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      setSelectedStudent(null);
+
+      toast.success('✅ Student deleted successfully!');
+    } catch (error) {
+      console.error('❌ Error deleting student:', error);
+      toast.error('⚠️ Failed to delete student.');
+    } finally {
+      setLoading((prev) => ({ ...prev, delete: false }));
+    }
+  };
+
+  const handleAddNewStudent = () => {
+    setIsAdding(true);
+  };
+
+  // ============================================
+  // FILTERED DATA - Client-side filtering
+  // ============================================
+
+  const filteredStudents = useMemo(() => {
+    // Don't show anything until user clicks Search
+    if (!hasSearched) {
+      console.log('⏸️ Not showing students - search not clicked yet');
+      return [];
+    }
+
+    // Wait for schools data to be loaded for proper filtering
+    if (currentFilters.schoolId && schools.length === 0) {
+      console.log('⏳ Waiting for schools data to load...');
+      return [];
+    }
+
+    console.log('🔍 Filtering students...');
+    console.log('   Total students:', students.length);
+    console.log('   Filters:', currentFilters);
+    console.log('   Schools loaded:', schools.length);
+
+    // Get the school name from the schoolId
+    const selectedSchoolName = currentFilters.schoolId 
+      ? getSchoolNameById(currentFilters.schoolId)
+      : null;
+    
+    console.log('   Selected school name:', selectedSchoolName);
+
+    const results = students.filter(student => {
+      // School filter - COMPARE BY NAME
+      if (currentFilters.schoolId && selectedSchoolName) {
+        // Normalize both strings: trim whitespace/newlines and compare lowercase
+        const studentSchool = String(student.school || '').trim().toLowerCase();
+        const filterSchool = selectedSchoolName.trim().toLowerCase();
+        
+        if (studentSchool !== filterSchool) {
+          return false;
         }
-    }, [students]);
+      }
 
-    useEffect(() => {
-        async function fetchSchools() {
-            try {
-                console.log("🔄 Fetching list of schools...");
-
-                const token = localStorage.getItem("access");
-                if (!token) {
-                    console.error("❌ No authentication token found!");
-                    return;
-                }
-
-                const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/schools/`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                });
-
-                console.log("✅ Raw Schools API Response:", response.data);
-
-                if (Array.isArray(response.data) && response.data.length > 0) {
-                    setSchools(response.data);
-
-                    if (!localStorage.getItem("selected_school")) {
-                        const firstSchoolId = response.data[0].id;
-                        localStorage.setItem("selected_school", firstSchoolId);
-                        console.log("🏫 Stored School ID:", firstSchoolId);
-
-                        fetchAllClasses(firstSchoolId);
-                    }
-                } else {
-                    console.error("❌ No schools found.");
-                }
-            } catch (error) {
-                console.error("❌ Error fetching schools:", error);
-            }
+      // Class filter
+      if (currentFilters.className && currentFilters.className !== 'All Classes') {
+        if (String(student.student_class) !== String(currentFilters.className)) {
+          return false;
         }
+      }
 
-        fetchSchools();
-    }, []);
+      return true;
+    });
 
-    const filteredStudents = useMemo(() => {
-        return students
-            .filter((student) =>
-                (searchTerm === "" ||
-                    (student.name && student.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                    (student.reg_num && student.reg_num.toLowerCase().includes(searchTerm.toLowerCase()))) &&
-                (schoolFilter === "" || schoolFilter === "All Schools" || student.school === schoolFilter) &&
-                (classFilter === "" || classFilter === "All Classes" || student.student_class === classFilter)
-            )
-            .sort((a, b) => {
-                let valueA, valueB;
-                switch (sortBy) {
-                    case "name":
-                        valueA = a.name ? a.name.toLowerCase() : "";
-                        valueB = b.name ? b.name.toLowerCase() : "";
-                        break;
-                    case "reg_num":
-                        valueA = a.reg_num || "";
-                        valueB = b.reg_num || "";
-                        break;
-                    case "student_class":
-                        valueA = a.student_class || "";
-                        valueB = b.student_class || "";
-                        break;
-                    default:
-                        valueA = a.name ? a.name.toLowerCase() : "";
-                        valueB = b.name ? b.name.toLowerCase() : "";
-                }
-                if (sortOrder === "asc") {
-                    return valueA.localeCompare(valueB);
-                } else {
-                    return valueB.localeCompare(valueA);
-                }
-            });
-    }, [students, searchTerm, schoolFilter, classFilter, sortBy, sortOrder]);
+    console.log('✅ Filtered results:', results.length, 'students');
+    return results;
+  }, [students, currentFilters, hasSearched, schools, getSchoolNameById]);
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
-    };
+  // ============================================
+  // RENDER
+  // ============================================
 
-    const handleSearchClick = () => {
-        console.log("🔍 Search button clicked. Fetching students...");
-        fetchStudents();
-    };
+  return (
+    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Page Title */}
+      <h1
+        style={{
+          fontSize: '2rem',
+          fontWeight: 'bold',
+          color: '#1F2937',
+          marginBottom: '1.5rem',
+          textAlign: 'center',
+        }}
+      >
+        Student Management
+      </h1>
 
-    const handleSchoolFilterChange = (e) => {
-        const newValue = e.target.value;
-        setSchoolFilter(newValue);
-        console.log("📌 School filter updated to:", newValue);
-    };
+      {/* Error Display */}
+      {error && (
+        <ErrorDisplay
+          error={error}
+          onRetry={fetchStudents}
+          isRetrying={loading.students}
+        />
+      )}
 
-    const handleClassFilterChange = (e) => {
-        const selectedClass = e.target.value;
-        if (availableClasses.includes(selectedClass)) {
-            setClassFilter(selectedClass);
-            console.log("📌 Class filter updated to:", selectedClass);
-        } else {
-            setClassFilter("All Classes");
+      {/* Filters */}
+      <FilterBar
+        onFilter={handleFilter}
+        showSchool
+        showClass
+        showMonth={false}
+        showSearch={false}
+        searchPlaceholder="Search by Name or Reg Num"
+        submitButtonText="🔍 Search"
+        additionalActions={
+          <Button onClick={handleAddNewStudent} variant="primary">
+            ➕ Add New Student
+          </Button>
         }
-    };
+      />
 
-    const handleViewDetails = (student) => {
-        setSelectedStudent(student);
-        setIsEditing(false);
-    };
-
-    const handleCloseDetails = () => {
-        setSelectedStudent(null);
-    };
-
-    const handleEdit = () => {
-        setIsEditing(true);
-    };
-
-    const handleSaveChanges = async () => {
-        console.log("🔍 Updating student:", selectedStudent); // Debug log
-    
-        if (!selectedStudent.student_class) {
-            toast.error("⚠️ Please select a valid class.");
-            return;
+      {/* Students Table */}
+      <DataTable
+        data={filteredStudents}
+        loading={loading.students}
+        columns={[
+          {
+            key: 'reg_num',
+            label: 'Reg Num',
+            sortable: true,
+            width: '120px',
+          },
+          {
+            key: 'name',
+            label: 'Name',
+            sortable: true,
+          },
+          {
+            key: 'school',
+            label: 'School',
+            sortable: false,
+            render: (value) => {
+              // Clean up the school name (remove trailing newlines/spaces)
+              return value ? String(value).trim() : 'N/A';
+            },
+          },
+          {
+            key: 'student_class',
+            label: 'Class',
+            sortable: true,
+            align: 'center',
+          },
+          {
+            key: 'monthly_fee',
+            label: 'Monthly Fee',
+            sortable: true,
+            align: 'right',
+            render: (value) => (value ? `PKR ${value.toLocaleString()}` : 'N/A'),
+          },
+          {
+            key: 'phone',
+            label: 'Phone',
+            sortable: false,
+          },
+          {
+            key: 'actions',
+            label: 'Actions',
+            sortable: false,
+            align: 'center',
+            render: (_, student) => (
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                <button
+                  onClick={() => handleViewDetails(student)}
+                  style={{
+                    backgroundColor: '#3B82F6',
+                    color: 'white',
+                    padding: '0.375rem 0.75rem',
+                    borderRadius: '0.375rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = '#2563EB')}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = '#3B82F6')}
+                >
+                  👁️ View
+                </button>
+                <button
+                  onClick={() => handleDeleteStudent(student.id)}
+                  disabled={loading.delete}
+                  style={{
+                    backgroundColor: loading.delete ? '#9CA3AF' : '#DC2626',
+                    color: 'white',
+                    padding: '0.375rem 0.75rem',
+                    borderRadius: '0.375rem',
+                    border: 'none',
+                    cursor: loading.delete ? 'not-allowed' : 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    transition: 'background-color 0.15s ease',
+                    opacity: loading.delete ? 0.6 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading.delete) e.target.style.backgroundColor = '#B91C1C';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!loading.delete) e.target.style.backgroundColor = '#DC2626';
+                  }}
+                >
+                  {loading.delete ? 'Deleting...' : '🗑️ Delete'}
+                </button>
+              </div>
+            ),
+          },
+        ]}
+        emptyMessage={
+          hasSearched
+            ? 'No students found. Try adjusting your filters.'
+            : 'Select filters and click Search to view students.'
         }
-    
-        setIsSubmitting(true);
-        try {
-            const studentData = {
-                ...selectedStudent,
-                school_id: Number(selectedStudent.school), // ✅ Ensure school_id is a number
-                student_class: String(selectedStudent.student_class), // ✅ Ensure class is a string
-            };
-    
-            console.log("📡 Sending update request with:", studentData); // Debug log
-    
-            const updatedStudent = await updateStudent(selectedStudent.id, studentData);
-    
-            setStudents(students.map(student =>
-                student.id === updatedStudent.id ? updatedStudent : student
-            ));
-            setIsEditing(false);
-            toast.success("✅ Student updated successfully!");
-        } catch (error) {
-            console.error("❌ Error updating student:", error);
-    
-            if (error.response) {
-                console.log("🚨 Backend Error Response:", error.response.data);
-                toast.error(`⚠️ Update Failed: ${error.response.data.error || "Unknown Error"}`);
-            } else {
-                toast.error("⚠️ Failed to update student.");
-            }
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-    
-    
-    
-    
-    
-    
-    
+        striped
+        hoverable
+      />
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-    
-        setSelectedStudent((prev) => ({
-            ...prev,
-            [name]: name === "school" ? Number(value) : value, // ✅ Convert school to a number (ID)
-        }));
-    };
-    
+      {/* Student Details Modal */}
+      {selectedStudent && (
+        <StudentDetailsModal
+          student={selectedStudent}
+          isEditing={isEditing}
+          onClose={handleCloseDetails}
+          onSave={handleSaveChanges}
+          onEdit={handleEdit}
+          onCancel={handleCancel}
+          onDelete={handleDeleteStudent}
+          schools={schools}
+          classes={classes}
+          isSubmitting={loading.submit}
+          isDeleting={loading.delete}
+        />
+      )}
 
-    const handleAddNewStudent = () => {
-        console.log("🆕 Opening Add Student Popup...");
-        setIsAdding(true);
-    };
-
-    const handleDeleteStudent = async (studentId) => {
-        if (!window.confirm("Are you sure you want to delete this student?")) return;
-
-        setIsDeleting(true); // Set deleting state
-        try {
-            await deleteStudent(studentId);
-            setStudents(students.filter(student => student.id !== studentId));
-            toast.success("✅ Student deleted successfully!"); // Use toast instead of alert
-        } catch (error) {
-            console.error("❌ Error deleting student:", error);
-            toast.error("⚠️ Failed to delete student.");
-        } finally {
-            setIsDeleting(false); // Reset deleting state
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-gray-50 p-6">
-            {/* Header Section */}
-            <header className="bg-white shadow-md p-6 rounded-lg mb-6">
-                <h1 className="text-3xl font-bold text-gray-800 text-center mb-6">Student Management</h1>
-
-                {/* Search and Filters Section */}
-                <div className="flex flex-wrap gap-4 mb-6">
-                    <input
-                        type="text"
-                        placeholder="Search by Name or Reg Num"
-                        value={searchTerm}
-                        onChange={handleSearchChange}
-                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors flex-1 min-w-[200px]"
-                    />
-
-                    <select
-                        value={schoolFilter}
-                        onChange={handleSchoolFilterChange}
-                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors flex-1 min-w-[200px]"
-                    >
-                        <option value="All Schools">All Schools</option>
-                        {schools.map((school) => (
-                            <option key={school.id} value={school.name}>{school.name}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={classFilter}
-                        onChange={handleClassFilterChange}
-                        className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors flex-1 min-w-[200px]"
-                    >
-                        {classes.length > 1 ? (
-                            classes.map((cls, index) => (
-                                <option key={index} value={cls}>{cls}</option>
-                            ))
-                        ) : (
-                            <option disabled>Loading classes...</option>
-                        )}
-                    </select>
-
-                    <button
-                        onClick={handleSearchClick}
-                        className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
-                    >
-                        🔍 Search
-                    </button>
-
-                    <button
-                        onClick={handleAddNewStudent}
-                        className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-                    >
-                        ➕ Add New Student
-                    </button>
-                </div>
-            </header>
-
-            {/* Loading and Error Messages */}
-            {loading && (
-                <div className="text-center">
-                    <ClipLoader color="#000000" size={50} />
-                </div>
-            )}
-            {error && <p className="text-center text-red-500">{error}</p>}
-
-            {/* Results Table */}
-            {showResults && !loading && !error && (
-                <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead className="bg-gray-100">
-                            <tr>
-                                <th className="p-3 text-left text-gray-700 font-semibold">
-                                    <button
-                                        onClick={() => {
-                                            setSortBy("reg_num");
-                                            setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                                        }}
-                                        className="flex items-center gap-1"
-                                    >
-                                        Reg Num
-                                        {sortBy === "reg_num" && (sortOrder === "asc" ? " ↑" : " ↓")}
-                                    </button>
-                                </th>
-                                <th className="p-3 text-left text-gray-700 font-semibold">
-                                    <button
-                                        onClick={() => {
-                                            setSortBy("name");
-                                            setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                                        }}
-                                        className="flex items-center gap-1"
-                                    >
-                                        Name
-                                        {sortBy === "name" && (sortOrder === "asc" ? " ↑" : " ↓")}
-                                    </button>
-                                </th>
-                                <th className="p-3 text-left text-gray-700 font-semibold">School</th>
-                                <th className="p-3 text-left text-gray-700 font-semibold">
-                                    <button
-                                        onClick={() => {
-                                            setSortBy("student_class");
-                                            setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                                        }}
-                                        className="flex items-center gap-1"
-                                    >
-                                        Class
-                                        {sortBy === "student_class" && (sortOrder === "asc" ? " ↑" : " ↓")}
-                                    </button>
-                                </th>
-                                <th className="p-3 text-left text-gray-700 font-semibold">Monthly Fee</th>
-                                <th className="p-3 text-left text-gray-700 font-semibold">Phone</th>
-                                <th className="p-3 text-left text-gray-700 font-semibold">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredStudents.map((student) => (
-                                <tr key={student.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.reg_num}</td>
-                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.name}</td>
-                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.school}</td>
-                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.student_class}</td>
-                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.monthly_fee}</td>
-                                    <td className="p-3 border-t border-gray-200 text-gray-600">{student.phone}</td>
-                                    <td className="p-3 border-t border-gray-200">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleViewDetails(student)}
-                                                className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-1"
-                                            >
-                                                👁️ View
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteStudent(student.id)}
-                                                className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
-                                                disabled={isDeleting}
-                                            >
-                                                {isDeleting ? "Deleting..." : "🗑️ Delete"}
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {/* Student Profile Modal */}
-            {selectedStudent && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-                        <h2 className="text-2xl font-bold text-blue-600 mb-4">Student Profile</h2>
-                        {isEditing ? (
-                            <>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-gray-700">Name:</label>
-                                        <input
-                                            type="text"
-                                            name="name"
-                                            value={selectedStudent.name}
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700">Reg Num:</label>
-                                        <input
-                                            type="text"
-                                            name="reg_num"
-                                            value={selectedStudent.reg_num}
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700">School:</label>
-                                        <select
-                                            name="school"
-                                            value={selectedStudent.school} // ✅ Ensure school ID is set
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                                        >
-                                            <option value="">Select a School</option>
-                                            {schools.map((school) => (
-                                                <option key={school.id} value={school.id}>{school.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-gray-700">Class:</label>
-                                        <input
-                                            type="text"
-                                            name="student_class"
-                                            value={selectedStudent.student_class}
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700">Monthly Fee:</label>
-                                        <input
-                                            type="number"
-                                            name="monthly_fee"
-                                            value={selectedStudent.monthly_fee}
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700">Phone:</label>
-                                        <input
-                                            type="text"
-                                            name="phone"
-                                            value={selectedStudent.phone}
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex gap-2 mt-6">
-                                    <button
-                                        onClick={handleSaveChanges}
-                                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
-                                        disabled={isSubmitting}
-                                    >
-                                        {isSubmitting ? "Saving..." : "Save Changes"}
-                                    </button>
-                                    <button
-                                        onClick={() => setIsEditing(false)}
-                                        className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="space-y-2">
-                                    <p><strong>Reg Num:</strong> {selectedStudent.reg_num}</p>
-                                    <p><strong>Name:</strong> {selectedStudent.name}</p>
-                                    <p><strong>School:</strong> {selectedStudent.school}</p>
-                                    <p><strong>Class:</strong> {selectedStudent.student_class}</p>
-                                    <p><strong>Monthly Fee:</strong> {selectedStudent.monthly_fee}</p>
-                                    <p><strong>Phone:</strong> {selectedStudent.phone}</p>
-                                </div>
-                                <div className="flex gap-2 mt-6">
-                                    <button
-                                        onClick={handleEdit}
-                                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        onClick={handleCloseDetails}
-                                        className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Add Student Popup */}
-            {isAdding && <AddStudentPopup onClose={() => setIsAdding(false)} />}
-        </div>
-    );
+      {/* Add Student Popup */}
+      {isAdding && (
+        <AddStudentPopup
+          onClose={() => setIsAdding(false)}
+          onStudentAdded={() => {
+            setIsAdding(false);
+            fetchStudents();
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 export default StudentsPage;

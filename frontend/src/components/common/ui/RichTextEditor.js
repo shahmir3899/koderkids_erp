@@ -1,0 +1,405 @@
+// ============================================
+// RICH TEXT EDITOR - Text Editor with Formatting Toolbar
+// ============================================
+// Location: src/components/common/ui/RichTextEditor.js
+//
+// Features:
+// - Bold, Italic, Strikethrough, Monospace formatting
+// - Bullet and numbered lists
+// - Line spacing options
+// - Live HTML preview
+// - Resizable textarea
+
+import React, { useRef, useState, useCallback } from 'react';
+
+/**
+ * Parse text to HTML for preview
+ */
+const parseToHTML = (text) => {
+  let html = text
+    .replace(/\*(.*?)\*/g, '<strong>$1</strong>') // Bold
+    .replace(/~(.*?)~/g, '<s>$1</s>') // Strikethrough
+    .replace(/_(.*?)_/g, '<em>$1</em>') // Italic
+    .replace(/```(.*?)```/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px;">$1</code>') // Monospace
+    .replace(/^\s*-\s+(.*)$/gm, '<li>$1</li>') // Bulleted list
+    .replace(/^\s*(\d+)\.\s+(.*)$/gm, "<li value='$1'>$2</li>") // Numbered list
+    .replace(/\n/g, '<br>'); // New lines
+
+  // Wrap lists
+  html = html.replace(/<li>(.*?)<\/li>/g, (match) => {
+    if (match.startsWith("<li value=")) return `<ol>${match}</ol>`;
+    return `<ul style="margin-left:20px;">${match}</ul>`;
+  });
+
+  return html;
+};
+
+/**
+ * RichTextEditor Component
+ * @param {Object} props
+ * @param {string} props.value - Text value
+ * @param {Function} props.onChange - Change handler
+ * @param {string} props.placeholder - Placeholder text
+ * @param {string} props.label - Label text
+ * @param {boolean} props.showPreview - Show live preview (default: true)
+ * @param {boolean} props.showLineSpacing - Show line spacing control (default: true)
+ * @param {string} props.lineSpacing - Line spacing value ('single', '1.5', 'double')
+ * @param {Function} props.onLineSpacingChange - Line spacing change handler
+ * @param {number} props.minHeight - Minimum height in pixels (default: 200)
+ * @param {number} props.maxHeight - Maximum height in pixels (default: 600)
+ * @param {boolean} props.required - Whether field is required
+ * @param {string} props.className - Additional CSS classes
+ */
+export const RichTextEditor = ({
+  value = '',
+  onChange,
+  placeholder = 'Enter text...',
+  label = '',
+  showPreview = true,
+  showLineSpacing = true,
+  lineSpacing = 'single',
+  onLineSpacingChange,
+  minHeight = 200,
+  maxHeight = 600,
+  required = false,
+  className = '',
+}) => {
+  const textareaRef = useRef(null);
+  const [textAreaHeight, setTextAreaHeight] = useState(256);
+
+  /**
+   * Apply formatting to selected text
+   */
+  const formatText = useCallback(
+    (type) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selected = value.slice(start, end);
+      let replacement = selected;
+      let marker;
+
+      switch (type) {
+        case 'bold':
+          marker = '*';
+          replacement = `${marker}${selected}${marker}`;
+          break;
+        case 'italic':
+          marker = '_';
+          replacement = `${marker}${selected}${marker}`;
+          break;
+        case 'strike':
+          marker = '~';
+          replacement = `${marker}${selected}${marker}`;
+          break;
+        case 'mono':
+          marker = '```';
+          replacement = `${marker}${selected}${marker}`;
+          break;
+        case 'bullet':
+          if (selected) {
+            replacement = selected
+              .split('\n')
+              .map((line) => (line ? `- ${line}` : ''))
+              .join('\n');
+          } else {
+            replacement = '- ';
+          }
+          break;
+        case 'number':
+          if (selected) {
+            replacement = selected
+              .split('\n')
+              .map((line, i) => (line ? `${i + 1}. ${line}` : ''))
+              .join('\n');
+          } else {
+            replacement = '1. ';
+          }
+          break;
+        case 'newline':
+          replacement = '\n';
+          break;
+        case 'emptyline':
+          replacement = '\n\n';
+          break;
+        default:
+          return;
+      }
+
+      const newText = value.slice(0, start) + replacement + value.slice(end);
+      onChange(newText);
+
+      // Restore cursor position
+      setTimeout(() => {
+        textarea.focus();
+        if (type === 'bold' || type === 'italic' || type === 'strike' || type === 'mono') {
+          textarea.selectionStart = start + marker.length;
+          textarea.selectionEnd = start + replacement.length - marker.length;
+        } else {
+          textarea.selectionStart = textarea.selectionEnd = start + replacement.length;
+        }
+      }, 0);
+    },
+    [value, onChange]
+  );
+
+  // Styles
+  const containerStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  };
+
+  const editorContainerStyle = {
+    display: showPreview ? 'grid' : 'block',
+    gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr',
+    gap: '1rem',
+  };
+
+  const toolbarStyle = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '0.25rem',
+    padding: '0.5rem',
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #D1D5DB',
+    borderBottom: 'none',
+    borderRadius: '0.5rem 0.5rem 0 0',
+  };
+
+  const toolbarButtonStyle = {
+    padding: '0.375rem 0.625rem',
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: '0.25rem',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    color: '#374151',
+    transition: 'background-color 0.15s ease',
+  };
+
+  const textareaStyle = {
+    width: '100%',
+    height: `${textAreaHeight}px`,
+    padding: '1rem',
+    border: '1px solid #D1D5DB',
+    borderRadius: '0 0 0.5rem 0.5rem',
+    fontSize: '0.875rem',
+    fontFamily: 'inherit',
+    resize: 'none',
+    outline: 'none',
+    transition: 'border-color 0.15s ease',
+  };
+
+  const previewStyle = {
+    height: `${textAreaHeight}px`,
+    padding: '1rem',
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #D1D5DB',
+    borderRadius: '0.5rem',
+    overflow: 'auto',
+    fontSize: '0.875rem',
+    lineHeight: '1.6',
+  };
+
+  const labelStyle = {
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    color: '#374151',
+  };
+
+  const selectStyle = {
+    padding: '0.375rem 0.5rem',
+    border: '1px solid #D1D5DB',
+    borderRadius: '0.25rem',
+    fontSize: '0.75rem',
+    cursor: 'pointer',
+  };
+
+  const sliderContainerStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    marginLeft: 'auto',
+  };
+
+  return (
+    <div style={containerStyle} className={className}>
+      {/* Label */}
+      {label && (
+        <label style={labelStyle}>
+          {label}
+          {required && <span style={{ color: '#EF4444', marginLeft: '4px' }}>*</span>}
+        </label>
+      )}
+
+      <div style={editorContainerStyle}>
+        {/* Editor Section */}
+        <div>
+          {/* Toolbar */}
+          <div style={toolbarStyle}>
+            <button
+              type="button"
+              onClick={() => formatText('bold')}
+              style={toolbarButtonStyle}
+              title="Bold (*text*)"
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
+            >
+              <strong>B</strong>
+            </button>
+            <button
+              type="button"
+              onClick={() => formatText('italic')}
+              style={toolbarButtonStyle}
+              title="Italic (_text_)"
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
+            >
+              <em>I</em>
+            </button>
+            <button
+              type="button"
+              onClick={() => formatText('strike')}
+              style={toolbarButtonStyle}
+              title="Strikethrough (~text~)"
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
+            >
+              <s>S</s>
+            </button>
+            <button
+              type="button"
+              onClick={() => formatText('mono')}
+              style={toolbarButtonStyle}
+              title="Monospace (```text```)"
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
+            >
+              <code style={{ fontFamily: 'monospace' }}>M</code>
+            </button>
+
+            <div style={{ width: '1px', height: '20px', backgroundColor: '#D1D5DB', margin: '0 0.25rem' }} />
+
+            <button
+              type="button"
+              onClick={() => formatText('bullet')}
+              style={toolbarButtonStyle}
+              title="Bullet List"
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
+            >
+              •
+            </button>
+            <button
+              type="button"
+              onClick={() => formatText('number')}
+              style={toolbarButtonStyle}
+              title="Numbered List"
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
+            >
+              1.
+            </button>
+
+            <div style={{ width: '1px', height: '20px', backgroundColor: '#D1D5DB', margin: '0 0.25rem' }} />
+
+            <button
+              type="button"
+              onClick={() => formatText('newline')}
+              style={toolbarButtonStyle}
+              title="New Line"
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
+            >
+              ↵
+            </button>
+            <button
+              type="button"
+              onClick={() => formatText('emptyline')}
+              style={toolbarButtonStyle}
+              title="Empty Line"
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
+            >
+              ⏎
+            </button>
+
+            {/* Line Spacing */}
+            {showLineSpacing && onLineSpacingChange && (
+              <>
+                <div style={{ width: '1px', height: '20px', backgroundColor: '#D1D5DB', margin: '0 0.25rem' }} />
+                <select
+                  value={lineSpacing}
+                  onChange={(e) => onLineSpacingChange(e.target.value)}
+                  style={selectStyle}
+                  title="Line Spacing"
+                >
+                  <option value="single">Single</option>
+                  <option value="1.5">1.5</option>
+                  <option value="double">Double</option>
+                </select>
+              </>
+            )}
+
+            {/* Height Slider */}
+            <div style={sliderContainerStyle}>
+              <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>Height:</span>
+              <input
+                type="range"
+                min={minHeight}
+                max={maxHeight}
+                value={textAreaHeight}
+                onChange={(e) => setTextAreaHeight(parseInt(e.target.value))}
+                style={{ width: '80px', cursor: 'pointer' }}
+                title="Adjust Text Area Height"
+              />
+              <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>{textAreaHeight}px</span>
+            </div>
+          </div>
+
+          {/* Textarea */}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            style={textareaStyle}
+            required={required}
+            onFocus={(e) => (e.target.style.borderColor = '#3B82F6')}
+            onBlur={(e) => (e.target.style.borderColor = '#D1D5DB')}
+          />
+        </div>
+
+        {/* Preview Section */}
+        {showPreview && (
+          <div>
+            <div
+              style={{
+                ...labelStyle,
+                padding: '0.5rem',
+                backgroundColor: '#F9FAFB',
+                borderRadius: '0.5rem 0.5rem 0 0',
+                border: '1px solid #D1D5DB',
+                borderBottom: 'none',
+              }}
+            >
+              Preview
+            </div>
+            <div style={previewStyle} dangerouslySetInnerHTML={{ __html: parseToHTML(value) }} />
+          </div>
+        )}
+      </div>
+
+      {/* Help Text */}
+      <div style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
+        Use *bold*, _italic_, ~strike~, ```mono``` for formatting. Use - or 1. for lists.
+      </div>
+    </div>
+  );
+};
+
+export default RichTextEditor;
