@@ -431,20 +431,35 @@ def get_students(request):
                 students = Student.objects.filter(status="Active").select_related("school").all()  # ✅ Fetch only Active students
 
             elif user.role == "Teacher":
-                assigned_schools = user.assigned_schools.values_list("name", flat=True)
-                print(f"✅ Assigned Schools for {user.username}: {list(assigned_schools)}")
+                # Teacher can access only their assigned schools
+                assigned_school_names = user.assigned_schools.values_list("name", flat=True)
+                assigned_school_ids   = user.assigned_schools.values_list("id", flat=True)
 
-                if school_name and school_name not in assigned_schools:
-                    print(f"❌ Unauthorized: {user.username} cannot access {school_name}")
-                    return Response([])
-                
-                print("✅ Fetching students for:", school_name)
-                students = Student.objects.filter(school__name=school_name, status="Active")  # ✅ Filter by Active status
-                print(f"✅ Students before filtering class: {students.count()}")
+                print(f"Teacher {user.username} → Assigned schools: {list(assigned_school_names)}")
 
+                # CASE 1: Frontend sends a specific school name → validate it
+                if school_name:
+                    if school_name not in assigned_school_names:
+                        print(f"Unauthorized attempt: {user.username} tried to access {school_name}")
+                        return Response([])  # silently return empty (security)
+
+                    # Filter by the requested school name
+                    queryset = Student.objects.filter(school__name=school_name, status="Active")
+
+                # CASE 2: No school_name sent → AUTO-FILTER to teacher's schools
+                else:
+                    if not assigned_school_ids:
+                        print(f"Teacher {user.username} has no assigned schools")
+                        return Response([])
+
+                    print(f"Auto-filtering to teacher's assigned schools: {list(assigned_school_names)}")
+                    queryset = Student.objects.filter(school_id__in=assigned_school_ids, status="Active")
+
+                # Apply class filter if provided
                 if student_class:
-                    students = students.filter(student_class=student_class)
+                    queryset = queryset.filter(student_class=student_class)
 
+                students = queryset
             else:
                 print("❌ Unauthorized access attempt by:", user.username)
                 return Response({"error": "Unauthorized"}, status=403)

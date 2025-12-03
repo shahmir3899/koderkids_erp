@@ -657,6 +657,440 @@ export class PDFGenerator {
   }
 
   /**
+   * Generate PDF for Salary Slips
+   * @param {Object} options - Salary slip data
+   * @returns {Promise<Blob>} - PDF blob
+   */
+  async generateSalarySlipPDF(options) {
+    const {
+      name = '',
+      title = '',
+      schools = '',
+      dateOfJoining = '',
+      fromDate = '',
+      tillDate = '',
+      basicSalary = 0,
+      paymentDate = '',
+      bankName = '',
+      accountNumber = '',
+      noOfDays = 0,
+      proratedSalary = 0,
+      earnings = [],
+      deductions = [],
+      totalEarning = 0,
+      totalDeduction = 0,
+      netPay = 0,
+    } = options;
+
+    try {
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage([this.pageWidth, this.pageHeight]);
+
+      const lineHeight = this.getLineHeight();
+      const topSpace = 144; // 2 inches for letterhead
+      const footerSpace = 50;
+
+      // Embed fonts
+      const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      // Helper: Format date with ordinal (1st, 2nd, 3rd, etc.)
+      const formatDateWithOrdinal = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const day = date.getDate();
+        const month = date.toLocaleString('en-US', { month: 'long' });
+        const year = date.getFullYear();
+        const ordinal =
+          day % 10 === 1 && day !== 11
+            ? 'st'
+            : day % 10 === 2 && day !== 12
+              ? 'nd'
+              : day % 10 === 3 && day !== 13
+                ? 'rd'
+                : 'th';
+        return `${day}${ordinal} ${month} ${year}`;
+      };
+
+      // Helper: Get month and year
+      const getMonthYear = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const month = date.toLocaleString('en-US', { month: 'long' });
+        const year = date.getFullYear();
+        return `${month} ${year}`;
+      };
+
+      // Helper: Format currency
+      const formatCurrency = (amount) => {
+        if (isNaN(amount) || amount === null || amount === undefined) return 'PKR 0.00';
+        return `PKR ${parseFloat(amount)
+          .toFixed(2)
+          .replace(/\d(?=(\d{3})+\.)/g, '$&,')}`;
+      };
+
+      // Draw background
+      if (this.backgroundImage) {
+        try {
+          const imageArrayBuffer = await fetchArrayBuffer(this.backgroundImage);
+          const isJpeg = await validateImageFormat(imageArrayBuffer);
+          const backgroundImage = isJpeg
+            ? await pdfDoc.embedJpg(imageArrayBuffer)
+            : await pdfDoc.embedPng(imageArrayBuffer);
+          page.drawImage(backgroundImage, {
+            x: 0,
+            y: 0,
+            width: this.pageWidth,
+            height: this.pageHeight,
+          });
+        } catch (error) {
+          console.warn('Using fallback background:', error.message);
+          page.drawRectangle({
+            x: 0,
+            y: 0,
+            width: this.pageWidth,
+            height: this.pageHeight,
+            color: rgb(1, 1, 1),
+          });
+        }
+      } else {
+        page.drawRectangle({
+          x: 0,
+          y: 0,
+          width: this.pageWidth,
+          height: this.pageHeight,
+          color: rgb(1, 1, 1),
+        });
+      }
+
+      // Main heading: Salary Slip for [Month Year]
+      const headingText = `Salary Slip for ${getMonthYear(fromDate)}`;
+      const headingWidth = fontBold.widthOfTextAtSize(headingText, this.fontSize + 2);
+      page.drawText(headingText, {
+        x: (this.pageWidth - headingWidth) / 2,
+        y: this.pageHeight - this.margin,
+        size: this.fontSize + 2,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+
+      // Start details below top space
+      const detailsStartY = this.pageHeight - this.margin - topSpace;
+      const leftColumnX = this.margin;
+      const rightColumnX = this.pageWidth / 2;
+
+      // ============================================
+      // LEFT COLUMN
+      // ============================================
+      let yLeft = detailsStartY;
+
+      // Name
+      page.drawText('Name: ', {
+        x: leftColumnX,
+        y: yLeft,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const nameLabelWidth = fontBold.widthOfTextAtSize('Name: ', this.fontSize);
+      page.drawText(name, {
+        x: leftColumnX + nameLabelWidth,
+        y: yLeft,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yLeft -= lineHeight;
+
+      // Title
+      page.drawText('Title: ', {
+        x: leftColumnX,
+        y: yLeft,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const titleLabelWidth = fontBold.widthOfTextAtSize('Title: ', this.fontSize);
+      page.drawText(title, {
+        x: leftColumnX + titleLabelWidth,
+        y: yLeft,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yLeft -= lineHeight;
+
+      // Schools
+      page.drawText('Schools: ', {
+        x: leftColumnX,
+        y: yLeft,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      yLeft -= lineHeight;
+
+      const schoolsList = schools ? schools.split('\n').filter((s) => s.trim()) : ['None'];
+      schoolsList.forEach((school) => {
+        page.drawText(school.trim(), {
+          x: leftColumnX + 20,
+          y: yLeft,
+          size: this.fontSize,
+          font: fontRegular,
+          color: rgb(0, 0, 0),
+        });
+        yLeft -= lineHeight;
+      });
+
+      // Date of Joining
+      page.drawText('Date of joining: ', {
+        x: leftColumnX,
+        y: yLeft,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const joiningLabelWidth = fontBold.widthOfTextAtSize('Date of joining: ', this.fontSize);
+      page.drawText(formatDateWithOrdinal(dateOfJoining), {
+        x: leftColumnX + joiningLabelWidth,
+        y: yLeft,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yLeft -= lineHeight * 2;
+
+      // ============================================
+      // RIGHT COLUMN
+      // ============================================
+      let yRight = detailsStartY;
+
+      // From Date
+      page.drawText('From Date: ', {
+        x: rightColumnX,
+        y: yRight,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const fromLabelWidth = fontBold.widthOfTextAtSize('From Date: ', this.fontSize);
+      page.drawText(formatDateWithOrdinal(fromDate), {
+        x: rightColumnX + fromLabelWidth,
+        y: yRight,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yRight -= lineHeight;
+
+      // Till Date
+      page.drawText('Till Date: ', {
+        x: rightColumnX,
+        y: yRight,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const tillLabelWidth = fontBold.widthOfTextAtSize('Till Date: ', this.fontSize);
+      page.drawText(formatDateWithOrdinal(tillDate), {
+        x: rightColumnX + tillLabelWidth,
+        y: yRight,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yRight -= lineHeight;
+
+      // Basic Salary
+      page.drawText('Basic Salary: ', {
+        x: rightColumnX,
+        y: yRight,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const basicLabelWidth = fontBold.widthOfTextAtSize('Basic Salary: ', this.fontSize);
+      page.drawText(formatCurrency(basicSalary), {
+        x: rightColumnX + basicLabelWidth,
+        y: yRight,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yRight -= lineHeight;
+
+      // Payment Date
+      page.drawText('Payment Date: ', {
+        x: rightColumnX,
+        y: yRight,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const paymentLabelWidth = fontBold.widthOfTextAtSize('Payment Date: ', this.fontSize);
+      page.drawText(formatDateWithOrdinal(paymentDate), {
+        x: rightColumnX + paymentLabelWidth,
+        y: yRight,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yRight -= lineHeight;
+
+      // Bank Name
+      page.drawText('Bank Name: ', {
+        x: rightColumnX,
+        y: yRight,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const bankLabelWidth = fontBold.widthOfTextAtSize('Bank Name: ', this.fontSize);
+      page.drawText(bankName, {
+        x: rightColumnX + bankLabelWidth,
+        y: yRight,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yRight -= lineHeight;
+
+      // Account Number
+      page.drawText('Acct #: ', {
+        x: rightColumnX,
+        y: yRight,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      const acctLabelWidth = fontBold.widthOfTextAtSize('Acct #: ', this.fontSize);
+      page.drawText(accountNumber, {
+        x: rightColumnX + acctLabelWidth,
+        y: yRight,
+        size: this.fontSize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      yRight -= lineHeight * 2;
+
+      // ============================================
+      // SALARY DETAILS SECTION
+      // ============================================
+      let yPosition = Math.min(yLeft, yRight);
+
+      // No of Days
+      const daysText =
+        noOfDays === 31 ? `${noOfDays} (normalized to 30 for calculation)` : `${noOfDays}`;
+      page.drawText(`No of Days: ${daysText}`, {
+        x: this.margin,
+        y: yPosition,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      yPosition -= lineHeight * 1.5;
+
+      // Earnings Section
+      page.drawText('Earnings:', {
+        x: this.margin,
+        y: yPosition,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      yPosition -= lineHeight;
+
+      earnings.forEach((earning) => {
+        page.drawText(`${earning.category}: ${formatCurrency(earning.amount)}`, {
+          x: this.margin + 20,
+          y: yPosition,
+          size: this.fontSize,
+          font: fontRegular,
+          color: rgb(0, 0, 0),
+        });
+        yPosition -= lineHeight;
+      });
+
+      page.drawText(`Total Earnings: ${formatCurrency(totalEarning)}`, {
+        x: this.margin,
+        y: yPosition,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0.5, 0), // Green color
+      });
+      yPosition -= lineHeight * 2;
+
+      // Deductions Section
+      page.drawText('Deductions:', {
+        x: this.margin,
+        y: yPosition,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      yPosition -= lineHeight;
+
+      if (deductions.length === 0) {
+        page.drawText('None', {
+          x: this.margin + 20,
+          y: yPosition,
+          size: this.fontSize,
+          font: fontRegular,
+          color: rgb(0.5, 0.5, 0.5),
+        });
+        yPosition -= lineHeight;
+      } else {
+        deductions.forEach((deduction) => {
+          page.drawText(`${deduction.category}: ${formatCurrency(deduction.amount)}`, {
+            x: this.margin + 20,
+            y: yPosition,
+            size: this.fontSize,
+            font: fontRegular,
+            color: rgb(0, 0, 0),
+          });
+          yPosition -= lineHeight;
+        });
+      }
+
+      page.drawText(`Total Deductions: ${formatCurrency(totalDeduction)}`, {
+        x: this.margin,
+        y: yPosition,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0.8, 0, 0), // Red color
+      });
+      yPosition -= lineHeight * 2;
+
+      // Net Payable (Highlighted)
+      page.drawText(`Net Payable: ${formatCurrency(netPay)}`, {
+        x: this.margin,
+        y: yPosition,
+        size: this.fontSize + 2,
+        font: fontBold,
+        color: rgb(0, 0, 0.6), // Blue color
+      });
+
+      // Footer
+      const salaryFooterText = "This is a system generated salary slip and doesn't require signature.";
+      const footerWidth = fontRegular.widthOfTextAtSize(salaryFooterText, 10);
+      page.drawText(salaryFooterText, {
+        x: (this.pageWidth - footerWidth) / 2,
+        y: this.margin,
+        size: 10,
+        font: fontRegular,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      return new Blob([pdfBytes], { type: 'application/pdf' });
+    } catch (error) {
+      console.error('Error generating salary slip PDF:', error.message);
+      toast.error(`Failed to generate salary slip: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Download the generated PDF blob
    */
   static downloadPDF(blob, filename) {

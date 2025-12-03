@@ -1,11 +1,14 @@
 // ============================================
-// TEACHER DASHBOARD - Refactored Version
+// TEACHER DASHBOARD - Refactored Version (Updated)
+// Now uses real API data for profile and notifications
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import moment from 'moment';
+
+// Components
 import { ProfileHeader } from '../components/teacher/ProfileHeader';
 import { LessonCalendar } from '../components/teacher/LessonCalendar';
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
@@ -14,7 +17,12 @@ import { FilterBar } from '../components/common/filters/FilterBar';
 import { DataTable } from '../components/common/tables/DataTable';
 import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
+
+// Hooks
 import { useSchools } from '../hooks/useSchools';
+
+// Services
+import { getTeacherProfile, getTeacherDashboardData } from '../services/teacherService';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://koderkids-erp.onrender.com';
 
@@ -24,18 +32,27 @@ const getAuthHeaders = () => ({
 });
 
 const TeacherDashboard = () => {
-  // State
-  const [user, setUser] = useState(null);
+  // ============================================
+  // STATE
+  // ============================================
+  
+  // Profile State
+  const [profile, setProfile] = useState(null);
+  
+  // Lessons State
   const [lessons, setLessons] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(moment().format('YYYY-MM'));
   const [monthlyLessonData, setMonthlyLessonData] = useState([]);
   const [schoolLessons, setSchoolLessons] = useState([]);
+  
+  // Student Data State
   const [studentAttendance, setStudentAttendance] = useState([]);
   const [studentTopics, setStudentTopics] = useState([]);
   const [studentImages, setStudentImages] = useState([]);
   
+  // Loading States
   const [loading, setLoading] = useState({
-    user: true,
+    profile: true,
     lessons: true,
     monthlyData: false,
     schoolData: false,
@@ -45,20 +62,26 @@ const TeacherDashboard = () => {
   // Hooks
   const { schools } = useSchools();
 
-  // Fetch user data
+  // ============================================
+  // DATA FETCHING
+  // ============================================
+
+  // Fetch teacher profile on mount
   useEffect(() => {
-    const fetchUser = async () => {
-      setLoading(prev => ({ ...prev, user: true }));
+    const fetchProfile = async () => {
+      setLoading(prev => ({ ...prev, profile: true }));
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/user/`, { headers: getAuthHeaders() });
-        setUser(response.data);
+        const profileData = await getTeacherProfile();
+        console.log('✅ Profile loaded:', profileData);
+        setProfile(profileData);
       } catch (error) {
-        toast.error('Failed to fetch user data');
+        console.error('❌ Failed to fetch profile:', error);
+        toast.error('Failed to load profile data');
       }
-      setLoading(prev => ({ ...prev, user: false }));
+      setLoading(prev => ({ ...prev, profile: false }));
     };
 
-    fetchUser();
+    fetchProfile();
   }, []);
 
   // Fetch lessons
@@ -71,6 +94,7 @@ const TeacherDashboard = () => {
         });
         setLessons(response.data.lessons || []);
       } catch (error) {
+        console.error('❌ Failed to fetch lessons:', error);
         toast.error('Failed to fetch lessons');
       }
       setLoading(prev => ({ ...prev, lessons: false }));
@@ -97,6 +121,7 @@ const TeacherDashboard = () => {
         setMonthlyLessonData(lessonStatusRes.data);
         setSchoolLessons(schoolLessonsRes.data);
       } catch (error) {
+        console.error('❌ Failed to fetch monthly data:', error);
         toast.error('Failed to fetch monthly data');
       }
       
@@ -109,7 +134,7 @@ const TeacherDashboard = () => {
   // Fetch student data
   const fetchStudentData = async (filters) => {
     if (!filters.schoolId || !filters.className) {
-      toast.error('Please select month, school, and class');
+      toast.error('Please select school and class');
       return;
     }
 
@@ -134,11 +159,22 @@ const TeacherDashboard = () => {
       setStudentTopics(topicsRes.data);
       setStudentImages(imagesRes.data);
     } catch (error) {
+      console.error('❌ Failed to fetch student data:', error);
       toast.error('Failed to fetch student data');
     }
     
     setLoading(prev => ({ ...prev, studentData: false }));
   };
+
+  // Handle profile update from settings modal
+  const handleProfileUpdate = useCallback((updatedProfile) => {
+    console.log('📝 Profile updated:', updatedProfile);
+    setProfile(updatedProfile);
+  }, []);
+
+  // ============================================
+  // DATA PROCESSING
+  // ============================================
 
   // Prepare chart data for student performance
   const studentChartData = studentAttendance.map((student) => {
@@ -153,13 +189,21 @@ const TeacherDashboard = () => {
     };
   });
 
+  // ============================================
+  // RENDER
+  // ============================================
+
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Profile Header */}
-      <ProfileHeader user={user} loading={loading.user} />
+    <div style={styles.container}>
+      {/* Profile Header - Now uses real API data */}
+      <ProfileHeader 
+        profile={profile} 
+        loading={loading.profile} 
+        onProfileUpdate={handleProfileUpdate}
+      />
 
       {/* Month Selector */}
-      <div style={{ marginBottom: '2rem' }}>
+      <div style={styles.monthFilter}>
         <MonthFilter
           value={selectedMonth}
           onChange={setSelectedMonth}
@@ -169,12 +213,12 @@ const TeacherDashboard = () => {
       </div>
 
       {/* Lesson Schedule */}
-      <CollapsibleSection title="Lesson Schedule (Next 7 Days)">
+      <CollapsibleSection title="📅 Lesson Schedule (Next 7 Days)">
         <LessonCalendar lessons={lessons} loading={loading.lessons} />
       </CollapsibleSection>
 
       {/* Lesson Summary */}
-      <CollapsibleSection title="Lesson Summary">
+      <CollapsibleSection title="📊 Lesson Summary">
         <DataTable
           data={monthlyLessonData}
           loading={loading.monthlyData}
@@ -187,7 +231,14 @@ const TeacherDashboard = () => {
               label: 'Completion Rate (%)', 
               sortable: true, 
               align: 'center',
-              render: (value) => `${value.toFixed(1)}%`
+              render: (value) => (
+                <span style={{
+                  color: value >= 80 ? '#10B981' : value >= 50 ? '#F59E0B' : '#EF4444',
+                  fontWeight: '600',
+                }}>
+                  {value?.toFixed(1) || 0}%
+                </span>
+              )
             },
           ]}
           emptyMessage="No lesson data for selected month"
@@ -197,7 +248,7 @@ const TeacherDashboard = () => {
       </CollapsibleSection>
 
       {/* School-Wise Lesson Distribution */}
-      <CollapsibleSection title="School-Wise Lesson Distribution">
+      <CollapsibleSection title="🏫 School-Wise Lesson Distribution">
         <DataTable
           data={schoolLessons}
           loading={loading.schoolData}
@@ -218,7 +269,7 @@ const TeacherDashboard = () => {
       </CollapsibleSection>
 
       {/* Student Reports */}
-      <CollapsibleSection title="Student Reports - Data">
+      <CollapsibleSection title="👨‍🎓 Student Reports">
         <FilterBar
           onFilter={(data) => fetchStudentData({ 
             ...data, 
@@ -235,7 +286,7 @@ const TeacherDashboard = () => {
         ) : studentAttendance.length > 0 ? (
           <>
             {/* Student Data Table */}
-            <div style={{ marginBottom: '2rem' }}>
+            <div style={styles.tableContainer}>
               <DataTable
                 data={studentAttendance.map(attendance => {
                   const topic = studentTopics.find(t => t.student_id === attendance.student_id) || { topics_achieved: 0 };
@@ -274,20 +325,47 @@ const TeacherDashboard = () => {
             />
           </>
         ) : (
-          <div style={{
-            padding: '2rem',
-            textAlign: 'center',
-            color: '#9CA3AF',
-            backgroundColor: '#F9FAFB',
-            borderRadius: '8px',
-            marginTop: '1rem',
-          }}>
-            Select school and class to view student data
+          <div style={styles.emptyState}>
+            <svg style={styles.emptyIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <p>Select school and class to view student data</p>
           </div>
         )}
       </CollapsibleSection>
     </div>
   );
+};
+
+// Styles
+const styles = {
+  container: {
+    padding: '1.5rem',
+    maxWidth: '1400px',
+    margin: '0 auto',
+    backgroundColor: '#F3F4F6',
+    minHeight: '100vh',
+  },
+  monthFilter: {
+    marginBottom: '2rem',
+  },
+  tableContainer: {
+    marginBottom: '2rem',
+  },
+  emptyState: {
+    padding: '3rem',
+    textAlign: 'center',
+    color: '#9CA3AF',
+    backgroundColor: '#F9FAFB',
+    borderRadius: '8px',
+    marginTop: '1rem',
+  },
+  emptyIcon: {
+    width: '3rem',
+    height: '3rem',
+    margin: '0 auto 1rem',
+    color: '#D1D5DB',
+  },
 };
 
 export default TeacherDashboard;

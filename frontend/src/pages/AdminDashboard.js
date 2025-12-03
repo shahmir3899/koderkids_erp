@@ -1,5 +1,6 @@
 // ============================================
 // ADMIN DASHBOARD - Refactored Version (FIXED)
+// With Send Notification Feature
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -13,6 +14,7 @@ import { DataTable } from '../components/common/tables/DataTable';
 import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { useSchools } from '../hooks/useSchools';
+import { SendNotificationModal } from '../components/admin/sendNotificationModal'; // ✅ NEW IMPORT
 import {
   BarChart,
   Bar,
@@ -42,6 +44,9 @@ function AdminDashboard() {
   const [studentImages, setStudentImages] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [availableMonths, setAvailableMonths] = useState([]);
+  
+  // ✅ NEW: Notification Modal State
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   
   const [loading, setLoading] = useState({
     students: true,
@@ -263,8 +268,62 @@ function AdminDashboard() {
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto', backgroundColor: '#F3F4F6', minHeight: '100vh' }}>
-      {/* Header */}
-      <AdminHeader />
+      {/* Header with Notification Button */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1.5rem',
+        padding: '1.5rem',
+        backgroundColor: '#FFFFFF',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      }}>
+        <div>
+          <h1 style={{ 
+            fontSize: '1.75rem', 
+            fontWeight: '700', 
+            color: '#1F2937',
+            margin: 0,
+          }}>
+            📊 Admin Dashboard
+          </h1>
+          <p style={{ 
+            fontSize: '0.875rem', 
+            color: '#6B7280',
+            margin: '0.25rem 0 0 0',
+          }}>
+            Welcome back! Here's what's happening today.
+          </p>
+        </div>
+
+        {/* ✅ NEW: Send Notification Button */}
+        <button
+          onClick={() => setIsNotificationModalOpen(true)}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#7C3AED',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '0.875rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            transition: 'background-color 0.15s ease',
+            boxShadow: '0 2px 4px rgba(124, 58, 237, 0.3)',
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#6D28D9'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = '#7C3AED'}
+        >
+          <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          Send Notification
+        </button>
+      </div>
 
       {/* Students Per School Chart */}
       <CollapsibleSection title="Students Enrolled Per School">
@@ -451,45 +510,45 @@ function AdminDashboard() {
       </CollapsibleSection>
 
       {/* Student Data Reports - With Month Selector */}
-<CollapsibleSection title="Student Data Reports">
-  <div style={{ 
-    display: 'grid', 
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-    gap: '1rem',
-    marginBottom: '1rem'
-  }}>
-    {/* Month Selector */}
-    <div>
-      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
-        Select Month for Student Data
-      </label>
-      <select
-        value={selectedMonth}
-        onChange={(e) => setSelectedMonth(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '0.75rem',
-          border: '1px solid #D1D5DB',
-          borderRadius: '0.5rem',
-          fontSize: '1rem',
-        }}
-      >
-        {availableMonths.map(month => (
-          <option key={month} value={month}>
-            {month}
-          </option>
-        ))}
-      </select>
-    </div>
-  </div>
+      <CollapsibleSection title="Student Data Reports">
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gap: '1rem',
+          marginBottom: '1rem'
+        }}>
+          {/* Month Selector */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
+              Select Month for Student Data
+            </label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #D1D5DB',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+              }}
+            >
+              {availableMonths.map(month => (
+                <option key={month} value={month}>
+                  {month}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-  <FilterBar
-    onFilter={fetchStudentData}
-    showSchool
-    showClass
-    showMonth={false}
-    submitButtonText="Fetch Student Data"
-  />
+        <FilterBar
+          onFilter={fetchStudentData}
+          showSchool
+          showClass
+          showMonth={false}
+          submitButtonText="Fetch Student Data"
+        />
 
         {loading.studentData ? (
           <LoadingSpinner size="medium" message="Loading student data..." />
@@ -531,6 +590,12 @@ function AdminDashboard() {
           </div>
         )}
       </CollapsibleSection>
+
+      {/* ✅ NEW: Send Notification Modal */}
+      <SendNotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+      />
     </div>
   );
 }

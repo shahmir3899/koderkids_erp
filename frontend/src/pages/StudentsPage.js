@@ -2,6 +2,7 @@
 // STUDENTS PAGE - Refactored Version
 // Client-side filtering with data load on mount
 // Fixed: School filtering by NAME (not ID)
+// Enhanced: Delete Confirmation Modal & Stats Cards
 // ============================================
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -15,10 +16,12 @@ import { ErrorDisplay } from '../components/common/ui/ErrorDisplay';
 import { FilterBar } from '../components/common/filters/FilterBar';
 import { useSchools } from '../hooks/useSchools';
 import { Button } from '../components/common/ui/Button';
+import { ConfirmationModal } from '../components/common/modals/ConfirmationModal';
 
 // Page-Specific Components
 import AddStudentPopup from './AddStudentPopup';
 import { StudentDetailsModal } from '../components/students/StudentDetailsModal';
+import { StudentStatsCards } from '../components/students/StudentStatsCards';
 
 function StudentsPage() {
   // ============================================
@@ -38,6 +41,13 @@ function StudentsPage() {
   const [currentFilters, setCurrentFilters] = useState({
     schoolId: '',
     className: '',
+  });
+
+  // Delete Confirmation State
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    studentId: null,
+    studentName: '',
   });
 
   // Loading States (Consolidated)
@@ -253,7 +263,22 @@ function StudentsPage() {
     }
   };
 
-  const handleDeleteStudent = async (studentId) => {
+  // ============================================
+  // DELETE HANDLERS (with Confirmation Modal)
+  // ============================================
+
+  // Opens confirmation modal
+  const openDeleteConfirm = (student) => {
+    setDeleteConfirm({
+      isOpen: true,
+      studentId: student.id,
+      studentName: student.name || `Student #${student.reg_num}`,
+    });
+  };
+
+  // Actual delete logic (called after confirmation)
+  const confirmDelete = async () => {
+    const studentId = deleteConfirm.studentId;
     setLoading((prev) => ({ ...prev, delete: true }));
 
     try {
@@ -263,6 +288,9 @@ function StudentsPage() {
       // Remove from local state
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
       setSelectedStudent(null);
+      
+      // Close the confirmation modal
+      setDeleteConfirm({ isOpen: false, studentId: null, studentName: '' });
 
       toast.success('✅ Student deleted successfully!');
     } catch (error) {
@@ -270,6 +298,13 @@ function StudentsPage() {
       toast.error('⚠️ Failed to delete student.');
     } finally {
       setLoading((prev) => ({ ...prev, delete: false }));
+    }
+  };
+
+  // Cancel delete - close modal
+  const cancelDelete = () => {
+    if (!loading.delete) {
+      setDeleteConfirm({ isOpen: false, studentId: null, studentName: '' });
     }
   };
 
@@ -333,6 +368,22 @@ function StudentsPage() {
   }, [students, currentFilters, hasSearched, schools, getSchoolNameById]);
 
   // ============================================
+  // STATISTICS CALCULATION
+  // ============================================
+
+  const studentStats = useMemo(() => {
+    const uniqueSchools = new Set(students.map(s => s.school).filter(Boolean));
+    const totalFees = students.reduce((sum, s) => sum + (s.monthly_fee || 0), 0);
+
+    return {
+      totalStudents: students.length,
+      filteredCount: filteredStudents.length,
+      schoolsCount: uniqueSchools.size,
+      totalFees: totalFees,
+    };
+  }, [students, filteredStudents]);
+
+  // ============================================
   // RENDER
   // ============================================
 
@@ -350,6 +401,16 @@ function StudentsPage() {
       >
         Student Management
       </h1>
+
+      {/* Statistics Cards */}
+      <StudentStatsCards
+        totalStudents={studentStats.totalStudents}
+        filteredCount={studentStats.filteredCount}
+        schoolsCount={studentStats.schoolsCount}
+        totalFees={studentStats.totalFees}
+        hasSearched={hasSearched}
+        isLoading={loading.students}
+      />
 
       {/* Error Display */}
       {error && (
@@ -445,7 +506,7 @@ function StudentsPage() {
                   👁️ View
                 </button>
                 <button
-                  onClick={() => handleDeleteStudent(student.id)}
+                  onClick={() => openDeleteConfirm(student)}
                   disabled={loading.delete}
                   style={{
                     backgroundColor: loading.delete ? '#9CA3AF' : '#DC2626',
@@ -466,7 +527,7 @@ function StudentsPage() {
                     if (!loading.delete) e.target.style.backgroundColor = '#DC2626';
                   }}
                 >
-                  {loading.delete ? 'Deleting...' : '🗑️ Delete'}
+                  🗑️ Delete
                 </button>
               </div>
             ),
@@ -490,7 +551,7 @@ function StudentsPage() {
           onSave={handleSaveChanges}
           onEdit={handleEdit}
           onCancel={handleCancel}
-          onDelete={handleDeleteStudent}
+          onDelete={() => openDeleteConfirm(selectedStudent)}
           schools={schools}
           classes={classes}
           isSubmitting={loading.submit}
@@ -508,6 +569,20 @@ function StudentsPage() {
           }}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Student"
+        message="Are you sure you want to delete this student? This action cannot be undone."
+        itemName={deleteConfirm.studentName}
+        confirmText="Delete Student"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={loading.delete}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </div>
   );
 }
