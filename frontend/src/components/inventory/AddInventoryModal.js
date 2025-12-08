@@ -1,95 +1,19 @@
 // ============================================
-// ADD INVENTORY MODAL - Corrected Version
+// ADD INVENTORY MODAL - With RBAC Support
 // ============================================
 // Location: src/components/inventory/AddInventoryModal.js
-// 
-// Matches backend model:
-// - location: CharField with choices ('School', 'Headquarters', 'Unassigned')
-// - school: ForeignKey to School (optional, only when location='School')
-// - status: CharField with choices ('Available', 'Assigned', 'Damaged', 'Lost', 'Disposed')
+//
+// Add/Edit modal with role-based restrictions:
+// - Admin: All locations, all schools, all users
+// - Teacher: Only School location, only assigned schools, only themselves
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
-import Select from 'react-select';
 import { toast } from 'react-toastify';
-
-// Services
-import { createInventoryItem, updateInventoryItem } from '../../services/inventoryService';
-
-// ============================================
-// CONSTANTS - Match backend choices
-// ============================================
-
-const LOCATION_OPTIONS = [
-  { value: 'School', label: '🏫 School' },
-  { value: 'Headquarters', label: '🏢 Headquarters' },
-  { value: 'Unassigned', label: '📦 Unassigned' },
-];
-
-const STATUS_OPTIONS = [
-  { value: 'Available', label: '✅ Available', color: '#10B981' },
-  { value: 'Assigned', label: '👤 Assigned', color: '#3B82F6' },
-  { value: 'Damaged', label: '⚠️ Damaged', color: '#F59E0B' },
-  { value: 'Lost', label: '❌ Lost', color: '#EF4444' },
-  { value: 'Disposed', label: '🗑️ Disposed', color: '#6B7280' },
-];
-
-// ============================================
-// VALIDATION SCHEMA
-// ============================================
-
-const schema = yup.object().shape({
-  name: yup
-    .string()
-    .required('Item name is required')
-    .min(2, 'Name must be at least 2 characters')
-    .max(100, 'Name must be less than 100 characters'),
-  description: yup
-    .string()
-    .max(500, 'Description must be less than 500 characters')
-    .nullable(),
-  purchase_value: yup
-    .number()
-    .typeError('Purchase value must be a number')
-    .required('Purchase value is required')
-    .positive('Must be a positive number')
-    .max(100000000, 'Value seems too high'),
-  purchase_date: yup
-    .string()
-    .nullable(),
-  category: yup
-    .number()
-    .required('Category is required')
-    .nullable(),
-  location: yup
-    .string()
-    .required('Location is required')
-    .oneOf(['School', 'Headquarters', 'Unassigned'], 'Invalid location'),
-  school: yup
-    .number()
-    .nullable()
-    .when('location', {
-      is: 'School',
-      then: (schema) => schema.required('School is required when location is School'),
-      otherwise: (schema) => schema.nullable(),
-    }),
-  status: yup
-    .string()
-    .required('Status is required')
-    .oneOf(['Available', 'Assigned', 'Damaged', 'Lost', 'Disposed'], 'Invalid status'),
-  assigned_to: yup
-    .number()
-    .nullable(),
-  serial_number: yup
-  .string()
-  .max(100, 'Serial number must be less than 100 characters')
-  .nullable(),
-warranty_expiry: yup
-  .string()
-  .nullable(),
-});
+import {
+  createInventoryItem,
+  updateInventoryItem,
+  bulkCreateItems,
+} from '../../services/inventoryService';
 
 // ============================================
 // STYLES
@@ -116,26 +40,22 @@ const modalContentStyle = {
   maxWidth: '700px',
   maxHeight: '90vh',
   overflow: 'auto',
-  display: 'flex',
-  flexDirection: 'column',
   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
 };
 
-const modalHeaderStyle = {
-  padding: '1.5rem',
+const headerStyle = {
+  padding: '1.25rem 1.5rem',
   borderBottom: '1px solid #E5E7EB',
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
 };
 
-const modalBodyStyle = {
+const bodyStyle = {
   padding: '1.5rem',
-  overflowY: 'auto',
-  flex: 1,
 };
 
-const modalFooterStyle = {
+const footerStyle = {
   padding: '1rem 1.5rem',
   borderTop: '1px solid #E5E7EB',
   display: 'flex',
@@ -144,549 +64,541 @@ const modalFooterStyle = {
   backgroundColor: '#F9FAFB',
 };
 
-const inputStyle = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  border: '1px solid #D1D5DB',
-  borderRadius: '8px',
-  fontSize: '0.875rem',
-  transition: 'border-color 0.2s, box-shadow 0.2s',
-  boxSizing: 'border-box',
-};
-
-const inputErrorStyle = {
-  ...inputStyle,
-  borderColor: '#EF4444',
-  backgroundColor: '#FEF2F2',
-};
-
 const labelStyle = {
   display: 'block',
-  marginBottom: '0.5rem',
+  marginBottom: '0.375rem',
   fontWeight: '500',
   color: '#374151',
   fontSize: '0.875rem',
 };
 
-const errorTextStyle = {
-  color: '#EF4444',
-  fontSize: '0.75rem',
-  marginTop: '0.25rem',
+const inputStyle = {
+  width: '100%',
+  padding: '0.625rem 0.75rem',
+  border: '1px solid #D1D5DB',
+  borderRadius: '0.5rem',
+  fontSize: '0.875rem',
+  boxSizing: 'border-box',
+};
+
+const selectStyle = {
+  ...inputStyle,
+  cursor: 'pointer',
+  backgroundColor: '#FFFFFF',
 };
 
 const fieldGroupStyle = {
-  marginBottom: '1.25rem',
+  marginBottom: '1rem',
 };
 
-const selectStyles = {
-  control: (base, state) => ({
-    ...base,
-    borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-    boxShadow: state.isFocused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
-    '&:hover': { borderColor: '#3B82F6' },
-    minHeight: '42px',
-  }),
-  option: (base, state) => ({
-    ...base,
-    backgroundColor: state.isSelected ? '#3B82F6' : state.isFocused ? '#EFF6FF' : 'white',
-    color: state.isSelected ? 'white' : '#374151',
-  }),
-  menuPortal: (base) => ({
-    ...base,
-    zIndex: 9999,  // Ensures the menu appears above the modal (z-index: 1000)
-}),
-}
+const gridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, 1fr)',
+  gap: '1rem',
+};
 
 // ============================================
 // COMPONENT
 // ============================================
 
-export const AddInventoryModal = ({
+const AddInventoryModal = ({
   isOpen,
   onClose,
   onSuccess,
-  editingItem = null,
+  editItem = null,
   categories = [],
-  locations = [],  // This is schools list from your API
+  schools = [],
   users = [],
+  userContext = {},
 }) => {
+  const { isAdmin, userId } = userContext;
+  const isEditMode = !!editItem;
+
+  // ============================================
+  // FORM STATE
+  // ============================================
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    category: '',
+    location: isAdmin ? '' : 'School', // Teachers default to School
+    school: '',
+    status: 'Available',
+    purchase_value: '',
+    purchase_date: '',
+    serial_number: '',
+    assigned_to: '',
+  });
+
+  const [quantity, setQuantity] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
-  const categoryOptions = useMemo(() => 
-  categories.map(cat => ({ value: cat.id, label: cat.name })),
-  [categories]
-);
+  // ============================================
+  // LOCATION OPTIONS (Role-based)
+  // ============================================
 
-const schoolOptions = useMemo(() => 
-  locations.map(loc => ({ value: loc.id, label: loc.name })),
-  [locations]
-);
+  const locationOptions = useMemo(() => {
+    if (isAdmin) {
+      return [
+        { value: '', label: 'Select Location...' },
+        { value: 'School', label: '🏫 School' },
+        { value: 'Headquarters', label: '🏢 Headquarters' },
+        { value: 'Unassigned', label: '📦 Unassigned' },
+      ];
+    }
+    // Teachers can only add to School
+    return [
+      { value: 'School', label: '🏫 School' },
+    ];
+  }, [isAdmin]);
 
-const userOptions = useMemo(() => 
-  users.map(user => ({
-    value: user.id,
-    label: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username,
-  })),
-  [users]
-);
-  // React Hook Form setup
-  const {
-    register,
-    handleSubmit,
-    control,
-    watch,
-    formState: { errors },
-    reset,
-    getValues,
-    setValue,
-  } = useForm({
-    resolver: yupResolver(schema),
-    defaultValues: {
+  // ============================================
+  // USER OPTIONS (Role-based)
+  // ============================================
+
+  const userOptions = useMemo(() => {
+    if (isAdmin) {
+      return users;
+    }
+    // Teachers can only assign to themselves
+    return users.filter(u => u.id === userId);
+  }, [isAdmin, users, userId]);
+
+  // ============================================
+  // INITIALIZE FORM
+  // ============================================
+
+  useEffect(() => {
+  if (editItem) {
+    console.log('Edit item data:', editItem); // Debug: check what's coming
+    setFormData({
+      name: editItem.name || '',
+      description: editItem.description || '',
+      // Convert to string for select element compatibility
+      category: String(editItem.category || editItem.category_id || ''),
+      location: editItem.location || 'School',
+      school: String(editItem.school || editItem.school_id || ''),
+      status: editItem.status || 'Available',
+      purchase_value: editItem.purchase_value || '',
+      purchase_date: editItem.purchase_date || '',
+      serial_number: editItem.serial_number || '',
+      assigned_to: String(editItem.assigned_to || editItem.assigned_to_id || ''),
+    });
+    setQuantity(1);
+  } else {
+    // Reset for new item
+    setFormData({
       name: '',
       description: '',
+      category: '',
+      location: isAdmin ? '' : 'School',
+      school: '',
+      status: 'Available',
       purchase_value: '',
       purchase_date: '',
-      category: null,
-      location: 'School',
-      school: null,
-      status: 'Available',
-      assigned_to: null,
-
-      serial_number: editingItem?.serial_number || '',
-      warranty_expiry: editingItem?.warranty_expiry || '',
-    },
-  });
-  const assignedTo = watch('assigned_to');
-  const watchLocation = watch('location');
- 
-  // Effect for location-based school clearing (keep as is, but memoize check)
-  useEffect(() => {
-  if (watchLocation !== 'School' && getValues('school') !== null) {
-    setValue('school', null);
+      serial_number: '',
+      assigned_to: '',
+    });
+    setQuantity(1);
   }
-}, [watchLocation, getValues, setValue]);
-  // Watch location to show/hide school field
-  
-   // Populate form when editing
-  useEffect(() => {
-    if (editingItem) {
-      reset({
-        name: editingItem.name || '',
-        description: editingItem.description || '',
-        purchase_value: editingItem.purchase_value || '',
-        purchase_date: editingItem.purchase_date || '',
-        category: editingItem.category || null,
-        location: editingItem.location || 'School',
-        school: editingItem.school || null,
-        status: editingItem.status || 'Available',
-        assigned_to: editingItem.assigned_to || null,
-      });
-    } else {
-      reset({
-        name: '',
-        description: '',
-        purchase_value: '',
-        purchase_date: new Date().toISOString().split('T')[0],
-        category: null,
-        location: 'School',
-        school: schoolOptions.length > 0 ? schoolOptions[0].value : null,
-        status: 'Available',
-        assigned_to: null,
-      });
+}, [editItem, isAdmin]);
+
+  // ============================================
+  // HANDLERS
+  // ============================================
+
+  const handleChange = (field, value) => {
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Clear school when location is not School
+      if (field === 'location' && value !== 'School') {
+        updated.school = '';
+      }
+      
+      return updated;
+    });
+  };
+
+  const handleSubmit = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      toast.error('Please enter item name');
+      return;
     }
-  }, [editingItem, reset, schoolOptions]);
 
-  
+    if (!formData.location) {
+      toast.error('Please select location');
+      return;
+    }
 
-  useEffect(() => {
-  if (assignedTo && getValues('status') !== 'Assigned') {
-    setValue('status', 'Assigned');
-  }
-}, [assignedTo, getValues, setValue]);
+    if (formData.location === 'School' && !formData.school) {
+      toast.error('Please select a school');
+      return;
+    }
 
+    // For bulk creation, show confirmation
+    if (!isEditMode && quantity > 1 && !showBulkConfirm) {
+      setShowBulkConfirm(true);
+      return;
+    }
 
-
-  // Form submission handler
-  const onSubmit = async (data) => {
     setIsSubmitting(true);
-    
+
     try {
-      const payload = {
-        name: data.name,
-        description: data.description || '',
-        purchase_value: Number(data.purchase_value),
-        purchase_date: data.purchase_date || null,
-        category: data.category,
-        location: data.location,
-        school: data.location === 'School' ? data.school : null,
-        status: data.status,
-        assigned_to: data.assigned_to || null,
-      };
-
-      console.log('📤 Submitting payload:', payload);
-
-      if (editingItem) {
-        await updateInventoryItem(editingItem.id, payload);
-        toast.success('Item updated successfully!');
+      if (isEditMode) {
+        // Update existing item
+        await updateInventoryItem(editItem.id, formData);
+        toast.success('Item updated successfully');
+      } else if (quantity > 1) {
+        // Bulk create
+        const result = await bulkCreateItems({ ...formData, quantity });
+        toast.success(`${result.created_count} items created successfully`);
       } else {
-        await createInventoryItem(payload);
-        toast.success('Item added successfully!');
+        // Single create
+        await createInventoryItem(formData);
+        toast.success('Item created successfully');
       }
 
-      onSuccess?.();
+      onSuccess();
       onClose();
     } catch (error) {
-      console.error('❌ Submit error:', error);
-      
-      if (error.response?.data) {
-        // Handle Django validation errors
-        const errorData = error.response.data;
-        const errorMessages = Object.entries(errorData)
-          .map(([field, messages]) => {
-            const msg = Array.isArray(messages) ? messages.join(', ') : messages;
-            return `${field}: ${msg}`;
-          })
-          .join('\n');
-        toast.error(errorMessages || 'Failed to save item');
-      } else {
-        toast.error('Failed to save item. Please try again.');
-      }
+      console.error('Save error:', error);
+      const errorMsg = error.response?.data?.detail || 
+                       error.response?.data?.error ||
+                       'Failed to save item';
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
+      setShowBulkConfirm(false);
     }
   };
 
-  // Close on escape key
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape' && !isSubmitting) {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose, isSubmitting]);
+  // ============================================
+  // RENDER
+  // ============================================
 
   if (!isOpen) return null;
 
+  const totalValue = quantity * Number(formData.purchase_value || 0);
+
   return (
-    <div 
-      style={modalOverlayStyle} 
-      onClick={(e) => e.target === e.currentTarget && !isSubmitting && onClose()}
-    >
+    <div style={modalOverlayStyle} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={modalContentStyle}>
-        {/* ============================================ */}
-        {/* HEADER */}
-        {/* ============================================ */}
-        <div style={modalHeaderStyle}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600', color: '#1F2937' }}>
-              {editingItem ? '✏️ Edit Inventory Item' : '➕ Add New Inventory Item'}
-            </h2>
-            <p style={{ margin: '0.25rem 0 0 0', color: '#6B7280', fontSize: '0.875rem' }}>
-              {editingItem ? `Editing: ${editingItem.name}` : 'Fill in the details to add a new item'}
-            </p>
-          </div>
-          <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.5rem' }}>
-  Note: Unique ID will be auto-generated upon creation.
-</p>
+        {/* Header */}
+        <div style={headerStyle}>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600' }}>
+            {isEditMode ? '✏️ Edit Item' : '➕ Add Inventory Item'}
+          </h2>
           <button
             onClick={onClose}
-            disabled={isSubmitting}
             style={{
               background: 'none',
               border: 'none',
               fontSize: '1.5rem',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              color: '#6B7280',
-              padding: '0.5rem',
-              borderRadius: '8px',
+              cursor: 'pointer',
+              color: '#9CA3AF',
             }}
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* ============================================ */}
-        {/* BODY */}
-        {/* ============================================ */}
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div style={modalBodyStyle}>
-            
-            {/* Row 1: Name */}
+        {/* Body */}
+        <div style={bodyStyle}>
+          {/* Role indicator for teachers */}
+          {!isAdmin && (
+            <div style={{
+              padding: '0.75rem 1rem',
+              backgroundColor: '#FEF3C7',
+              borderRadius: '0.5rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}>
+              <span>ℹ️</span>
+              <span style={{ fontSize: '0.875rem', color: '#92400E' }}>
+                You can only add items to your assigned schools.
+              </span>
+            </div>
+          )}
+
+          {/* Bulk creation info */}
+          {!isEditMode && quantity > 1 && (
+            <div style={{
+              padding: '0.75rem 1rem',
+              backgroundColor: '#EFF6FF',
+              borderRadius: '0.5rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}>
+              <span>📦</span>
+              <span style={{ fontSize: '0.875rem', color: '#1E40AF' }}>
+                Creating {quantity} identical items • Total value: PKR {totalValue.toLocaleString()}
+              </span>
+            </div>
+          )}
+
+          {/* Form Fields */}
+          <div style={gridStyle}>
+            {/* Name */}
             <div style={fieldGroupStyle}>
-              <label style={labelStyle}>
-                Item Name <span style={{ color: '#EF4444' }}>*</span>
-              </label>
+              <label style={labelStyle}>Name *</label>
               <input
-                {...register('name')}
-                placeholder="e.g., Dell Laptop, Office Chair, Projector"
-                style={errors.name ? inputErrorStyle : inputStyle}
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                placeholder="Item name"
+                style={inputStyle}
               />
-              {errors.name && <span style={errorTextStyle}>{errors.name.message}</span>}
             </div>
 
-            {/* Row 2: Category */}
+            {/* Category */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => handleChange('category', e.target.value)}
+                style={selectStyle}
+              >
+                <option value="">Select Category...</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Location */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Location *</label>
+              <select
+                value={formData.location}
+                onChange={(e) => handleChange('location', e.target.value)}
+                style={selectStyle}
+                disabled={!isAdmin}
+              >
+                {locationOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* School */}
             <div style={fieldGroupStyle}>
               <label style={labelStyle}>
-                Category <span style={{ color: '#EF4444' }}>*</span>
+                School {formData.location === 'School' && '*'}
               </label>
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                 <Select
-  options={categoryOptions}
-  value={categoryOptions.find(opt => opt.value === field.value) || null}
-  onChange={(selected) => {
-    const newValue = selected ? selected.value : null;
-    field.onChange(newValue);
-    if (newValue && getValues('status') !== 'Assigned') {
-      setValue('status', 'Assigned');
-    }
-  }}
-  onBlur={field.onBlur}
-  placeholder="Select category..."
-  styles={selectStyles}
-  isClearable
-  menuPortalTarget={document.body}  // Add this line
-/>
-                )}
-              />
-              {errors.category && <span style={errorTextStyle}>{errors.category.message}</span>}
-            </div>
-
-            {/* Row 3: Location & School */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              {/* Location (String Choice) */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  Location <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <Controller
-                  name="location"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      options={LOCATION_OPTIONS}
-                      value={LOCATION_OPTIONS.find(opt => opt.value === field.value) || null}
-                      onChange={(selected) => field.onChange(selected ? selected.value : 'School')}
-                      styles={selectStyles}
-                      isSearchable={false}
-                    />
-                  )}
-                />
-                {errors.location && <span style={errorTextStyle}>{errors.location.message}</span>}
-              </div>
-
-              {/* School (Conditional - only when location is 'School') */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  School {watchLocation === 'School' && <span style={{ color: '#EF4444' }}>*</span>}
-                </label>
-                <Controller
-                  name="school"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      options={schoolOptions}
-                      value={schoolOptions.find(opt => opt.value === field.value) || null}
-                      onChange={(selected) => field.onChange(selected ? selected.value : null)}
-                      placeholder={watchLocation === 'School' ? 'Select school...' : 'N/A'}
-                      styles={{
-                        ...selectStyles,
-                        control: (base, state) => ({
-                          ...selectStyles.control(base, state),
-                          backgroundColor: watchLocation !== 'School' ? '#F3F4F6' : 'white',
-                        }),
-                      }}
-                      isDisabled={watchLocation !== 'School'}
-                      isClearable
-                    />
-                  )}
-                />
-                {errors.school && <span style={errorTextStyle}>{errors.school.message}</span>}
-              </div>
-            </div>
-
-            {/* Row 4: Status & Assigned To */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              {/* Status */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  Status <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <Controller
-                  name="status"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      options={STATUS_OPTIONS}
-                      value={STATUS_OPTIONS.find(opt => opt.value === field.value) || null}
-                      onChange={(selected) => field.onChange(selected ? selected.value : 'Available')}
-                      styles={selectStyles}
-                      isSearchable={false}
-                    />
-                  )}
-                />
-                {errors.status && <span style={errorTextStyle}>{errors.status.message}</span>}
-              </div>
-
-              {/* Assigned To */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Assigned To</label>
-                <Controller
-                  name="assigned_to"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      options={userOptions}
-                      value={userOptions.find(opt => opt.value === field.value) || null}
-                      onChange={(selected) => field.onChange(selected ? selected.value : null)}
-                      placeholder="Select user (optional)..."
-                      styles={selectStyles}
-                      isClearable
-                    />
-                  )}
-                />
-                <span style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
-                  Note: Status auto-changes to "Assigned" when user is selected
-                </span>
-              </div>
-            </div>
-
-            {/* Row 5: Purchase Value & Date */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              {/* Purchase Value */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  Purchase Value (PKR) <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{
-                    position: 'absolute',
-                    left: '1rem',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#6B7280',
-                    fontSize: '0.875rem',
-                    pointerEvents: 'none',
-                  }}>
-                    PKR
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    {...register('purchase_value')}
-                    placeholder="0.00"
-                    style={{
-                      ...(errors.purchase_value ? inputErrorStyle : inputStyle),
-                      paddingLeft: '3.5rem',
-                    }}
-                  />
-                </div>
-                {errors.purchase_value && <span style={errorTextStyle}>{errors.purchase_value.message}</span>}
-              </div>
-
-              {/* Purchase Date */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Purchase Date</label>
-                <input
-                  type="date"
-                  {...register('purchase_date')}
-                  style={errors.purchase_date ? inputErrorStyle : inputStyle}
-                />
-                {errors.purchase_date && <span style={errorTextStyle}>{errors.purchase_date.message}</span>}
-              </div>
-            </div>
-            {/* Row: Serial Number & Warranty Expiry */}
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-  {/* Serial Number */}
-  <div style={fieldGroupStyle}>
-    <label style={labelStyle}>Serial Number</label>
-    <input
-      type="text"
-      {...register('serial_number')}
-      placeholder="Enter serial number (optional)"
-      style={errors.serial_number ? inputErrorStyle : inputStyle}
-    />
-    {errors.serial_number && <span style={errorTextStyle}>{errors.serial_number.message}</span>}
-  </div>
-
-  {/* Warranty Expiry */}
-  <div style={fieldGroupStyle}>
-    <label style={labelStyle}>Warranty Expiry</label>
-    <input
-      type="date"
-      {...register('warranty_expiry')}
-      style={errors.warranty_expiry ? inputErrorStyle : inputStyle}
-    />
-    {errors.warranty_expiry && <span style={errorTextStyle}>{errors.warranty_expiry.message}</span>}
-  </div>
-</div>
-            {/* Row 6: Description */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Description</label>
-              <textarea
-                {...register('description')}
-                placeholder="Brief description of the item..."
-                rows={3}
+              <select
+                value={formData.school}
+                onChange={(e) => handleChange('school', e.target.value)}
                 style={{
-                  ...inputStyle,
-                  resize: 'vertical',
-                  minHeight: '80px',
+                  ...selectStyle,
+                  opacity: formData.location === 'School' ? 1 : 0.5,
                 }}
-              />
-              {errors.description && <span style={errorTextStyle}>{errors.description.message}</span>}
+                disabled={formData.location !== 'School'}
+              >
+                <option value="">Select School...</option>
+                {schools.map(school => (
+                  <option key={school.id} value={school.id}>{school.name}</option>
+                ))}
+              </select>
             </div>
 
+            {/* Status */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Status</label>
+              <select
+                value={formData.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                style={selectStyle}
+              >
+                <option value="Available">Available</option>
+                <option value="Assigned">Assigned</option>
+                <option value="Damaged">Damaged</option>
+                <option value="Lost">Lost</option>
+                <option value="Disposed">Disposed</option>
+              </select>
+            </div>
+
+            {/* Assigned To */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Assigned To</label>
+              <select
+                value={formData.assigned_to}
+                onChange={(e) => handleChange('assigned_to', e.target.value)}
+                style={selectStyle}
+              >
+                <option value="">Unassigned</option>
+                {userOptions.map(user => (
+                  <option key={user.id} value={user.id}>{user.name}</option>
+                ))}
+              </select>
+              {!isAdmin && userOptions.length === 1 && (
+                <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '0.25rem 0 0' }}>
+                  You can only assign items to yourself
+                </p>
+              )}
+            </div>
+
+            {/* Purchase Value */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Purchase Value (PKR)</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.purchase_value}
+                onChange={(e) => handleChange('purchase_value', e.target.value)}
+                placeholder="0"
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Purchase Date */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Purchase Date</label>
+              <input
+                type="date"
+                value={formData.purchase_date}
+                onChange={(e) => handleChange('purchase_date', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Serial Number */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Serial Number</label>
+              <input
+                type="text"
+                value={formData.serial_number}
+                onChange={(e) => handleChange('serial_number', e.target.value)}
+                placeholder="Optional"
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Quantity (only for new items) */}
+            {!isEditMode && (
+              <div style={fieldGroupStyle}>
+                <label style={labelStyle}>Quantity</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, Math.min(500, parseInt(e.target.value) || 1)))}
+                  style={inputStyle}
+                />
+                <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '0.25rem 0 0' }}>
+                  1-500 items. Each gets a unique ID.
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* ============================================ */}
-          {/* FOOTER */}
-          {/* ============================================ */}
-          <div style={modalFooterStyle}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              style={{
-                padding: '0.75rem 1.5rem',
-                borderRadius: '8px',
-                border: '1px solid #D1D5DB',
-                backgroundColor: 'white',
-                color: '#374151',
-                fontWeight: '500',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                padding: '0.75rem 1.5rem',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: isSubmitting ? '#9CA3AF' : '#10B981',
-                color: 'white',
-                fontWeight: '500',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-              }}
-            >
-              {isSubmitting ? (
-                <>⏳ {editingItem ? 'Updating...' : 'Adding...'}</>
-              ) : (
-                <>{editingItem ? '✅ Update Item' : '➕ Add Item'}</>
-              )}
-            </button>
+          {/* Description (full width) */}
+          <div style={fieldGroupStyle}>
+            <label style={labelStyle}>Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              placeholder="Optional description"
+              rows={3}
+              style={{ ...inputStyle, resize: 'vertical' }}
+            />
           </div>
-        </form>
+
+          {/* Bulk Confirmation */}
+          {showBulkConfirm && (
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#FEF3C7',
+              borderRadius: '0.5rem',
+              marginTop: '1rem',
+            }}>
+              <p style={{ margin: 0, fontWeight: '500', color: '#92400E' }}>
+                ⚠️ Confirm Bulk Creation
+              </p>
+              <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem', color: '#92400E' }}>
+                You are about to create {quantity} identical items with a total value of PKR {totalValue.toLocaleString()}.
+                Each item will get a unique ID automatically.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={footerStyle}>
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            style={{
+              padding: '0.625rem 1.25rem',
+              backgroundColor: 'white',
+              color: '#374151',
+              border: '1px solid #D1D5DB',
+              borderRadius: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            style={{
+              padding: '0.625rem 1.25rem',
+              backgroundColor: isSubmitting ? '#9CA3AF' : '#10B981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            {isSubmitting ? (
+              <>
+                <span style={{
+                  width: '14px',
+                  height: '14px',
+                  border: '2px solid #fff',
+                  borderTopColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                }} />
+                {showBulkConfirm ? 'Creating...' : 'Saving...'}
+              </>
+            ) : showBulkConfirm ? (
+              `Yes, Create ${quantity} Items`
+            ) : isEditMode ? (
+              'Update Item'
+            ) : quantity > 1 ? (
+              `Create ${quantity} Items`
+            ) : (
+              'Create Item'
+            )}
+          </button>
+        </div>
       </div>
+
+      <style>
+        {`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 };

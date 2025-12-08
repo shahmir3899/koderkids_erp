@@ -113,16 +113,17 @@ const ReportsPage = () => {
   // Modal state
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalStudentId, setModalStudentId] = useState(null);
+  const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
 
   // ============================================
   // REPORT GENERATION HOOK
   // ============================================
-
+  
   const {
     generateReport,
     generateBulkReports,
     isGenerating,
-    isGeneratingBulk,
+    
     error: reportError,
     setError: setReportError,
   } = useReportGeneration({
@@ -344,14 +345,63 @@ const ReportsPage = () => {
     });
   }, [selectedStudentIds, selectedImages]);
 
-  // Handle bulk report generation - only for students with images
-  const handleGenerateBulkReports = useCallback(() => {
-    if (selectedStudentsWithImages.length === 0) {
-      toast.warning('Please select images for at least one student first.');
-      return;
-    }
-    generateBulkReports(selectedStudentsWithImages);
-  }, [generateBulkReports, selectedStudentsWithImages]);
+  // Handle bulk report generation - only for all students 
+  // Inside ReportsPage.js – replace the whole function
+const handleGenerateBulkReports = useCallback(async () => {
+  if (selectedStudentIds.length === 0) {
+    toast.warning('Please select at least one student first.');
+    return;
+  }
+
+  setIsGeneratingBulk(true); // ← disables button immediately
+
+  try {
+    const response = await axios.post(
+      `${API_URL}/reports/api/generate-bulk-pdf-zip/`,
+      {
+        student_ids: selectedStudentIds,
+        mode,
+        month: selectedMonth,
+        start_date: startDate,
+        end_date: endDate,
+        school_id: selectedSchool,
+        student_class: selectedClass,
+        selectedImages: selectedImages,
+        includeBackground: includeBackground,
+      },
+      {
+        headers: getAuthHeaders(),
+        responseType: 'blob',
+        timeout: 120000, // 2-minute timeout for large classes
+      }
+    );
+
+    // Trigger download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Student_Reports_${new Date().toISOString().slice(0, 10)}.zip`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    toast.success(`ZIP with ${selectedStudentIds.length} reports downloaded!`);
+  } catch (error) {
+    console.error('Bulk ZIP error:', error);
+    toast.error('Failed to generate ZIP. Please try again.');
+  } finally {
+    setIsGeneratingBulk(false); // ← re-enable button only when finished
+  }
+}, [
+  selectedStudentIds,
+  mode,
+  selectedMonth,
+  startDate,
+  endDate,
+  selectedSchool,
+  selectedClass,
+  selectedImages,
+]);
 
   // ============================================
   // TABLE COLUMNS
@@ -395,7 +445,7 @@ const ReportsPage = () => {
         render: (_, row) => {
           const studentImages = selectedImages[row.id] || [];
           const hasImages = studentImages.length > 0;
-          const isDisabled = isGenerating[row.id] || !hasImages;
+          const isDisabled = isGenerating[row.id] ;
 
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -451,54 +501,30 @@ const ReportsPage = () => {
 
               {/* Generate Report Button - Disabled if no images selected */}
               <button
-                onClick={() => handleGenerateReport(row.id)}
-                disabled={isDisabled}
-                title={!hasImages ? 'Please select images first' : 'Generate PDF report'}
-                style={{
-                  padding: '0.375rem 0.75rem',
-                  backgroundColor: isDisabled ? '#9CA3AF' : '#10B981',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.75rem',
-                  cursor: isDisabled ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  opacity: isDisabled ? 0.6 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isDisabled) e.target.style.backgroundColor = '#059669';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isDisabled) e.target.style.backgroundColor = '#10B981';
-                }}
-                aria-label={
-                  !hasImages
-                    ? `Select images first for ${row.name}`
-                    : `Generate report for ${row.name}`
-                }
-              >
-                {isGenerating[row.id] ? (
-                  <>
-                    <span
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        border: '2px solid #fff',
-                        borderTopColor: 'transparent',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                      }}
-                    />
-                    Generating...
-                  </>
-                ) : !hasImages ? (
-                  <>🔒 Select Images</>
-                ) : (
-                  <>📄 Generate</>
-                )}
-              </button>
+  onClick={() => handleGenerateReport(row.id)}
+  disabled={isDisabled}
+  title="Generate PDF report"
+  style={{
+    padding: '0.375rem 0.75rem',
+    backgroundColor: isDisabled ? '#9CA3AF' : '#10B981',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '0.375rem',
+    fontSize: '0.75rem',
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+  }}
+>
+  {isGenerating[row.id] ? (
+    <>
+      <span className="spinner" /> Generating...
+    </>
+  ) : (
+    <>Generate</>
+  )}
+</button>
             </div>
           );
         },
@@ -760,61 +786,54 @@ const ReportsPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               {/* Status indicator */}
               <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                {selectedStudentsWithImages.length} of {selectedStudentIds.length} ready
-              </span>
+  {selectedStudentsWithImages.length} student{selectedStudentsWithImages.length !== 1 ? 's' : ''} with picture{selectedStudentsWithImages.length !== 1 ? 's' : ''} of {selectedStudentIds.length} selected
+</span>
               
               <button
-                onClick={handleGenerateBulkReports}
-                disabled={isGeneratingBulk || selectedStudentsWithImages.length === 0}
-                title={
-                  selectedStudentIds.length === 0
-                    ? 'Select students first'
-                    : selectedStudentsWithImages.length === 0
-                    ? 'Select images for students first'
-                    : `Generate reports for ${selectedStudentsWithImages.length} students`
-                }
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor:
-                    isGeneratingBulk || selectedStudentsWithImages.length === 0
-                      ? '#9CA3AF'
-                      : '#8B5CF6',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  cursor:
-                    isGeneratingBulk || selectedStudentsWithImages.length === 0
-                      ? 'not-allowed'
-                      : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  opacity: selectedStudentsWithImages.length === 0 ? 0.6 : 1,
-                }}
-                aria-label={`Generate reports for ${selectedStudentsWithImages.length} students with images`}
-              >
-                {isGeneratingBulk ? (
-                  <>
-                    <span
-                      style={{
-                        width: '14px',
-                        height: '14px',
-                        border: '2px solid #fff',
-                        borderTopColor: 'transparent',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                      }}
-                    />
-                    Generating...
-                  </>
-                ) : selectedStudentsWithImages.length === 0 ? (
-                  <>🔒 Select Images First</>
-                ) : (
-                  <>📄 Generate Selected ({selectedStudentsWithImages.length})</>
-                )}
-              </button>
+  onClick={handleGenerateBulkReports}
+  disabled={isGeneratingBulk || selectedStudentIds.length === 0}
+  title={
+    selectedStudentIds.length === 0
+      ? 'Select at least one student first'
+      : `Generate reports for ${selectedStudentIds.length} student${selectedStudentIds.length > 1 ? 's' : ''}`
+  }
+  style={{
+    padding: '0.5rem 1rem',
+    backgroundColor: isGeneratingBulk || selectedStudentIds.length === 0
+      ? '#9CA3AF'
+      : '#8B5CF6',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '0.5rem',
+    fontSize: '0.75rem',
+    fontWeight: '500',
+    cursor: isGeneratingBulk || selectedStudentIds.length === 0
+      ? 'not-allowed'
+      : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  }}
+  aria-label={`Generate reports for ${selectedStudentIds.length} selected students`}
+>
+  {isGeneratingBulk ? (
+    <>
+      <span
+        style={{
+          width: '14px',
+          height: '14px',
+          border: '2px solid #fff',
+          borderTopColor: 'transparent',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }}
+      />
+      Generating...
+    </>
+  ) : (
+    <>Generate Selected ({selectedStudentIds.length})</>
+  )}
+</button>
             </div>
           )
         }

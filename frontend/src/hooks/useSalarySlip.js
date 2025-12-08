@@ -103,23 +103,47 @@ export function useSalarySlip() {
   }, []);
 
   // Fetch default dates on mount
-  useEffect(() => {
-    const loadDefaultDates = async () => {
-      try {
-        const data = await salaryService.fetchDefaultDates();
-        setFormData(prev => ({
-          ...prev,
-          fromDate: data.fromDate,
-          tillDate: data.tillDate,
-          paymentDate: data.paymentDate,
-        }));
-      } catch (err) {
-        console.error('Error fetching default dates:', err);
-        toast.error('Failed to load default dates');
-      }
-    };
-    loadDefaultDates();
-  }, []);
+  // Inside useSalarySlip.js
+useEffect(() => {
+  // Only fetch when a valid teacher is actually selected
+  if (!selectedTeacherId || selectedTeacherId === '') {
+    // Reset form to defaults when no teacher is selected
+    setFormData(prev => ({
+      ...prev,
+      name: '',
+      title: '',
+      basicSalary: 0,
+      fromDate: '',
+      tillDate: '',
+      // ... any other fields
+    }));
+    return; // Exit early → no API call
+  }
+
+  const loadTeacherData = async () => {
+    setLoading(prev => ({ ...prev, profile: true }));
+    try {
+      const profile = await salaryService.fetchTeacherProfile(selectedTeacherId);
+      // Populate form with real data
+      setFormData(prev => ({
+        ...prev,
+        name: profile.name || '',
+        title: profile.title || '',
+        basicSalary: profile.basic_salary || 0,
+        fromDate: profile.from_date || '',
+        tillDate: profile.till_date || '',
+        // ... other fields
+      }));
+    } catch (err) {
+      toast.error('Failed to load teacher data');
+      console.error(err);
+    } finally {
+      setLoading(prev => ({ ...prev, profile: false }));
+    }
+  };
+
+  loadTeacherData();
+}, [selectedTeacherId]); // ← dependency stays the same
 
   // Fetch teacher profile when selection changes
   useEffect(() => {

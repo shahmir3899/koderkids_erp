@@ -1,39 +1,56 @@
 # inventory/urls.py
 # ============================================
-# INVENTORY URL ROUTES - Complete Version
+# INVENTORY URL CONFIGURATION - With RBAC
 # ============================================
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+
 from .views import (
     InventoryItemViewSet,
-    inventory_categories,
-    inventory_category_detail,
+    InventoryCategoryViewSet,
     inventory_summary,
-    users_assigned_to_school,
+    bulk_create_items,
     bulk_update_status,
     bulk_assign,
+    users_assigned_to_school,
+    get_allowed_schools,
+    get_user_inventory_context,
 )
 
-# Router for ViewSet
+from .pdf_views import (
+    generate_transfer_receipt,
+    generate_inventory_list_report,
+    generate_item_detail_report,
+    get_employees_list,
+)
+
 router = DefaultRouter()
 router.register(r'items', InventoryItemViewSet, basename='inventory-item')
+router.register(r'categories', InventoryCategoryViewSet, basename='inventory-category')
 
 urlpatterns = [
-    # Category endpoints
-    path("categories/", inventory_categories, name="inventory-categories"),
-    path("categories/<int:pk>/", inventory_category_detail, name="inventory-category-detail"),
-    
-    # Summary/Statistics
-    path("summary/", inventory_summary, name="inventory-summary"),
-    
-    # Users for assignment dropdown
-    path("assigned-users/", users_assigned_to_school, name="inventory-assigned-users"),
-    
-    # Bulk operations
-    path("bulk-update-status/", bulk_update_status, name="inventory-bulk-status"),
-    path("bulk-assign/", bulk_assign, name="inventory-bulk-assign"),
-    
-    # ViewSet routes (items CRUD)
+    # Router URLs
     path('', include(router.urls)),
+    
+    # Summary/Dashboard
+    path('summary/', inventory_summary, name='inventory-summary'),
+    
+    # User Context (for frontend RBAC)
+    path('user-context/', get_user_inventory_context, name='inventory-user-context'),
+    
+    # Users & Schools
+    path('assigned-users/', users_assigned_to_school, name='inventory-assigned-users'),
+    path('allowed-schools/', get_allowed_schools, name='inventory-allowed-schools'),
+    path('employees/', get_employees_list, name='inventory-employees'),
+    
+    # Bulk Operations
+    path('bulk-create/', bulk_create_items, name='inventory-bulk-create'),
+    path('bulk-update-status/', bulk_update_status, name='inventory-bulk-update-status'),
+    path('bulk-assign/', bulk_assign, name='inventory-bulk-assign'),
+    
+    # PDF Reports
+    path('reports/transfer-receipt/', generate_transfer_receipt, name='inventory-transfer-receipt'),
+    path('reports/inventory-list/', generate_inventory_list_report, name='inventory-list-report'),
+    path('reports/item-detail/<int:item_id>/', generate_item_detail_report, name='inventory-item-detail'),
 ]

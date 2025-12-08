@@ -1,10 +1,7 @@
 // ============================================
-// INVENTORY SERVICE - FIXED ENDPOINTS
+// INVENTORY SERVICE - With RBAC Support
 // ============================================
 // Location: src/services/inventoryService.js
-//
-// CRITICAL FIX: All item CRUD operations use /api/inventory/items/
-// NOT /api/inventory/
 
 import axios from 'axios';
 
@@ -17,13 +14,29 @@ const getAuthHeaders = () => ({
 });
 
 // ============================================
-// INVENTORY ITEMS CRUD - FIXED ENDPOINTS
+// USER CONTEXT (RBAC)
 // ============================================
 
 /**
- * Fetch all inventory items with optional filters
- * FIXED: Uses /api/inventory/items/ endpoint
+ * Fetch current user's inventory access context
+ * Returns role info, allowed schools, permissions
  */
+export const fetchUserInventoryContext = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/inventory/user-context/`, {
+      headers: getAuthHeaders(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user context:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// INVENTORY ITEMS CRUD
+// ============================================
+
 export const fetchInventoryItems = async (filters = {}) => {
   try {
     const params = new URLSearchParams();
@@ -37,24 +50,14 @@ export const fetchInventoryItems = async (filters = {}) => {
     const queryString = params.toString();
     const url = `${API_BASE_URL}/api/inventory/items/${queryString ? `?${queryString}` : ''}`;
     
-    console.log('📦 Fetching items from:', url);
-    
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-    });
-    
-    console.log('📦 Items response:', response.data);
+    const response = await axios.get(url, { headers: getAuthHeaders() });
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching inventory items:', error);
+    console.error('Error fetching inventory items:', error);
     throw error;
   }
 };
 
-/**
- * Fetch a single inventory item by ID
- * FIXED: Uses /api/inventory/items/{id}/ endpoint
- */
 export const fetchInventoryItem = async (id) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/inventory/items/${id}/`, {
@@ -62,57 +65,35 @@ export const fetchInventoryItem = async (id) => {
     });
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching inventory item:', error);
+    console.error('Error fetching inventory item:', error);
     throw error;
   }
 };
 
-/**
- * Create a new inventory item
- * FIXED: Uses /api/inventory/items/ endpoint with POST
- */
 export const createInventoryItem = async (itemData) => {
   try {
-    console.log('➕ Creating item at:', `${API_BASE_URL}/api/inventory/items/`);
-    console.log('➕ Payload:', itemData);
-    
     const response = await axios.post(`${API_BASE_URL}/api/inventory/items/`, itemData, {
       headers: getAuthHeaders(),
     });
-    
-    console.log('✅ Item created:', response.data);
     return response.data;
   } catch (error) {
-    console.error('❌ Error creating inventory item:', error);
-    console.error('❌ Response:', error.response?.data);
+    console.error('Error creating inventory item:', error);
     throw error;
   }
 };
 
-/**
- * Update an inventory item
- * FIXED: Uses /api/inventory/items/{id}/ endpoint with PUT
- */
 export const updateInventoryItem = async (id, itemData) => {
   try {
-    console.log('✏️ Updating item at:', `${API_BASE_URL}/api/inventory/items/${id}/`);
-    
     const response = await axios.put(`${API_BASE_URL}/api/inventory/items/${id}/`, itemData, {
       headers: getAuthHeaders(),
     });
-    
-    console.log('✅ Item updated:', response.data);
     return response.data;
   } catch (error) {
-    console.error('❌ Error updating inventory item:', error);
+    console.error('Error updating inventory item:', error);
     throw error;
   }
 };
 
-/**
- * Delete an inventory item
- * FIXED: Uses /api/inventory/items/{id}/ endpoint with DELETE
- */
 export const deleteInventoryItem = async (id) => {
   try {
     await axios.delete(`${API_BASE_URL}/api/inventory/items/${id}/`, {
@@ -120,7 +101,201 @@ export const deleteInventoryItem = async (id) => {
     });
     return true;
   } catch (error) {
-    console.error('❌ Error deleting inventory item:', error);
+    console.error('Error deleting inventory item:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// BULK CREATE
+// ============================================
+
+export const bulkCreateItems = async (itemData) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/inventory/bulk-create/`, itemData, {
+      headers: getAuthHeaders(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error bulk creating items:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// EMPLOYEES & USERS
+// ============================================
+
+/**
+ * Fetch list of employees from TeacherProfile
+ */
+export const fetchEmployees = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/inventory/employees/`, {
+      headers: getAuthHeaders(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch users available for assignment (role-filtered)
+ */
+export const fetchAvailableUsers = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/inventory/assigned-users/`, {
+      headers: getAuthHeaders(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching available users:', error);
+    return [];
+  }
+};
+
+/**
+ * Fetch schools the current user can access (role-filtered)
+ */
+export const fetchAllowedSchools = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/inventory/allowed-schools/`, {
+      headers: getAuthHeaders(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching allowed schools:', error);
+    return [];
+  }
+};
+
+// ============================================
+// INVENTORY HISTORY
+// ============================================
+
+export const fetchInventoryHistory = async (itemId) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/inventory/items/${itemId}/`, {
+      headers: getAuthHeaders(),
+    });
+    
+    const item = response.data;
+    const history = [];
+    
+    if (item.notes) {
+      const lines = item.notes.split('\n');
+      lines.forEach((line, index) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('[')) {
+          const dateMatch = trimmed.match(/^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\]/);
+          const date = dateMatch ? dateMatch[1] : null;
+          const description = trimmed.replace(/^\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\]\s*/, '');
+          
+          history.push({
+            id: index,
+            date: date,
+            description: description,
+            type: description.toLowerCase().includes('transfer') ? 'transfer' : 'note',
+          });
+        }
+      });
+    }
+    
+    if (item.created_at) {
+      history.push({
+        id: 'created',
+        date: item.created_at,
+        description: 'Item created',
+        type: 'created',
+      });
+    }
+    
+    history.sort((a, b) => {
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(b.date) - new Date(a.date);
+    });
+    
+    return history;
+  } catch (error) {
+    console.error('Error fetching inventory history:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// TRANSFERS & REPORTS
+// ============================================
+
+export const transferInventoryItems = async (payload) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/inventory/reports/transfer-receipt/`,
+      payload,
+      {
+        headers: getAuthHeaders(),
+        responseType: 'blob',
+        timeout: 60000,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error transferring items:', error);
+    if (error.response?.data instanceof Blob) {
+      const text = await error.response.data.text();
+      try {
+        const json = JSON.parse(text);
+        error.response.data = json;
+      } catch (e) {
+        // Not JSON
+      }
+    }
+    throw error;
+  }
+};
+
+export const generateInventoryListReport = async (options) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/inventory/reports/inventory-list/`,
+      options,
+      {
+        headers: getAuthHeaders(),
+        responseType: 'blob',
+        timeout: 60000,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error generating inventory report:', error);
+    if (error.response?.data instanceof Blob) {
+      const text = await error.response.data.text();
+      try {
+        const json = JSON.parse(text);
+        error.response.data = json;
+      } catch (e) {
+        // Not JSON
+      }
+    }
+    throw error;
+  }
+};
+
+export const generateItemDetailReport = async (itemId) => {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/inventory/reports/item-detail/${itemId}/`,
+      {
+        headers: getAuthHeaders(),
+        responseType: 'blob',
+        timeout: 30000,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error generating item detail report:', error);
     throw error;
   }
 };
@@ -129,10 +304,6 @@ export const deleteInventoryItem = async (id) => {
 // DASHBOARD & STATISTICS
 // ============================================
 
-/**
- * Fetch inventory summary/dashboard data
- * Endpoint: /api/inventory/summary/
- */
 export const fetchInventorySummary = async (locationId, location) => {
   try {
     const params = new URLSearchParams();
@@ -142,23 +313,14 @@ export const fetchInventorySummary = async (locationId, location) => {
     const queryString = params.toString();
     const url = `${API_BASE_URL}/api/inventory/summary/${queryString ? `?${queryString}` : ''}`;
     
-    console.log('📊 Fetching summary from:', url);
-    
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-    });
-    
-    console.log('📊 Summary response:', response.data);
+    const response = await axios.get(url, { headers: getAuthHeaders() });
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching inventory summary:', error);
+    console.error('Error fetching inventory summary:', error);
     throw error;
   }
 };
 
-/**
- * Fetch inventory statistics (extended) - alias for summary
- */
 export const fetchInventoryStats = async (locationId) => {
   return fetchInventorySummary(locationId);
 };
@@ -167,10 +329,6 @@ export const fetchInventoryStats = async (locationId) => {
 // CATEGORIES
 // ============================================
 
-/**
- * Fetch all categories
- * Endpoint: /api/inventory/categories/
- */
 export const fetchCategories = async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/inventory/categories/`, {
@@ -178,14 +336,11 @@ export const fetchCategories = async () => {
     });
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching categories:', error);
+    console.error('Error fetching categories:', error);
     throw error;
   }
 };
 
-/**
- * Create a new category
- */
 export const createCategory = async (categoryData) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/api/inventory/categories/`, categoryData, {
@@ -193,14 +348,11 @@ export const createCategory = async (categoryData) => {
     });
     return response.data;
   } catch (error) {
-    console.error('❌ Error creating category:', error);
+    console.error('Error creating category:', error);
     throw error;
   }
 };
 
-/**
- * Update a category
- */
 export const updateCategory = async (id, categoryData) => {
   try {
     const response = await axios.put(`${API_BASE_URL}/api/inventory/categories/${id}/`, categoryData, {
@@ -208,14 +360,11 @@ export const updateCategory = async (id, categoryData) => {
     });
     return response.data;
   } catch (error) {
-    console.error('❌ Error updating category:', error);
+    console.error('Error updating category:', error);
     throw error;
   }
 };
 
-/**
- * Delete a category
- */
 export const deleteCategory = async (id) => {
   try {
     await axios.delete(`${API_BASE_URL}/api/inventory/categories/${id}/`, {
@@ -223,69 +372,23 @@ export const deleteCategory = async (id) => {
     });
     return true;
   } catch (error) {
-    console.error('❌ Error deleting category:', error);
+    console.error('Error deleting category:', error);
     throw error;
   }
 };
 
 // ============================================
-// LOCATIONS (Schools)
+// LOCATIONS (Schools) - Legacy support
 // ============================================
 
-/**
- * Fetch all locations (schools)
- * This typically comes from your schools API
- */
 export const fetchLocations = async () => {
   try {
-    // Adjust this endpoint based on your actual schools API
     const response = await axios.get(`${API_BASE_URL}/api/schools/`, {
       headers: getAuthHeaders(),
     });
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching locations:', error);
-    // Return empty array on error to prevent crashes
-    return [];
-  }
-};
-
-// ============================================
-// USERS FOR ASSIGNMENT
-// ============================================
-
-/**
- * Fetch users available for inventory assignment
- * Endpoint: /api/inventory/assigned-users/
- */
-export const fetchAvailableUsers = async () => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/inventory/assigned-users/`, {
-      headers: getAuthHeaders(),
-    });
-    return response.data;
-  } catch (error) {
-    console.error('❌ Error fetching available users:', error);
-    return [];
-  }
-};
-
-// ============================================
-// HISTORY / AUDIT LOG
-// ============================================
-
-/**
- * Fetch history for an inventory item
- * Endpoint: /api/inventory/items/{id}/history/
- */
-export const fetchInventoryHistory = async (itemId) => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/inventory/items/${itemId}/history/`, {
-      headers: getAuthHeaders(),
-    });
-    return response.data;
-  } catch (error) {
-    console.error('❌ Error fetching inventory history:', error);
+    console.error('Error fetching locations:', error);
     return [];
   }
 };
@@ -294,40 +397,28 @@ export const fetchInventoryHistory = async (itemId) => {
 // BULK OPERATIONS
 // ============================================
 
-/**
- * Bulk update status for multiple items
- * Endpoint: /api/inventory/bulk-update-status/
- */
 export const bulkUpdateStatus = async (itemIds, newStatus) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/api/inventory/bulk-update-status/`, {
       item_ids: itemIds,
       status: newStatus,
-    }, {
-      headers: getAuthHeaders(),
-    });
+    }, { headers: getAuthHeaders() });
     return response.data;
   } catch (error) {
-    console.error('❌ Error bulk updating status:', error);
+    console.error('Error bulk updating status:', error);
     throw error;
   }
 };
 
-/**
- * Bulk assign items to a user
- * Endpoint: /api/inventory/bulk-assign/
- */
 export const bulkAssign = async (itemIds, userId) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/api/inventory/bulk-assign/`, {
       item_ids: itemIds,
       assigned_to: userId,
-    }, {
-      headers: getAuthHeaders(),
-    });
+    }, { headers: getAuthHeaders() });
     return response.data;
   } catch (error) {
-    console.error('❌ Error bulk assigning:', error);
+    console.error('Error bulk assigning:', error);
     throw error;
   }
 };
@@ -336,55 +427,36 @@ export const bulkAssign = async (itemIds, userId) => {
 // EXPORT
 // ============================================
 
-/**
- * Export inventory data
- * This is a placeholder - implement based on your backend
- */
-export const exportInventory = async (filters = {}, format = 'csv') => {
+export const exportInventory = async (filters = {}) => {
   try {
     const params = new URLSearchParams();
     if (filters.locationId) params.append('school', filters.locationId);
     if (filters.categoryId) params.append('category', filters.categoryId);
     if (filters.status) params.append('status', filters.status);
-    params.append('format', format);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.location) params.append('location', filters.location);
 
-    const response = await axios.get(`${API_BASE_URL}/api/inventory/items/?${params.toString()}`, {
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/api/inventory/items/export_csv/${queryString ? `?${queryString}` : ''}`;
+
+    const response = await axios.get(url, {
       headers: getAuthHeaders(),
+      responseType: 'blob', // Important for file download
     });
 
-    // Convert to CSV
-    const items = response.data;
-    if (!items.length) {
-      throw new Error('No items to export');
-    }
-
-    const headers = ['Name', 'Unique ID', 'Category', 'Location', 'Status', 'Value', 'Purchase Date', 'Assigned To'];
-    const rows = items.map(item => [
-      item.name,
-      item.unique_id,
-      item.category_name || 'Uncategorized',
-      item.location,
-      item.status,
-      item.purchase_value,
-      item.purchase_date || 'N/A',
-      item.assigned_to_name || 'Unassigned',
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    // Download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Create download link
+    const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `inventory_export_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
 
     return true;
   } catch (error) {
-    console.error('❌ Error exporting inventory:', error);
+    console.error('Error exporting inventory:', error);
     throw error;
   }
 };
@@ -394,37 +466,29 @@ export const exportInventory = async (filters = {}, format = 'csv') => {
 // ============================================
 
 const inventoryService = {
-  // Items
+  fetchUserInventoryContext,
   fetchInventoryItems,
   fetchInventoryItem,
   createInventoryItem,
   updateInventoryItem,
   deleteInventoryItem,
-  
-  // Dashboard
+  bulkCreateItems,
+  fetchEmployees,
+  fetchAvailableUsers,
+  fetchAllowedSchools,
+  fetchInventoryHistory,
+  transferInventoryItems,
+  generateInventoryListReport,
+  generateItemDetailReport,
   fetchInventorySummary,
   fetchInventoryStats,
-  
-  // Categories
   fetchCategories,
   createCategory,
   updateCategory,
   deleteCategory,
-  
-  // Locations
   fetchLocations,
-  
-  // Users
-  fetchAvailableUsers,
-  
-  // History
-  fetchInventoryHistory,
-  
-  // Bulk
   bulkUpdateStatus,
   bulkAssign,
-  
-  // Export
   exportInventory,
 };
 

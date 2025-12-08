@@ -22,7 +22,7 @@ class InventoryCategorySerializer(serializers.ModelSerializer):
 class InventoryItemSerializer(serializers.ModelSerializer):
     """Serializer for inventory items"""
     
-    # Read-only fields from related models
+    # Read-only display fields (for showing names in UI)
     category_name = serializers.CharField(
         source='category.name', 
         read_only=True, 
@@ -44,16 +44,16 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             'name',
             'unique_id',
             'description',
-            # Category (FK ID for write, name for read)
-            'category',
-            'category_name',
+            # Category - ID for form, name for display
+            'category',          # This is the FK ID (for edit form)
+            'category_name',     # This is for display
             # Location
             'location',
-            'school',
-            'school_name',
+            'school',            # This is the FK ID (for edit form)
+            'school_name',       # This is for display
             # Assignment
-            'assigned_to',
-            'assigned_to_name',
+            'assigned_to',       # This is the FK ID (for edit form)
+            'assigned_to_name',  # This is for display
             'status',
             # Purchase info
             'purchase_value',
@@ -73,6 +73,24 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             full_name = f"{obj.assigned_to.first_name} {obj.assigned_to.last_name}".strip()
             return full_name if full_name else obj.assigned_to.username
         return 'Unassigned'
+    
+    def to_representation(self, instance):
+        """
+        Customize output to ensure FK IDs are always included.
+        This fixes the edit form pre-population issue.
+        """
+        data = super().to_representation(instance)
+        
+        # Ensure category ID is included (not just category_name)
+        data['category'] = instance.category_id if instance.category else None
+        
+        # Ensure school ID is included (not just school_name)
+        data['school'] = instance.school_id if instance.school else None
+        
+        # Ensure assigned_to ID is included (not just assigned_to_name)
+        data['assigned_to'] = instance.assigned_to_id if instance.assigned_to else None
+        
+        return data
     
     def validate(self, data):
         """Custom validation"""
@@ -112,11 +130,18 @@ class InventoryItemListSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'unique_id',
+            # Include IDs for edit functionality
+            'category',
             'category_name',
             'location',
+            'school',
             'school_name',
             'status',
             'purchase_value',
+            'purchase_date',
+            'serial_number',
+            'description',
+            'assigned_to',
             'assigned_to_name',
             'last_updated',
         ]
@@ -126,3 +151,14 @@ class InventoryItemListSerializer(serializers.ModelSerializer):
             full_name = f"{obj.assigned_to.first_name} {obj.assigned_to.last_name}".strip()
             return full_name if full_name else obj.assigned_to.username
         return None
+    
+    def to_representation(self, instance):
+        """Ensure FK IDs are included for edit form compatibility"""
+        data = super().to_representation(instance)
+        
+        # Ensure IDs are present
+        data['category'] = instance.category_id if instance.category else None
+        data['school'] = instance.school_id if instance.school else None
+        data['assigned_to'] = instance.assigned_to_id if instance.assigned_to else None
+        
+        return data

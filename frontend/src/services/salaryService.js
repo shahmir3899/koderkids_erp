@@ -8,7 +8,7 @@ export const salaryService = {
   // Fetch all teachers for dropdown
   fetchTeachers: async () => {
     const response = await axios.get(
-      `${API_BASE_URL}/employees/api/teachers/`,
+      `${API_BASE_URL}/employees/teachers/`,
       { headers: getAuthHeaders() }
     );
     return response.data;
@@ -17,7 +17,7 @@ export const salaryService = {
   // Fetch default salary period dates
   fetchDefaultDates: async () => {
     const response = await axios.get(
-      `${API_BASE_URL}/employees/api/default-dates/`,
+      `${API_BASE_URL}/employees/default-dates/`,
       { headers: getAuthHeaders() }
     );
     return response.data;
@@ -26,7 +26,7 @@ export const salaryService = {
   // Fetch specific teacher's profile
   fetchTeacherProfile: async (teacherId) => {
     const response = await axios.get(
-      `${API_BASE_URL}/employees/api/teacher/${teacherId}/`,
+      `${API_BASE_URL}/employees/teacher/${teacherId}/`,
       { headers: getAuthHeaders() }
     );
     return response.data;
