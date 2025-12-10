@@ -221,6 +221,8 @@ const InventoryDashboard = () => {
         <CategoryManagementModal
           isOpen={modals.category}
           onClose={() => closeModal('category')}
+          categories={categories}  // ADD THIS LINE
+
           onUpdate={handleCategoryUpdate}
         />
       )}

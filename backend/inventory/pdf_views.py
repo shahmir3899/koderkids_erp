@@ -126,6 +126,7 @@ def group_items_by_name_category(items):
         'name': '',
         'category_name': '',
         'status': '',
+        'assigned_to_name': '',  # Added for PDF display
     })
     
     for item in items:
@@ -137,6 +138,12 @@ def group_items_by_name_category(items):
         grouped[key]['name'] = item.name
         grouped[key]['category_name'] = item.category.name if item.category else 'Uncategorized'
         grouped[key]['status'] = item.status
+        # Capture assigned_to_name
+        if item.assigned_to:
+            full_name = f"{item.assigned_to.first_name} {item.assigned_to.last_name}".strip()
+            grouped[key]['assigned_to_name'] = full_name if full_name else item.assigned_to.username
+        else:
+            grouped[key]['assigned_to_name'] = 'Unassigned'
     
     return list(grouped.values())
 
@@ -582,19 +589,24 @@ def generate_transfer_receipt_pdf(grouped_items, from_location, to_location,
     base_styles = get_base_styles()
     
     table_rows = ""
-    for idx, group in enumerate(grouped_items, 1):
-        unique_id_display = group['unique_ids'][0] if group['unique_ids'] else 'N/A'
-        if len(group['unique_ids']) > 1:
-            unique_id_display += f" <span style='color:#666;font-size:7pt;'>+{len(group['unique_ids'])-1} more</span>"
+    for idx, item in enumerate(items, 1):
+        unique_id_display = item['unique_ids'][0] if item['unique_ids'] else 'N/A'
+        if len(item['unique_ids']) > 1:
+            unique_id_display += f" <span style='color:#666;font-size:7pt;'>+{len(item['unique_ids'])-1} more</span>"
+        
+        status_class = f"status-{item['status'].lower()}" if item.get('status') else ''
+        assigned_to = item.get('assigned_to_name', 'Unassigned')
         
         table_rows += f"""
         <tr>
             <td class="text-center">{idx}</td>
-            <td>{html.escape(group['name'])}</td>
-            <td class="text-center">{group['qty']}</td>
+            <td>{html.escape(item['name'])}</td>
+            <td class="text-center">{item['qty']}</td>
             <td><span class="unique-id">{unique_id_display}</span></td>
-            <td>{html.escape(group['category_name'])}</td>
-            <td class="text-right">{format_currency(group['total_value'])}</td>
+            <td>{html.escape(item['category_name'])}</td>
+            <td class="text-center"><span class="status-badge {status_class}">{item.get('status', 'N/A')}</span></td>
+            <td>{html.escape(assigned_to)}</td>
+            <td class="text-right">{format_currency(item['total_value'])}</td>
         </tr>
         """
     
@@ -658,6 +670,8 @@ def generate_transfer_receipt_pdf(grouped_items, from_location, to_location,
                     <th style="width: 8%;" class="text-center">Qty</th>
                     <th style="width: 22%;">Unique ID</th>
                     <th style="width: 17%;">Category</th>
+                     <th style="width: 14%;">Assigned To</th>
+
                     <th style="width: 20%;" class="text-right">Value</th>
                 </tr>
             </thead>

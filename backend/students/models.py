@@ -90,6 +90,8 @@ class Fee(models.Model):
     school = models.ForeignKey("students.School", on_delete=models.SET_NULL, null=True)
     student_class = models.CharField(max_length=50, default="Unknown")  # New Field
     monthly_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # New Field
+    date_received = models.DateField(null=True, blank=True)
+
 
     month = models.CharField(max_length=10)  # E.g., "Feb-2025"
     total_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)

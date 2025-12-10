@@ -38,7 +38,9 @@ from students.views import (
     get_student_attendance_counts, get_student_achieved_topics_count, get_student_image_uploads_count,
     delete_lesson_plan,
 
-    my_student_data
+    my_student_data,
+
+    create_single_fee, delete_fees,
 )
 
 # Register ViewSet-based routes
@@ -79,6 +81,8 @@ urlpatterns = [
     path('api/fees/create/', create_new_month_fees, name='create_new_month_fees'),
     path('api/fees/update/', update_fees, name='update_fees'),
     path('api/fee-per-month/', fee_received_per_month, name='fee_received_per_month'),
+    path('api/fees/create-single/', create_single_fee, name='create-single-fee'),
+    path('api/fees/delete/', delete_fees, name='delete-fees'),
 
     # Attendance Management
     path('api/attendance/', mark_attendance, name="mark_attendance"),
@@ -133,6 +137,9 @@ urlpatterns = [
     path('api/', include(router.urls)),
     # Books 
     path('api/books/', include('books.urls')),
+
+
+
 
     
 ]

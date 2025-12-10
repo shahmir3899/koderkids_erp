@@ -2034,3 +2034,181 @@ def my_student_data(request):
     }
 
     return Response(data, status=200)
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.db import transaction
+from datetime import datetime
+
+# Adjust imports based on your project structure
+# from .models import Fee
+# from students.models import Student
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_single_fee(request):
+    """
+    Create a single fee record for a specific student.
+    Auto-fetches monthly_fee from the Student model.
+    
+    Endpoint: POST /api/fees/create-single/
+    
+    Payload:
+    {
+        "student_id": 123,
+        "month": "Dec-2024",
+        "paid_amount": 0,  # optional, defaults to 0
+    }
+    """
+    try:
+        student_id = request.data.get('student_id')
+        month = request.data.get('month')
+        paid_amount = request.data.get('paid_amount', 0)
+
+        # Validation
+        if not student_id or not month:
+            return Response({
+                'error': 'student_id and month are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate student exists
+        try:
+            student = Student.objects.get(id=student_id)
+        except Student.DoesNotExist:
+            return Response({
+                'error': 'Student not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Check for existing fee record for this student/month
+        existing_fee = Fee.objects.filter(
+            student_id=student_id,
+            month=month
+        ).first()
+
+        if existing_fee:
+            return Response({
+                'error': f'Fee record already exists for {student.name} in {month}',
+                'existing_fee_id': existing_fee.id
+            }, status=status.HTTP_409_CONFLICT)
+
+        # Get monthly_fee from student record (auto-fetch)
+        total_fee = float(student.monthly_fee or 0)
+        paid_amount = float(paid_amount or 0)
+        balance_due = total_fee - paid_amount
+        
+        # Determine status
+        if balance_due <= 0:
+            fee_status = 'Paid'
+        elif paid_amount > 0:
+            fee_status = 'Pending'
+        else:
+            fee_status = 'Pending'
+
+        # Create fee record (matching existing create_new_month_fees structure)
+        fee = Fee.objects.create(
+            student_id=student.id,
+            student_name=student.name,
+            student_class=student.student_class,
+            monthly_fee=student.monthly_fee,
+            month=month,
+            total_fee=total_fee,
+            paid_amount=paid_amount,
+            balance_due=balance_due,
+            payment_date=datetime.now().strftime("%Y-%m-15"),
+            status=fee_status,
+            school=student.school,
+        )
+
+        return Response({
+            'message': f'Fee record created for {student.name}',
+            'fee': {
+                'id': fee.id,
+                'student_id': fee.student_id,
+                'student_name': fee.student_name,
+                'student_class': fee.student_class,
+                'monthly_fee': str(fee.monthly_fee),
+                'month': fee.month,
+                'total_fee': str(fee.total_fee),
+                'paid_amount': str(fee.paid_amount),
+                'balance_due': str(fee.balance_due),
+                'status': fee.status,
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        import traceback
+        print(f"❌ Error in create_single_fee: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'error': f'Failed to create fee record: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def delete_fees(request):
+    """
+    Delete one or more fee records.
+    
+    Endpoint: POST /api/fees/delete/
+    
+    Payload:
+    {
+        "fee_ids": [1, 2, 3]
+    }
+    """
+    try:
+        fee_ids = request.data.get('fee_ids', [])
+
+        print(f"🗑️ Delete request received for fee_ids: {fee_ids}")  # Debug log
+
+        if not fee_ids:
+            return Response({
+                'error': 'No fee IDs provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate all fees exist
+        fees = Fee.objects.filter(id__in=fee_ids)
+        found_ids = list(fees.values_list('id', flat=True))
+        missing_ids = set(fee_ids) - set(found_ids)
+
+        print(f"🔍 Found fees: {found_ids}, Missing: {missing_ids}")  # Debug log
+
+        if missing_ids:
+            return Response({
+                'error': f'Some fee records not found: {list(missing_ids)}'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Permission check for teachers
+        user = request.user
+        if user.role == 'Teacher':
+            allowed_school_ids = list(user.assigned_schools.values_list('id', flat=True))
+            unauthorized = fees.exclude(school_id__in=allowed_school_ids)
+            if unauthorized.exists():
+                return Response({
+                    'error': 'You do not have permission to delete some of these records'
+                }, status=status.HTTP_403_FORBIDDEN)
+
+        # Delete fees
+        with transaction.atomic():
+            deleted_count, _ = fees.delete()
+
+        print(f"✅ Successfully deleted {deleted_count} fee records")  # Debug log
+
+        return Response({
+            'message': f'Successfully deleted {deleted_count} fee record(s)',
+            'deleted_count': deleted_count,
+            'deleted_ids': fee_ids
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        import traceback
+        print(f"❌ Error in delete_fees: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'error': f'Failed to delete fee records: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
