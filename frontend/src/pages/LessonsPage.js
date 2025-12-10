@@ -32,14 +32,14 @@ import LessonPlanModal from '../components/LessonPlanModal';
 import { ExportableLessonTable } from '../components/lessons/ExportableLessonTable';
 
 // Hooks
-import { useSchools } from '../hooks/useSchools';
+//import { useSchools } from '../hooks/useSchools';
 import { useExportLessons } from '../hooks/useExportLessons';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
 function LessonsPage() {
   const { user } = useAuth();
-  const { schools, loading: schoolsLoading } = useSchools();
+  //const { schools, loading: schoolsLoading } = useSchools();
 
   // ============================================
   // STATE - Consolidated
@@ -48,6 +48,7 @@ function LessonsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSchoolName, setSelectedSchoolName] = useState('');
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -71,11 +72,11 @@ function LessonsPage() {
   // ============================================
   // DERIVED VALUES
   // ============================================
-  const selectedSchoolName = useMemo(() => {
-    if (!filters.schoolId || !schools.length) return '';
-    const school = schools.find((s) => s.id === parseInt(filters.schoolId));
-    return school?.name || 'Unknown School';
-  }, [filters.schoolId, schools]);
+  //const selectedSchoolName = useMemo(() => {
+    //if (!filters.schoolId || !schools.length) return '';
+    //const school = schools.find((s) => s.id === parseInt(filters.schoolId));
+    //return school?.name || 'Unknown School';
+  //}, [filters.schoolId, schools]);
 
   const dateRangeFormatted = useMemo(() => {
     if (!filters.startDate || !filters.endDate) return '';
@@ -418,13 +419,7 @@ function LessonsPage() {
     );
   }
 
-  if (schoolsLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <LoadingSpinner size="large" message="Loading schools..." />
-      </div>
-    );
-  }
+ 
 
   // ============================================
   // RENDER - Main Content
