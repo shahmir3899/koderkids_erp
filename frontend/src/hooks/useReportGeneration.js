@@ -177,11 +177,11 @@ export const useReportGeneration = ({
         const [studentRes, attendanceRes, lessonsRes] = await Promise.all([
           axios.get(`${API_URL}/api/student-details/?student_id=${studentId}`, { headers }),
           axios.get(
-            `${API_URL}/api/attendance-count/?student_id=${studentId}&start_date=${formattedStart}&end_date=${formattedEnd}`,
+            `${API_URL}/api/attendance/count/?student_id=${studentId}&start_date=${formattedStart}&end_date=${formattedEnd}`,
             { headers }
           ),
           axios.get(
-            `${API_URL}/api/lessons-achieved/?student_id=${studentId}&start_date=${formattedStart}&end_date=${formattedEnd}`,
+            `${API_URL}/api/lessons/achieved/?student_id=${studentId}&start_date=${formattedStart}&end_date=${formattedEnd}`,
             { headers }
           ),
         ]);

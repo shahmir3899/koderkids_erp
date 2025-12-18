@@ -1,18 +1,51 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { API_URL, getAuthHeaders } from "../api";
-import { ClipLoader } from "react-spinners";
+// ============================================
+// TRANSACTIONS PAGE - Enhanced with Account Reconciliation
+// ============================================
+// Location: src/pages/TransactionsPage.js
+//
+// NEW FEATURES:
+// 1. ✅ Account-based filtering for reconciliation (Bank/Person accounts)
+// 2. ✅ Search button - filters only apply when button is clicked
+// 3. ✅ Filter by receiving/paying accounts across all transaction types
+// 4. ✅ Fixed transaction ordering after submission
+
+import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "react-toastify";
 
+// API
+import { API_URL, getAuthHeaders } from "../api";
+import { transactionService } from "../services/transactionService";
+
+// Common Components
+import { CollapsibleSection } from "../components/common/cards/CollapsibleSection";
+import { DataTable } from "../components/common/tables/DataTable";
+import { LoadingSpinner } from "../components/common/ui/LoadingSpinner";
+import { ErrorDisplay } from "../components/common/ui/ErrorDisplay";
+import { Button } from "../components/common/ui/Button";
+
+// Transaction Components
+import { TransactionStats } from "../components/transactions/TransactionStats";
+import { TransactionForm } from "../components/transactions/TransactionForm";
+import { TransactionFilters } from "../components/transactions/TransactionFilters";
+import { TransactionDetailsModal } from "../components/transactions/TransactionDetailsModal";
+
 function TransactionsPage() {
-  // State Declarations
+  // ============================================
+  // STATE MANAGEMENT
+  // ============================================
+  
+  // Tab State
   const [activeTab, setActiveTab] = useState("income");
+
+  // Data States
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [schools, setSchools] = useState([]);
   const [incomeCategories, setIncomeCategories] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [transferCategories] = useState(["Bank Transfer", "Cash Transfer"]);
+
+  // Form State
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
     transaction_type: "income",
@@ -25,107 +58,362 @@ function TransactionsPage() {
     paid_to: null,
     school: null,
   });
-  const [newCategory, setNewCategory] = useState("");
+
+  // Modal States
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [isFetchingTransactions, setIsFetchingTransactions] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Loading States
+  const [loading, setLoading] = useState({
+    initial: true,
+    transactions: false,
+    accounts: false,
+    submit: false,
+    delete: false,
+  });
+
+  // Error State
   const [error, setError] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [isAccountsLoading, setIsAccountsLoading] = useState(false);
-  const [sortBy, setSortBy] = useState(null);
-  const [sortOrder, setSortOrder] = useState("asc");
-  const [pagination, setPagination] = useState({ offset: 0, limit: 10, hasMore: true });
 
-  // Fetch Functions
-  const fetchAccounts = async () => {
-    setIsAccountsLoading(true);
-    try {
-      const response = await axios.get(`${API_URL}/api/accounts/`, { headers: getAuthHeaders() });
-      setAccounts(response.data);
-    } catch (error) {
-      toast.error("Failed to fetch accounts.");
-    } finally {
-      setIsAccountsLoading(false);
+  // Pagination State
+  const [pagination, setPagination] = useState({ 
+    offset: 0, 
+    limit: 20, 
+    hasMore: true 
+  });
+
+  // Filter States (not applied until Search button clicked)
+  const [filters, setFilters] = useState({
+    search: "",
+    dateFrom: "",
+    dateTo: "",
+    school: "",
+    category: "",
+    minAmount: "",
+    maxAmount: "",
+    account: "", // Specific account for reconciliation
+    accountType: "", // Bank or Person account type
+  });
+
+  // Applied Filters (actually used for filtering)
+  const [appliedFilters, setAppliedFilters] = useState({
+    search: "",
+    dateFrom: "",
+    dateTo: "",
+    school: "",
+    category: "",
+    minAmount: "",
+    maxAmount: "",
+    account: "",
+    accountType: "",
+  });
+
+  // ============================================
+  // COMPUTED VALUES
+  // ============================================
+
+  // Current categories based on active tab
+  const currentCategories = useMemo(() => {
+    return activeTab === "income"
+      ? incomeCategories
+      : activeTab === "expense"
+      ? expenseCategories
+      : transferCategories;
+  }, [activeTab, incomeCategories, expenseCategories, transferCategories]);
+
+  // Separate accounts by type for better reconciliation
+  const accountsByType = useMemo(() => {
+    return {
+      all: accounts,
+      bank: accounts.filter(acc => acc.account_type === "Bank"),
+      person: accounts.filter(acc => acc.account_type === "Person"),
+      other: accounts.filter(acc => acc.account_type !== "Bank" && acc.account_type !== "Person"),
+    };
+  }, [accounts]);
+
+  // Filtered transactions (using APPLIED filters only)
+  const filteredTransactions = useMemo(() => {
+    let filtered = [...transactions];
+
+    // Search filter
+    if (appliedFilters.search) {
+      const searchLower = appliedFilters.search.toLowerCase();
+      filtered = filtered.filter(
+        (tx) =>
+          tx.category?.toLowerCase().includes(searchLower) ||
+          tx.notes?.toLowerCase().includes(searchLower) ||
+          tx.school_name?.toLowerCase().includes(searchLower) ||
+          tx.from_account_name?.toLowerCase().includes(searchLower) ||
+          tx.to_account_name?.toLowerCase().includes(searchLower)
+      );
     }
-  };
+
+    // Date range filter
+    if (appliedFilters.dateFrom) {
+      filtered = filtered.filter((tx) => tx.date >= appliedFilters.dateFrom);
+    }
+    if (appliedFilters.dateTo) {
+      filtered = filtered.filter((tx) => tx.date <= appliedFilters.dateTo);
+    }
+
+    // School filter
+    if (appliedFilters.school) {
+      if (appliedFilters.school === "null") {
+        filtered = filtered.filter((tx) => !tx.school);
+      } else {
+        filtered = filtered.filter((tx) => tx.school === parseInt(appliedFilters.school));
+      }
+    }
+
+    // Category filter
+    if (appliedFilters.category) {
+      filtered = filtered.filter((tx) => tx.category === appliedFilters.category);
+    }
+
+    // Amount range filter
+    if (appliedFilters.minAmount) {
+      filtered = filtered.filter((tx) => parseFloat(tx.amount) >= parseFloat(appliedFilters.minAmount));
+    }
+    if (appliedFilters.maxAmount) {
+      filtered = filtered.filter((tx) => parseFloat(tx.amount) <= parseFloat(appliedFilters.maxAmount));
+    }
+
+    // ============================================
+    // NEW: Account-based filtering for reconciliation
+    // ============================================
+    
+    // Filter by specific account (checks both from_account and to_account)
+    if (appliedFilters.account) {
+      const accountId = parseInt(appliedFilters.account);
+      console.log("Filtering by account:", accountId);
+      console.log("Total transactions before filter:", filtered.length);
+      
+      filtered = filtered.filter(
+        (tx) => {
+          const matches = tx.from_account === accountId || tx.to_account === accountId;
+          if (matches) {
+            console.log("Match found:", tx);
+          }
+          return matches;
+        }
+      );
+      
+      console.log("Total transactions after account filter:", filtered.length);
+    }
+
+    // Filter by account type (Bank or Person)
+    if (appliedFilters.accountType) {
+      const accountsOfType = accounts
+        .filter(acc => acc.account_type === appliedFilters.accountType)
+        .map(acc => acc.id);
+      
+      console.log("Filtering by account type:", appliedFilters.accountType);
+      console.log("Accounts of this type:", accountsOfType);
+      console.log("Total transactions before filter:", filtered.length);
+      
+      filtered = filtered.filter(
+        (tx) => 
+          accountsOfType.includes(tx.from_account) || 
+          accountsOfType.includes(tx.to_account)
+      );
+      
+      console.log("Total transactions after account type filter:", filtered.length);
+    }
+
+    return filtered;
+  }, [transactions, appliedFilters, accounts]);
+
+  // Calculate summary stats
+  const stats = useMemo(() => {
+    const totalAmount = filteredTransactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+    const avgAmount = filteredTransactions.length > 0 ? totalAmount / filteredTransactions.length : 0;
+
+    return {
+      count: filteredTransactions.length,
+      total: totalAmount,
+      average: avgAmount,
+    };
+  }, [filteredTransactions]);
+
+  // ============================================
+  // DATA FETCHING
+  // ============================================
+
+  // Fetch initial data
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  // Fetch transactions when tab changes
+  useEffect(() => {
+    if (loading.initial) return;
+    resetAndFetchTransactions();
+  }, [activeTab]);
 
   const fetchInitialData = async () => {
-    const fetchCategories = async () => {
-      try {
-        const [incomeRes, expenseRes] = await Promise.all([
-          axios.get(`${API_URL}/api/categories/?type=income`, { headers: getAuthHeaders() }),
-          axios.get(`${API_URL}/api/categories/?type=expense`, { headers: getAuthHeaders() }),
-        ]);
-        setIncomeCategories(incomeRes.data.map((c) => c.name));
-        setExpenseCategories(expenseRes.data.map((c) => c.name));
-      } catch (error) {
-        toast.error("Failed to load categories.");
-      }
-    };
-
-    setLoading(true);
+    setLoading((prev) => ({ ...prev, initial: true }));
     setError(null);
+
     try {
-      const schoolsResponse = await axios.get(`${API_URL}/api/schools/`, { headers: getAuthHeaders() });
+      // Fetch schools
+      const schoolsResponse = await transactionService.getSchools();
       setSchools(schoolsResponse.data);
+
+      // Fetch accounts
       await fetchAccounts();
+
+      // Fetch categories
       await fetchCategories();
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || "Failed to load initial data.";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setLoading((prev) => ({ ...prev, initial: false }));
+    }
+  };
+
+  const fetchAccounts = async () => {
+    setLoading((prev) => ({ ...prev, accounts: true }));
+    try {
+      const response = await transactionService.getAccounts();
+      setAccounts(response.data);
+    } catch (error) {
+      toast.error("Failed to fetch accounts.");
+    } finally {
+      setLoading((prev) => ({ ...prev, accounts: false }));
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const [incomeRes, expenseRes] = await Promise.all([
+        transactionService.getCategories("income"),
+        transactionService.getCategories("expense"),
+      ]);
+      setIncomeCategories(incomeRes.data.map((c) => c.name));
+      setExpenseCategories(expenseRes.data.map((c) => c.name));
+    } catch (error) {
+      toast.error("Failed to load categories.");
     }
   };
 
   const fetchTransactions = async (append = false) => {
-    if (!pagination.hasMore || isFetchingTransactions) return;
-    setIsFetchingTransactions(true);
+    if (!pagination.hasMore && append) return;
+    
+    setLoading((prev) => ({ ...prev, transactions: true }));
+    
     try {
-      const response = await axios.get(`${API_URL}/api/${activeTab}/`, {
-        headers: getAuthHeaders(),
-        params: { limit: pagination.limit, offset: pagination.offset, ordering: "-date" },
-      });
-      const newTransactions = response.data.results.map((trx) => ({
-        ...trx,
-        to_account_name: trx.to_account_name || "N/A",
-        from_account_name: trx.from_account_name || "N/A",
-        school: trx.school_id || null, // Use school_id from serializer
-        school_name: trx.school_name || "No School", // Use school_name for display
-      }));
-      setTransactions((prev) => (append ? [...prev, ...newTransactions] : newTransactions));
-      setPagination((prev) => ({
-        ...prev,
-        offset: prev.offset + newTransactions.length,
-        hasMore: !!response.data.next,
-      }));
+      // When account filter is applied, load ALL transaction types
+      // Otherwise, load only the active tab
+      const shouldLoadAllTypes = appliedFilters.account || appliedFilters.accountType;
+      
+      let allTransactions = [];
+      
+      if (shouldLoadAllTypes) {
+        // Load all three transaction types for reconciliation
+        const [incomeRes, expenseRes, transferRes] = await Promise.all([
+          transactionService.getTransactions("income", {
+            limit: 100, // Load more for filtering
+            offset: 0,
+            ordering: "-date",
+          }),
+          transactionService.getTransactions("expense", {
+            limit: 100,
+            offset: 0,
+            ordering: "-date",
+          }),
+          transactionService.getTransactions("transfers", {
+            limit: 100,
+            offset: 0,
+            ordering: "-date",
+          }),
+        ]);
+
+        const incomeTxs = incomeRes.data.results.map((trx) => ({
+          ...trx,
+          transaction_type: "Income",
+          to_account_name: trx.to_account_name || "N/A",
+          from_account_name: trx.from_account_name || "N/A",
+          school: trx.school_id || null,
+          school_name: trx.school_name || "No School",
+        }));
+
+        const expenseTxs = expenseRes.data.results.map((trx) => ({
+          ...trx,
+          transaction_type: "Expense",
+          to_account_name: trx.to_account_name || "N/A",
+          from_account_name: trx.from_account_name || "N/A",
+          school: trx.school_id || null,
+          school_name: trx.school_name || "No School",
+        }));
+
+        const transferTxs = transferRes.data.results.map((trx) => ({
+          ...trx,
+          transaction_type: "Transfer",
+          to_account_name: trx.to_account_name || "N/A",
+          from_account_name: trx.from_account_name || "N/A",
+          school: trx.school_id || null,
+          school_name: trx.school_name || "No School",
+        }));
+
+        allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
+        // Sort by date descending
+        allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        setPagination((prev) => ({
+          ...prev,
+          offset: allTransactions.length,
+          hasMore: false, // Disable load more when showing all types
+        }));
+      } else {
+        // Normal single-tab loading
+        const response = await transactionService.getTransactions(activeTab, {
+          limit: pagination.limit,
+          offset: append ? pagination.offset : 0,
+          ordering: "-date",
+        });
+
+        allTransactions = response.data.results.map((trx) => ({
+          ...trx,
+          to_account_name: trx.to_account_name || "N/A",
+          from_account_name: trx.from_account_name || "N/A",
+          school: trx.school_id || null,
+          school_name: trx.school_name || "No School",
+        }));
+        
+        setPagination((prev) => ({
+          ...prev,
+          offset: append ? prev.offset + allTransactions.length : allTransactions.length,
+          hasMore: !!response.data.next,
+        }));
+      }
+
+      setTransactions((prev) => (append ? [...prev, ...allTransactions] : allTransactions));
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || "Failed to fetch transactions.";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
-      setIsFetchingTransactions(false);
+      setLoading((prev) => ({ ...prev, transactions: false }));
     }
   };
 
-  // Effects
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (loading) return;
-    setPagination({ offset: 0, limit: 10, hasMore: true });
+  // ============================================
+  // CRITICAL FIX: Reset pagination and fetch fresh after submission
+  // ============================================
+  const resetAndFetchTransactions = async () => {
+    setPagination({ offset: 0, limit: 20, hasMore: true });
     setTransactions([]);
-    fetchTransactions();
-  }, [activeTab]);
+    await fetchTransactions(false);
+  };
 
-  // Handlers
+  // ============================================
+  // HANDLERS
+  // ============================================
+
   const handleCategoryChange = (category) => {
     setFormData({
       ...formData,
@@ -135,7 +423,7 @@ function TransactionsPage() {
     });
   };
 
-  const handleAddCategory = async () => {
+  const handleAddCategory = async (newCategory) => {
     if (!newCategory.trim()) return;
 
     const payload = {
@@ -144,7 +432,7 @@ function TransactionsPage() {
     };
 
     try {
-      await axios.post(`${API_URL}/api/categories/`, payload, { headers: getAuthHeaders() });
+      await transactionService.addCategory(payload);
       toast.success("Category added!");
 
       if (activeTab === "income") {
@@ -152,8 +440,6 @@ function TransactionsPage() {
       } else if (activeTab === "expense") {
         setExpenseCategories((prev) => [...prev, payload.name]);
       }
-
-      setNewCategory("");
     } catch (err) {
       toast.error("Could not add category.");
     }
@@ -161,21 +447,23 @@ function TransactionsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    setIsSubmitting(true);
+    if (loading.submit) return;
 
+    setLoading((prev) => ({ ...prev, submit: true }));
+
+    // Validation
     if (!formData.amount || !formData.category) {
       toast.error("Please fill in both Amount and Category before saving.");
-      setIsSubmitting(false);
+      setLoading((prev) => ({ ...prev, submit: false }));
       return;
     }
 
+    // Build payload
     const transactionType =
       activeTab === "expense" ? "Expense" :
       activeTab === "income" ? "Income" :
       activeTab === "transfers" ? "Transfer" : "";
 
-    // Convert amount to string with two decimal places
     const amount = parseFloat(formData.amount).toFixed(2);
 
     let payload = {
@@ -184,11 +472,12 @@ function TransactionsPage() {
       amount: amount,
       category: formData.category,
       notes: formData.notes || "",
-      school: formData.school, // Already set to null if "No School" is selected
+      school: formData.school,
       from_account: null,
       to_account: null,
     };
 
+    // Add account logic based on transaction type
     if (activeTab === "expense") {
       payload.from_account = formData.from_account;
       if (formData.category === "Loan Paid") {
@@ -196,7 +485,7 @@ function TransactionsPage() {
       }
       if (!payload.from_account) {
         toast.error("Please select a From Account for the expense.");
-        setIsSubmitting(false);
+        setLoading((prev) => ({ ...prev, submit: false }));
         return;
       }
     }
@@ -207,14 +496,14 @@ function TransactionsPage() {
         payload.to_account = formData.to_account;
         if (!payload.from_account || !payload.to_account) {
           toast.error("Please select both lender (Received From) and To Account for Loan Received.");
-          setIsSubmitting(false);
+          setLoading((prev) => ({ ...prev, submit: false }));
           return;
         }
       } else {
         payload.to_account = formData.to_account;
         if (!payload.to_account) {
           toast.error("Please select a To Account for the income transaction.");
-          setIsSubmitting(false);
+          setLoading((prev) => ({ ...prev, submit: false }));
           return;
         }
       }
@@ -225,27 +514,25 @@ function TransactionsPage() {
       payload.to_account = formData.to_account;
       if (!payload.from_account || !payload.to_account) {
         toast.error("Please select both From and To accounts for transfer.");
-        setIsSubmitting(false);
+        setLoading((prev) => ({ ...prev, submit: false }));
         return;
       }
     }
 
     try {
       if (isEditing && selectedTransaction) {
-        await axios.put(`${API_URL}/api/${activeTab}/${selectedTransaction.id}/`, payload, {
-          headers: getAuthHeaders(),
-        });
+        await transactionService.updateTransaction(activeTab, selectedTransaction.id, payload);
         toast.success("Transaction updated successfully!");
       } else {
-        await axios.post(`${API_URL}/api/${activeTab}/`, payload, {
-          headers: getAuthHeaders(),
-        });
+        await transactionService.createTransaction(activeTab, payload);
         toast.success("Transaction saved successfully!");
       }
 
-      fetchTransactions();
-      fetchAccounts();
+      // CRITICAL FIX: Reset pagination and fetch fresh transactions
+      await resetAndFetchTransactions();
+      await fetchAccounts();
 
+      // Reset form
       setIsEditing(false);
       setFormData({
         date: new Date().toISOString().split("T")[0],
@@ -270,7 +557,7 @@ function TransactionsPage() {
           : "Failed to save transaction. Please check the form and try again.");
       toast.error(errorMessage);
     } finally {
-      setIsSubmitting(false);
+      setLoading((prev) => ({ ...prev, submit: false }));
     }
   };
 
@@ -296,27 +583,31 @@ function TransactionsPage() {
     });
   };
 
-  const handleSort = (column) => {
-    if (sortBy === column) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(column);
-      setSortOrder("asc");
-    }
-  };
-
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, originalTransactionType) => {
     if (!window.confirm("Are you sure you want to delete this transaction?")) return;
-    setIsDeleting(true);
+    
+    setLoading((prev) => ({ ...prev, delete: true }));
+    
     try {
-      await axios.delete(`${API_URL}/api/${activeTab}/${id}/`, { headers: getAuthHeaders() });
-      fetchTransactions();
+      // Use the original transaction type, not the active tab
+      // This ensures we delete from the correct endpoint
+      const deleteEndpoint = originalTransactionType.toLowerCase() === "transfer" 
+        ? "transfers" 
+        : originalTransactionType.toLowerCase();
+      
+      console.log(`Deleting transaction ${id} from endpoint: ${deleteEndpoint}`);
+      
+      await transactionService.deleteTransaction(deleteEndpoint, id);
+      
+      // CRITICAL FIX: Reset pagination and fetch fresh transactions
+      await resetAndFetchTransactions();
+      
       toast.success("Transaction deleted successfully!");
     } catch (error) {
       console.error("Delete failed:", error.response ? error.response.data : error.message);
       toast.error(error.response?.data?.message || "Failed to delete transaction due to a server error.");
     } finally {
-      setIsDeleting(false);
+      setLoading((prev) => ({ ...prev, delete: false }));
     }
   };
 
@@ -341,381 +632,358 @@ function TransactionsPage() {
     await fetchTransactions(true);
   };
 
-  const sortedTransactions = [...transactions].sort((a, b) => {
-    if (!sortBy) return 0;
+  const handleFilterChange = (filterName, value) => {
+    setFilters((prev) => ({ ...prev, [filterName]: value }));
+  };
 
-    let valA = a[sortBy];
-    let valB = b[sortBy];
-
-    if (sortBy === "date") {
-      valA = new Date(valA);
-      valB = new Date(valB);
+  // ============================================
+  // NEW: Search button handler - applies filters
+  // ============================================
+  const handleApplyFilters = async () => {
+    const previousAccountFilter = appliedFilters.account;
+    const previousAccountTypeFilter = appliedFilters.accountType;
+    const newAccountFilter = filters.account;
+    const newAccountTypeFilter = filters.accountType;
+    
+    // Update applied filters
+    setAppliedFilters({ ...filters });
+    
+    // If account or account type filter changed, refetch all transactions
+    if (
+      newAccountFilter !== previousAccountFilter || 
+      newAccountTypeFilter !== previousAccountTypeFilter
+    ) {
+      await resetAndFetchTransactions();
     }
+    
+    toast.success("Filters applied!");
+  };
 
-    if (typeof valA === "string") valA = valA.toLowerCase();
-    if (typeof valB === "string") valB = valB.toLowerCase();
+  const handleClearFilters = () => {
+    const emptyFilters = {
+      search: "",
+      dateFrom: "",
+      dateTo: "",
+      school: "",
+      category: "",
+      minAmount: "",
+      maxAmount: "",
+      account: "",
+      accountType: "",
+    };
+    setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    toast.info("Filters cleared!");
+  };
 
-    if (valA < valB) return sortOrder === "asc" ? -1 : 1;
-    if (valA > valB) return sortOrder === "asc" ? 1 : -1;
-    return 0;
-  });
+  // ============================================
+  // RENDER HELPERS
+  // ============================================
 
-  const currentCategories =
-    activeTab === "income"
-      ? incomeCategories
-      : activeTab === "expense"
-      ? expenseCategories
-      : transferCategories;
+  const getAccountName = (trx) => {
+    if (trx.transaction_type === "Income") {
+      return trx.to_account_name || "N/A";
+    } else if (trx.transaction_type === "Expense") {
+      return trx.from_account_name || "N/A";
+    } else {
+      return `${trx.from_account_name || "N/A"} → ${trx.to_account_name || "N/A"}`;
+    }
+  };
 
-  // Render Logic
-  if (loading) {
+  const getTransactionTypeColor = (type) => {
+    switch (type.toLowerCase()) {
+      case "income":
+        return "#10B981"; // Green
+      case "expense":
+        return "#EF4444"; // Red
+      case "transfer":
+        return "#3B82F6"; // Blue
+      default:
+        return "#6B7280"; // Gray
+    }
+  };
+
+  // Check if filters have been changed
+  const hasUnappliedFilters = useMemo(() => {
+    return JSON.stringify(filters) !== JSON.stringify(appliedFilters);
+  }, [filters, appliedFilters]);
+
+  // ============================================
+  // RENDER
+  // ============================================
+
+  // Loading State
+  if (loading.initial) {
     return (
-      <div className="flex items-center justify-center p-6 min-h-screen bg-gray-100">
-        <ClipLoader color="#000000" size={50} />
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        minHeight: '100vh',
+        backgroundColor: '#F9FAFB'
+      }}>
+        <LoadingSpinner size="large" message="Loading transactions..." />
       </div>
     );
   }
 
+  // Error State
   if (error) {
     return (
-      <div className="p-6 text-red-600 flex flex-col items-center">
-        <p>{error}</p>
-        <button
-          className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          onClick={handleRetry}
-          disabled={isRetrying}
-          aria-label="Retry fetching data"
-        >
-          {isRetrying ? "Retrying..." : "Retry"}
-        </button>
+      <div style={{ padding: '2rem' }}>
+        <ErrorDisplay error={error} onRetry={handleRetry} isRetrying={isRetrying} />
       </div>
     );
   }
 
   return (
-    <div className="container">
-      <h1 className="title">Transactions</h1>
+    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto', backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
+      {/* Page Title */}
+      <h1
+        style={{
+          fontSize: '2rem',
+          fontWeight: 'bold',
+          color: '#1E40AF',
+          marginBottom: '1.5rem',
+          textAlign: 'center',
+        }}
+      >
+        💰 Transactions Management
+      </h1>
 
       {/* Tabs */}
-      <div className="tab-container">
+      <div style={{ 
+        display: 'flex', 
+        gap: '0.5rem', 
+        marginBottom: '1.5rem',
+        borderBottom: '2px solid #E5E7EB',
+        paddingBottom: '0.5rem',
+      }}>
         {["income", "expense", "transfers"].map((tab) => (
           <button
-            className={`tab-button ${activeTab === tab ? "active" : ""}`}
             key={tab}
             onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '0.75rem 1.5rem',
+              fontSize: '1rem',
+              fontWeight: '600',
+              border: 'none',
+              borderRadius: '8px 8px 0 0',
+              cursor: 'pointer',
+              backgroundColor: activeTab === tab ? '#1E40AF' : 'transparent',
+              color: activeTab === tab ? 'white' : '#6B7280',
+              transition: 'all 0.2s',
+            }}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === "income" ? "💵 Income" : tab === "expense" ? "💸 Expense" : "🔄 Transfers"}
           </button>
         ))}
       </div>
 
-      {/* Form */}
-      <form
-        className="form"
-        onSubmit={handleSubmit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
-            e.preventDefault();
-          }
-        }}
+      {/* Stats Cards */}
+      <TransactionStats 
+        stats={stats}
+        activeTab={activeTab}
+      />
+
+      {/* Transaction Form */}
+      <CollapsibleSection title={`${isEditing ? "✏️ Edit" : "➕ Add"} Transaction`} defaultOpen>
+        <TransactionForm
+          formData={formData}
+          setFormData={setFormData}
+          activeTab={activeTab}
+          currentCategories={currentCategories}
+          accounts={accounts}
+          schools={schools}
+          handleCategoryChange={handleCategoryChange}
+          handleAddCategory={handleAddCategory}
+          handleSubmit={handleSubmit}
+          isEditing={isEditing}
+          loading={loading}
+        />
+      </CollapsibleSection>
+
+      {/* Filters with Search Button */}
+      <CollapsibleSection title="🔍 Filter Transactions for Reconciliation" defaultOpen={false}>
+        <TransactionFilters
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
+          onApplyFilters={handleApplyFilters}
+          schools={schools}
+          categories={currentCategories}
+          accounts={accounts}
+          accountsByType={accountsByType}
+          hasUnappliedFilters={hasUnappliedFilters}
+        />
+      </CollapsibleSection>
+
+      {/* Transactions Table */}
+      <CollapsibleSection 
+        title={`📋 Transactions (${filteredTransactions.length} of ${transactions.length})`} 
+        defaultOpen
       >
-        <div className="grid grid-cols-2 gap-6">
-          <div className="form-group">
-            <label>Date:</label>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>Amount:</label>
-            <input
-              type="number"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label>Category:</label>
-          <div className="flex flex-wrap gap-2">
-            {currentCategories.map((cat) => (
-              <button
-                className={`category-button ${formData.category === cat ? "selected" : ""}`}
-                type="button"
-                key={cat}
-                onClick={() => handleCategoryChange(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {["income", "expense"].includes(activeTab) && (
-          <div className="form-group">
-            <label>Add New Category:</label>
-            <div className="add-category-input">
-              <input
-                type="text"
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                placeholder="Enter new category"
-              />
-              <button
-                type="button"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                onClick={handleAddCategory}
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "income" && (
-          <div className="form-group">
-            <label>To Account (Where money is going):</label>
-            <div className="flex flex-wrap gap-2">
-              {accounts.map((acc) => (
-                <button
-                  className={`category-button ${formData.to_account === acc.id ? "selected" : ""}`}
-                  type="button"
-                  key={acc.id}
-                  onClick={() => setFormData({ ...formData, to_account: acc.id })}
-                >
-                  {acc.account_name} ({acc.current_balance})
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "expense" && (
-          <div className="form-group">
-            <label>From Account (Where money is coming from):</label>
-            <div className="flex flex-wrap gap-2">
-              {accounts.map((acc) => (
-                <button
-                  className={`category-button ${formData.from_account === acc.id ? "selected" : ""}`}
-                  type="button"
-                  key={acc.id}
-                  onClick={() => setFormData({ ...formData, from_account: acc.id })}
-                >
-                  {acc.account_name} ({acc.current_balance})
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "transfers" && (
-          <div className="grid grid-cols-2 gap-6">
-            <div className="form-group">
-              <label>From Account (Source of transfer):</label>
-              <div className="flex flex-wrap gap-2">
-                {accounts.map((acc) => (
-                  <button
-                    className={`category-button ${formData.from_account === acc.id ? "selected" : ""}`}
-                    type="button"
-                    key={acc.id}
-                    onClick={() => setFormData({ ...formData, from_account: acc.id })}
-                  >
-                    {acc.account_name} ({acc.current_balance})
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="form-group">
-              <label>To Account (Destination of transfer):</label>
-              <div className="flex flex-wrap gap-2">
-                {accounts.map((acc) => (
-                  <button
-                    className={`category-button ${formData.to_account === acc.id ? "selected" : ""}`}
-                    type="button"
-                    key={acc.id}
-                    onClick={() => setFormData({ ...formData, to_account: acc.id })}
-                  >
-                    {acc.account_name} ({acc.current_balance})
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {(formData.category === "Loan Received" || formData.category === "Loan Paid") && (
-          <div className="form-group">
-            <label>{formData.category === "Loan Received" ? "Received From (Lender):" : "Paid To (Lender):"}</label>
-            <div className="flex flex-wrap gap-2">
-              {accounts
-                .filter((acc) => acc.account_type === "Person")
-                .map((acc) => (
-                  <button
-                    className={`category-button ${
-                      formData.received_from === acc.id || formData.paid_to === acc.id ? "selected" : ""
-                    }`}
-                    type="button"
-                    key={acc.id}
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        received_from: formData.category === "Loan Received" ? acc.id : null,
-                        paid_to: formData.category === "Loan Paid" ? acc.id : null,
-                      });
-                    }}
-                  >
-                    {acc.account_name}
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
-
-        <div className="form-group">
-          <label>School (Optional):</label>
-          <div className="flex flex-wrap gap-2">
-            {schools.map((school) => (
-              <button
-                className={`category-button ${formData.school === school.id ? "selected" : ""}`}
-                type="button"
-                key={school.id}
-                onClick={() => setFormData({ ...formData, school: school.id })}
-              >
-                {school.name}
-              </button>
-            ))}
-            <button
-              className={`category-button ${formData.school === null ? "selected" : ""}`}
-              type="button"
-              onClick={() => setFormData({ ...formData, school: null })}
-            >
-              No School
-            </button>
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label>Notes:</label>
-          <textarea
-            className="textbox"
-            value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          />
-        </div>
-
-        <button
-          type="submit"
-          className={`submit-button ${isSubmitting || isAccountsLoading ? "disabled" : ""}`}
-          disabled={isSubmitting || isAccountsLoading}
-        >
-          {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : isEditing ? "Update Transaction" : "Save Transaction"}
-        </button>
-      </form>
-
-      {isFetchingTransactions && (
-        <div className="fetching-message">Fetching transactions...</div>
-      )}
-
-      <table className="table">
-        <thead>
-          <tr>
-            <th className="table-header cursor-pointer" onClick={() => handleSort("date")}>
-              Date {sortBy === "date" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
-            </th>
-            <th className="table-header">Type</th>
-            <th className="table-header cursor-pointer" onClick={() => handleSort("amount")}>
-              Amount {sortBy === "amount" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
-            </th>
-            <th className="table-header cursor-pointer" onClick={() => handleSort("category")}>
-              Category {sortBy === "category" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
-            </th>
-            <th className="table-header">Account</th>
-            <th className="table-header">School</th>
-            <th className="table-header">Notes</th>
-            <th className="table-header">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedTransactions.map((trx) => (
-            <tr key={trx.id}>
-              <td className="table-cell">{trx.date}</td>
-              <td className="table-cell">{trx.transaction_type}</td>
-              <td className="table-cell">{trx.amount}</td>
-              <td className="table-cell">{trx.category}</td>
-              <td className="table-cell">
-                {trx.transaction_type === "Income"
-                  ? trx.to_account_name || "N/A"
-                  : trx.from_account_name || "N/A"}
-              </td>
-              <td className="table-cell">{trx.school_name}</td>
-              <td className="table-cell">{trx.notes}</td>
-              <td className="table-cell">
-                <div className="flex gap-2">
-                  <button
-                    className="action-button bg-blue-600 text-white"
-                    onClick={() => handleView(trx)}
-                  >
-                    View
-                  </button>
-                  <button
-                    className="action-button bg-yellow-600 text-white"
-                    onClick={() => handleEdit(trx)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="action-button bg-red-600 text-white"
-                    onClick={() => handleDelete(trx.id)}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {pagination.hasMore && (
-        <div className="mt-4 text-center">
-          <button
-            className={`bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition ${
-              isFetchingTransactions ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            onClick={handleLoadMore}
-            disabled={isFetchingTransactions}
-          >
-            {isFetchingTransactions ? "Loading..." : "Load More"}
-          </button>
-        </div>
-      )}
-
-      {modalOpen && selectedTransaction && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Transaction Details</h2>
-            <p><strong>Date:</strong> {selectedTransaction.date}</p>
-            <p><strong>Type:</strong> {selectedTransaction.transaction_type}</p>
-            <p><strong>Amount:</strong> {selectedTransaction.amount}</p>
-            <p><strong>Category:</strong> {selectedTransaction.category}</p>
-            <p>
-              <strong>Account:</strong>{" "}
-              {selectedTransaction.transaction_type === "Income"
-                ? selectedTransaction.to_account_name
-                : selectedTransaction.from_account_name}
+        {/* Active Filters Display */}
+        {Object.values(appliedFilters).some(v => v !== "") && (
+          <div style={{ 
+            marginBottom: '1rem', 
+            padding: '1rem', 
+            backgroundColor: '#EFF6FF', 
+            borderRadius: '8px',
+            border: '1px solid #BFDBFE'
+          }}>
+            <p style={{ fontSize: '0.875rem', color: '#1E40AF', margin: 0, fontWeight: '600' }}>
+              🔍 Active Filters: 
+              {appliedFilters.account && ` Account (${accounts.find(a => a.id === parseInt(appliedFilters.account))?.account_name})`}
+              {appliedFilters.accountType && ` | Account Type (${appliedFilters.accountType})`}
+              {(appliedFilters.dateFrom || appliedFilters.dateTo) && (
+                ` | Date Range: ${
+                  appliedFilters.dateFrom 
+                    ? new Date(appliedFilters.dateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '...'
+                } - ${
+                  appliedFilters.dateTo 
+                    ? new Date(appliedFilters.dateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '...'
+                }`
+              )}
+              {appliedFilters.category && ` | Category (${appliedFilters.category})`}
+              {appliedFilters.school && ` | School (${schools.find(s => s.id === parseInt(appliedFilters.school))?.name || 'N/A'})`}
+              {appliedFilters.search && ` | Search (${appliedFilters.search})`}
+              {(appliedFilters.minAmount || appliedFilters.maxAmount) && (
+                ` | Amount: ${appliedFilters.minAmount ? `PKR ${parseFloat(appliedFilters.minAmount).toLocaleString()}` : '...'} - ${appliedFilters.maxAmount ? `PKR ${parseFloat(appliedFilters.maxAmount).toLocaleString()}` : '...'}`
+              )}
             </p>
-            <p><strong>School:</strong> {selectedTransaction.school_name}</p>
-            <p><strong>Notes:</strong> {selectedTransaction.notes}</p>
-            <button className="modal-close-button mt-4" onClick={closeModal}>
-              Close
-            </button>
           </div>
-        </div>
+        )}
+
+        <DataTable
+          data={filteredTransactions}
+          loading={loading.transactions}
+          columns={[
+            {
+              key: 'date',
+              label: 'Date',
+              sortable: true,
+              render: (value) => new Date(value).toLocaleDateString(),
+            },
+            {
+              key: 'transaction_type',
+              label: 'Type',
+              sortable: true,
+              render: (value) => (
+                <span
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '12px',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    backgroundColor: `${getTransactionTypeColor(value)}20`,
+                    color: getTransactionTypeColor(value),
+                  }}
+                >
+                  {value}
+                </span>
+              ),
+            },
+            {
+              key: 'amount',
+              label: 'Amount',
+              sortable: true,
+              align: 'right',
+              render: (value) => (
+                <span style={{ fontWeight: '600', color: '#1F2937' }}>
+                  PKR {parseFloat(value).toLocaleString()}
+                </span>
+              ),
+            },
+            {
+              key: 'category',
+              label: 'Category',
+              sortable: true,
+            },
+            {
+              key: 'account',
+              label: 'Account',
+              render: (_, row) => getAccountName(row),
+            },
+            {
+              key: 'school_name',
+              label: 'School',
+              sortable: true,
+            },
+            {
+              key: 'notes',
+              label: 'Notes',
+              render: (value) => (
+                <span style={{ 
+                  maxWidth: '200px', 
+                  display: 'block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {value || '-'}
+                </span>
+              ),
+            },
+            {
+              key: 'actions',
+              label: 'Actions',
+              align: 'center',
+              render: (_, row) => (
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                  <Button
+                    onClick={() => handleView(row)}
+                    variant="info"
+                    size="small"
+                  >
+                    👁️ View
+                  </Button>
+                  <Button
+                    onClick={() => handleEdit(row)}
+                    variant="warning"
+                    size="small"
+                  >
+                    ✏️ Edit
+                  </Button>
+                  <Button
+                    onClick={() => handleDelete(row.id, row.transaction_type)}
+                    variant="danger"
+                    size="small"
+                    disabled={loading.delete}
+                  >
+                    🗑️ Delete
+                  </Button>
+                </div>
+              ),
+            },
+          ]}
+          emptyMessage="No transactions found. Try adjusting your filters or add your first transaction above!"
+          striped
+          hoverable
+        />
+
+        {/* Load More Button */}
+        {pagination.hasMore && !Object.values(appliedFilters).some(v => v !== "") && (
+          <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+            <Button
+              onClick={handleLoadMore}
+              variant="secondary"
+              disabled={loading.transactions}
+            >
+              {loading.transactions ? "Loading..." : "Load More Transactions"}
+            </Button>
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* Transaction Details Modal */}
+      {modalOpen && selectedTransaction && (
+        <TransactionDetailsModal
+          transaction={selectedTransaction}
+          onClose={closeModal}
+        />
       )}
     </div>
   );

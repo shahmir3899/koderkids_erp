@@ -64,10 +64,124 @@ class FeeSummarySerializer(serializers.Serializer):
     paid_amount = serializers.FloatField()
     balance_due = serializers.FloatField()
 
+# In students/serializers.py
+# REPLACE the existing SchoolSerializer with:
+
 class SchoolSerializer(serializers.ModelSerializer):
+    # Read-only computed fields
+    total_students = serializers.SerializerMethodField()
+    total_classes = serializers.SerializerMethodField()
+    monthly_revenue = serializers.SerializerMethodField()
+    capacity_utilization = serializers.SerializerMethodField()
+    
     class Meta:
         model = School
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'location', 'address', 'logo',
+            'latitude', 'longitude', 'contact_email', 'contact_phone',
+            'established_date', 'total_capacity', 'is_active',
+            'created_at', 'updated_at',
+            # Computed fields
+            'total_students', 'total_classes', 'monthly_revenue', 'capacity_utilization'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def get_total_students(self, obj):
+        """Count active students in this school"""
+        return obj.students.filter(status='Active').count()
+    
+    def get_total_classes(self, obj):
+        """Count unique classes in this school"""
+        return obj.students.filter(status='Active').values('student_class').distinct().count()
+    
+    def get_monthly_revenue(self, obj):
+        """Sum of monthly fees for all active students"""
+        from django.db.models import Sum
+        total = obj.students.filter(status='Active').aggregate(
+            total=Sum('monthly_fee')
+        )['total']
+        return float(total) if total else 0.0
+    
+    def get_capacity_utilization(self, obj):
+        """Percentage of capacity filled"""
+        if not obj.total_capacity:
+            return None
+        total_students = obj.students.filter(status='Active').count()
+        return round((total_students / obj.total_capacity) * 100, 2)
+
+
+# ✅ ADD THIS NEW SERIALIZER for detailed statistics:
+
+class SchoolStatsSerializer(serializers.ModelSerializer):
+    """Detailed school statistics with class breakdown"""
+    total_students = serializers.SerializerMethodField()
+    total_classes = serializers.SerializerMethodField()
+    monthly_revenue = serializers.SerializerMethodField()
+    capacity_utilization = serializers.SerializerMethodField()
+    class_breakdown = serializers.SerializerMethodField()
+    gender_distribution = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = School
+        fields = [
+            'id', 'name', 'location', 'address', 'logo',
+            'latitude', 'longitude', 'contact_email', 'contact_phone',
+            'established_date', 'total_capacity', 'is_active',
+            'total_students', 'total_classes', 'monthly_revenue',
+            'capacity_utilization', 'class_breakdown', 'gender_distribution'
+        ]
+    
+    def get_total_students(self, obj):
+        return obj.students.filter(status='Active').count()
+    
+    def get_total_classes(self, obj):
+        return obj.students.filter(status='Active').values('student_class').distinct().count()
+    
+    def get_monthly_revenue(self, obj):
+        from django.db.models import Sum
+        total = obj.students.filter(status='Active').aggregate(
+            total=Sum('monthly_fee')
+        )['total']
+        return float(total) if total else 0.0
+    
+    def get_capacity_utilization(self, obj):
+        if not obj.total_capacity:
+            return None
+        total_students = obj.students.filter(status='Active').count()
+        return round((total_students / obj.total_capacity) * 100, 2)
+    
+    def get_class_breakdown(self, obj):
+        """Returns list of classes with student count and revenue"""
+        from django.db.models import Count, Sum
+        
+        classes = obj.students.filter(status='Active').values('student_class').annotate(
+            student_count=Count('id'),
+            class_revenue=Sum('monthly_fee')
+        ).order_by('student_class')
+        
+        return [
+            {
+                'class_name': cls['student_class'],
+                'students': cls['student_count'],
+                'monthly_revenue': float(cls['class_revenue']) if cls['class_revenue'] else 0.0
+            }
+            for cls in classes
+        ]
+    
+    def get_gender_distribution(self, obj):
+        """Returns gender breakdown"""
+        from django.db.models import Count
+        
+        gender_counts = obj.students.filter(status='Active').values('gender').annotate(
+            count=Count('id')
+        )
+        
+        result = {'Male': 0, 'Female': 0, 'Other': 0}
+        for item in gender_counts:
+            result[item['gender']] = item['count']
+        
+        return result
+
 
 class AttendanceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)  # Fetch student name
@@ -78,108 +192,6 @@ class AttendanceSerializer(serializers.ModelSerializer):
         fields = ['id', 'student', 'student_name', 'session_date', 'status', 'teacher', 'teacher_name']
         read_only_fields = ['teacher']
 
-class LessonPlanSerializer(serializers.ModelSerializer):
-    teacher_name = serializers.CharField(source='teacher.username', read_only=True)
-    school_name = serializers.CharField(source='school.name', read_only=True)
-    
-    planned_topic_ids = serializers.ListField(
-        child=serializers.IntegerField(), 
-        write_only=True, 
-        required=False, 
-        allow_empty=True
-    )
-    
-    # NOW WRITABLE: Teacher can edit directly
-    planned_topic = serializers.CharField(
-        allow_blank=True, 
-        required=False,
-        default=""
-    )
-
-    class Meta:
-        model = LessonPlan
-        fields = [
-            'id', 'session_date', 'teacher', 'teacher_name',
-            'school', 'school_name', 'student_class',
-            'planned_topic', 'planned_topic_ids', 'achieved_topic'
-        ]
-        read_only_fields = ['teacher_name', 'school_name']
-
-    def validate_planned_topic_ids(self, value):
-        if value:
-            invalid = [tid for tid in value if not Topic.objects.filter(pk=tid).exists()]
-            if invalid:
-                raise serializers.ValidationError(f"Invalid topic IDs: {invalid}")
-        return value
-
-    def create(self, validated_data):
-        planned_topic_ids = validated_data.pop('planned_topic_ids', [])
-        manual_topic = validated_data.pop('planned_topic', '').strip()
-
-        instance = super().create(validated_data)
-
-        # 1. Set M2M if IDs provided
-        if planned_topic_ids:
-            topics = Topic.objects.filter(pk__in=planned_topic_ids)
-            instance.planned_topics.set(topics)
-            computed = self._format_from_topics(topics)
-            instance.planned_topic = manual_topic or computed
-        else:
-            instance.planned_topic = manual_topic
-
-        instance.save(update_fields=['planned_topic'])
-        return instance
-
-    def update(self, instance, validated_data):
-        planned_topic_ids = validated_data.pop('planned_topic_ids', None)
-        manual_topic = validated_data.pop('planned_topic', None)
-
-        instance = super().update(instance, validated_data)
-
-        # 1. If IDs provided → recompute
-        if planned_topic_ids is not None:
-            topics = Topic.objects.filter(pk__in=planned_topic_ids)
-            instance.planned_topics.set(topics)
-            computed = self._format_from_topics(topics)
-            instance.planned_topic = manual_topic or computed
-        # 2. If manual text provided → use it
-        elif manual_topic is not None:
-            instance.planned_topic = manual_topic.strip()
-
-        instance.save(update_fields=['planned_topic'])
-        return instance
-
-    def _format_from_topics(self, topics):
-        if not topics:
-            return ""
-        # Reuse your original formatting logic
-        groups = {}
-        for topic in topics:
-            book = topic.book or (topic.parent.book if topic.parent else None)
-            book_title = getattr(book, "title", "Unknown Book") or "Unknown Book"
-            chapter = topic.parent if topic.parent and topic.parent.type == "chapter" else None
-            chapter_code = chapter.code.strip() if chapter else ""
-            chapter_key = (book_title, chapter_code)
-            if chapter_key not in groups:
-                groups[chapter_key] = []
-            groups[chapter_key].append(topic)
-
-        lines = []
-        for (book_title, chapter_code), topic_list in groups.items():
-            lines.append(book_title)
-            if chapter_code:
-                lines.append(f"Chapter {chapter_code}")
-            for topic in topic_list:
-                raw_code = topic.code.strip()
-                short_code = ".".join(raw_code.split(".", 2)[:2]) if raw_code else ""
-                title = topic.title.strip()
-                topic_line = f"{short_code} {title}".strip() or title or "Unnamed Topic"
-                lines.append(f"• {topic_line}")
-            lines.append("")
-
-        if lines and not lines[-1].strip():
-            lines.pop()
-        return "\n".join(lines)
 
 class MonthlyLessonsSerializer(serializers.Serializer):
     student_class = serializers.CharField()

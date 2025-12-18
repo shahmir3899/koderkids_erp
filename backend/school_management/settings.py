@@ -88,6 +88,10 @@ INSTALLED_APPS = [
     'reports',
     'finance',
     'inventory',
+    'authentication',  # ✅ ADD THIS
+    'lessons',         # We'll use this next
+    'attendance',      # We'll use this later
+    'dashboards',      # We'll use this later
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]

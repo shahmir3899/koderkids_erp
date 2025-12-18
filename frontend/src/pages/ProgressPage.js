@@ -156,7 +156,7 @@ const ProgressPage = () => {
       // Fetch planned topic
       try {
         const lessonResponse = await axios.get(
-          `${API_URL}/api/lesson-plan/${date}/${schoolId}/${className}/`,
+          `${API_URL}/api/lessons/${date}/${schoolId}/${className}/`,
           { headers: getAuthHeaders() }
         );
 
@@ -318,7 +318,7 @@ const ProgressPage = () => {
       // Create new attendance records
       if (newAttendanceRecords.length > 0) {
         await axios.post(
-          `${API_URL}/api/attendance/`,
+          `${API_URL}/api/attendance/mark/`,
           {
             session_date: filters.date,
             attendance: newAttendanceRecords,
@@ -332,7 +332,7 @@ const ProgressPage = () => {
         if (!update.attendance_id) continue;
 
         await axios.put(
-          `${API_URL}/api/attendance/update/${update.attendance_id}/`,
+        `${API_URL}/api/attendance/${update.attendance_id}/update/`,
           update,
           { headers: getAuthHeaders() }
         );

@@ -10,7 +10,7 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     // Fetch user info
-    axios.get(`${API_URL}/api/user/`, { headers: getAuthHeaders() })
+    axios.get(`${API_URL}/api/auth/user/`, { headers: getAuthHeaders() })
       .then(res => setUser(res.data))
       .catch(() => {});
     // Fetch student dashboard data

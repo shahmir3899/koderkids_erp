@@ -251,7 +251,7 @@ const ReportsPage = () => {
         return;
       }
 
-      const response = await axios.get(`${API_URL}/api/students-prog/`, {
+      const response = await axios.get(`${API_URL}/api/reports/students-progress/`, {
         headers: getAuthHeaders(),
         params: {
           school_id: selectedSchool,

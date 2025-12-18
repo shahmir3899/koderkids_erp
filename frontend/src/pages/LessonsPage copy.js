@@ -59,7 +59,7 @@ function LessonsPage() {
 
     const fetchLessonsForRange = async (startDate, endDate, schoolId, studentClass) => {
         try {
-            const endpoint = `${API_URL}/api/lesson-plan-range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
+            const endpoint = `${API_URL}/api/lessons/range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
             console.log(`🔍 Fetching lessons from: ${endpoint}`);
             const response = await axios.get(endpoint, { headers: getAuthHeaders() });
             return response.data;

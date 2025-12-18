@@ -101,9 +101,9 @@ export const STORAGE_KEYS = {
 // API Endpoints (relative paths)
 export const API_ENDPOINTS = {
   // Auth
-  LOGIN: '/api/token/',
+  LOGIN: '/api/auth/token/',
   REFRESH: '/api/token/refresh/',
-  USER: '/api/user/',
+  USER: '/api/auth/user/',
   
   // Schools & Classes
   SCHOOLS: '/api/schools/',

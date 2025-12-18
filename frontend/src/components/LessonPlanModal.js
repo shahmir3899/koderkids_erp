@@ -177,7 +177,7 @@ const loadFullBook = async (bookId) => {
   const fetchTeacherId = useCallback(async () => {
     try {
       const headers = getAuthHeaders();
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/user/`, { headers });
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/user/`, { headers });
       setTeacherId(res.data.id);
     } catch (err) {
       console.error("Failed to fetch teacher ID:", err);

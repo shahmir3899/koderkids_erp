@@ -129,7 +129,7 @@ function LessonsPage() {
   // API FUNCTIONS
   // ============================================
   const fetchLessonsAPI = async (startDate, endDate, schoolId, studentClass) => {
-    const endpoint = `${API_URL}/api/lesson-plan-range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
+    const endpoint = `${API_URL}/api/lessons/range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
     console.log(`🔍 Fetching lessons from: ${endpoint}`);
     const response = await axios.get(endpoint, { headers: getAuthHeaders() });
     return response.data;
@@ -208,7 +208,8 @@ function LessonsPage() {
     setEditState((prev) => ({ ...prev, saveLoading: lessonId }));
     
     try {
-      const endpoint = `${API_URL}/api/lesson-plans/${lessonId}/update-planned-topic/`;
+      const endpoint = `${API_URL}/api/lessons/${lessonId}/update-planned/`;
+      //const endpoint = `${API_URL}/api/lesson-plans/${lessonId}/update-planned-topic/`;
       await axios.put(
         endpoint,
         { planned_topic: editState.editedTopic },
@@ -245,7 +246,7 @@ function LessonsPage() {
     setEditState((prev) => ({ ...prev, deleteLoading: lessonId }));
 
     try {
-      const endpoint = `${API_URL}/api/lesson-plans/${lessonId}/`;
+      const endpoint = `${API_URL}/api/lessons/${lessonId}/`;
       await axios.delete(endpoint, { headers: getAuthHeaders() });
       setLessons((prev) => prev.filter((lesson) => lesson.id !== lessonId));
       toast.success('Lesson deleted successfully');

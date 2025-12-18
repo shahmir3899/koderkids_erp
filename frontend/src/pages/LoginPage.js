@@ -29,7 +29,7 @@ function LoginPage() {
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
-      const response = await fetch(`${API_URL}/api/token/`, {
+      const response = await fetch(`${API_URL}/api/auth/token/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

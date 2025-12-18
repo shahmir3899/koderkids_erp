@@ -405,7 +405,7 @@ const ImageManagementModal = ({
         let imageData = [];
 
         if (mode === 'month') {
-          const response = await axios.get(`${API_URL}/api/student-progress-images/`, {
+          const response = await axios.get(`${API_URL}/api/reports/student-progress-images/`, {
             headers: getAuthHeaders(),
             params: { student_id: studentId, month: selectedMonth },
           });
@@ -416,7 +416,7 @@ const ImageManagementModal = ({
           // Fetch all months in parallel for better performance
           const responses = await Promise.all(
             months.map((month) =>
-              axios.get(`${API_URL}/api/student-progress-images/`, {
+              axios.get(`${API_URL}/api/reports/student-progress-images/`, {
                 headers: getAuthHeaders(),
                 params: { student_id: studentId, month },
               })
@@ -511,7 +511,7 @@ const ImageManagementModal = ({
 
     try {
       await axios.delete(
-        `${API_URL}/api/student-progress-images/${studentId}/${filename}/`,
+        `${API_URL}/api/reports/student-progress-images/${studentId}/${filename}/`,
         { headers: getAuthHeaders() }
       );
 

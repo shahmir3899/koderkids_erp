@@ -6,6 +6,10 @@ import axios from 'axios';
 import { API_URL, API_ENDPOINTS } from '../../utils/constants';
 import { getAuthHeaders, handleAuthError } from '../../utils/authHelpers';
 
+// ============================================
+// EXISTING FUNCTIONS (UNCHANGED)
+// ============================================
+
 /**
  * Fetch all schools
  * @returns {Promise<Array>} List of schools
@@ -123,11 +127,182 @@ export const getUniqueClasses = (schools) => {
   );
 };
 
-// Export all functions
+// ============================================
+// NEW FUNCTIONS - SCHOOL CRUD OPERATIONS
+// ============================================
+
+/**
+ * Create a new school (Admin only)
+ * @param {Object} schoolData - School data
+ * @returns {Promise<Object>} Created school
+ */
+export const createSchool = async (schoolData) => {
+  try {
+    console.log('📡 Creating new school:', schoolData);
+    
+    const response = await axios.post(
+      `${API_URL}${API_ENDPOINTS.SCHOOLS}`,
+      schoolData,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    console.log('✅ School created:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error creating school:', error.response?.data || error.message);
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Update an existing school (Admin only)
+ * @param {number} schoolId - School ID
+ * @param {Object} schoolData - Updated school data
+ * @returns {Promise<Object>} Updated school
+ */
+export const updateSchool = async (schoolId, schoolData) => {
+  try {
+    console.log(`📡 Updating school ${schoolId}:`, schoolData);
+    
+    const response = await axios.put(
+      `${API_URL}${API_ENDPOINTS.SCHOOLS}${schoolId}/`,
+      schoolData,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    console.log('✅ School updated:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error updating school:', error.response?.data || error.message);
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a school (Admin only)
+ * @param {number} schoolId - School ID
+ * @returns {Promise<void>}
+ */
+export const deleteSchool = async (schoolId) => {
+  try {
+    console.log(`📡 Deleting school ${schoolId}...`);
+    
+    await axios.delete(`${API_URL}${API_ENDPOINTS.SCHOOLS}${schoolId}/`, {
+      headers: getAuthHeaders(),
+    });
+
+    console.log('✅ School deleted successfully');
+  } catch (error) {
+    console.error('❌ Error deleting school:', error.response?.data || error.message);
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Get detailed statistics for a specific school
+ * @param {number} schoolId - School ID
+ * @returns {Promise<Object>} School statistics
+ */
+export const fetchSchoolStats = async (schoolId) => {
+  try {
+    console.log(`📡 Fetching stats for school ${schoolId}...`);
+    
+    const response = await axios.get(
+      `${API_URL}${API_ENDPOINTS.SCHOOLS}${schoolId}/stats/`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    console.log('✅ School stats fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching school stats:', error.response?.data || error.message);
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Get overview statistics for all schools
+ * @returns {Promise<Object>} Overview data with all schools and aggregated stats
+ */
+export const fetchSchoolsOverview = async () => {
+  try {
+    console.log('📡 Fetching schools overview...');
+    
+    const response = await axios.get(
+      `${API_URL}${API_ENDPOINTS.SCHOOLS}overview/`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    console.log('✅ Schools overview fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching schools overview:', error.response?.data || error.message);
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Upload school logo to Supabase
+ * @param {File} file - Image file
+ * @param {string} schoolName - School name for filename
+ * @returns {Promise<string>} URL of uploaded image
+ */
+export const uploadSchoolLogo = async (file, schoolName) => {
+  try {
+    console.log('📡 Uploading school logo...');
+    
+    // Placeholder - implement based on your Supabase setup
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('school_name', schoolName);
+    
+    // TODO: Replace with your actual Supabase upload endpoint
+    // const response = await axios.post(`${API_URL}/api/upload-school-logo/`, formData, {
+    //   headers: {
+    //     ...getAuthHeaders(),
+    //     'Content-Type': 'multipart/form-data',
+    //   },
+    // });
+    // return response.data.url;
+    
+    console.log('⚠️ Logo upload not implemented yet - returning null');
+    return null;
+  } catch (error) {
+    console.error('❌ Error uploading logo:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// ============================================
+// EXPORTS - All functions (old + new)
+// ============================================
+
 export default {
+  // Existing functions
   fetchSchools,
   fetchClasses,
   fetchSchoolsWithClasses,
   fetchSchoolDetails,
   getUniqueClasses,
+  
+  // New functions
+  createSchool,
+  updateSchool,
+  deleteSchool,
+  fetchSchoolStats,
+  fetchSchoolsOverview,
+  uploadSchoolLogo,
 };

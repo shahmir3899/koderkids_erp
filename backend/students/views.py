@@ -1,64 +1,47 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 import os
-import random
 from django.http import JsonResponse
 from django.utils.timezone import now
-from django.db.models import Sum, Count, F, Case, When, IntegerField, FloatField
-from django.db import IntegrityError
-from rest_framework import viewsets, status, serializers
+from django.db.models import Sum, Count, Q
+from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from supabase import create_client
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth import get_user_model
-from .models import Student, Fee, School, Attendance, LessonPlan, CustomUser
-from .serializers import StudentSerializer, SchoolSerializer, AttendanceSerializer, LessonPlanSerializer, FeeSummarySerializer
+from .models import Student, Fee, School, Attendance,  CustomUser
+from .serializers import StudentSerializer, SchoolSerializer,  FeeSummarySerializer
 from django.shortcuts import render
-from django.db.models.functions import Round, Cast
-from django.db.models import Q, Count, Case, When, IntegerField, FloatField
-from django.db.models.functions import Round
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
+from .serializers import SchoolSerializer, SchoolStatsSerializer
+
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 import logging
+from rest_framework import status
+from django.db import transaction
+from datetime import datetime
 import uuid  # Add this import
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
 from django.conf import settings
 from students.models import StudentImage
 from rest_framework.views import APIView
-from django.db.models.functions import Round
-from django.contrib.postgres.aggregates import ArrayAgg
 from datetime import datetime, timedelta
-from .models import LessonPlan, StudentImage
-from .serializers import (
-    MonthlyLessonsSerializer, UpcomingLessonsSerializer,
-    LessonStatusSerializer, SchoolLessonsSerializer, StudentEngagementSerializer
-)
+from .models import StudentImage
 
-from students.serializers import LessonPlanSerializer
 
+# Initialize Supabase Client
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 
 
 def home(request):
     return render(request, 'index.html', {'user': request.user})
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_logged_in_user(request):
-    user = request.user
-    full_name = f"{user.first_name} {user.last_name}".strip() or "Unknown"  # Compute full name, fallback to "Unknown"
-    return Response({
-        "id": user.id,
-        "username": user.username,
-        "role": user.role,  # Fixed typo (was 'email': user.role)
-        "fullName": full_name  # Add this
-    })
 
 class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.all()
@@ -66,108 +49,374 @@ class StudentViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]                    # ← THIS LINE IS MISSING OR WRONG
     filterset_fields = ['school', 'student_class', 'status']
 
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    def validate(self, attrs):
-        data = super().validate(attrs)
 
-        # Debugging: Print user login details
-        print(f"🔍 Logging In - Username: {attrs['username']}, Password: {attrs['password']}")
-
-        # Check if user exists
-        user = CustomUser.objects.filter(username=attrs['username']).first()
-        if not user:
-            raise serializers.ValidationError("⚠️ User not found!")
-
-        print(f"✅ Found User: {user.username} | Active: {user.is_active}")
-
-        # Ensure user is active
-        if not user.is_active:
-            raise serializers.ValidationError("User account is inactive.")
-
-        # Include additional data
-        data['role'] = user.role
-        data['username'] = user.username
-
-        return data
+# In students/views.py
+# ADD these imports at the top if not already present:
 
 
 
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
+
+# ✅ ADD THIS NEW VIEWSET:
+
+# In students/views.py
+# ADD these imports at the top:
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Count, Sum
+from .models import School, Student
+from .serializers import SchoolSerializer, SchoolStatsSerializer
 
 
-class TeacherLessonStatus(APIView):
+# ✅ ADD THIS NEW VIEWSET:
+
+class SchoolViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for School CRUD operations
+    Admin: Full access | Teacher: Read-only
+    """
+    queryset = School.objects.all()
+    serializer_class = SchoolSerializer
     permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        if request.user.role != 'Teacher':
-            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
-        month = request.query_params.get('month', datetime.today().strftime('%Y-%m'))
-        try:
-            year, month_num = map(int, month.split('-'))
-            lessons = LessonPlan.objects.filter(
-                teacher=request.user,
-                session_date__year=year,
-                session_date__month=month_num
-            ).values('student_class', 'school__name').annotate(
-                planned_lessons=Count('id', distinct=True),
-                completed_lessons=Count(
-                    Case(
-                        When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                        output_field=IntegerField()
-                    ),
-                    distinct=True
-                ),
-                completion_rate=Round(
-                    Case(
-                        When(planned_lessons__gt=0, then=(
-                            1.0 * Count(
-                                Case(
-                                    When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                                    output_field=IntegerField()
-                                )
-                            ) / Count('id') * 100.0
-                        )),
-                        default=0.0,
-                        output_field=FloatField()
-                    ), 2
-                )
-            ).order_by('student_class')
-
-            if not lessons.exists():
-                return Response([], status=status.HTTP_200_OK)
-
-            serializer = LessonStatusSerializer(lessons, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except ValueError:
-            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error processing request: {str(e)}")
-            return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_lesson_plan_range(request):
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
-    school_id = request.GET.get("school_id")
-    student_class = request.GET.get("student_class")
-
-    if not (start_date and end_date and school_id and student_class):
-        return Response({"error": "Missing required parameters"}, status=400)
-
-    # Fetch lessons for the given date range
-    lessons = LessonPlan.objects.filter(
-        session_date__range=[start_date, end_date],
-        school_id=school_id,
-        student_class=student_class
-    ).order_by("session_date")
-
-    serialized_data = LessonPlanSerializer(lessons, many=True)
     
-    return Response(serialized_data.data)
+    # ✅ ADD THIS METHOD:
+    def get_queryset(self):
+        """
+        Filter schools based on user role:
+        - Admin: See all schools
+        - Teacher: See only assigned schools
+        """
+        user = self.request.user
+        
+        if user.role == 'Admin':
+            return School.objects.all()
+        elif user.role == 'Teacher':
+            return user.assigned_schools.all()
+        else:
+            return School.objects.none()
+    """
+    ViewSet for School CRUD operations
+    Admin: Full access | Teacher: Read-only
+    """
+    queryset = School.objects.all()
+    serializer_class = SchoolSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def create(self, request, *args, **kwargs):
+        """Only admin can create schools"""
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can create schools'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Only admin can update schools"""
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can update schools'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().update(request, *args, **kwargs)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """Only admin can partially update schools"""
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can update schools'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().partial_update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Only admin can delete schools"""
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can delete schools'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        school = self.get_object()
+        
+        # Check if school has students
+        if school.students.exists():
+            return Response(
+                {'error': 'Cannot delete school with active students'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return super().destroy(request, *args, **kwargs)
+    
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """
+        Get detailed statistics for a specific school
+        Endpoint: /api/schools/{id}/stats/
+        """
+        school = self.get_object()
+        serializer = SchoolStatsSerializer(school)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def overview(self, request):
+        """
+        Get overview statistics for all schools
+        Endpoint: /api/schools/overview/
+        """
+        schools = School.objects.filter(is_active=True)
+        
+        total_students = Student.objects.filter(
+            status='Active',
+            school__in=schools
+        ).count()
+        
+        total_revenue = Student.objects.filter(
+            status='Active',
+            school__in=schools
+        ).aggregate(total=Sum('monthly_fee'))['total'] or 0
+        
+        data = {
+            'total_schools': schools.count(),
+            'total_students': total_students,
+            'total_monthly_revenue': float(total_revenue),
+            'schools': SchoolSerializer(schools, many=True).data
+        }
+        
+        return Response(data)
+    
+    def list(self, request, *args, **kwargs):
+        """List all schools with basic stats"""
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Filter by active status if requested
+        is_active = request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+# ✅ UPDATE your existing get_schools_with_classes function:
+# FIND the existing function and REPLACE it with this:
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_schools_with_classes(request):
+    """
+    Returns schools with their class breakdown and student counts
+    Enhanced with new school fields
+    """
+    schools = School.objects.filter(is_active=True)
+    
+    result = []
+    for school in schools:
+        # Get class breakdown
+        classes = school.students.filter(status='Active').values('student_class').annotate(
+            strength=Count('id')
+        ).order_by('student_class')
+        
+        result.append({
+            'id': school.id,
+            'name': school.name,
+            'address': school.address or school.location or 'N/A',
+            'logo': school.logo,
+            'latitude': float(school.latitude) if school.latitude else None,
+            'longitude': float(school.longitude) if school.longitude else None,
+            'contact_email': school.contact_email,
+            'contact_phone': school.contact_phone,
+            'total_capacity': school.total_capacity,
+            'is_active': school.is_active,
+            'classes': [
+                {
+                    'className': cls['student_class'],
+                    'strength': cls['strength']
+                }
+                for cls in classes
+            ]
+        })
+    
+    return Response(result)
+
+
+# ✅ ADD these new API endpoints:
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_school(request):
+    """
+    Create a new school (Admin only)
+    Endpoint: POST /api/schools/create/
+    """
+    if request.user.role != 'Admin':
+        return Response(
+            {'error': 'Only admins can create schools'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    serializer = SchoolSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def update_school(request, pk):
+    """
+    Update a school (Admin only)
+    Endpoint: PUT/PATCH /api/schools/update/{id}/
+    """
+    if request.user.role != 'Admin':
+        return Response(
+            {'error': 'Only admins can update schools'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        school = School.objects.get(pk=pk)
+    except School.DoesNotExist:
+        return Response(
+            {'error': 'School not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    partial = request.method == 'PATCH'
+    serializer = SchoolSerializer(school, data=request.data, partial=partial)
+    
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_school(request, pk):
+    """
+    Delete a school (Admin only)
+    Endpoint: DELETE /api/schools/delete/{id}/
+    """
+    if request.user.role != 'Admin':
+        return Response(
+            {'error': 'Only admins can delete schools'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        school = School.objects.get(pk=pk)
+    except School.DoesNotExist:
+        return Response(
+            {'error': 'School not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Check if school has students
+    if school.students.exists():
+        return Response(
+            {'error': 'Cannot delete school with active students'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    school.delete()
+    return Response(
+        {'message': 'School deleted successfully'},
+        status=status.HTTP_204_NO_CONTENT
+    )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_school_stats(request, pk):
+    """
+    Get detailed statistics for a specific school
+    Endpoint: GET /api/schools/stats/{id}/
+    """
+    try:
+        school = School.objects.get(pk=pk)
+    except School.DoesNotExist:
+        return Response(
+            {'error': 'School not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    serializer = SchoolStatsSerializer(school)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_schools_overview(request):
+    """
+    Get overview statistics for all schools
+    Endpoint: GET /api/schools/overview/
+    """
+    schools = School.objects.filter(is_active=True)
+    
+    total_students = Student.objects.filter(
+        status='Active',
+        school__in=schools
+    ).count()
+    
+    total_revenue = Student.objects.filter(
+        status='Active',
+        school__in=schools
+    ).aggregate(total=Sum('monthly_fee'))['total'] or 0
+    
+    data = {
+        'total_schools': schools.count(),
+        'total_students': total_students,
+        'total_monthly_revenue': float(total_revenue),
+        'schools': SchoolSerializer(schools, many=True).data
+    }
+    
+    return Response(data)
+
+# ✅ ADD THIS HELPER VIEW for getting schools with classes (like your current SchoolsPage needs):
+
+from rest_framework.views import APIView
+
+class SchoolsWithClassesView(APIView):
+    """
+    Returns schools with their class breakdown and student counts
+    This is what your current SchoolsPage.js expects
+    Endpoint: /api/schools/with-classes/
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        schools = School.objects.filter(is_active=True)
+        
+        result = []
+        for school in schools:
+            # Get class breakdown
+            classes = school.students.filter(status='Active').values('student_class').annotate(
+                strength=Count('id')
+            ).order_by('student_class')
+            
+            result.append({
+                'id': school.id,
+                'name': school.name,
+                'address': school.address or school.location or 'N/A',
+                'logo': school.logo,
+                'latitude': float(school.latitude) if school.latitude else None,
+                'longitude': float(school.longitude) if school.longitude else None,
+                'classes': [
+                    {
+                        'className': cls['student_class'],
+                        'strength': cls['strength']
+                    }
+                    for cls in classes
+                ]
+            })
+        
+        return Response(result)
+
+
 
 @permission_classes([IsAuthenticated])
 def get_class_image_count(request):
@@ -196,30 +445,6 @@ def get_class_image_count(request):
     return JsonResponse(response_data)
 
     
-@api_view(['POST'])
-def register_user(request):
-    data = request.data
-    
-    # Check if username already exists
-    if CustomUser.objects.filter(username=data.get('username')).exists():
-        return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Create user
-    user = CustomUser.objects.create(
-        username=data['username'],
-        email=data['email'],
-        password=make_password(data['password'])  # Hash password
-    )
-
-    # Generate JWT tokens
-    refresh = RefreshToken.for_user(user)
-    
-    return Response({
-        'message': 'User registered successfully',
-        'refresh': str(refresh),
-        'access': str(refresh.access_token)
-    }, status=status.HTTP_201_CREATED)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -256,31 +481,6 @@ def get_schools(request):
 
 
   
-@api_view(['POST'])  # ✅ Only allow attendance submission
-@permission_classes([IsAuthenticated])
-def submit_attendance(request):
-    user = request.user
-    if user.role != "Teacher":
-        return Response({"error": "Unauthorized"}, status=403)
-
-    attendance_data = request.data.get("attendance", [])
-    
-    for entry in attendance_data:
-        student_id = entry.get("student_id")
-        status = entry.get("status")  # "Present" or "Absent"
-        date = entry.get("date")
-
-        student = Student.objects.filter(id=student_id, school__in=user.assigned_schools.all()).first()
-        if not student:
-            return Response({"error": f"Unauthorized for student ID {student_id}"}, status=403)
-
-        Attendance.objects.update_or_create(
-            student=student, date=date,
-            defaults={"status": status}
-        )
-
-    return Response({"message": "Attendance recorded successfully!"})
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_classes(request):
@@ -510,61 +710,6 @@ def get_school_details(request):
             return JsonResponse({"error": "Invalid school name"}, status=400)
 
     return JsonResponse({"error": "Provide either school_id or school_name"}, status=400)
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_teacher_dashboard_lessons(request):
-    """
-    Fetch lessons for the next 4 days (Yesterday, Today, Tomorrow, Day After Tomorrow)
-    for all assigned schools and classes of the logged-in teacher.
-    """
-    user = request.user
-    
-    if user.role != "Teacher":
-        return Response({"error": "Unauthorized access."}, status=403)
-    
-    # Get all assigned schools
-    assigned_schools = user.assigned_schools.all()
-    
-    if not assigned_schools.exists():
-        return Response({"lessons": []})
-    
-    # Generate the required 4 dates
-    today = now().date()
-    date_range = [today - timedelta(days=1), today, today + timedelta(days=1), today + timedelta(days=2)]
-    
-    # Fetch all classes in assigned schools
-    classes_per_school = {}
-    for school in assigned_schools:
-        classes = Student.objects.filter(school=school).values_list("student_class", flat=True).distinct()
-        classes_per_school[school.id] = list(classes)
-    
-    # Fetch lessons for these schools, classes, and dates
-    lessons = LessonPlan.objects.filter(
-        session_date__in=date_range,
-        school__in=assigned_schools,
-        student_class__in=[cls for classes in classes_per_school.values() for cls in classes]  # Flatten classes list
-    ).select_related("school")
-    
-    # Format response
-    lessons_data = []
-    for lesson in lessons:
-        lessons_data.append({
-            "date": lesson.session_date,
-            "school_name": lesson.school.name,
-            "class_name": lesson.student_class,
-            "topic": lesson.planned_topic
-        })
-    
-    return Response({"lessons": lessons_data})
-
-
-
-
-
-
-
 
 
 # 2️⃣ Add a new student
@@ -857,354 +1002,6 @@ def create_new_month_fees(request):
         "records_created": len(new_fees)
     }, status=201)
 
-# views.py (add this new function)
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def bulk_create_lesson_plans(request):
-    """Bulk create lesson plans (for multiple dates/topics)"""
-    teacher = request.user
-
-    if teacher.role != 'Teacher':
-        return Response({"error": "Only teachers can create lesson plans."}, status=403)
-
-    school_id = request.data.get('school_id')
-    student_class = request.data.get('student_class')
-    lessons = request.data.get('lessons', [])  # List of {'session_date': date, 'planned_topic_id': id (nullable)}
-
-    if not school_id or not student_class or not lessons:
-        return Response({"error": "School ID, class, and lessons list required."}, status=400)
-
-    try:
-        school = School.objects.get(id=school_id)
-        if not teacher.assigned_schools.filter(id=school.id).exists():
-            return Response({"error": "You are not assigned to this school."}, status=403)
-
-        created = []
-        for lesson_data in lessons:
-            serializer = LessonPlanSerializer(data={
-                'session_date': lesson_data.get('session_date'),
-                'student_class': student_class,
-                'planned_topic_id': lesson_data.get('planned_topic_id'),
-                'school': school_id,
-                'teacher': teacher.id,
-            })
-            if serializer.is_valid():
-                plan = serializer.save()
-                created.append(LessonPlanSerializer(plan).data)
-            else:
-                return Response(serializer.errors, status=400)
-
-        return Response({"message": "Lesson plans created successfully!", "data": created}, status=200)
-
-    except School.DoesNotExist:
-        return Response({"error": "Invalid school ID."}, status=400)
-    except IntegrityError:
-        return Response({"error": "Duplicate lesson plan detected."}, status=400)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def mark_attendance(request):
-    """Allows teachers to mark attendance for active students and update achieved topics"""
-    teacher = request.user
-
-    if teacher.role != 'Teacher':
-        return Response({"error": "Only teachers can mark attendance."}, status=403)
-
-    session_date = request.data.get('session_date')
-    attendance_records = request.data.get('attendance', [])
-
-    if not session_date or not attendance_records:
-        return Response({"error": "Invalid data provided."}, status=400)
-
-    created_entries = []
-    for record in attendance_records:
-        student_id = record.get('student_id')
-        status = record.get('status', "N/A")
-        achieved_topic = record.get('achieved_topic', "")
-
-        try:
-            student = Student.objects.get(id=student_id, status="Active")  # Only active students
-
-            # Fetch the correct lesson plan for this student
-            lesson_plan = LessonPlan.objects.filter(
-                session_date=session_date,
-                student_class=student.student_class,
-                school_id=student.school_id
-            ).first()
-
-            # Update the lesson plan's achieved_topic if it exists
-            if lesson_plan and achieved_topic:
-                lesson_plan.achieved_topic = achieved_topic
-                lesson_plan.save()
-
-            attendance, created = Attendance.objects.update_or_create(
-                student=student, session_date=session_date,
-                defaults={
-                    "status": status,
-                    "teacher": teacher,
-                    "achieved_topic": achieved_topic,
-                    "lesson_plan": lesson_plan if lesson_plan else None
-                }
-            )
-            created_entries.append(attendance)
-
-        except Student.DoesNotExist:
-            return Response({"error": f"Student ID {student_id} not found or not active."}, status=400)
-        except IntegrityError:
-            return Response({"error": "Duplicate attendance record detected."}, status=400)
-
-    return Response({"message": "Attendance recorded successfully!", "data": AttendanceSerializer(created_entries, many=True).data})
-
-
-
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
-def get_attendance(request, session_date):
-    """Retrieve attendance records for a given session date"""
-    attendance_records = Attendance.objects.filter(session_date=session_date)
-    
-    if not attendance_records.exists():
-        return Response({"message": "No attendance records found for this date."}, status=200)
-
-    serializer = AttendanceSerializer(attendance_records, many=True)
-    return Response(serializer.data)
-
-@api_view(['PUT'])
-@permission_classes([IsAuthenticated])
-def update_attendance(request, attendance_id):
-    """Allows admins and teachers to edit attendance records"""
-    user = request.user
-
-    if user.role not in ['Admin', 'Teacher']:
-        return Response({"error": "Only admins and teachers can edit attendance."}, status=403)
-
-    try:
-        attendance = Attendance.objects.get(id=attendance_id)
-
-        # ✅ Teachers can only update their own records
-        if user.role == 'Teacher' and attendance.teacher != user:
-            return Response({"error": "You can only update attendance records you created."}, status=403)
-
-        new_status = request.data.get('status')
-        achieved_topic = request.data.get('achieved_topic')
-        lesson_plan_id = request.data.get('lesson_plan_id')  # ✅ Get lesson plan from request
-
-        if new_status not in ['Present', 'Absent', 'N/A']:
-            return Response({"error": "Invalid status."}, status=400)
-
-        # ✅ If lesson_plan_id is missing, fetch it from the database
-        if not lesson_plan_id:
-            lesson_plan = LessonPlan.objects.filter(
-                session_date=attendance.session_date,
-                student_class=attendance.student.student_class,
-                school_id=attendance.student.school_id
-            ).first()
-            lesson_plan_id = lesson_plan.id if lesson_plan else None
-
-        attendance.status = new_status
-        attendance.achieved_topic = achieved_topic
-        attendance.lesson_plan_id = lesson_plan_id  # ✅ Ensure lesson_plan_id is stored
-        attendance.save()
-
-        return Response({"message": "Attendance updated successfully!", "data": AttendanceSerializer(attendance).data})
-
-    except Attendance.DoesNotExist:
-        return Response({"error": "Attendance record not found."}, status=404)
-
-
-# views.py (replace the existing function)
-# students/views.py   (or wherever the view lives)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_lesson_plan(request):
-    teacher = request.user
-    if teacher.role != 'Teacher':
-        return Response({"error": "Only teachers can create lesson plans."}, status=403)
-
-    data = request.data
-
-    # CASE 1: Bulk array of lessons (each with school_id, student_class)
-    if isinstance(data, list):
-        lessons_data = data
-        created_plans = []
-
-        for lesson_data in lessons_data:
-            school_id = lesson_data.get('school_id')
-            student_class = lesson_data.get('student_class')
-            session_date = lesson_data.get('session_date')
-            planned_topic_ids = lesson_data.get('planned_topic_ids', [])
-            planned_topic_id = lesson_data.get('planned_topic_id')  # backward compat
-
-            if not all([school_id, student_class, session_date]):
-                return Response({
-                    "error": "Each lesson must include school_id, student_class, session_date."
-                }, status=400)
-
-            # School access check
-            try:
-                school = School.objects.get(id=school_id)
-                if not teacher.assigned_schools.filter(id=school.id).exists():
-                    return Response({"error": f"Not assigned to school {school_id}"}, status=403)
-            except School.DoesNotExist:
-                return Response({"error": f"Invalid school_id: {school_id}"}, status=400)
-
-            # Duplicate check
-            if LessonPlan.objects.filter(
-                session_date=session_date,
-                teacher=teacher,
-                student_class=student_class,
-                school=school
-            ).exists():
-                return Response({
-                    "error": f"Duplicate lesson for {session_date}"
-                }, status=400)
-
-            # Build serializer data
-            serializer_data = {
-                'session_date': session_date,
-                'student_class': student_class,
-                'school': school_id,
-                'teacher': teacher.id,
-            }
-            if planned_topic_ids:
-                serializer_data['planned_topic_ids'] = planned_topic_ids
-            elif planned_topic_id is not None:
-                serializer_data['planned_topic_ids'] = [planned_topic_id]
-
-            serializer = LessonPlanSerializer(data=serializer_data)
-            if serializer.is_valid():
-                plan = serializer.save()
-                created_plans.append(LessonPlanSerializer(plan).data)
-            else:
-                return Response(serializer.errors, status=400)
-
-        return Response({
-            "message": "Lesson plans created successfully!",
-            "data": created_plans
-        }, status=201)
-
-    # CASE 2: Original format { school_id, student_class, lessons: [...] }
-    else:
-        school_id = data.get('school_id')
-        student_class = data.get('student_class')
-        lessons_data = data.get('lessons', [])
-
-        if not all([school_id, student_class, lessons_data]):
-            return Response({"error": "Missing required fields."}, status=400)
-
-        try:
-            school = School.objects.get(id=school_id)
-            if not teacher.assigned_schools.filter(id=school.id).exists():
-                return Response({"error": "You are not assigned to this school."}, status=403)
-        except School.DoesNotExist:
-            return Response({"error": "Invalid school ID."}, status=400)
-
-        created_plans = []
-        for lesson_data in lessons_data:
-            session_date = lesson_data.get('session_date')
-            planned_topic_ids = lesson_data.get('planned_topic_ids', [])
-            planned_topic_id = lesson_data.get('planned_topic_id')
-
-            if not session_date:
-                return Response({"error": "session_date required."}, status=400)
-
-            if LessonPlan.objects.filter(
-                session_date=session_date,
-                teacher=teacher,
-                student_class=student_class,
-                school=school
-            ).exists():
-                return Response({"error": f"Duplicate for {session_date}"}, status=400)
-
-            serializer_data = {
-                'session_date': session_date,
-                'student_class': student_class,
-                'school': school_id,
-                'teacher': teacher.id,
-            }
-            if planned_topic_ids:
-                serializer_data['planned_topic_ids'] = planned_topic_ids
-            elif planned_topic_id is not None:
-                serializer_data['planned_topic_ids'] = [planned_topic_id]
-
-            serializer = LessonPlanSerializer(data=serializer_data)
-            if serializer.is_valid():
-                plan = serializer.save()
-                created_plans.append(LessonPlanSerializer(plan).data)
-            else:
-                return Response(serializer.errors, status=400)
-
-        return Response({
-            "message": "Lesson plans created successfully!",
-            "data": created_plans
-        }, status=201)
-    
-
-    
-from django.db.models import Q
-
-# views.py (replace the existing function)
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_lesson_plan(request, session_date, school_id, student_class):
-    """
-    Fetch lesson plans for a specific date.
-    If no lessons exist, return an empty list instead of 404.
-    """
-    try:
-        logger.info(f"🔍 Fetching lessons for date: {session_date}, school: {school_id}, class: {student_class}")
-
-        lessons = LessonPlan.objects.filter(
-            session_date=session_date,
-            school_id=school_id,
-            student_class=student_class
-        )
-
-        if not lessons.exists():
-            logger.warning(f"⚠️ No lessons found for {session_date}, school {school_id}, class {student_class}. Returning empty list.")
-            return JsonResponse({"lessons": []}, safe=False, status=200)
-
-        # CHANGED: Use serializer (outputs display_title for planned_topic)
-        serializer = LessonPlanSerializer(lessons, many=True)
-        return JsonResponse({"lessons": serializer.data}, safe=False, status=200)
-
-    except Exception as e:
-        logger.error(f"❌ Error fetching lessons: {str(e)}")
-        return JsonResponse({"error": str(e)}, status=500)
-
-# views.py (replace the existing function)
-@api_view(['PUT'])
-@permission_classes([IsAuthenticated])
-def update_achieved_topic(request, lesson_plan_id):
-    """Allows teachers to update the achieved lesson topic"""
-    teacher = request.user
-
-    if teacher.role != 'Teacher':
-        return Response({"error": "Only teachers can update achieved topics."}, status=403)
-
-    try:
-        lesson_plan = LessonPlan.objects.get(id=lesson_plan_id)
-
-        if lesson_plan.teacher != teacher:
-            return Response({"error": "You can only update your own lesson plans."}, status=403)
-
-        achieved_topic = request.data.get('achieved_topic')
-        if not achieved_topic:
-            return Response({"error": "Achieved topic cannot be empty."}, status=400)
-
-        lesson_plan.achieved_topic = achieved_topic
-        lesson_plan.save()
-
-        # CHANGED: Use serializer for response (includes display_title for planned_topic)
-        return Response({"message": "Achieved topic updated successfully!", "data": LessonPlanSerializer(lesson_plan).data})
-
-    except LessonPlan.DoesNotExist:
-        return Response({"error": "Lesson plan not found."}, status=404)
-# Initialize Supabase Client
-supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1287,58 +1084,6 @@ def get_student_images(request):
 
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def students_progress(request):
-    school_id = request.GET.get('school_id')
-    student_class = request.GET.get('class_id')
-    session_date_str = request.GET.get('session_date')
-
-    # Validate required parameters
-    if not all([school_id, student_class, session_date_str]):
-        return Response({"error": "Missing required parameters: school_id, class_id, session_date"}, status=400)
-
-    # Parse session_date from MM/DD/YYYY to YYYY-MM-DD
-    try:
-        session_date = datetime.strptime(session_date_str, '%m/%d/%Y').date()
-        logger.info(f"Parsed session_date: {session_date}")
-    except ValueError:
-        logger.error(f"Invalid date format for session_date: {session_date_str}. Expected MM/DD/YYYY.")
-        return Response({"error": "Invalid date format. Use MM/DD/YYYY (e.g., 03/12/2025)."}, status=400)
-
-    # Fetch Lesson Plan
-    lesson_plan = LessonPlan.objects.filter(
-        session_date=session_date,
-        school_id=school_id,
-        student_class=student_class
-    ).first()
-    logger.info(f"Lesson plan found: {lesson_plan.id if lesson_plan else 'None'}")
-
-    # Fetch Students
-    students = Student.objects.filter(status="Active", school_id=school_id, student_class=student_class)
-    logger.info(f"Found {students.count()} active students")
-
-    student_data = []
-    for student in students:
-        attendance = Attendance.objects.filter(student=student, session_date=session_date).first()
-        logger.info(f"Student {student.id} ({student.name}) - Attendance: {attendance.status if attendance else 'None'}")
-
-        student_data.append({
-            "id": student.id,
-            "name": student.name,
-            "class_id": student.student_class,
-            "school_id": student.school_id,
-            "attendance_id": attendance.id if attendance else None,
-            "status": attendance.status if attendance else "N/A",
-            "achieved_topic": attendance.achieved_topic if attendance else "",
-            "lesson_plan_id": lesson_plan.id if lesson_plan else None
-        })
-
-    return Response({
-        "students": student_data,
-        "lesson_plan": LessonPlanSerializer(lesson_plan).data if lesson_plan else None
-    })
-
 # API for reports
 
 @permission_classes([IsAuthenticated])
@@ -1360,272 +1105,6 @@ def get_student_details(request):
     except Student.DoesNotExist:
         return JsonResponse({"error": "Student not found"}, status=404)
 
-@permission_classes([IsAuthenticated])
-def get_attendance_count(request):
-    student_id = request.GET.get('student_id')
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-
-    if not student_id or not start_date or not end_date:
-        return JsonResponse({"error": "student_id, start_date, and end_date are required"}, status=400)
-
-    try:
-        # Fetch the student's school
-        student = Student.objects.get(id=student_id)
-        school = student.school
-
-        # Total days in the range for the student's school
-        total_days = Attendance.objects.filter(
-            session_date__range=[start_date, end_date],
-            student__school=school  # Filter by the student's school
-        ).values('session_date').distinct().count()
-
-        # Days student was marked as "Present"
-        present_days = Attendance.objects.filter(
-            student_id=student_id,
-            status="Present",
-            session_date__range=[start_date, end_date]
-        ).count()
-
-        return JsonResponse({"present_days": present_days, "total_days": total_days})
-
-    except Student.DoesNotExist:
-        return JsonResponse({"error": "Student not found"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-        
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_lessons_achieved(request):
-    student_id = request.GET.get("student_id")
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
-
-    if not student_id or not start_date or not end_date:
-        return Response({"error": "student_id, start_date, and end_date are required"}, status=400)
-
-    try:
-        # 1️⃣ Fetch the student's class and school
-        student = Student.objects.get(id=student_id)
-        student_class = student.student_class
-        student_school = student.school
-
-        # 2️⃣ Fetch Planned Lessons from LessonPlan
-        planned_lessons = LessonPlan.objects.filter(
-            session_date__range=[start_date, end_date],
-            school=student_school,
-            student_class=student_class
-        ).values("session_date", "planned_topic")
-
-        # Convert planned lessons to dictionary {date: topic}
-        planned_dict = {lesson["session_date"]: lesson["planned_topic"] for lesson in planned_lessons}
-
-        # 3️⃣ Fetch Achieved Topics from Attendance (for this student)
-        achieved_lessons = Attendance.objects.filter(
-            session_date__range=[start_date, end_date],
-            student=student
-        ).values("session_date", "achieved_topic")
-
-        # Convert achieved lessons to dictionary {date: topic}
-        achieved_dict = {lesson["session_date"]: lesson["achieved_topic"] for lesson in achieved_lessons}
-
-        # 4️⃣ Combine Planned & Achieved Topics by Date
-        lessons = []
-        for session_date in sorted(planned_dict.keys()):  # Ensure chronological order
-            lessons.append({
-                "date": session_date,
-                "planned_topic": planned_dict[session_date],
-                "achieved_topic": achieved_dict.get(session_date, "N/A")  # Default to "N/A" if missing
-            })
-
-        return Response({"lessons": lessons}, status=200)
-
-    except Student.DoesNotExist:
-        return Response({"error": "Student not found"}, status=404)
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-class TeacherLessonsSummary(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        if request.user.role != 'Teacher':
-            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
-
-        month = request.query_params.get('month')  # e.g., "2025-04"
-        school_id = request.query_params.get('school_id')  # Optional filter
-        student_class = request.query_params.get('student_class')  # Optional filter
-
-        if not month:
-            return Response({"error": "Month parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            year, month_num = map(int, month.split('-'))
-            # Base query
-            lessons_query = LessonPlan.objects.filter(
-                teacher=request.user,
-                session_date__year=year,
-                session_date__month=month_num
-            )
-
-            # Apply filters if provided
-            if school_id:
-                lessons_query = lessons_query.filter(school_id=school_id)
-            if student_class:
-                lessons_query = lessons_query.filter(student_class=student_class)
-
-            # Aggregate data
-            lessons = lessons_query.values('school__name', 'student_class').annotate(
-                planned_lessons=Count('id'),
-                completed_lessons=Count(Case(
-                    When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                    output_field=IntegerField()
-                )),
-                completion_rate=Round(
-                    Case(
-                        When(planned_lessons__gt=0, then=(
-                            Count(Case(
-                                When(achieved_topic__isnull=False, achieved_topic__gt='', then=1),
-                                output_field=IntegerField()
-                            )) * 100.0) / Count('id')
-                        ),
-                        default=0.0,
-                        output_field=FloatField()
-                    )
-                )
-            ).order_by('school__name', 'student_class')
-
-            # Serialize data (reusing MonthlyLessonsSerializer and adding fields)
-            data = [
-                {
-                    "school_name": entry['school__name'],
-                    "student_class": entry['student_class'],
-                    "lesson_count": entry['planned_lessons'],  # Match existing naming
-                    "planned_lessons": entry['planned_lessons'],
-                    "completed_lessons": entry['completed_lessons'],
-                    "completion_rate": entry['completion_rate']
-                }
-                for entry in lessons
-            ]
-
-            return Response(data, status=status.HTTP_200_OK)
-
-        except ValueError:
-            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error in TeacherLessonsSummary: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['PUT'])
-@permission_classes([IsAuthenticated])
-def update_planned_topic(request, lesson_plan_id):
-    """Allows teachers to update the planned lesson topic"""
-    teacher = request.user
-
-    if teacher.role != 'Teacher':
-        logger.warning(f"Unauthorized attempt to update lesson plan by {teacher.username} (role: {teacher.role})")
-        return Response({"error": "Only teachers can update planned topics."}, status=status.HTTP_403_FORBIDDEN)
-
-    try:
-        lesson_plan = LessonPlan.objects.get(id=lesson_plan_id)
-
-        if lesson_plan.teacher != teacher:
-            logger.warning(f"Teacher {teacher.username} attempted to update lesson plan {lesson_plan_id} not assigned to them")
-            return Response({"error": "You can only update your own lesson plans."}, status=status.HTTP_403_FORBIDDEN)
-
-        planned_topic = request.data.get('planned_topic')
-        if not planned_topic:
-            logger.error(f"Empty planned_topic received for lesson plan {lesson_plan_id}")
-            return Response({"error": "Planned topic cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
-
-        lesson_plan.planned_topic = planned_topic
-        lesson_plan.save()
-        logger.info(f"Lesson plan {lesson_plan_id} updated by {teacher.username}: planned_topic={planned_topic}")
-
-        return Response({
-            "message": "Planned topic updated successfully!",
-            "data": LessonPlanSerializer(lesson_plan).data
-        }, status=status.HTTP_200_OK)
-
-    except LessonPlan.DoesNotExist:
-        logger.error(f"Lesson plan {lesson_plan_id} not found")
-        return Response({"error": "Lesson plan not found."}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        logger.error(f"Unexpected error updating lesson plan {lesson_plan_id}: {str(e)}")
-        return Response({"error": f"Failed to update lesson plan: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated])
-def delete_lesson_plan(request, lesson_plan_id):
-    """Allows teachers to delete their own lesson plans"""
-    teacher = request.user
-
-    if teacher.role != 'Teacher':
-        logger.warning(f"Unauthorized attempt to delete lesson plan by {teacher.username} (role: {teacher.role})")
-        return Response({"error": "Only teachers can delete lesson plans."}, status=status.HTTP_403_FORBIDDEN)
-
-    try:
-        lesson_plan = LessonPlan.objects.get(id=lesson_plan_id)
-
-        if lesson_plan.teacher != teacher:
-            logger.warning(f"Teacher {teacher.username} attempted to delete lesson plan {lesson_plan_id} not assigned to them")
-            return Response({"error": "You can only delete your own lesson plans."}, status=status.HTTP_403_FORBIDDEN)
-
-        lesson_plan.delete()
-        logger.info(f"Lesson plan {lesson_plan_id} deleted by {teacher.username}")
-
-        return Response({"message": "Lesson plan deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
-
-    except LessonPlan.DoesNotExist:
-        logger.error(f"Lesson plan {lesson_plan_id} not found")
-        return Response({"error": "Lesson plan not found."}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        logger.error(f"Unexpected error deleting lesson plan {lesson_plan_id}: {str(e)}")
-        return Response({"error": f"Failed to delete lesson plan: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_student_progress_images(request):
-    """
-    Fetch all stored images for a student within a given month from Supabase Storage.
-    Used in Report Generation.
-    """
-    student_id = request.GET.get('student_id')
-    month = request.GET.get('month')  # Format: YYYY-MM
-
-    if not student_id or not month:
-        return JsonResponse({"error": "student_id and month are required"}, status=400)
-
-    try:
-        # Define the folder path inside the Supabase bucket
-        folder_path = f"{student_id}/"
-
-        # Fetch all files from the student's folder in Supabase
-        response = supabase.storage.from_("student-images").list(folder_path)
-
-        if not response or "error" in response:
-            return JsonResponse({"error": "Failed to fetch files from Supabase"}, status=500)
-
-        # Filter files that start with the requested month (YYYY-MM)
-        matching_images = [
-            supabase.storage.from_("student-images").create_signed_url(f"{folder_path}{file['name']}", 604800)
-            for file in response if file["name"].startswith(month)
-        ]
-
-        if not matching_images:
-            return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
-
-        return JsonResponse({"progress_images": matching_images})
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-
 
 @api_view(["GET"])
 def debug_cors(request):
@@ -1644,343 +1123,6 @@ from django.db.models import Count
 import logging
 
 logger = logging.getLogger(__name__)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_schools_with_classes(request):
-    try:
-        user = request.user
-        logger.info(f"🔍 Fetching schools for user: {user.username}, role: {user.role}")
-
-        # Determine which schools to fetch based on role
-        if user.role == "Admin":
-            schools = School.objects.all()  # Admins see all schools
-        elif user.role == "Teacher":
-            # Teachers only see their assigned schools
-            assigned_schools = user.assigned_schools.all()
-            if not assigned_schools.exists():
-                logger.warning(f"⚠️ No schools assigned to teacher: {user.username}")
-                return Response([])  # Return empty list if no schools assigned
-            schools = assigned_schools  # Filter to only assigned schools
-        else:
-            logger.error(f"❌ Unauthorized role for user: {user.username}, role: {user.role}")
-            return Response({"error": "Unauthorized role"}, status=403)
-
-        # Aggregate data for each school
-        school_data = []
-        for school in schools:
-            # Get active students for this school and count per class
-            class_counts = (
-                Student.objects
-                .filter(school=school, status="Active")
-                .values("student_class")
-                .annotate(count=Count("id"))
-                .order_by("student_class")
-            )
-
-            # Convert class_counts to a list of {className, strength} objects
-            classes = [
-                {
-                    "className": entry["student_class"],
-                    "strength": entry["count"]
-                }
-                for entry in class_counts
-            ]
-
-            # Calculate total students
-            total_students = sum(entry["count"] for entry in class_counts)
-
-            school_data.append({
-                "id": school.id,  # Include school ID
-                "name": school.name,
-                "address": school.location or "No location available",
-                "total_students": total_students,
-                "classes": classes
-            })
-
-        logger.info(f"✅ Fetched schools with classes: {school_data}")
-        return Response(school_data)
-
-    except Exception as e:
-        logger.error(f"❌ Error fetching schools with classes: {str(e)}")
-        return Response({"error": "Server error, check logs"}, status=500)
-
-
-
-class TeacherLessonsByMonth(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        if request.user.role != 'Teacher':
-            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
-        try:
-            month = request.query_params.get('month')  # e.g., "2025-04"
-            if not month:
-                return Response({"error": "Month parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-            year, month = map(int, month.split('-'))
-            lessons = LessonPlan.objects.filter(
-                teacher=request.user,
-                session_date__year=year,
-                session_date__month=month
-            ).values('student_class', 'school__name').annotate(
-                lesson_count=Count('id')
-            ).order_by('student_class')
-            serializer = MonthlyLessonsSerializer(lessons, many=True)
-            return Response(serializer.data)
-        except ValueError:
-            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
-
-class TeacherUpcomingLessons(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        if request.user.role != 'Teacher':
-            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
-        today = datetime.today()
-        next_week = today + timedelta(days=7)
-        lessons = LessonPlan.objects.filter(
-            teacher=request.user,
-            session_date__range=[today, next_week]
-        ).select_related('school').order_by('session_date', 'student_class')
-        serializer = UpcomingLessonsSerializer(lessons, many=True)
-        return Response({"lessons": serializer.data})  # Wrap in "lessons" to match existing API
-
-
-class TeacherLessonsBySchool(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        if request.user.role != 'Teacher':
-            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
-        month = request.query_params.get('month')
-        if not month:
-            return Response({"error": "Month parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            year, month = map(int, month.split('-'))
-            lessons = LessonPlan.objects.filter(
-                teacher=request.user,
-                session_date__year=year,
-                session_date__month=month
-            ).values('school__name').annotate(
-                total_lessons=Count('id'),
-                classes_covered=ArrayAgg('student_class', distinct=True)
-            ).order_by('school__name')
-            serializer = SchoolLessonsSerializer(lessons, many=True)
-            return Response(serializer.data)
-        except ValueError:
-            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
-
-class TeacherStudentEngagement(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-
-
-        if request.user.role != 'Teacher':
-            return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
-        month = request.query_params.get('month')
-        if not month:
-            return Response({"error": "Month parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            year, month = map(int, month.split('-'))
-            engagement = StudentImage.objects.filter(
-                session_date__year=year,
-                session_date__month=month,
-                student__school__in=request.user.assigned_schools.all()
-            ).values('student__student_class').annotate(
-                image_count=Count('id'),
-                student_count=Count('student_id', distinct=True)
-            ).order_by('student__student_class')
-            serializer = StudentEngagementSerializer(engagement, many=True)
-            return Response(serializer.data)
-        except ValueError:
-            return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
-        
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_student_attendance_counts(request):
-    """
-    Fetch attendance counts (Present, Absent, Not Marked) for students in a given month, school, and class.
-    Parameters: month (YYYY-MM), school_id, student_class
-    """
-    user = request.user
-    month = request.GET.get('month')  # Format: YYYY-MM
-    school_id = request.GET.get('school_id')
-    student_class = request.GET.get('student_class')
-
-    # Validate parameters
-    if not all([month, school_id, student_class]):
-        return Response({"error": "month, school_id, and student_class are required"}, status=400)
-
-    try:
-        # Parse month to get date range
-        year, month_num = map(int, month.split('-'))
-        start_date = datetime(year, month_num, 1).date()
-        end_date = (datetime(year, month_num + 1, 1) - timedelta(days=1)).date() if month_num < 12 else datetime(year, 12, 31).date()
-
-        # Filter students by school and class
-        students = Student.objects.filter(
-            school_id=school_id,
-            student_class=student_class,
-            status="Active"
-        )
-
-        # Restrict to teacher's assigned schools if role is Teacher
-        if user.role == "Teacher":
-            assigned_schools = user.assigned_schools.values_list("id", flat=True)
-            if int(school_id) not in assigned_schools:
-                return Response({"error": "Unauthorized access to this school"}, status=403)
-
-        # Fetch attendance records for the month
-        attendance_records = Attendance.objects.filter(
-            student__in=students,
-            session_date__range=[start_date, end_date]
-        ).values('student_id', 'status').annotate(count=Count('id'))
-
-        # Prepare response data
-        student_data = []
-        for student in students:
-            student_attendance = {entry['status']: entry['count'] for entry in attendance_records if entry['student_id'] == student.id}
-            student_data.append({
-                "student_id": student.id,
-                "name": student.name,
-                "present": student_attendance.get("Present", 0),
-                "absent": student_attendance.get("Absent", 0),
-                "not_marked": student_attendance.get("N/A", 0)
-            })
-
-        return Response(student_data, status=200)
-
-    except ValueError:
-        return Response({"error": "Invalid month format. Use YYYY-MM (e.g., 2025-03)"}, status=400)
-    except Exception as e:
-        logger.error(f"Error in get_student_attendance_counts: {str(e)}")
-        return Response({"error": str(e)}, status=500)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_student_achieved_topics_count(request):
-    """
-    Fetch count of distinct achieved topics for students in a given month, school, and class.
-    Parameters: month (YYYY-MM), school_id, student_class
-    """
-    user = request.user
-    month = request.GET.get('month')  # Format: YYYY-MM
-    school_id = request.GET.get('school_id')
-    student_class = request.GET.get('student_class')
-
-    # Validate parameters
-    if not all([month, school_id, student_class]):
-        return Response({"error": "month, school_id, and student_class are required"}, status=400)
-
-    try:
-        # Parse month to get date range
-        year, month_num = map(int, month.split('-'))
-        start_date = datetime(year, month_num, 1).date()
-        end_date = (datetime(year, month_num + 1, 1) - timedelta(days=1)).date() if month_num < 12 else datetime(year, 12, 31).date()
-
-        # Filter students by school and class
-        students = Student.objects.filter(
-            school_id=school_id,
-            student_class=student_class,
-            status="Active"
-        )
-
-        # Restrict to teacher's assigned schools if role is Teacher
-        if user.role == "Teacher":
-            assigned_schools = user.assigned_schools.values_list("id", flat=True)
-            if int(school_id) not in assigned_schools:
-                return Response({"error": "Unauthorized access to this school"}, status=403)
-
-        # Fetch attendance records with achieved topics for the month
-        achieved_topics = Attendance.objects.filter(
-            student__in=students,
-            session_date__range=[start_date, end_date],
-            achieved_topic__isnull=False,  # Ensure not null
-        ).exclude(achieved_topic='')  # Exclude empty strings directly
-        achieved_topics = achieved_topics.values('student_id').annotate(topics_count=Count('achieved_topic', distinct=True))
-
-        # Prepare response data
-        student_data = []
-        for student in students:
-            topics_count = next((item['topics_count'] for item in achieved_topics if item['student_id'] == student.id), 0)
-            student_data.append({
-                "student_id": student.id,
-                "name": student.name,
-                "topics_achieved": topics_count
-            })
-
-        return Response(student_data, status=200)
-
-    except ValueError:
-        return Response({"error": "Invalid month format. Use YYYY-MM (e.g., 2025-03)"}, status=400)
-    except Exception as e:
-        logger.error(f"Error in get_student_achieved_topics_count: {str(e)}")
-        return Response({"error": str(e)}, status=500)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_student_image_uploads_count(request):
-    """
-    Fetch count of images uploaded for students in a given month, school, and class from Supabase.
-    Parameters: month (YYYY-MM), school_id, student_class
-    """
-    user = request.user
-    month = request.GET.get('month')  # Format: YYYY-MM
-    school_id = request.GET.get('school_id')
-    student_class = request.GET.get('student_class')
-
-    # Validate parameters
-    if not all([month, school_id, student_class]):
-        return Response({"error": "month, school_id, and student_class are required"}, status=400)
-
-    try:
-        # Filter students by school and class
-        students = Student.objects.filter(
-            school_id=school_id,
-            student_class=student_class,
-            status="Active"
-        )
-
-        # Restrict to teacher's assigned schools if role is Teacher
-        if user.role == "Teacher":
-            assigned_schools = user.assigned_schools.values_list("id", flat=True)
-            if int(school_id) not in assigned_schools:
-                return Response({"error": "Unauthorized access to this school"}, status=403)
-
-        # Prepare response data
-        student_data = []
-        for student in students:
-            # Fetch images from Supabase for this student
-            folder_path = f"{student.id}/"
-            response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(folder_path)
-
-            if "error" in response:
-                logger.error(f"Error fetching images for student {student.id}: {response['error']['message']}")
-                continue
-
-            # Filter images by month (filename starts with YYYY-MM)
-            image_count = sum(1 for file in response if file['name'].startswith(month))
-
-            student_data.append({
-                "student_id": student.id,
-                "name": student.name,
-                "images_uploaded": image_count
-            })
-
-        return Response(student_data, status=200)
-
-    except ValueError:
-        return Response({"error": "Invalid month format. Use YYYY-MM (e.g., 2025-03)"}, status=400)
-    except Exception as e:
-        logger.error(f"Error in get_student_image_uploads_count: {str(e)}")
-        return Response({"error": str(e)}, status=500)
-    
-
-# students/views.py   (or wherever the endpoint lives)
-
 
 
 
@@ -2036,16 +1178,9 @@ def my_student_data(request):
     return Response(data, status=200)
 
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from django.db import transaction
-from datetime import datetime
 
-# Adjust imports based on your project structure
-# from .models import Fee
-# from students.models import Student
+
+
 
 
 @api_view(['POST'])

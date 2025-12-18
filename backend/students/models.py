@@ -11,9 +11,23 @@ from books.models import Topic  # NEW: Import Topic at the top (add this line)
 class School(models.Model):
     name = models.CharField(max_length=255, unique=True)
     location = models.CharField(max_length=255, blank=True, null=True)
+    # ✅ ADD THESE NEW FIELDS:
+    address = models.TextField(blank=True, null=True)  # More detailed address
+    logo = models.URLField(blank=True, null=True)  # Supabase URL for logo
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    contact_email = models.EmailField(blank=True, null=True)
+    contact_phone = models.CharField(max_length=20, blank=True, null=True)
+    established_date = models.DateField(blank=True, null=True)
+    total_capacity = models.IntegerField(blank=True, null=True, validators=[MinValueValidator(1)])
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
+    class Meta:
+        ordering = ['name']
 
 
 class CustomUser(AbstractUser):

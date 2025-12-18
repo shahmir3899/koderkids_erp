@@ -1,6 +1,7 @@
 // ============================================
-// FINANCE DASHBOARD - Refactored Version
+// FINANCE DASHBOARD - Complete Enhanced Version
 // ============================================
+// Location: src/pages/FinanceDashboard.js
 
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
@@ -22,11 +23,16 @@ import { DataTable } from '../components/common/tables/DataTable';
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ui/ErrorDisplay';
 import { useSchools } from '../hooks/useSchools';
+import { IncomeCategoriesPie } from '../components/finance/IncomeCategoriesPie';
 
-// Finance Components
+// Finance Components - Existing
 import { FinanceSummaryCards } from '../components/finance/FinanceSummaryCards';
-import { TransactionFilterPanel } from '../components/finance/TransactionFilterPanel';
-import { PivotTableViewer } from '../components/finance/PivotTableViewer';
+
+// NEW Dashboard Components
+import { MonthlyTrendsChart } from '../components/finance/MonthlyTrendsChart';
+import { CashFlowChart } from '../components/finance/CashFlowChart';
+import { AccountBalanceSelector } from '../components/finance/AccountBalanceSelector';
+import { ExpenseCategoriesPie } from '../components/finance/ExpenseCategoriesPie';
 
 function FinanceDashboard() {
   // ============================================
@@ -41,17 +47,10 @@ function FinanceDashboard() {
     accounts: [],
   });
   const [loanSummary, setLoanSummary] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState({
-    income: [],
-    expense: [],
-  });
-  const [searchFilters, setSearchFilters] = useState(null);
 
   // Loading States (Consolidated)
   const [loading, setLoading] = useState({
     initial: true,
-    transactions: false,
   });
 
   // Error States
@@ -95,51 +94,6 @@ function FinanceDashboard() {
       toast.error(errorMessage);
     } finally {
       setLoading((prev) => ({ ...prev, initial: false }));
-    }
-  };
-
-  // Handle Search from TransactionFilterPanel
-  const handleSearch = async (filters) => {
-    setLoading((prev) => ({ ...prev, transactions: true }));
-    setError(null);
-
-    try {
-      const [incomeRes, expenseRes, transferRes] = await Promise.all([
-        axios.get(`${API_URL}/api/income/`, { headers: getAuthHeaders() }),
-        axios.get(`${API_URL}/api/expense/`, { headers: getAuthHeaders() }),
-        axios.get(`${API_URL}/api/transfers/`, { headers: getAuthHeaders() }),
-      ]);
-
-      const incomeTxs = incomeRes.data.results.map((tx) => ({
-        ...tx,
-        transaction_type: 'Income',
-      }));
-      const expenseTxs = expenseRes.data.results.map((tx) => ({
-        ...tx,
-        transaction_type: 'Expense',
-      }));
-      const transferTxs = transferRes.data.results.map((tx) => ({
-        ...tx,
-        transaction_type: 'Transfer',
-      }));
-
-      const allTransactions = [...incomeTxs, ...expenseTxs, ...transferTxs];
-      setTransactions(allTransactions);
-
-      // Extract categories
-      setCategories({
-        income: [...new Set(incomeTxs.map((tx) => tx.category))],
-        expense: [...new Set(expenseTxs.map((tx) => tx.category))],
-      });
-
-      // Store search filters
-      setSearchFilters(filters);
-    } catch (err) {
-      const errorMessage = 'Failed to load transactions. Please try again.';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading((prev) => ({ ...prev, transactions: false }));
     }
   };
 
@@ -213,7 +167,7 @@ function FinanceDashboard() {
           textAlign: 'center',
         }}
       >
-        Finance Dashboard
+        💰 Finance Dashboard
       </h1>
 
       {/* Error Display */}
@@ -231,11 +185,14 @@ function FinanceDashboard() {
       {/* Main Dashboard Content */}
       {!loading.initial && !error && (
         <div>
-          {/* Summary Cards */}
+          {/* ============================================ */}
+          {/* SUMMARY CARDS */}
+          {/* ============================================ */}
           <FinanceSummaryCards summary={summary} loading={loading.initial} />
-
-          {/* Income vs Expenses Chart */}
-          <CollapsibleSection title="Income vs Expenses">
+          {/* ============================================ */}
+          {/* EXISTING: SIMPLE INCOME VS EXPENSES BAR CHART */}
+          {/* ============================================ */}
+          <CollapsibleSection title="📊 Quick Summary - Income vs Expenses" defaultOpen={false}>
             <div style={{ height: '320px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barChartData}>
@@ -249,9 +206,43 @@ function FinanceDashboard() {
               </ResponsiveContainer>
             </div>
           </CollapsibleSection>
+          {/* ============================================ */}
+          {/* NEW: MONTHLY TRENDS CHART */}
+          {/* ============================================ */}
+          <CollapsibleSection title="📊 Monthly Trends - Income vs Expenses" defaultOpen>
+            <MonthlyTrendsChart schools={schools} />
+          </CollapsibleSection>
+          
+          {/* ============================================ */}
+          {/* NEW: CASH FLOW ANALYSIS */}
+          {/* ============================================ */}
+          <CollapsibleSection title="💰 Cash Flow Analysis" defaultOpen>
+            <CashFlowChart schools={schools} />
+          </CollapsibleSection>
 
-          {/* Account Balances Table */}
-          <CollapsibleSection title="Account Balances">
+          {/* ============================================ */}
+          {/* NEW: ACCOUNT BALANCE HISTORY */}
+          {/* ============================================ */}
+          <CollapsibleSection title="📈 Account Balance History" defaultOpen>
+            <AccountBalanceSelector accounts={summary.accounts} />
+          </CollapsibleSection>
+          {/* NEW: INCOME CATEGORIES ANALYSIS */}
+        <CollapsibleSection title="📈 Income Categories Analysis" defaultOpen={false}>
+          <IncomeCategoriesPie schools={schools} />  {/* Pass schools from useSchools hook */}
+        </CollapsibleSection>
+          {/* ============================================ */}
+          {/* NEW: EXPENSE CATEGORIES BREAKDOWN */}
+          {/* ============================================ */}
+          <CollapsibleSection title="🎯 Expense Categories Analysis" defaultOpen>
+            <ExpenseCategoriesPie schools={schools} />
+          </CollapsibleSection>
+
+          
+
+          {/* ============================================ */}
+          {/* EXISTING: ACCOUNT BALANCES TABLE */}
+          {/* ============================================ */}
+          <CollapsibleSection title="💳 Account Balances" defaultOpen={false}>
             <DataTable
               data={summary.accounts}
               loading={loading.initial}
@@ -260,6 +251,31 @@ function FinanceDashboard() {
                   key: 'account_name',
                   label: 'Account Name',
                   sortable: true,
+                },
+                {
+                  key: 'account_type',
+                  label: 'Type',
+                  sortable: true,
+                  render: (value) => (
+                    <span
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '12px',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        backgroundColor: 
+                          value === 'Bank' ? '#DBEAFE' : 
+                          value === 'Cash' ? '#D1FAE5' : 
+                          '#F3F4F6',
+                        color: 
+                          value === 'Bank' ? '#1E40AF' : 
+                          value === 'Cash' ? '#059669' : 
+                          '#374151',
+                      }}
+                    >
+                      {value}
+                    </span>
+                  ),
                 },
                 {
                   key: 'current_balance',
@@ -306,25 +322,10 @@ function FinanceDashboard() {
             )}
           </CollapsibleSection>
 
-          {/* Transaction Explorer */}
-          <CollapsibleSection title="Transaction Explorer">
-            <TransactionFilterPanel
-              schools={schools}
-              categories={categories}
-              onSearch={handleSearch}
-              loading={loading.transactions}
-            />
-
-            <PivotTableViewer
-              transactions={transactions}
-              schools={schools}
-              filters={searchFilters}
-              loading={loading.transactions}
-            />
-          </CollapsibleSection>
-
-          {/* Loan Summary Table */}
-          <CollapsibleSection title="Loan Summary">
+          {/* ============================================ */}
+          {/* EXISTING: LOAN SUMMARY TABLE */}
+          {/* ============================================ */}
+          <CollapsibleSection title="💳 Loan Summary" defaultOpen={false}>
             <DataTable
               data={loanSummary}
               loading={loading.initial}
@@ -353,7 +354,11 @@ function FinanceDashboard() {
                   label: 'Balance Outstanding',
                   sortable: true,
                   align: 'right',
-                  render: (value) => `PKR ${(value || 0).toLocaleString()}`,
+                  render: (value) => (
+                    <span style={{ color: value > 0 ? '#DC2626' : '#059669', fontWeight: '600' }}>
+                      PKR {(value || 0).toLocaleString()}
+                    </span>
+                  ),
                 },
               ]}
               emptyMessage="No loans to display"
@@ -361,6 +366,24 @@ function FinanceDashboard() {
               hoverable
             />
           </CollapsibleSection>
+
+          {/* ============================================ */}
+          {/* INFO BANNER */}
+          {/* ============================================ */}
+          <div
+            style={{
+              marginTop: '2rem',
+              padding: '1rem',
+              backgroundColor: '#EFF6FF',
+              borderRadius: '8px',
+              border: '1px solid #BFDBFE',
+            }}
+          >
+            <p style={{ fontSize: '0.875rem', color: '#1E40AF', margin: 0, textAlign: 'center' }}>
+              💡 <strong>Tip:</strong> Use the filters in each section to analyze specific schools or time periods. 
+              All charts update automatically when you change filters!
+            </p>
+          </div>
         </div>
       )}
     </div>

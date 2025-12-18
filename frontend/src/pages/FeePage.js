@@ -217,6 +217,7 @@ function FeePage() {
         onCreateMonthly={handleCreateMonthly}
         onOpenSingleFeeModal={handleOpenSingleFeeModal}
         loading={loading.create}
+        loadingStudents={loading.students}
         successMessage={successMessage}
       />
 

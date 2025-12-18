@@ -3,16 +3,18 @@
 // ============================================
 
 import { useState, useEffect } from 'react';
-import { fetchSchools } from '../api/services/schoolService';
+import { fetchSchools, fetchSchoolsOverview } from '../api/services/schoolService';
 import { toast } from 'react-toastify';
 
 /**
  * Custom hook to fetch and manage schools data
  * @param {boolean} fetchOnMount - Whether to fetch on component mount (default: true)
+ * @param {boolean} includeStats - Whether to fetch with statistics (default: false)
  * @returns {Object} Schools data, loading state, error, and refetch function
  */
-export const useSchools = (fetchOnMount = true) => {
+export const useSchools = (fetchOnMount = true, includeStats = false) => {
   const [schools, setSchools] = useState([]);
+  const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -24,8 +26,16 @@ export const useSchools = (fetchOnMount = true) => {
     setError(null);
 
     try {
-      const data = await fetchSchools();
-      setSchools(data);
+      if (includeStats) {
+        // Fetch schools with overview statistics
+        const overviewData = await fetchSchoolsOverview();
+        setOverview(overviewData);
+        setSchools(overviewData.schools || []);
+      } else {
+        // Fetch basic schools list (EXISTING BEHAVIOR)
+        const data = await fetchSchools();
+        setSchools(data);
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to fetch schools';
       setError(errorMessage);
@@ -40,13 +50,15 @@ export const useSchools = (fetchOnMount = true) => {
     if (fetchOnMount) {
       loadSchools();
     }
-  }, [fetchOnMount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOnMount, includeStats]);
 
   return {
-    schools,
-    loading,
-    error,
-    refetch: loadSchools,
+    schools,          // Array of schools
+    overview,         // Overview data (only if includeStats=true)
+    loading,          // Loading state
+    error,            // Error message
+    refetch: loadSchools,  // Function to refetch data
   };
 };
 

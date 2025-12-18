@@ -21,7 +21,8 @@ import StudentDashboard from './pages/StudentDashboard';
 import StudentProgressPage from "./pages/StudentProgressPage";
 import TestComponents from "./pages/TestComponents"
 //import StudentReport from "./pages/StudentReport";
-import TeacherDashboard from "./pages/TeacherDashboard";
+//import TeacherDashboard from "./pages/TeacherDashboard";
+import TeacherDashboardFigma from "./pages/TeacherDashboardFigma";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import TransactionsPage from "./pages/TransactionsPage";
 import { ToastContainer } from "react-toastify"; 
@@ -96,7 +97,9 @@ function App() {
   } 
 />
       <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} allowedRoles={["Admin", "Teacher"]} />} />
-      <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboard />} allowedRoles={["Teacher"]} />} />
+      <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboardFigma />} allowedRoles={["Teacher"]} />} />
+      
+
       <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/inventory-dashboard" element={<ProtectedRoute element= {<InventoryDashboard/>}allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/inventory" element={<ProtectedRoute element={<InventoryPage />} allowedRoles={["Admin", "Teacher"]}/>}/>

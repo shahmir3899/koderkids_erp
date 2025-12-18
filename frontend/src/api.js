@@ -273,7 +273,7 @@ export const getLessons = async (sessionDate, schoolId, studentClass) => {
 export const addLesson = async (lessonData) => {
     try {
         console.log("🚀 Adding lesson:", lessonData);
-        const response = await axios.post(`${API_URL}/api/lesson-plan/`, lessonData, {
+        const response = await axios.post(`${API_URL}/api/lessons/create/`, lessonData, {
             headers: {
                 ...getAuthHeaders(),
                 "Content-Type": "application/json",
@@ -308,7 +308,7 @@ export const updateLesson = async (lessonId, updatedData) => {
 export const getLoggedInUser = async () => {
     try {
         console.log("🔄 Fetching logged-in user...");
-        const response = await axios.get(`${API_URL}/api/user/`, {
+        const response = await axios.get(`${API_URL}/api/auth/user/`, {
             headers: getAuthHeaders(),
         });
 

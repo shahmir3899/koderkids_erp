@@ -1,8 +1,9 @@
 // ============================================
 // STUDENT DETAILS MODAL - Full Screen Overlay
+// FIXED: Form dirty tracking + proper save button states
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../common/ui/Button';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 
@@ -36,33 +37,67 @@ export const StudentDetailsModal = ({
 }) => {
   const [formData, setFormData] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  
+  // Track the initial student and form data
+  const initializedStudentIdRef = useRef(null);
+  const originalFormDataRef = useRef({});
 
-  // Initialize form data when student changes
-  // The backend returns school as a name string, but we need the ID for the dropdown
+  // Initialize form data ONLY when a NEW student is selected (ID changes)
   useEffect(() => {
-    if (student && schools.length > 0) {
-      // Find the school ID from the school name
-      let schoolId = '';
+    // Only initialize if this is a different student than before
+    if (student && student.id !== initializedStudentIdRef.current) {
+      console.log('🔄 Initializing form for student:', student.id);
       
-      if (typeof student.school === 'number') {
-        // school is already an ID
-        schoolId = student.school;
-      } else if (typeof student.school === 'string') {
-        // school is a name, find the ID
-        const schoolObj = schools.find(s => s.name === student.school);
-        schoolId = schoolObj ? schoolObj.id : '';
+      let initialData;
+      
+      if (schools.length > 0) {
+        // Find the school ID from the school name
+        let schoolId = '';
+        
+        if (typeof student.school === 'number') {
+          // school is already an ID
+          schoolId = student.school;
+        } else if (typeof student.school === 'string') {
+          // school is a name, find the ID
+          const schoolObj = schools.find(s => s.name === student.school);
+          schoolId = schoolObj ? schoolObj.id : '';
+        }
+        
+        initialData = {
+          ...student,
+          school: schoolId, // Store the school ID in formData.school
+        };
+      } else {
+        initialData = student;
       }
       
-      setFormData({
-        ...student,
-        school: schoolId, // Store the school ID in formData.school
-      });
+      setFormData(initialData);
+      originalFormDataRef.current = initialData;
+      setIsDirty(false);
       
-      console.log('📋 Form initialized with school ID:', schoolId, 'from:', student.school);
-    } else if (student) {
-      setFormData(student);
+      console.log('📋 Form initialized with data:', initialData);
+      
+      // Mark this student as initialized
+      initializedStudentIdRef.current = student.id;
     }
-  }, [student, schools]);
+  }, [student?.id, schools]);
+
+  // Reset when modal closes
+  useEffect(() => {
+    if (!student) {
+      initializedStudentIdRef.current = null;
+      originalFormDataRef.current = {};
+      setIsDirty(false);
+    }
+  }, [student]);
+
+  // Reset dirty flag when switching between edit/view modes
+  useEffect(() => {
+    if (!isEditing) {
+      setIsDirty(false);
+    }
+  }, [isEditing]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -70,15 +105,36 @@ export const StudentDetailsModal = ({
     // Convert school to number when changed
     const processedValue = name === 'school' ? Number(value) : value;
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: processedValue,
-    }));
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: processedValue,
+      };
+      
+      // Check if form is dirty (has changes)
+      const hasChanges = Object.keys(newData).some(key => {
+        const original = originalFormDataRef.current[key];
+        const current = newData[key];
+        
+        // Handle empty string vs null/undefined
+        if ((original === null || original === undefined || original === '') && 
+            (current === null || current === undefined || current === '')) {
+          return false;
+        }
+        
+        return String(original) !== String(current);
+      });
+      
+      setIsDirty(hasChanges);
+      
+      return newData;
+    });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (onSave) {
+    if (onSave && isDirty) {
+      console.log('💾 Submitting form data:', formData);
       onSave(formData);
     }
   };
@@ -86,6 +142,16 @@ export const StudentDetailsModal = ({
   const handleDelete = () => {
     if (onDelete) {
       onDelete(student.id);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    // Reset form data to original
+    setFormData(originalFormDataRef.current);
+    setIsDirty(false);
+    
+    if (onCancel) {
+      onCancel();
     }
   };
 
@@ -436,25 +502,7 @@ export const StudentDetailsModal = ({
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => {
-                      // Reset form data - find school ID from name again
-                      let schoolId = '';
-                      if (typeof student.school === 'number') {
-                        schoolId = student.school;
-                      } else if (typeof student.school === 'string' && schools.length > 0) {
-                        const schoolObj = schools.find(s => s.name === student.school);
-                        schoolId = schoolObj ? schoolObj.id : '';
-                      }
-                      
-                      setFormData({
-                        ...student,
-                        school: schoolId,
-                      });
-                      
-                      if (onCancel) {
-                        onCancel();
-                      }
-                    }}
+                    onClick={handleCancelEdit}
                     disabled={isSubmitting}
                   >
                     Cancel
@@ -462,7 +510,9 @@ export const StudentDetailsModal = ({
                   <Button
                     type="submit"
                     variant="primary"
-                    disabled={isSubmitting}
+                    disabled={!isDirty || isSubmitting}
+                    //style={{ minWidth: '150px' }}  // ADD THIS LINE
+
                   >
                     {isSubmitting ? (
                       <>
