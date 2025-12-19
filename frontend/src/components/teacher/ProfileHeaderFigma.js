@@ -8,6 +8,8 @@ import moment from 'moment';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 import { NotificationPanel } from '../common/ui/NotificationPanel';
 import { TeacherSettingsModal } from './TeacherSettingsModal';
+import { clearCacheOnLogout } from '../../utils/cacheUtils';  // ← ADD AT TOP
+
 
 /**
  * ProfileHeaderFigma Component
@@ -52,9 +54,10 @@ export const ProfileHeaderFigma = ({ profile, loading, onProfileUpdate }) => {
 
   // Handle logout
   const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = '/login';
-  };
+  clearCacheOnLogout();  // ← ADD THIS
+  localStorage.clear();
+  window.location.href = '/login';
+};
 
   return (
     <>

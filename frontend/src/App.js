@@ -8,6 +8,7 @@ import SchoolsPage from "./pages/SchoolsPage";
 import SettingsPage from "./pages/SettingsPage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
+import { SchoolsProvider } from './contexts/SchoolsContext';
 import ProtectedRoute from "./components/ProtectedRoute";
 import InventoryDashboard from './pages/InventoryDashboard';
 import Sidebar from "./components/Sidebar";
@@ -72,6 +73,7 @@ function App() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
     return (
+    <SchoolsProvider>
         <Router>
             <AutoLogout /> 
             <div className="flex m-0">
@@ -142,6 +144,8 @@ function App() {
                 />
             </div>
         </Router>
+            </SchoolsProvider>
+
     );
 }
 

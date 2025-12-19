@@ -92,56 +92,66 @@ export const TeacherInventoryWidget = ({
         return;
       }
       
-      // Fetch data for all schools and aggregate
-      let totalSummary = { total: 0, available_count: 0 };
-      let allAssignedItems = [];
+      // Fetch data for all schools in PARALLEL (not sequential)
+console.log('🚀 Fetching inventory data for all schools in parallel...');
 
-      for (const schoolId of schoolIds) {
-        try {
-          // Fetch summary for this school
-          console.log(`📡 Fetching summary for school ${schoolId}...`);
-          const summaryResponse = await axios.get(
-            `${API_BASE_URL}/api/inventory/summary/`,
-            { 
-              headers: getAuthHeaders(),
-              params: { school: schoolId }
-            }
-          );
-          
-          console.log(`✅ School ${schoolId} summary:`, summaryResponse.data);
-          
-          // Aggregate totals
-          if (summaryResponse.data) {
-            totalSummary.total += summaryResponse.data.total || 0;
-            totalSummary.available_count += summaryResponse.data.available_count || 0;
-          }
-
-          // Fetch assigned items for this school
-          console.log(`📡 Fetching items for school ${schoolId}...`);
-          const itemsResponse = await axios.get(
-            `${API_BASE_URL}/api/inventory/items/`,
-            {
-              headers: getAuthHeaders(),
-              params: {
-                school: schoolId,
-                status: 'Assigned'
-              }
-            }
-          );
-
-          console.log(`✅ School ${schoolId} items:`, itemsResponse.data);
-
-          // Handle both paginated and non-paginated responses
-          const items = itemsResponse.data.results || itemsResponse.data || [];
-          if (Array.isArray(items)) {
-            allAssignedItems = allAssignedItems.concat(items);
-          }
-
-        } catch (schoolError) {
-          console.warn(`⚠️ Error fetching data for school ${schoolId}:`, schoolError.message);
-          // Continue with other schools
+// Build all requests at once
+const schoolRequests = schoolIds.map(schoolId => 
+  Promise.all([
+    // Summary request
+    axios.get(
+      `${API_BASE_URL}/api/inventory/summary/`,
+      { 
+        headers: getAuthHeaders(),
+        params: { school: schoolId }
+      }
+    ).catch(err => {
+      console.warn(`⚠️ Error fetching summary for school ${schoolId}:`, err.message);
+      return { data: { total: 0, available_count: 0 } }; // Return empty data on error
+    }),
+    
+    // Items request
+    axios.get(
+      `${API_BASE_URL}/api/inventory/items/`,
+      {
+        headers: getAuthHeaders(),
+        params: {
+          school: schoolId,
+          status: 'Assigned'
         }
       }
+    ).catch(err => {
+      console.warn(`⚠️ Error fetching items for school ${schoolId}:`, err.message);
+      return { data: [] }; // Return empty array on error
+    })
+  ]).then(([summaryResponse, itemsResponse]) => ({
+    schoolId,
+    summary: summaryResponse.data,
+    items: itemsResponse.data.results || itemsResponse.data || []
+  }))
+);
+
+// Wait for ALL schools to complete
+const schoolResults = await Promise.all(schoolRequests);
+
+console.log('✅ All school data fetched in parallel:', schoolResults);
+
+// Aggregate results
+let totalSummary = { total: 0, available_count: 0 };
+let allAssignedItems = [];
+
+schoolResults.forEach(({ schoolId, summary, items }) => {
+  // Aggregate totals
+  totalSummary.total += summary.total || 0;
+  totalSummary.available_count += summary.available_count || 0;
+  
+  // Collect all items
+  if (Array.isArray(items)) {
+    allAssignedItems = allAssignedItems.concat(items);
+  }
+  
+  console.log(`✅ School ${schoolId}: ${summary.total} total, ${items.length} assigned items`);
+});
 
       console.log('📦 Total items across all schools:', allAssignedItems.length);
 

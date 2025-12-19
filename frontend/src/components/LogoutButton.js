@@ -1,13 +1,22 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { FiLogOut } from "react-icons/fi";
+import { clearCacheOnLogout } from "../utils/cacheUtils";  // ← ADD THIS
 
 function LogoutButton() {
     const navigate = useNavigate();
 
     const handleLogout = () => {
-        localStorage.clear();  // ✅ Fully clear localStorage
-        window.dispatchEvent(new Event("storage"));  // ✅ Broadcast logout event
+        // Clear cached data first
+        clearCacheOnLogout();  // ← ADD THIS LINE
+        
+        // Then clear all localStorage
+        localStorage.clear();
+        
+        // Broadcast logout event
+        window.dispatchEvent(new Event("storage"));
+        
+        // Navigate to login
         navigate("/login", { replace: true });
     };
 

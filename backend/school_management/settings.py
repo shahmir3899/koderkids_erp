@@ -142,7 +142,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://frontend.koderkids.pk",
     "https://koderkids-erp.onrender.com",
 ]
-
+# Cache CORS preflight requests for 24 hours
+CORS_PREFLIGHT_MAX_AGE = 86400
 # Authentication & JWT
 AUTH_USER_MODEL = 'students.CustomUser'
 REST_FRAMEWORK = {

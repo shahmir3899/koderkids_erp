@@ -14,7 +14,7 @@
 // - Bulk "Mark All Present" action
 // - Clean, compact hybrid UI
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { getAuthHeaders } from '../api';
@@ -73,6 +73,21 @@ const ProgressPage = () => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedStudentForImage, setSelectedStudentForImage] = useState(null);
 
+
+
+  // ✅ ADD THESE LINES:
+  // Cleanup ref
+  const isMounted = useRef(true);
+
+  // Cleanup effect
+  useEffect(() => {
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // ============================================
   // DERIVED VALUES
   // ============================================
@@ -100,107 +115,84 @@ const ProgressPage = () => {
 
   // Handle filter submission from FilterBar
   const handleFilter = useCallback(async (filterValues) => {
-    const { date, schoolId, className } = filterValues;
+  const { date, schoolId, className } = filterValues;
 
-    if (!date || !schoolId || !className) {
-      toast.error('Please select date, school, and class.');
-      return;
-    }
+  if (!date || !schoolId || !className) {
+    toast.error('Please select date, school, and class.');
+    return;
+  }
 
-    setFilters({ date, schoolId, className });
-    setIsSearching(true);
-    setHasSearched(true);
-    setCurrentPage(1);
+  // ✅ NEW: Check if mounted
+  if (!isMounted.current) return;
 
-    // Clear previous data
+  setFilters({ date, schoolId, className });
+  setIsSearching(true);
+  setHasSearched(true);
+  setCurrentPage(1);
+
+  // Clear previous data
+  setStudents([]);
+  setAttendanceData({});
+  setAchievedLessons({});
+  setUploadedImages({});
+  setPlannedTopic('');
+
+  try {
+    // Format date for API (MM/DD/YYYY)
+    const [year, month, day] = date.split('-');
+    const formattedDate = `${month}/${day}/${year}`;
+
+    // Fetch students
+    const response = await axios.get(`${API_URL}/api/students-prog/`, {
+      params: {
+        school_id: schoolId,
+        class_id: className,
+        session_date: formattedDate,
+      },
+      headers: getAuthHeaders(),
+    });
+
+    // ✅ NEW: Check before state updates
+    if (!isMounted.current) return;
+
+    const fetchedStudents = response.data.students || [];
+    setStudents(fetchedStudents);
+
+    // Process attendance and achieved lessons
+    const newAttendanceData = {};
+    const newAchievedLessons = {};
+
+    fetchedStudents.forEach((student) => {
+      if (student.status && student.status !== 'N/A') {
+        newAttendanceData[student.id] = { status: student.status };
+      }
+      if (student.achieved_topic) {
+        newAchievedLessons[student.id] = student.achieved_topic;
+      }
+    });
+
+    setAttendanceData(newAttendanceData);
+    setAchievedLessons(newAchievedLessons);
+
+    // Get planned topic
+    const plannedTopicText = response.data.planned_topic || '';
+    setPlannedTopic(plannedTopicText);
+
+    toast.success(`Loaded ${fetchedStudents.length} students`);
+  } catch (error) {
+    // ✅ NEW: Check before showing error
+    if (!isMounted.current) return;
+    
+    console.error('Error fetching data:', error);
+    toast.error('Failed to load data. Please try again.');
     setStudents([]);
-    setAttendanceData({});
-    setAchievedLessons({});
-    setUploadedImages({});
-    setPlannedTopic('');
-
-    try {
-      // Format date for API (MM/DD/YYYY)
-      const [year, month, day] = date.split('-');
-      const formattedDate = `${month}/${day}/${year}`;
-
-      // Fetch students
-      const response = await axios.get(`${API_URL}/api/students-prog/`, {
-        params: {
-          school_id: schoolId,
-          class_id: className,
-          session_date: formattedDate,
-        },
-        headers: getAuthHeaders(),
-      });
-
-      const fetchedStudents = response.data.students || [];
-      setStudents(fetchedStudents);
-
-      // Process attendance and achieved lessons
-      const newAttendanceData = {};
-      const newAchievedLessons = {};
-
-      fetchedStudents.forEach((student) => {
-        if (student.status && student.status !== 'N/A') {
-          newAttendanceData[student.id] = { status: student.status };
-        }
-        if (student.achieved_topic) {
-          newAchievedLessons[student.id] = student.achieved_topic;
-        }
-      });
-
-      setAttendanceData(newAttendanceData);
-      setAchievedLessons(newAchievedLessons);
-
-      // Fetch planned topic
-      try {
-        const lessonResponse = await axios.get(
-          `${API_URL}/api/lessons/${date}/${schoolId}/${className}/`,
-          { headers: getAuthHeaders() }
-        );
-
-        if (lessonResponse.data.lessons?.length > 0) {
-          setPlannedTopic(lessonResponse.data.lessons[0].planned_topic);
-        } else {
-          setPlannedTopic('No topic planned for this date.');
-        }
-      } catch (err) {
-        console.error('Error fetching planned topic:', err);
-        setPlannedTopic('Failed to fetch planned topic.');
-      }
-
-      // Fetch student images
-      const newUploadedImages = {};
-      for (const student of fetchedStudents) {
-        try {
-          const imageResponse = await axios.get(`${API_URL}/api/student-images/`, {
-            params: { student_id: student.id, session_date: date },
-            headers: getAuthHeaders(),
-          });
-
-          if (imageResponse.data.images?.length > 0) {
-            newUploadedImages[student.id] = imageResponse.data.images[0];
-          }
-        } catch (err) {
-          // Silently fail for individual image fetches
-        }
-      }
-
-      setUploadedImages(newUploadedImages);
-
-      if (fetchedStudents.length > 0) {
-        toast.success(`Loaded ${fetchedStudents.length} students.`);
-      } else {
-        toast.info('No students found for the selected criteria.');
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      toast.error('Failed to fetch data. Please try again.');
-    } finally {
+  } finally {
+    // ✅ NEW: Check before clearing loading
+    if (isMounted.current) {
       setIsSearching(false);
     }
-  }, []);
+  }
+}, []);
 
   // Attendance change handler
   const handleAttendanceChange = useCallback((studentId, status) => {
@@ -275,77 +267,95 @@ const ProgressPage = () => {
   }, []);
 
   // Submit handler
-  const handleSubmit = useCallback(async () => {
-    if (!filters.date || !filters.schoolId || !filters.className) {
-      toast.error('Please search for students first.');
-      return;
-    }
+  // ============================================
+// PROGRESSPAGE.JS - CORRECTED handleSubmit
+// ============================================
+// Location: Lines 270-343
+// Replace your current handleSubmit with this:
 
-    if (students.length === 0) {
-      toast.error('No students to submit.');
-      return;
-    }
+const handleSubmit = useCallback(async () => {
+  // ✅ CHECK 1: Initial check
+  if (!isMounted.current) return;
 
-    setIsSubmitting(true);
+  if (!filters.date || !filters.schoolId || !filters.className) {
+    toast.error('Please search for students first.');
+    return;
+  }
 
-    try {
-      const newAttendanceRecords = [];
+  if (students.length === 0) {
+    toast.error('No students to submit.');
+    return;
+  }
 
-      const attendanceUpdates = students.map((student) => {
-        const attendanceId = student.attendance_id || null;
-        const status = attendanceData[student.id]?.status || 'N/A';
-        const achievedTopic = achievedLessons[student.id] || '';
-        const lessonPlanId = student.lesson_plan_id || null;
+  setIsSubmitting(true);
 
-        if (!attendanceId) {
-          newAttendanceRecords.push({
-            student_id: student.id,
-            session_date: filters.date,
-            status: status,
-            achieved_topic: achievedTopic,
-            lesson_plan_id: lessonPlanId,
-          });
-        }
+  try {
+    const newAttendanceRecords = [];
 
-        return {
-          attendance_id: attendanceId,
-          status,
+    const attendanceUpdates = students.map((student) => {
+      const attendanceId = student.attendance_id || null;
+      const status = attendanceData[student.id]?.status || 'N/A';
+      const achievedTopic = achievedLessons[student.id] || '';
+      const lessonPlanId = student.lesson_plan_id || null;
+
+      if (!attendanceId) {
+        newAttendanceRecords.push({
+          student_id: student.id,
+          session_date: filters.date,
+          status: status,
           achieved_topic: achievedTopic,
           lesson_plan_id: lessonPlanId,
-        };
-      });
-
-      // Create new attendance records
-      if (newAttendanceRecords.length > 0) {
-        await axios.post(
-          `${API_URL}/api/attendance/mark/`,
-          {
-            session_date: filters.date,
-            attendance: newAttendanceRecords,
-          },
-          { headers: getAuthHeaders() }
-        );
+        });
       }
 
-      // Update existing attendance records
-      for (const update of attendanceUpdates) {
-        if (!update.attendance_id) continue;
+      return {
+        attendance_id: attendanceId,
+        status,
+        achieved_topic: achievedTopic,
+        lesson_plan_id: lessonPlanId,
+      };
+    });
 
-        await axios.put(
+    // Create new attendance records
+    if (newAttendanceRecords.length > 0) {
+      await axios.post(
+        `${API_URL}/api/attendance/mark/`,
+        {
+          session_date: filters.date,
+          attendance: newAttendanceRecords,
+        },
+        { headers: getAuthHeaders() }
+      );
+    }
+
+    // Update existing attendance records
+    for (const update of attendanceUpdates) {
+      if (!update.attendance_id) continue;
+
+      await axios.put(
         `${API_URL}/api/attendance/${update.attendance_id}/update/`,
-          update,
-          { headers: getAuthHeaders() }
-        );
-      }
+        update,
+        { headers: getAuthHeaders() }
+      );
+    }
+    
+    // ✅ CHECK 2: Before state updates/toast
+    if (!isMounted.current) return;
 
-      toast.success('Progress saved successfully!');
-    } catch (err) {
-      console.error('Error saving progress:', err);
-      toast.error(`Failed to save: ${err.response?.data?.detail || err.message}`);
-    } finally {
+    toast.success('Progress saved successfully!');
+  } catch (err) {
+    // ✅ CHECK 3: Before showing error (MISSING IN YOUR CODE)
+    if (!isMounted.current) return;
+    
+    console.error('Error saving progress:', err);
+    toast.error(`Failed to save: ${err.response?.data?.detail || err.message}`);
+  } finally {
+    // ✅ CHECK 4: Before clearing loading (MISSING IN YOUR CODE)
+    if (isMounted.current) {
       setIsSubmitting(false);
     }
-  }, [filters, students, attendanceData, achievedLessons]);
+  }
+}, [filters, students, attendanceData, achievedLessons]);
 
   // ============================================
   // TABLE COLUMNS

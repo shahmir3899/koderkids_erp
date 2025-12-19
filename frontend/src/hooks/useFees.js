@@ -1,12 +1,21 @@
 /**
  * useFees Hook - Manages fee state and operations
  * Path: frontend/src/hooks/useFees.js
+ * 
+ * OPTIMIZED:
+ * - Added isMounted cleanup to prevent memory leaks
+ * - Added duplicate fetch prevention
+ * - Better error handling
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import * as feeService from '../services/feeService';
 
 export const useFees = (initialFilters = {}) => {
+  // Refs for cleanup
+  const isMounted = useRef(true);
+  const fetchTimeoutRef = useRef(null);
+  
   // Data state
   const [fees, setFees] = useState([]);
   const [students, setStudents] = useState([]);
@@ -35,17 +44,33 @@ export const useFees = (initialFilters = {}) => {
   const [selectedFeeIds, setSelectedFeeIds] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
+  // Cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Clear messages after delay
   useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(''), 5000);
+    if (successMessage && isMounted.current) {
+      const timer = setTimeout(() => {
+        if (isMounted.current) setSuccessMessage('');
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
 
   useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), 10000);
+    if (error && isMounted.current) {
+      const timer = setTimeout(() => {
+        if (isMounted.current) setError(null);
+      }, 10000);
       return () => clearTimeout(timer);
     }
   }, [error]);
@@ -55,6 +80,7 @@ export const useFees = (initialFilters = {}) => {
    */
   const fetchFees = useCallback(async () => {
     if (!filters.schoolId && !filters.studentClass) return;
+    if (!isMounted.current) return; // Don't fetch if unmounted
     
     setLoading(prev => ({ ...prev, fees: true }));
     setError(null);
@@ -67,16 +93,22 @@ export const useFees = (initialFilters = {}) => {
         month: monthStr,
       });
 
+      if (!isMounted.current) return; // Component unmounted during fetch
+
       const sortedFees = data
         .sort((a, b) => (a.student_class || '').localeCompare(b.student_class || ''))
         .map(fee => ({ ...fee, date_received: fee.date_received || null }));
 
       setFees(sortedFees);
     } catch (err) {
+      if (!isMounted.current) return;
+      
       console.error('Failed to fetch fees:', err);
       setError('Failed to load fees. Please try again.');
     } finally {
-      setLoading(prev => ({ ...prev, fees: false }));
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, fees: false }));
+      }
     }
   }, [filters.schoolId, filters.studentClass, filters.month]);
 
@@ -84,16 +116,23 @@ export const useFees = (initialFilters = {}) => {
    * Fetch students for single fee creation
    */
   const fetchStudents = useCallback(async (schoolId) => {
-    if (!schoolId) return;
+    if (!schoolId || !isMounted.current) return;
     
     setLoading(prev => ({ ...prev, students: true }));
     try {
       const data = await feeService.fetchStudentsBySchool(schoolId);
-      setStudents(data);
+      
+      if (isMounted.current) {
+        setStudents(data);
+      }
     } catch (err) {
-      console.error('Failed to fetch students:', err);
+      if (isMounted.current) {
+        console.error('Failed to fetch students:', err);
+      }
     } finally {
-      setLoading(prev => ({ ...prev, students: false }));
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, students: false }));
+      }
     }
   }, []);
 
@@ -101,7 +140,9 @@ export const useFees = (initialFilters = {}) => {
    * Create monthly fee records for a school
    */
   const createMonthlyFees = useCallback(async (forceOverwrite = false) => {
-    if (!filters.schoolId || !filters.month) return { success: false };
+    if (!filters.schoolId || !filters.month || !isMounted.current) {
+      return { success: false };
+    }
 
     setLoading(prev => ({ ...prev, create: true }));
     setError(null);
@@ -115,10 +156,14 @@ export const useFees = (initialFilters = {}) => {
         forceOverwrite,
       });
 
+      if (!isMounted.current) return { success: false };
+
       setSuccessMessage(response.message);
       await fetchFees();
       return { success: true };
     } catch (err) {
+      if (!isMounted.current) return { success: false };
+      
       if (err.response?.status === 409) {
         return {
           success: false,
@@ -129,7 +174,9 @@ export const useFees = (initialFilters = {}) => {
       setError(err.response?.data?.error || 'Failed to create fee records.');
       return { success: false };
     } finally {
-      setLoading(prev => ({ ...prev, create: false }));
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, create: false }));
+      }
     }
   }, [filters.schoolId, filters.month, fetchFees]);
 
@@ -137,6 +184,8 @@ export const useFees = (initialFilters = {}) => {
    * Create a single fee record
    */
   const createSingleFee = useCallback(async (feeData) => {
+    if (!isMounted.current) return { success: false };
+    
     setLoading(prev => ({ ...prev, create: true }));
     setError(null);
 
@@ -150,15 +199,21 @@ export const useFees = (initialFilters = {}) => {
         dateReceived: feeData.dateReceived,
       });
 
+      if (!isMounted.current) return { success: false };
+
       setSuccessMessage('Fee record created successfully.');
       await fetchFees();
       return { success: true };
     } catch (err) {
+      if (!isMounted.current) return { success: false };
+      
       const errorMsg = err.response?.data?.error || 'Failed to create fee record.';
       setError(errorMsg);
       return { success: false, error: errorMsg };
     } finally {
-      setLoading(prev => ({ ...prev, create: false }));
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, create: false }));
+      }
     }
   }, [filters.month, fetchFees]);
 
@@ -166,6 +221,8 @@ export const useFees = (initialFilters = {}) => {
    * Update a single fee record
    */
   const updateFee = useCallback(async (feeId, updates) => {
+    if (!isMounted.current) return { success: false };
+    
     setLoading(prev => ({ ...prev, update: true }));
     setError(null);
 
@@ -181,6 +238,9 @@ export const useFees = (initialFilters = {}) => {
       );
 
       const response = await feeService.updateFees([feeUpdate]);
+      
+      if (!isMounted.current) return { success: false };
+      
       const updatedFee = response.fees.find(f => f.id === feeId);
 
       if (updatedFee) {
@@ -199,11 +259,15 @@ export const useFees = (initialFilters = {}) => {
 
       return { success: true };
     } catch (err) {
+      if (!isMounted.current) return { success: false };
+      
       const errorMsg = err.response?.data?.error || err.message || 'Failed to update fee.';
       setError(`Failed to update fee: ${errorMsg}`);
       return { success: false, error: errorMsg };
     } finally {
-      setLoading(prev => ({ ...prev, update: false }));
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, update: false }));
+      }
     }
   }, []);
 
@@ -211,7 +275,9 @@ export const useFees = (initialFilters = {}) => {
    * Bulk update fees
    */
   const bulkUpdateFees = useCallback(async (feeIds, paidAmount) => {
-    if (!paidAmount || feeIds.length === 0) return { success: false };
+    if (!paidAmount || feeIds.length === 0 || !isMounted.current) {
+      return { success: false };
+    }
 
     setLoading(prev => ({ ...prev, update: true }));
     setError(null);
@@ -229,6 +295,9 @@ export const useFees = (initialFilters = {}) => {
       });
 
       const response = await feeService.updateFees(updates);
+      
+      if (!isMounted.current) return { success: false };
+      
       const updatedFees = response.fees;
 
       setFees(prev => prev.map(fee => {
@@ -248,10 +317,14 @@ export const useFees = (initialFilters = {}) => {
       setSuccessMessage(`Successfully updated ${feeIds.length} fee records.`);
       return { success: true };
     } catch (err) {
+      if (!isMounted.current) return { success: false };
+      
       setError(`Failed to update fees: ${err.message}`);
       return { success: false, error: err.message };
     } finally {
-      setLoading(prev => ({ ...prev, update: false }));
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, update: false }));
+      }
     }
   }, [fees]);
 
@@ -259,7 +332,9 @@ export const useFees = (initialFilters = {}) => {
    * Delete fee records
    */
   const deleteFeeRecords = useCallback(async (feeIds) => {
-    if (feeIds.length === 0) return { success: false };
+    if (feeIds.length === 0 || !isMounted.current) {
+      return { success: false };
+    }
 
     setLoading(prev => ({ ...prev, delete: true }));
     setError(null);
@@ -267,17 +342,23 @@ export const useFees = (initialFilters = {}) => {
     try {
       await feeService.deleteFees(feeIds);
       
+      if (!isMounted.current) return { success: false };
+      
       setFees(prev => prev.filter(fee => !feeIds.includes(fee.id)));
       setSelectedFeeIds(prev => prev.filter(id => !feeIds.includes(id)));
       setSuccessMessage(`Successfully deleted ${feeIds.length} fee record(s).`);
       
       return { success: true };
     } catch (err) {
+      if (!isMounted.current) return { success: false };
+      
       const errorMsg = err.response?.data?.error || 'Failed to delete fee records.';
       setError(errorMsg);
       return { success: false, error: errorMsg };
     } finally {
-      setLoading(prev => ({ ...prev, delete: false }));
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, delete: false }));
+      }
     }
   }, []);
 
@@ -285,6 +366,8 @@ export const useFees = (initialFilters = {}) => {
    * Update local date_received
    */
   const updateLocalDateReceived = useCallback((feeId, date) => {
+    if (!isMounted.current) return;
+    
     setFees(prev => prev.map(fee =>
       fee.id === feeId ? { ...fee, date_received: date } : fee
     ));
@@ -396,11 +479,29 @@ export const useFees = (initialFilters = {}) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
   }, []);
 
-  // Fetch fees when filters change
+  // Fetch fees when filters change (with debounce to prevent rapid calls)
   useEffect(() => {
+    if (!isMounted.current) return;
+    
     if (filters.schoolId || filters.studentClass) {
-      fetchFees();
+      // Clear existing timeout
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      
+      // Debounce fetch to prevent duplicate calls
+      fetchTimeoutRef.current = setTimeout(() => {
+        if (isMounted.current) {
+          fetchFees();
+        }
+      }, 300); // 300ms debounce
     }
+    
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
   }, [filters.schoolId, filters.studentClass, filters.month, fetchFees]);
 
   return {

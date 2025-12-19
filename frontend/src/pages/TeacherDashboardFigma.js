@@ -81,57 +81,89 @@ const teacherSchools = profile?.assigned_schools || [];
 
 const teacherName = profile?.full_name || '';
   // Fetch teacher profile on mount
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(prev => ({ ...prev, profile: true }));
-      try {
-        const profileData = await getTeacherProfile();
+  // Fetch teacher profile on mount
+useEffect(() => {
+  let isMounted = true; // ADD THIS
+  
+  const fetchProfile = async () => {
+    if (!isMounted) return; // ADD THIS
+    
+    setLoading(prev => ({ ...prev, profile: true }));
+    try {
+      const profileData = await getTeacherProfile();
+      if (isMounted) { // ADD THIS
         console.log('✅ Profile loaded:', profileData);
         setProfile(profileData);
-      } catch (error) {
+      }
+    } catch (error) {
+      if (isMounted) { // ADD THIS
         console.error('❌ Failed to fetch profile:', error);
         toast.error('Failed to load profile data');
       }
+    }
+    if (isMounted) { // ADD THIS
       setLoading(prev => ({ ...prev, profile: false }));
-    };
+    }
+  };
 
-    fetchProfile();
-  }, []);
+  fetchProfile();
+  
+  return () => { isMounted = false; }; // ADD THIS CLEANUP
+}, []);
 
   // Fetch lessons
-  useEffect(() => {
-    const fetchLessons = async () => {
-      setLoading(prev => ({ ...prev, lessons: true }));
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/dashboards/teacher-upcoming-lessons/`, { 
-          headers: getAuthHeaders() 
-        });
+  // Fetch lessons
+useEffect(() => {
+  let isMounted = true; // ADD THIS
+  
+  const fetchLessons = async () => {
+    if (!isMounted) return; // ADD THIS
+    
+    setLoading(prev => ({ ...prev, lessons: true }));
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/dashboards/teacher-upcoming-lessons/`, { 
+        headers: getAuthHeaders() 
+      });
+      if (isMounted) { // ADD THIS
         setLessons(response.data.lessons || []);
-      } catch (error) {
+      }
+    } catch (error) {
+      if (isMounted) { // ADD THIS
         console.error('❌ Failed to fetch lessons:', error);
         toast.error('Failed to fetch lessons');
       }
+    }
+    if (isMounted) { // ADD THIS
       setLoading(prev => ({ ...prev, lessons: false }));
-    };
+    }
+  };
 
-    fetchLessons();
-  }, []);
+  fetchLessons();
+  
+  return () => { isMounted = false; }; // ADD THIS CLEANUP
+}, []);
 
   // Fetch monthly data when month changes
-  useEffect(() => {
-    const fetchMonthlyData = async () => {
-      setLoading(prev => ({ ...prev, monthlyData: true, schoolData: true, completion: true }));
-      
-      try {
-        const [lessonStatusRes, schoolLessonsRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/api/dashboards/teacher-lesson-status/?month=${selectedMonth}`, {
-            headers: getAuthHeaders(),
-          }),
-          axios.get(`${API_BASE_URL}/api/dashboards/teacher-lessons-by-school/?month=${selectedMonth}`, {
-            headers: getAuthHeaders(),
-          }),
-        ]);
+  // Fetch monthly data when month changes
+useEffect(() => {
+  let isMounted = true; // ADD THIS
+  
+  const fetchMonthlyData = async () => {
+    if (!isMounted) return; // ADD THIS
+    
+    setLoading(prev => ({ ...prev, monthlyData: true, schoolData: true, completion: true }));
+    
+    try {
+      const [lessonStatusRes, schoolLessonsRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/dashboards/teacher-lesson-status/?month=${selectedMonth}`, {
+          headers: getAuthHeaders(),
+        }),
+        axios.get(`${API_BASE_URL}/api/dashboards/teacher-lessons-by-school/?month=${selectedMonth}`, {
+          headers: getAuthHeaders(),
+        }),
+      ]);
 
+      if (isMounted) { // ADD THIS
         setMonthlyLessonData(lessonStatusRes.data);
         setSchoolLessons(schoolLessonsRes.data);
         
@@ -139,7 +171,6 @@ const teacherName = profile?.full_name || '';
         console.log('🏫 School Lessons Data:', schoolLessonsRes.data);
         
         // Calculate completion data for charts
-        // Group by school and calculate average completion
         const completionBySchool = schoolLessonsRes.data.reduce((acc, school) => {
           const schoolData = lessonStatusRes.data.filter(
             lesson => lesson.school_name === school.school_name
@@ -166,16 +197,23 @@ const teacherName = profile?.full_name || '';
         
         console.log('📈 Final Completion Data:', completionBySchool);
         setCompletionData(completionBySchool);
-      } catch (error) {
+      }
+    } catch (error) {
+      if (isMounted) { // ADD THIS
         console.error('❌ Failed to fetch monthly data:', error);
         toast.error('Failed to fetch monthly data');
       }
-      
+    }
+    
+    if (isMounted) { // ADD THIS
       setLoading(prev => ({ ...prev, monthlyData: false, schoolData: false, completion: false }));
-    };
+    }
+  };
 
-    fetchMonthlyData();
-  }, [selectedMonth]);
+  fetchMonthlyData();
+  
+  return () => { isMounted = false; }; // ADD THIS CLEANUP
+}, [selectedMonth]);
 
   // Fetch student data
   const fetchStudentData = async (filters) => {
@@ -270,14 +308,7 @@ const teacherName = profile?.full_name || '';
           <h2 style={styles.sectionTitle}>
             Lesson Schedule (Next 7 Days)
           </h2>
-          <div style={styles.monthSelectorWrapper}>
-            <span style={styles.monthLabel}>Select Month</span>
-            <MonthFilter
-              value={selectedMonth}
-              onChange={setSelectedMonth}
-              defaultToCurrent
-            />
-          </div>
+         
         </div>
 
         {/* Lesson Schedule Grid */}
@@ -306,7 +337,14 @@ const teacherName = profile?.full_name || '';
     teacherName={teacherName}
   />
 </CollapsibleSection>
-
+         <div style={styles.monthSelectorWrapper}>
+            <span style={styles.monthLabel}>Select Month</span>
+            <MonthFilter
+              value={selectedMonth}
+              onChange={setSelectedMonth}
+              defaultToCurrent
+            />
+          </div>
         {/* Student Reports */}
         <CollapsibleSection title="👨‍🎓 Student Reports">
           <FilterBar
@@ -318,6 +356,7 @@ const teacherName = profile?.full_name || '';
             showClass
             showMonth={false}
             submitButtonText="Fetch Student Data"
+            
           />
 
           {loading.studentData ? (
@@ -369,7 +408,9 @@ const teacherName = profile?.full_name || '';
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
               <p>Select school and class to view student data</p>
+              
             </div>
+            
           )}
         </CollapsibleSection>
       </div>

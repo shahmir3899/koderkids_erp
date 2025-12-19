@@ -12,7 +12,7 @@
 // - Extracted export table to ExportableLessonTable component
 // - ADDED: RichTextEditor for editing lesson topics with formatting
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { getAuthHeaders } from '../api';
 import { useAuth } from '../auth';
@@ -68,6 +68,7 @@ function LessonsPage() {
 
   // Cache for preventing duplicate fetches
   const [lastFetched, setLastFetched] = useState(null);
+  const isMounted = useRef(true);
 
   // ============================================
   // DERIVED VALUES
@@ -136,6 +137,7 @@ function LessonsPage() {
   };
 
   // Debounced fetch
+  // ✅ UPDATED: Debounced fetch with isMounted checks
   const debouncedFetch = useMemo(
     () =>
       debounce(async (filterValues) => {
@@ -152,27 +154,41 @@ function LessonsPage() {
           return;
         }
 
+        // ✅ CHECK: Don't start if unmounted
+        if (!isMounted.current) return;
+
         setLoading(true);
         setError(null);
         setLessons([]);
 
         try {
           const lessonsData = await fetchLessonsAPI(startDate, endDate, schoolId, className);
+          
+          // ✅ CHECK: Don't update state if unmounted during fetch
+          if (!isMounted.current) return;
+          
           setLessons(lessonsData);
           setLastFetched(cacheKey);
           setEditState((prev) => ({ ...prev, editingId: null, editedTopic: '' }));
           
           toast.success(`Found ${lessonsData.length} lessons`);
         } catch (err) {
+          // ✅ CHECK: Don't show errors if unmounted
+          if (!isMounted.current) return;
+          
           console.error('❌ Error fetching lessons:', err);
           setError('Failed to fetch lessons.');
           toast.error('Failed to fetch lessons. Please try again.');
         } finally {
-          setLoading(false);
+          // ✅ CHECK: Only update loading if still mounted
+          if (isMounted.current) {
+            setLoading(false);
+          }
         }
       }, 500),
     [lastFetched]
   );
+
 
   // ============================================
   // HANDLERS
@@ -204,59 +220,96 @@ function LessonsPage() {
     });
   };
 
-  const handleSave = async (lessonId) => {
-    setEditState((prev) => ({ ...prev, saveLoading: lessonId }));
+  // ============================================
+// LESSONS PAGE - handleSave with isMounted
+// ============================================
+// Location: src/pages/LessonsPage.js
+// Replace handleSave function (around line 207-241) with this:
+
+const handleSave = async (lessonId) => {
+  // ✅ CHECK: Don't start if unmounted
+  if (!isMounted.current) return;
+  
+  setEditState((prev) => ({ ...prev, saveLoading: lessonId }));
+  
+  try {
+    const endpoint = `${API_URL}/api/lessons/${lessonId}/update-planned/`;
+    await axios.put(
+      endpoint,
+      { planned_topic: editState.editedTopic },
+      { headers: getAuthHeaders() }
+    );
+
+    // ✅ CHECK: Don't update state if unmounted during save
+    if (!isMounted.current) return;
+
+    setLessons((prev) =>
+      prev.map((lesson) =>
+        lesson.id === lessonId
+          ? { ...lesson, planned_topic: editState.editedTopic }
+          : lesson
+      )
+    );
+
+    setEditState({
+      editingId: null,
+      editedTopic: '',
+      saveLoading: null,
+      deleteLoading: null,
+    });
+
+    toast.success('Lesson updated successfully');
+  } catch (err) {
+    // ✅ CHECK: Don't show errors if unmounted
+    if (!isMounted.current) return;
     
-    try {
-      const endpoint = `${API_URL}/api/lessons/${lessonId}/update-planned/`;
-      //const endpoint = `${API_URL}/api/lesson-plans/${lessonId}/update-planned-topic/`;
-      await axios.put(
-        endpoint,
-        { planned_topic: editState.editedTopic },
-        { headers: getAuthHeaders() }
-      );
-
-      setLessons((prev) =>
-        prev.map((lesson) =>
-          lesson.id === lessonId
-            ? { ...lesson, planned_topic: editState.editedTopic }
-            : lesson
-        )
-      );
-
-      setEditState({
-        editingId: null,
-        editedTopic: '',
-        saveLoading: null,
-        deleteLoading: null,
-      });
-
-      toast.success('Lesson updated successfully');
-    } catch (err) {
-      console.error('❌ Error updating lesson:', err.response?.data || err.message);
-      toast.error(`Failed to update lesson: ${err.response?.data?.detail || err.message}`);
-    } finally {
+    console.error('❌ Error updating lesson:', err.response?.data || err.message);
+    toast.error(`Failed to update lesson: ${err.response?.data?.detail || err.message}`);
+  } finally {
+    // ✅ CHECK: Only clear loading if still mounted
+    if (isMounted.current) {
       setEditState((prev) => ({ ...prev, saveLoading: null }));
     }
-  };
+  }
+};
 
-  const handleDelete = async (lessonId) => {
-    if (!window.confirm('Are you sure you want to delete this lesson?')) return;
+  // ============================================
+// LESSONS PAGE - handleDelete with isMounted
+// ============================================
+// Location: src/pages/LessonsPage.js
+// Replace handleDelete function (around line 243-260) with this:
 
-    setEditState((prev) => ({ ...prev, deleteLoading: lessonId }));
+const handleDelete = async (lessonId) => {
+  if (!window.confirm('Are you sure you want to delete this lesson?')) return;
 
-    try {
-      const endpoint = `${API_URL}/api/lessons/${lessonId}/`;
-      await axios.delete(endpoint, { headers: getAuthHeaders() });
-      setLessons((prev) => prev.filter((lesson) => lesson.id !== lessonId));
-      toast.success('Lesson deleted successfully');
-    } catch (err) {
-      console.error('❌ Error deleting lesson:', err.response?.data || err.message);
-      toast.error(`Failed to delete lesson: ${err.response?.data?.detail || err.message}`);
-    } finally {
+  // ✅ CHECK: Don't start if unmounted
+  if (!isMounted.current) return;
+
+  setEditState((prev) => ({ ...prev, deleteLoading: lessonId }));
+
+  try {
+    const endpoint = `${API_URL}/api/lessons/${lessonId}/`;
+    await axios.delete(endpoint, { headers: getAuthHeaders() });
+
+    // ✅ CHECK: Don't update state if unmounted during delete
+    if (!isMounted.current) return;
+
+    setLessons((prev) => prev.filter((lesson) => lesson.id !== lessonId));
+    
+    toast.success('Lesson deleted successfully');
+  } catch (err) {
+    // ✅ CHECK: Don't show errors if unmounted
+    if (!isMounted.current) return;
+    
+    console.error('❌ Error deleting lesson:', err.response?.data || err.message);
+    toast.error(`Failed to delete lesson: ${err.response?.data?.detail || err.message}`);
+  } finally {
+    // ✅ CHECK: Only clear loading if still mounted
+    if (isMounted.current) {
       setEditState((prev) => ({ ...prev, deleteLoading: null }));
     }
-  };
+  }
+};
 
   // ============================================
   // TABLE COLUMNS CONFIGURATION
@@ -398,6 +451,12 @@ function LessonsPage() {
     ],
     [editState, formatDateWithDay, parseFormattedText]
   );
+
+  useEffect(() => {
+  return () => {
+    isMounted.current = false;
+  };
+}, []);
 
   // ============================================
   // RENDER - Auth Checks
