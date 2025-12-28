@@ -17,6 +17,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from decimal import Decimal, ROUND_HALF_UP
+from django.db import transaction
 
 from .serializers import SchoolSerializer, SchoolStatsSerializer
 
@@ -917,31 +919,48 @@ def delete_student(request, pk):
         return Response({"error": "Student not found"}, status=404)
 
 
+from django.db.models import Count
+from datetime import timedelta
+from django.utils.timezone import now
 
 @api_view(['GET'])
 def new_registrations(request):
-    """Fetch newly registered students from the last month"""
+    thirty_days_ago = now() - timedelta(days=30)
     
-    last_month = now().month
-    current_year = now().year
-
-    students = Student.objects.filter(
-        date_of_registration__month=last_month,
-        date_of_registration__year=current_year
-    )
-
-    serializer = StudentSerializer(students, many=True)
-    return Response(serializer.data)
+    # ✅ Count students per school in DATABASE
+    registrations = Student.objects.filter(
+        date_of_registration__gte=thirty_days_ago,
+        status='Active'
+    ).values('school__name').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    data = [
+        {
+            'school': reg['school__name'] or 'Unknown',
+            'count': reg['count']
+        }
+        for reg in registrations
+    ]
+    
+    return Response(data)
 
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_new_month_fees(request):
+    """
+    Create monthly fee records for a school.
+    Supports two payment modes:
+    1. Per Student: Uses individual student.monthly_fee
+    2. Monthly Subscription: Divides total subscription among active students
+    """
     school_id = request.data.get("school_id")
-    selected_month = request.data.get("month")  # e.g., "Apr-2025"
+    selected_month = request.data.get("month")
     force_overwrite = request.data.get("force_overwrite", False)
 
+    # Validation
     if not school_id:
         return Response({"error": "Missing school_id in request."}, status=400)
 
@@ -950,10 +969,10 @@ def create_new_month_fees(request):
     except School.DoesNotExist:
         return Response({"error": "Invalid school_id provided."}, status=400)
 
+    # Determine month
     if selected_month:
         month_str = selected_month
     else:
-        # Default to next month logic (if not supplied)
         latest_fee = Fee.objects.filter(school_id=school_id).order_by('-id').first()
         if latest_fee:
             prev_month_date = datetime.strptime(latest_fee.month, "%b-%Y")
@@ -966,7 +985,7 @@ def create_new_month_fees(request):
         else:
             month_str = datetime.now().strftime("%b-%Y")
 
-    # ❗ Check for existing records
+    # Check for existing records
     existing = Fee.objects.filter(school_id=school_id, month=month_str)
     if existing.exists() and not force_overwrite:
         return Response({
@@ -974,32 +993,87 @@ def create_new_month_fees(request):
             "action_required": "Set 'force_overwrite' to True to replace."
         }, status=409)
 
+    # Get active students
+    active_students = Student.objects.filter(status="Active", school_id=school_id)
+    student_count = active_students.count()
+    
+    if student_count == 0:
+        return Response({
+            "warning": f"No active students found for {school_instance.name}.",
+            "records_created": 0
+        }, status=200)
+
+    # 💰 PAYMENT MODE LOGIC - THIS IS THE NEW PART
+    payment_mode = school_instance.payment_mode
+    
+    # Validate subscription mode
+    if payment_mode == 'monthly_subscription':
+        if not school_instance.monthly_subscription_amount or school_instance.monthly_subscription_amount <= 0:
+            return Response({
+                "error": "School is in Monthly Subscription mode but subscription amount is not set or invalid.",
+                "action_required": "Set monthly_subscription_amount for this school."
+            }, status=400)
+        
+        # Calculate fee per student
+        subscription_amount = Decimal(str(school_instance.monthly_subscription_amount))
+        fee_per_student = (subscription_amount / student_count).quantize(
+            Decimal('0.01'), 
+            rounding=ROUND_HALF_UP
+        )
+        
+        # Calculate adjustment for rounding
+        total_before_adjustment = fee_per_student * student_count
+        adjustment = subscription_amount - total_before_adjustment
+    else:
+        # Per Student Mode
+        fee_per_student = None
+        adjustment = Decimal('0.00')
+
+    # Delete existing if overwrite
     if force_overwrite:
         existing.delete()
 
-    active_students = Student.objects.filter(status="Active", school_id=school_id)
+    # Create fee records
     now = datetime.now()
     new_fees = []
+    adjustment_applied = False
+    
+    with transaction.atomic():
+        for student in active_students:
+            # Determine fee for this student
+            if payment_mode == 'monthly_subscription':
+                student_fee = fee_per_student
+                # Apply adjustment to first student
+                if not adjustment_applied and adjustment != 0:
+                    student_fee += adjustment
+                    adjustment_applied = True
+            else:
+                # Use individual student fee
+                student_fee = student.monthly_fee
 
-    for student in active_students:
-        new_fees.append(Fee(
-            student_id=student.id,
-            student_name=student.name,
-            student_class=student.student_class,
-            monthly_fee=student.monthly_fee,
-            month=month_str,
-            total_fee=student.monthly_fee,
-            paid_amount=0.00,
-            balance_due=student.monthly_fee,
-            payment_date=now.strftime("%Y-%m-15"),
-            status="Pending",
-            school=school_instance
-        ))
+            new_fees.append(Fee(
+                student_id=student.id,
+                student_name=student.name,
+                student_class=student.student_class,
+                monthly_fee=student_fee,
+                month=month_str,
+                total_fee=student_fee,
+                paid_amount=Decimal('0.00'),
+                balance_due=student_fee,
+                payment_date=now.strftime("%Y-%m-15"),
+                status="Pending",
+                school=school_instance
+            ))
+        
+        Fee.objects.bulk_create(new_fees)
 
-    Fee.objects.bulk_create(new_fees)
+    # Response
     return Response({
         "message": f"✅ Fee records created for {school_instance.name} - {month_str}",
-        "records_created": len(new_fees)
+        "records_created": len(new_fees),
+        "payment_mode": payment_mode,
+        "school_name": school_instance.name,
+        "month": month_str,
     }, status=201)
 
 

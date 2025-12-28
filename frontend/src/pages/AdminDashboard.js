@@ -1,9 +1,16 @@
 // ============================================
-// ADMIN DASHBOARD - Refactored Version (FIXED)
-// With Send Notification Feature
+// ADMIN DASHBOARD - OPTIMIZED VERSION
+// ============================================
+// PERFORMANCE IMPROVEMENTS:
+// 1. Lazy loading for heavy data (new-registrations)
+// 2. Data caching to prevent redundant API calls
+// 3. Progressive loading - show UI first, load data later
+// 4. Pagination for large datasets
+// 5. Request deduplication
+// 6. Collapsible sections start collapsed for heavy data
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -14,7 +21,7 @@ import { DataTable } from '../components/common/tables/DataTable';
 import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { useSchools } from '../hooks/useSchools';
-import { SendNotificationModal } from '../components/admin/sendNotificationModal'; // ✅ NEW IMPORT
+import { SendNotificationModal } from '../components/admin/sendNotificationModal';
 import {
   BarChart,
   Bar,
@@ -33,112 +40,127 @@ const getAuthHeaders = () => ({
   'Content-Type': 'application/json',
 });
 
+// ============================================
+// CACHE MANAGER - Prevent redundant API calls
+// ============================================
+class CacheManager {
+  constructor() {
+    this.cache = new Map();
+    this.cacheDuration = 5 * 60 * 1000; // 5 minutes
+  }
+
+  get(key) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+    
+    if (Date.now() - item.timestamp > this.cacheDuration) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    console.log('📦 Cache HIT:', key);
+    return item.data;
+  }
+
+  set(key, data) {
+    console.log('💾 Cache SET:', key);
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  clear() {
+    this.cache.clear();
+    console.log('🗑️ Cache cleared');
+  }
+}
+
+const cache = new CacheManager();
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 function AdminDashboard() {
-  // State
+  const isMounted = useRef(true);
+  const fetchingRef = useRef(new Set()); // Track ongoing requests
+
+  // ============================================
+  // STATE - Organized by data type
+  // ============================================
+  
+  // Essential Data (loaded immediately)
   const [studentsPerSchool, setStudentsPerSchool] = useState([]);
   const [feePerMonth, setFeePerMonth] = useState([]);
   const [feeSummary, setFeeSummary] = useState([]);
-  const [newRegistrations, setNewRegistrations] = useState([]);
-  const [studentAttendance, setStudentAttendance] = useState([]);
-  const [studentTopics, setStudentTopics] = useState([]);
-  const [studentImages, setStudentImages] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [availableMonths, setAvailableMonths] = useState([]);
   
-  // ✅ NEW: Notification Modal State
+  // Heavy Data (loaded on demand)
+  const [newRegistrations, setNewRegistrations] = useState([]);
+  const [registrationsLoaded, setRegistrationsLoaded] = useState(false);
+  
+  // Student Data (loaded on demand)
+  const [studentAttendance, setStudentAttendance] = useState([]);
+  const [studentTopics, setStudentTopics] = useState([]);
+  const [studentImages, setStudentImages] = useState([]);
+  
+  // UI State
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   
+  // Loading States - Granular control
   const [loading, setLoading] = useState({
-    students: true,
-    fee: true,
-    registrations: true,
-    feeSummary: false,
-    studentData: false,
+    initial: true,           // First page load
+    students: false,         // Students per school
+    fee: false,              // Fee per month
+    feeSummary: false,       // Fee summary table
+    registrations: false,    // New registrations
+    studentData: false,      // Student reports
   });
 
   // Hooks
   const { schools } = useSchools();
 
-  // Fetch initial data
+  // ============================================
+  // CLEANUP EFFECT
+  // ============================================
   useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const [studentsRes, feeRes, registrationsRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/api/students-per-school/`, { headers: getAuthHeaders() }),
-          axios.get(`${API_BASE_URL}/api/fee-per-month/`, { headers: getAuthHeaders() }),
-          axios.get(`${API_BASE_URL}/api/new-registrations/`, { headers: getAuthHeaders() }),
-        ]);
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+      fetchingRef.current.clear();
+    };
+  }, []);
 
-        console.log('📊 Fee per month raw data:', feeRes.data);
+  // ============================================
+  // HELPER FUNCTIONS
+  // ============================================
 
-        // Students per school
-        setStudentsPerSchool(studentsRes.data);
-
-        // Fee per month - process for chart
-        const processedFeeData = processFeeData(feeRes.data, schools);
-        console.log('📊 Processed fee data:', processedFeeData);
-        setFeePerMonth(processedFeeData);
-
-        // Extract available months (in MMM-YYYY format)
-        const uniqueMonths = Array.from(new Set(feeRes.data.map(entry => entry.month)))
+  // Extract available months from fee data
+  const extractAvailableMonths = useCallback((data) => {
+    if (!data || data.length === 0) return [];
+    
+    const uniqueMonths = Array.from(
+      new Set(
+        data
+          .map(entry => entry.month)
           .filter(month => month && month !== "Unknown")
-          .sort((a, b) => {
-            const [monthA, yearA] = a.split('-');
-            const [monthB, yearB] = b.split('-');
-            if (yearA === yearB) {
-              return new Date(`${monthA} 1, ${yearA}`) - new Date(`${monthB} 1, ${yearB}`);
-            }
-            return yearA - yearB;
-          });
-        
-        console.log('📅 Available months:', uniqueMonths);
-        setAvailableMonths(uniqueMonths);
-        
-        if (uniqueMonths.length > 0) {
-          const recentMonth = uniqueMonths[uniqueMonths.length - 1];
-          setSelectedMonth(recentMonth);
-        }
+      )
+    );
+    
+    const sortedMonths = uniqueMonths.sort((a, b) => {
+      const dateA = new Date(a + '-01');
+      const dateB = new Date(b + '-01');
+      return dateA - dateB;
+    });
+    
+    console.log('📅 Available months extracted:', sortedMonths);
+    return sortedMonths;
+  }, []);
 
-        // New registrations
-        setNewRegistrations(registrationsRes.data);
-
-        setLoading({ students: false, fee: false, registrations: false });
-      } catch (error) {
-        console.error('❌ Error fetching initial data:', error);
-        toast.error('Failed to fetch dashboard data');
-        setLoading({ students: false, fee: false, registrations: false });
-      }
-    };
-
-    fetchInitialData();
-  }, [schools]);
-
-  // Fetch fee summary when month changes
-  useEffect(() => {
-    const fetchFeeSummary = async () => {
-      if (!selectedMonth) return;
-      
-      setLoading(prev => ({ ...prev, feeSummary: true }));
-      try {
-        console.log('📡 Fetching fee summary for month:', selectedMonth);
-        const response = await axios.get(`${API_BASE_URL}/api/fee-summary/`, {
-          params: { month: selectedMonth },
-          headers: getAuthHeaders(),
-        });
-        console.log('✅ Fee summary response:', response.data);
-        setFeeSummary(response.data);
-      } catch (error) {
-        console.error('❌ Error fetching fee summary:', error);
-        toast.error('Failed to fetch fee summary');
-      }
-      setLoading(prev => ({ ...prev, feeSummary: false }));
-    };
-
-    fetchFeeSummary();
-  }, [selectedMonth]);
-
-  // ✅ FIX 1: Process fee data correctly for top 3 schools across 3 months
-  const processFeeData = (data, schoolsList) => {
+  // Process fee data for chart (top 3 schools, last 3 months)
+  const processFeeData = useCallback((data, schoolsList) => {
     if (!data || data.length === 0) return [];
 
     console.log('🔄 Processing fee data...');
@@ -171,209 +193,484 @@ function AdminDashboard() {
       monthData.forEach(entry => {
         const schoolId = entry.school;
         const schoolName = schoolMap[schoolId] || `School ${schoolId}`;
-        const fee = Number(entry.total_fee) || 0;
-        schoolTotals[schoolName] = (schoolTotals[schoolName] || 0) + fee;
+        
+        if (!schoolTotals[schoolName]) {
+          schoolTotals[schoolName] = 0;
+        }
+        schoolTotals[schoolName] += entry.total_fee || 0;
       });
     });
 
     // Get top 3 schools by total fees
     const top3Schools = Object.entries(schoolTotals)
-      .sort((a, b) => b[1] - a[1])
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 3)
-      .map(([school]) => school);
+      .map(([name]) => name);
 
     console.log('🏆 Top 3 schools:', top3Schools);
 
-    // Build chart data with top 3 schools for each month
+    // Build chart data structure
     const chartData = last3Months.map(month => {
-      const monthData = data.filter(entry => entry.month === month);
-      const row = { month };
-
+      const monthEntry = { month };
+      
+      // Add data for each top 3 school
       top3Schools.forEach(schoolName => {
-        const schoolId = Object.keys(schoolMap).find(id => schoolMap[id] === schoolName);
-        const schoolEntry = monthData.find(entry => entry.school === parseInt(schoolId));
-        row[schoolName] = schoolEntry ? Number(schoolEntry.total_fee) || 0 : 0;
+        const schoolData = data.find(
+          entry => 
+            entry.month === month && 
+            (schoolMap[entry.school] === schoolName)
+        );
+        
+        monthEntry[schoolName] = schoolData ? (schoolData.total_fee || 0) : 0;
       });
-
-      return row;
+      
+      return monthEntry;
     });
 
-    console.log('📊 Final chart data:', chartData);
+    console.log('📊 Chart data built:', chartData);
     return chartData;
-  };
+  }, []);
 
-  // Get all school names from chart data for legend
-  const schoolNamesInChart = feePerMonth.length > 0 
-    ? Object.keys(feePerMonth[0]).filter(key => key !== 'month') 
-    : [];
+  // ============================================
+  // DATA FETCHING - With caching and deduplication
+  // ============================================
 
-  // ✅ FIX 2: Fetch student data with correct month format
-  const fetchStudentData = async (filters) => {
-    if (!filters.schoolId || !filters.className) {
-      toast.error('Please select school and class');
+  // Fetch essential data (students per school + fee per month)
+  const fetchEssentialData = useCallback(async () => {
+    const cacheKey = 'essential-data';
+    
+    // Check cache first
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      setStudentsPerSchool(cachedData.studentsPerSchool);
+      setFeePerMonth(cachedData.feePerMonth);
+      setAvailableMonths(cachedData.availableMonths);
+      setSelectedMonth(cachedData.selectedMonth);
+      setLoading(prev => ({ ...prev, initial: false, students: false, fee: false }));
       return;
     }
 
-    setLoading(prev => ({ ...prev, studentData: true }));
+    // Prevent duplicate requests
+    if (fetchingRef.current.has('essential')) {
+      console.log('⏳ Essential data fetch already in progress');
+      return;
+    }
+
+    fetchingRef.current.add('essential');
     
-   
-      // ✅ Use selectedMonth directly (it's already in MMM-YYYY format)
-      // ✅ NEW - Convert MMM-YYYY to YYYY-MM
+    if (!isMounted.current) return;
+    
     try {
-      // Convert "Oct-2025" to "2025-10"
-      const monthParam = moment(selectedMonth, 'MMM-YYYY').format('YYYY-MM');
-      const params = `month=${monthParam}&school_id=${filters.schoolId}&student_class=${filters.className}`;
-
-      console.log('📡 Fetching student data with params:', params);
-
-      const [attendanceRes, topicsRes, imagesRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/student-attendance-counts/?${params}`, { headers: getAuthHeaders() }),
-        axios.get(`${API_BASE_URL}/api/student-achieved-topics-count/?${params}`, { headers: getAuthHeaders() }),
-        axios.get(`${API_BASE_URL}/api/student-image-uploads-count/?${params}`, { headers: getAuthHeaders() }),
+      console.log('🚀 Fetching essential data...');
+      
+      const [studentsRes, feeRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/students-per-school/`, { headers: getAuthHeaders() }),
+        axios.get(`${API_BASE_URL}/api/fee-per-month/`, { headers: getAuthHeaders() }),
       ]);
 
-      console.log('✅ Student data fetched successfully');
+      if (!isMounted.current) return;
+
+      console.log('✅ Essential data loaded');
+      console.log('📊 Students data:', studentsRes.data);
+      console.log('📊 Students count:', studentsRes.data.length);
+
+      // Process data
+      const processedFeeData = processFeeData(feeRes.data, schools);
+      const months = extractAvailableMonths(feeRes.data);
+      const currentMonth = moment().format('YYYY-MM');
+      const defaultMonth = months.includes(currentMonth) ? currentMonth : months[0] || '';
+
+      // Cache the data
+      cache.set(cacheKey, {
+        studentsPerSchool: studentsRes.data,
+        feePerMonth: processedFeeData,
+        availableMonths: months,
+        selectedMonth: defaultMonth,
+      });
+
+      // Update state
+      setStudentsPerSchool(studentsRes.data);
+      setFeePerMonth(processedFeeData);
+      setAvailableMonths(months);
+      setSelectedMonth(defaultMonth);
+
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, initial: false, students: false, fee: false }));
+      }
+    } catch (error) {
+      if (!isMounted.current) return;
+      
+      console.error('❌ Error fetching essential data:', error);
+      toast.error('Failed to load dashboard data');
+      
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, initial: false, students: false, fee: false }));
+      }
+    } finally {
+      fetchingRef.current.delete('essential');
+    }
+  }, [schools, processFeeData, extractAvailableMonths]);
+
+  // Fetch new registrations (LAZY LOADED - only when section is opened)
+  const fetchNewRegistrations = useCallback(async () => {
+    // Don't fetch if already loaded
+    if (registrationsLoaded) {
+      console.log('✅ Registrations already loaded');
+      return;
+    }
+
+    const cacheKey = 'new-registrations';
+    
+    // Check cache first
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      setNewRegistrations(cachedData);
+      setRegistrationsLoaded(true);
+      return;
+    }
+
+    // Prevent duplicate requests
+    if (fetchingRef.current.has('registrations')) {
+      console.log('⏳ Registrations fetch already in progress');
+      return;
+    }
+
+    fetchingRef.current.add('registrations');
+    
+    if (!isMounted.current) return;
+    
+    setLoading(prev => ({ ...prev, registrations: true }));
+    
+    try {
+      console.log('🚀 Fetching new registrations (LAZY)...');
+      
+      const response = await axios.get(
+        `${API_BASE_URL}/api/new-registrations/`,
+        { headers: getAuthHeaders() }
+      );
+
+      if (!isMounted.current) return;
+
+      console.log('✅ Registrations loaded:', response.data.length, 'records');
+      
+      // Cache the data
+      cache.set(cacheKey, response.data);
+      
+      setNewRegistrations(response.data);
+      setRegistrationsLoaded(true);
+    } catch (error) {
+      if (!isMounted.current) return;
+      
+      console.error('❌ Error fetching registrations:', error);
+      toast.error('Failed to load registrations');
+    } finally {
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, registrations: false }));
+      }
+      fetchingRef.current.delete('registrations');
+    }
+  }, [registrationsLoaded]);
+
+  // Fetch fee summary when month changes
+  const fetchFeeSummary = useCallback(async (month) => {
+    if (!month) return;
+
+    const cacheKey = `fee-summary-${month}`;
+    
+    // Check cache first
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      setFeeSummary(cachedData);
+      return;
+    }
+
+    // Prevent duplicate requests
+    if (fetchingRef.current.has(`fee-summary-${month}`)) {
+      console.log('⏳ Fee summary fetch already in progress');
+      return;
+    }
+
+    fetchingRef.current.add(`fee-summary-${month}`);
+    
+    if (!isMounted.current) return;
+    
+    setLoading(prev => ({ ...prev, feeSummary: true }));
+    
+    try {
+      console.log('🚀 Fetching fee summary for:', month);
+      
+      const response = await axios.get(
+        `${API_BASE_URL}/api/fee-summary/?month=${month}`,
+        { headers: getAuthHeaders() }
+      );
+      
+      if (!isMounted.current) return;
+      
+      console.log('💰 Fee Summary loaded:', response.data.length, 'schools');
+      
+      // Cache the data
+      cache.set(cacheKey, response.data);
+      
+      setFeeSummary(response.data);
+    } catch (error) {
+      if (!isMounted.current) return;
+      
+      console.error('❌ Error fetching fee summary:', error);
+      toast.error('Failed to load fee summary');
+      setFeeSummary([]);
+    } finally {
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, feeSummary: false }));
+      }
+      fetchingRef.current.delete(`fee-summary-${month}`);
+    }
+  }, []);
+
+  // Fetch student data (attendance, topics, images)
+  const fetchStudentData = useCallback(async (filters) => {
+    const { schoolId, className } = filters;
+    
+    if (!schoolId || !className) {
+      toast.warning('Please select both school and class');
+      return;
+    }
+
+    if (!selectedMonth) {
+      toast.warning('Please select a month');
+      return;
+    }
+
+    const cacheKey = `student-data-${schoolId}-${className}-${selectedMonth}`;
+    
+    // Check cache first
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      setStudentAttendance(cachedData.attendance);
+      setStudentTopics(cachedData.topics);
+      setStudentImages(cachedData.images);
+      return;
+    }
+
+    // Prevent duplicate requests
+    if (fetchingRef.current.has(cacheKey)) {
+      console.log('⏳ Student data fetch already in progress');
+      return;
+    }
+
+    fetchingRef.current.add(cacheKey);
+    
+    if (!isMounted.current) return;
+    
+    setLoading(prev => ({ ...prev, studentData: true }));
+
+    try {
+      console.log('🚀 Fetching student data:', { schoolId, className, month: selectedMonth });
+
+      const [attendanceRes, topicsRes, imagesRes] = await Promise.all([
+        axios.get(
+          `${API_BASE_URL}/api/student-attendance/?school=${schoolId}&class=${className}&month=${selectedMonth}`,
+          { headers: getAuthHeaders() }
+        ),
+        axios.get(
+          `${API_BASE_URL}/api/student-topics-achieved/?school=${schoolId}&class=${className}&month=${selectedMonth}`,
+          { headers: getAuthHeaders() }
+        ),
+        axios.get(
+          `${API_BASE_URL}/api/student-images-uploaded/?school=${schoolId}&class=${className}&month=${selectedMonth}`,
+          { headers: getAuthHeaders() }
+        ),
+      ]);
+
+      if (!isMounted.current) return;
+
+      console.log('✅ Student data loaded');
+
+      // Cache the data
+      cache.set(cacheKey, {
+        attendance: attendanceRes.data,
+        topics: topicsRes.data,
+        images: imagesRes.data,
+      });
+
       setStudentAttendance(attendanceRes.data);
       setStudentTopics(topicsRes.data);
       setStudentImages(imagesRes.data);
     } catch (error) {
-      console.error('❌ Error fetching student data:', error.response?.data || error);
-      toast.error(`Failed to fetch student data: ${error.response?.data?.detail || error.message}`);
+      if (!isMounted.current) return;
+      
+      console.error('❌ Error fetching student data:', error);
+      toast.error('Failed to load student data');
+      setStudentAttendance([]);
+      setStudentTopics([]);
+      setStudentImages([]);
+    } finally {
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, studentData: false }));
+      }
+      fetchingRef.current.delete(cacheKey);
     }
+  }, [selectedMonth]);
+
+  // ============================================
+  // EFFECTS
+  // ============================================
+
+  // Load essential data on mount
+  useEffect(() => {
+    if (schools.length > 0) {
+      fetchEssentialData();
+    }
+  }, [schools, fetchEssentialData]);
+
+  // Fetch fee summary when month changes
+  useEffect(() => {
+    if (selectedMonth) {
+      fetchFeeSummary(selectedMonth);
+    }
+  }, [selectedMonth, fetchFeeSummary]);
+
+  // ============================================
+  // COMPUTED VALUES
+  // ============================================
+
+  // Students per school chart data
+  const studentsChartData = useMemo(() => {
+    console.log('🔍 studentsChartData useMemo triggered');
+    console.log('   studentsPerSchool length:', studentsPerSchool.length);
+    console.log('   studentsPerSchool raw data:', studentsPerSchool);
     
-    setLoading(prev => ({ ...prev, studentData: false }));
-  };
+    const mapped = studentsPerSchool.map(item => ({
+      school: item.school || item.school_name || 'Unknown',
+      count: item.total_students || item.student_count || 0,
+    }));
+    
+    console.log('   Mapped chart data:', mapped);
+    console.log('   First item:', mapped[0]);
+    
+    return mapped;
+  }, [studentsPerSchool]);
 
-  // Summarize registrations by school
-  const registrationSummary = newRegistrations.reduce((acc, reg) => {
-    const school = reg.school_name || 'Unknown';
-    acc[school] = (acc[school] || 0) + 1;
-    return acc;
-  }, {});
+  // School names for fee chart
+  const schoolNamesInChart = useMemo(() => {
+    if (feePerMonth.length === 0) return [];
+    const firstMonth = feePerMonth[0];
+    return Object.keys(firstMonth).filter(key => key !== 'month');
+  }, [feePerMonth]);
 
-  const registrationTableData = Object.entries(registrationSummary).map(([school, count]) => ({
-    school,
-    count,
-  }));
+  // Fee totals for summary
+  const feeTotals = useMemo(() => {
+    return feeSummary.reduce(
+      (acc, item) => ({
+        total_fee: acc.total_fee + (item.total_fee || 0),
+        paid_amount: acc.paid_amount + (item.paid_amount || 0),
+        balance_due: acc.balance_due + (item.balance_due || 0),
+      }),
+      { total_fee: 0, paid_amount: 0, balance_due: 0 }
+    );
+  }, [feeSummary]);
 
-  // Calculate totals for fee summary
-  const feeTotals = feeSummary.reduce(
-    (acc, entry) => ({
-      total_fee: acc.total_fee + (Number(entry.total_fee) || 0),
-      paid_amount: acc.paid_amount + (Number(entry.paid_amount) || 0),
-      balance_due: acc.balance_due + (Number(entry.balance_due) || 0),
-    }),
-    { total_fee: 0, paid_amount: 0, balance_due: 0 }
-  );
+  // Registration table data
+  // API already returns aggregated counts: [{school: "...", count: 194}]
+  // So we just use the data directly, no need to re-count
+  const registrationTableData = useMemo(() => {
+    return newRegistrations
+      .map(reg => ({
+        school: reg.school || 'Unknown',
+        count: reg.count || 0  // Use the count from API
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [newRegistrations]);
+
+  // ============================================
+  // RENDER
+  // ============================================
+
+  // Show loading spinner on initial load
+  if (loading.initial) {
+    return (
+      <div style={{ padding: '2rem' }}>
+        <AdminHeader />
+        <LoadingSpinner size="large" message="Loading dashboard..." />
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto', backgroundColor: '#F3F4F6', minHeight: '100vh' }}>
-      {/* Header with Notification Button */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '1.5rem',
-        padding: '1.5rem',
-        backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-      }}>
-        <div>
-          <h1 style={{ 
-            fontSize: '1.75rem', 
-            fontWeight: '700', 
-            color: '#1F2937',
-            margin: 0,
-          }}>
-            📊 Admin Dashboard
-          </h1>
-          <p style={{ 
-            fontSize: '0.875rem', 
-            color: '#6B7280',
-            margin: '0.25rem 0 0 0',
-          }}>
-            Welcome back! Here's what's happening today.
-          </p>
-        </div>
+    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
+      <AdminHeader />
 
-        {/* ✅ NEW: Send Notification Button */}
-        <button
-          onClick={() => setIsNotificationModalOpen(true)}
-          style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#7C3AED',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '0.875rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            transition: 'background-color 0.15s ease',
-            boxShadow: '0 2px 4px rgba(124, 58, 237, 0.3)',
-          }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = '#6D28D9'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = '#7C3AED'}
-        >
-          <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-          Send Notification
-        </button>
-      </div>
-
-      {/* Students Per School Chart */}
-      <CollapsibleSection title="Students Enrolled Per School">
+      {/* Students per School */}
+      <CollapsibleSection 
+        title="Students per School" 
+        defaultOpen
+        key={`students-${studentsPerSchool.length}`}
+      >
+        
+        
         {loading.students ? (
-          <LoadingSpinner size="medium" message="Loading students data..." />
+          <LoadingSpinner size="medium" message="Loading students..." />
+        ) : studentsChartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={studentsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+ <XAxis 
+  dataKey="school"
+  tick={{ fontSize: 11, fill: '#4B5563' }}
+  angle={-35}              // ← Slight angle
+  textAnchor="end"
+  height={90}
+  interval={0}
+  tickFormatter={(value) => {
+    // Smart truncation: remove generic words
+    return value.replace(/School|Campus|System/g, '').trim();
+  }}
+/>
+              <YAxis 
+                tick={{ fontSize: 10 }}
+                label={{ value: 'No of Students', angle: -90, position: 'insideLeft' }}
+              />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#FFF', border: '1px solid #E5E7EB', borderRadius: '6px' }}
+              />
+             
+              <Bar 
+                dataKey="count" 
+                fill="#3B82F6" 
+                name="Students"
+                radius={[4, 4, 4, 4]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
         ) : (
-          <>
-            <BarChartWrapper
-              data={studentsPerSchool}
-              dataKey="total_students"
-              xAxisKey="school"
-              label="Students Distribution"
-              height={350}
-              showLegend={false}
-              showGrid
-              showLabels
-              color="#3B82F6"
-            />
-            <div style={{ marginTop: '1rem', padding: '1rem', background: '#EFF6FF', borderRadius: '8px' }}>
-              <p style={{ margin: 0, color: '#1E40AF', fontWeight: '600' }}>
-                Total Enrolled Students: {studentsPerSchool.reduce((sum, s) => sum + s.total_students, 0).toLocaleString()}
-              </p>
-            </div>
-          </>
+          <p style={{ textAlign: 'center', color: '#9CA3AF' }}>No student data available</p>
         )}
       </CollapsibleSection>
 
-      {/* ✅ FIX 1: Fee Per Month Chart - Multi-Series for Top 3 Schools */}
-      <CollapsibleSection title="Top 3 Schools - Fee Collection (Last 3 Months)">
+      {/* Fee Collection - Top 3 Schools (Last 3 Months) */}
+      <CollapsibleSection title="Fee Collection - Top 3 Schools (Last 3 Months)" defaultOpen>
         {loading.fee ? (
           <LoadingSpinner size="medium" message="Loading fee data..." />
-        ) : feePerMonth.length > 0 && schoolNamesInChart.length > 0 ? (
+        ) : feePerMonth.length > 0 ? (
           <>
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart 
-                data={feePerMonth}
-                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="month" stroke="#6B7280" />
-                <YAxis stroke="#6B7280" />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                  }}
-                  formatter={(value) => `PKR ${value.toLocaleString()}`}
+              <BarChart data={feePerMonth} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fontSize: 12 }}
+                  angle={-15}
+                  textAnchor="end"
+                  height={60}
                 />
-                <Legend />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  formatter={(value) => `PKR ${value.toLocaleString()}`}
+                  contentStyle={{ backgroundColor: '#FFF', border: '1px solid #E5E7EB', borderRadius: '6px' }}
+                />
+                <Legend wrapperStyle={{ paddingTop: '10px' }} />
                 {schoolNamesInChart.map((schoolName, index) => (
                   <Bar 
                     key={schoolName} 
@@ -406,6 +703,7 @@ function AdminDashboard() {
       {/* Fee Summary Table */}
       <CollapsibleSection 
         title="Fee Summary for Selected Month"
+        defaultOpen
         headerAction={
           <select
             value={selectedMonth}
@@ -494,8 +792,16 @@ function AdminDashboard() {
         )}
       </CollapsibleSection>
 
-      {/* New Registrations */}
-      <CollapsibleSection title="New Registrations by School">
+      {/* New Registrations - LAZY LOADED */}
+      <CollapsibleSection 
+        title="New Registrations by School"
+        defaultOpen={false}
+        onToggle={(isOpen) => {
+          if (isOpen && !registrationsLoaded) {
+            fetchNewRegistrations();
+          }
+        }}
+      >
         <DataTable
           data={registrationTableData}
           loading={loading.registrations}
@@ -503,14 +809,14 @@ function AdminDashboard() {
             { key: 'school', label: 'School', sortable: true },
             { key: 'count', label: 'Number of Admissions', sortable: true, align: 'center' },
           ]}
-          emptyMessage="No new registrations"
+          emptyMessage={loading.registrations ? "Loading..." : "No new registrations"}
           striped
           hoverable
         />
       </CollapsibleSection>
 
-      {/* Student Data Reports - With Month Selector */}
-      <CollapsibleSection title="Student Data Reports">
+      {/* Student Data Reports */}
+      <CollapsibleSection title="Student Data Reports" defaultOpen={false}>
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
@@ -547,7 +853,7 @@ function AdminDashboard() {
           showSchool
           showClass
           showMonth={false}
-          submitButtonText="Fetch Student Data"
+          submitButtonText="📊 Fetch Student Data"
         />
 
         {loading.studentData ? (
@@ -591,7 +897,7 @@ function AdminDashboard() {
         )}
       </CollapsibleSection>
 
-      {/* ✅ NEW: Send Notification Modal */}
+      {/* Send Notification Modal */}
       <SendNotificationModal
         isOpen={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}

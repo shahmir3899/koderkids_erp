@@ -68,7 +68,17 @@ function LessonsPage() {
 
   // Cache for preventing duplicate fetches
   const [lastFetched, setLastFetched] = useState(null);
+
   const isMounted = useRef(true);
+
+// ✅ ADD THIS:
+useEffect(() => {
+  isMounted.current = true;
+  
+  return () => {
+    isMounted.current = false;
+  };
+}, []);
 
   // ============================================
   // DERIVED VALUES

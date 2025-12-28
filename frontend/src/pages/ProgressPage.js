@@ -143,7 +143,7 @@ const ProgressPage = () => {
     const formattedDate = `${month}/${day}/${year}`;
 
     // Fetch students
-    const response = await axios.get(`${API_URL}/api/students-prog/`, {
+    const response = await axios.get(`${API_URL}/api/reports/students-progress/`, {
       params: {
         school_id: schoolId,
         class_id: className,

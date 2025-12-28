@@ -6,7 +6,7 @@
 // Extracts PDF generation logic from ReportsPage
 // Handles single and bulk report generation with background images
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFDocument } from 'pdf-lib';
@@ -143,6 +143,18 @@ export const useReportGeneration = ({
   const [isGenerating, setIsGenerating] = useState({});
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
   const [error, setError] = useState(null);
+  // ✅ ADD THESE LINES:
+  // Cleanup ref
+  const isMounted = useRef(true);
+
+  // Cleanup effect
+  useEffect(() => {
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   /**
    * Get formatted date range based on mode
@@ -166,6 +178,8 @@ export const useReportGeneration = ({
    */
   const generateReport = useCallback(
     async (studentId) => {
+      if (!isMounted.current) return false;
+
       setError(null);
       setIsGenerating((prev) => ({ ...prev, [studentId]: true }));
 
@@ -185,6 +199,7 @@ export const useReportGeneration = ({
             { headers }
           ),
         ]);
+        if (!isMounted.current) return false;
 
         const studentData = studentRes.data;
         const attendanceData = attendanceRes.data;
@@ -223,6 +238,7 @@ export const useReportGeneration = ({
           headers: { ...headers, 'Content-Type': 'application/json' },
           responseType: 'blob',
         });
+        if (!isMounted.current) return false;
 
         let finalBlob = response.data;
 
@@ -235,6 +251,8 @@ export const useReportGeneration = ({
         if (includeBackground[studentId]) {
           finalBlob = await addBackgroundToPDF(response.data, backgroundImageUrl);
           console.log(`Blob size after adding background: ${finalBlob.size} bytes`);
+          if (!isMounted.current) return false;
+
         }
 
         // Create download link
@@ -265,7 +283,9 @@ export const useReportGeneration = ({
           console.log('Attempting to trigger download...');
           link.click();
           console.log('Download triggered successfully');
-          toast.success(`Report generated for ${student?.name || 'student'}!`);
+          if (isMounted.current) {
+            toast.success(`Report generated for ${student?.name || 'student'}!`);
+          }
         } catch (downloadError) {
           console.error('Error triggering download:', downloadError);
           throw new Error('Failed to initiate download. Please check browser settings.');
@@ -276,6 +296,8 @@ export const useReportGeneration = ({
 
         return true;
       } catch (error) {
+        if (!isMounted.current) return false;
+
         console.error('Error generating report:', error.message);
         const errorMsg =
           error.response?.status === 400
@@ -289,8 +311,10 @@ export const useReportGeneration = ({
         toast.error(errorMsg);
         return false;
       } finally {
+        if (isMounted.current) {
+
         setIsGenerating((prev) => ({ ...prev, [studentId]: false }));
-      }
+      }}
     },
     [
       students,
@@ -311,49 +335,64 @@ export const useReportGeneration = ({
    * Generate bulk PDF reports for selected students
    */
   const generateBulkReports = useCallback(
-    async (selectedStudentIds) => {
-      if (selectedStudentIds.length === 0) {
-        setError('Please select at least one student.');
-        toast.warning('Please select at least one student.');
-        return false;
+  async (selectedStudentIds) => {
+    if (selectedStudentIds.length === 0) {
+      setError('Please select at least one student.');
+      toast.warning('Please select at least one student.');
+      return false;
+    }
+
+    // ✅ CHECK 1: Don't start if unmounted
+    if (!isMounted.current) return false;
+
+    setError(null);
+    setIsGeneratingBulk(true);
+
+    try {
+      let successCount = 0;
+      for (const studentId of selectedStudentIds) {
+        // ✅ CHECK 2: Stop bulk generation if unmounted
+        if (!isMounted.current) return false;
+        
+        const success = await generateReport(studentId);
+        if (success) successCount++;
       }
 
-      setError(null);
-      setIsGeneratingBulk(true);
+      // ✅ CHECK 3: Only show success if mounted
+      if (!isMounted.current) return false;
 
-      try {
-        let successCount = 0;
-        for (const studentId of selectedStudentIds) {
-          const success = await generateReport(studentId);
-          if (success) successCount++;
-        }
+      if (successCount === selectedStudentIds.length) {
+        toast.success('All reports generated successfully!');
+      } else {
+        toast.warning(`Generated ${successCount} of ${selectedStudentIds.length} reports.`);
+      }
 
-        if (successCount === selectedStudentIds.length) {
-          toast.success('All reports generated successfully!');
-        } else {
-          toast.warning(`Generated ${successCount} of ${selectedStudentIds.length} reports.`);
-        }
-
-        return true;
-      } catch (error) {
-        console.error('Error generating bulk reports:', error.message);
-        const errorMsg =
-          error.response?.status === 400
-            ? 'Invalid request parameters.'
-            : error.response?.status === 403
-            ? 'You do not have permission to generate these reports.'
-            : error.response?.status === 500
-            ? 'Server error occurred while generating reports.'
-            : 'Failed to generate bulk reports. Please try again.';
-        setError(errorMsg);
-        toast.error(errorMsg);
-        return false;
-      } finally {
+      return true;
+    } catch (error) {
+      // ✅ CHECK 4: Don't show errors if unmounted
+      if (!isMounted.current) return false;
+      
+      console.error('Error generating bulk reports:', error.message);
+      const errorMsg =
+        error.response?.status === 400
+          ? 'Invalid request parameters.'
+          : error.response?.status === 403
+          ? 'You do not have permission to generate these reports.'
+          : error.response?.status === 500
+          ? 'Server error occurred while generating reports.'
+          : 'Failed to generate bulk reports. Please try again.';
+      setError(errorMsg);
+      toast.error(errorMsg);
+      return false;
+    } finally {
+      // ✅ CHECK 5: Only clear loading if mounted
+      if (isMounted.current) {
         setIsGeneratingBulk(false);
       }
-    },
-    [generateReport]
-  );
+    }
+  },
+  [generateReport]
+);
 
   return {
     generateReport,

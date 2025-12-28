@@ -81,6 +81,7 @@ class SchoolSerializer(serializers.ModelSerializer):
             'latitude', 'longitude', 'contact_email', 'contact_phone',
             'established_date', 'total_capacity', 'is_active',
             'created_at', 'updated_at',
+            'payment_mode', 'monthly_subscription_amount',
             # Computed fields
             'total_students', 'total_classes', 'monthly_revenue', 'capacity_utilization'
         ]

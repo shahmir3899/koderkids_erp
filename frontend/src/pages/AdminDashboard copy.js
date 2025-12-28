@@ -1,949 +1,665 @@
-import React, { useState, useEffect, useMemo, useReducer } from "react";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  LabelList, 
-  ResponsiveContainer, 
-  Cell 
-} from "recharts";import { ClipLoader } from "react-spinners";
-import { toast } from "react-toastify";
-import axios from "axios";
+// ============================================
+// ADMIN DASHBOARD - Refactored Version (FIXED)
+// With Send Notification Feature
+// ============================================
 
-/**
- * Reducer for managing data fetching states.
- * @param {Object} state - Current state.
- * @param {Object} action - Action to dispatch.
- * @returns {Object} New state.
- */
-const dataReducer = (state, action) => {
-  switch (action.type) {
-    case 'FETCH_START':
-      return { ...state, loading: true, error: null };
-    case 'FETCH_SUCCESS':
-      return { ...state, loading: false, data: action.payload };
-    case 'FETCH_ERROR':
-      return { ...state, loading: false, error: action.error };
-    default:
-      return state;
-  }
-};
+import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import moment from 'moment';
+import { AdminHeader } from '../components/admin/AdminHeader';
+import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
+import { FilterBar } from '../components/common/filters/FilterBar';
+import { DataTable } from '../components/common/tables/DataTable';
+import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
+import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
+import { useSchools } from '../hooks/useSchools';
+import { SendNotificationModal } from '../components/admin/sendNotificationModal'; // ✅ NEW IMPORT
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
-/**
- * Processes fee data for charting.
- * @param {Array} data - Raw fee data.
- * @param {Array} schools - List of schools.
- * @returns {Array} Processed chart data.
- */
-const processFeeData = (data, schools = []) => {
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    console.warn("No valid fee data provided");
-    return [];
-  }
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 
-  // Create school name mapping
-  const defaultSchoolMap = { 3: "School A", 5: "School B" };
-  const schoolMap = schools.length > 0
-    ? schools.reduce((acc, school) => {
-        acc[school.id] = school.name || `School ${school.id}`;
-        return acc;
-      }, {})
-    : defaultSchoolMap;
+const getAuthHeaders = () => ({
+  Authorization: `Bearer ${localStorage.getItem('access')}`,
+  'Content-Type': 'application/json',
+});
 
-  // Get last 3 months
-  const today = new Date();
-  const last3Months = [];
-  for (let i = 2; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    last3Months.push(d.toLocaleString('default', { month: 'short' }) + '-' + d.getFullYear());
-  }
+function AdminDashboard() {
+  // ✅ ADD THESE LINES:
+  // Cleanup ref
+  const isMounted = useRef(true);
 
-  // Process data for each month
-  const chartData = last3Months.map(month => {
-    // Filter data for the current month
-    const monthData = data.filter(entry => entry.month === month);
-
-    // Calculate fees per school for this month
-    const schoolFees = monthData.reduce((acc, entry) => {
-      const schoolId = entry.school;
-      const schoolName = schoolMap[schoolId] || `School ${schoolId}`;
-      const total_fee = Number(entry.total_fee) || 0;
-      acc[schoolName] = (acc[schoolName] || 0) + total_fee;
-      return acc;
-    }, {});
-
-    // Get top 3 schools for this month, sorting by fee (desc) and school name (asc) for tiebreaker
-    const topSchools = Object.entries(schoolFees)
-      .map(([school, fee]) => ({ school, fee }))
-      .sort((a, b) => b.fee - a.fee || a.school.localeCompare(b.school))
-      .slice(0, 3)
-      .map(item => item.school);
-
-    // Build row for chart
-    const row = { month };
-    topSchools.forEach(school => {
-      row[school] = schoolFees[school] || 0;
-    });
-
-    return row;
-  });
-
-  return chartData;
-};
-
-/**
- * Students Per School Treemap Component.
- */
-// const StudentsPerSchoolTreemap = ({ data, collapsed, onToggle }) => {
-//   const COLORS = [
-//     "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF",
-//     "#FF9F40", "#E7E9ED", "#C3E6CB", "#F06292", "#4DD0E1"
-//   ];
-
-//   const totalStudents = useMemo(() => {
-//     return data.reduce((sum, entry) => sum + (entry.total_students || 0), 0);
-//   }, [data]);
-
-//   return (
-//     <div className="bg-white p-6 rounded-lg shadow-md">
-//       <div className="flex justify-between items-center mb-4">
-//         <h2 className="text-xl font-semibold text-gray-700">Students Enrolled Per School</h2>
-//         <button
-//           onClick={onToggle}
-//           onKeyDown={(e) => e.key === 'Enter' && onToggle()}
-//           className="text-blue-600 hover:text-blue-800"
-//           aria-label={collapsed ? "Expand Students Per School" : "Collapse Students Per School"}
-//         >
-//           {collapsed ? "Expand ▼" : "Collapse ▲"}
-//         </button>
-//       </div>
-//       {!collapsed && (
-//         <>
-//           <ResponsiveContainer width="100%" height={300}>
-//             <Treemap
-//               data={data}
-//               dataKey="total_students"
-//               nameKey="school"
-//               ratio={4 / 3}
-//             >
-//               {data.map((entry, index) => (
-//                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-//               ))}
-//               <Tooltip formatter={(value) => `${value} students`} />
-//             </Treemap>
-//           </ResponsiveContainer>
-//           <div className="mt-4">
-//             <p className="text-lg font-medium text-gray-800">
-//               Total Number of Enrolled Students: {totalStudents.toLocaleString()}
-//             </p>
-//           </div>
-//         </>
-//       )}
-//     </div>
-//   );
-// };
-/**
- * Students Per School Bar Chart Component.
- */
-const StudentsPerSchoolBarChart = ({ data, collapsed, onToggle }) => {
-  const COLORS = [
-    "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF",
-    "#FF9F40", "#E7E9ED", "#C3E6CB", "#F06292", "#4DD0E1"
-  ];
-
-  const sortedData = useMemo(() => {
-    return [...data].sort((a, b) => b.total_students - a.total_students);
-  }, [data]);
-
-  const totalStudents = useMemo(() => {
-    return data.reduce((sum, entry) => sum + (entry.total_students || 0), 0);
-  }, [data]);
-
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">Students Enrolled Per School</h2>
-        <button
-          onClick={onToggle}
-          onKeyDown={(e) => e.key === 'Enter' && onToggle()}
-          className="text-blue-600 hover:text-blue-800"
-          aria-label={collapsed ? "Expand Students Per School" : "Collapse Students Per School"}
-        >
-          {collapsed ? "Expand ▼" : "Collapse ▲"}
-        </button>
-      </div>
-      {!collapsed && (
-        <>
-          <ResponsiveContainer width="100%" height={Math.max(300, sortedData.length * 40)}>
-            <BarChart 
-              data={sortedData} 
-              layout="vertical" 
-              margin={{ top: 10, right: 30, left: 150, bottom: 10 }}  // Increased left margin for name visibility
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis 
-                type="category" 
-                dataKey="school" 
-                width={140}  // Explicit width to ensure labels fit
-                tick={{ fontSize: 12 }}  // Smaller font if needed for fit
-              />
-              <Tooltip formatter={(value) => `${value} students`} />
-              <Bar 
-                dataKey="total_students" 
-                radius={[0, 10, 10, 0]}  // Rounded corners on the right end
-                barSize={20}  // Consistent bar height for better appearance
-              >
-                {sortedData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-                <LabelList dataKey="total_students" position="right" fill="#333" />  // Labels for values
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="mt-4">
-            <p className="text-lg font-medium text-gray-800">
-              Total Number of Enrolled Students: {totalStudents.toLocaleString()}
-            </p>
-          </div>
-        </>
-      )}
-    </div>
-  );
-};   
-/**
- * Fee Per Month Bar Chart Component.
- */
-const FeePerMonthChart = ({ data, collapsed, onToggle }) => {
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">Top 3 Schools - Fee Collection (Last 3 Months)</h2>
-        <button
-          onClick={onToggle}
-          onKeyDown={(e) => e.key === 'Enter' && onToggle()}
-          className="text-blue-600 hover:text-blue-800"
-          aria-label={collapsed ? "Expand Fee Per Month" : "Collapse Fee Per Month"}
-        >
-          {collapsed ? "Expand ▼" : "Collapse ▲"}
-        </button>
-      </div>
-      {!collapsed && (
-        data.length > 0 && Object.keys(data[0]).length > 1 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data}>
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              
-              {Object.keys(data[0])
-                .filter(key => key !== "month")
-                .map((key, index) => (
-                  <Bar key={key} dataKey={key} fill={`#${Math.floor(Math.random() * 16777215).toString(16)}`} />
-                ))}
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-gray-500 text-center">No Fee Data Available</p>
-        )
-      )}
-    </div>
-  );
-};
-
-/**
- * Fee Summary Table Component.
- */
-const FeeSummaryTable = ({ data, sortConfig, onSort, selectedMonth, availableMonths, onMonthChange, collapsed, onToggle }) => {
-  const sortedData = useMemo(() => {
-    return [...data].sort((a, b) => {
-      if (sortConfig.key === "school_name") {
-        return sortConfig.direction === "asc"
-          ? a.school_name.localeCompare(b.school_name)
-          : b.school_name.localeCompare(a.school_name);
-      }
-      if (sortConfig.key === "total_fee") {
-        return sortConfig.direction === "asc"
-          ? a.total_fee - b.total_fee
-          : b.total_fee - a.total_fee;
-      }
-      if (sortConfig.key === "paid_amount") {
-        return sortConfig.direction === "asc"
-          ? a.paid_amount - b.paid_amount
-          : b.paid_amount - a.paid_amount;
-      }
-      if (sortConfig.key === "balance_due") {
-        return sortConfig.direction === "asc"
-          ? a.balance_due - b.balance_due
-          : b.balance_due - a.balance_due;
-      }
-      return 0;
-    });
-  }, [data, sortConfig]);
-
-  const totals = useMemo(() => {
-    return sortedData.reduce(
-      (acc, entry) => ({
-        total_fee: acc.total_fee + (Number(entry.total_fee) || 0),
-        paid_amount: acc.paid_amount + (Number(entry.paid_amount) || 0),
-        balance_due: acc.balance_due + (Number(entry.balance_due) || 0),
-      }),
-      { total_fee: 0, paid_amount: 0, balance_due: 0 }
-    );
-  }, [sortedData]);
-
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">Fee Summary for Selected Month</h2>
-        <button
-          onClick={onToggle}
-          onKeyDown={(e) => e.key === 'Enter' && onToggle()}
-          className="text-blue-600 hover:text-blue-800"
-          aria-label={collapsed ? "Expand Fee Summary" : "Collapse Fee Summary"}
-        >
-          {collapsed ? "Expand ▼" : "Collapse ▲"}
-        </button>
-      </div>
-      {!collapsed && (
-        <>
-          <div className="mb-4">
-            <label htmlFor="feeMonth" className="block text-sm font-medium mb-1 text-gray-700">
-              Select Month
-            </label>
-            <select
-              id="feeMonth"
-              value={selectedMonth}
-              onChange={(e) => onMonthChange(e.target.value)}
-              className="border rounded p-2 w-full max-w-xs"
-              aria-label="Select month for fee summary"
-            >
-              {availableMonths.map(month => (
-                <option key={month} value={month}>{month}</option>
-              ))}
-            </select>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse border bg-gray-100 text-gray-700">
-              <thead className="bg-gray-300 text-gray-800">
-                <tr>
-                  <th
-                    className="border px-4 py-2 text-center cursor-pointer"
-                    onClick={() => onSort("school_name")}
-                    onKeyDown={(e) => e.key === 'Enter' && onSort("school_name")}
-                    tabIndex={0}
-                    aria-sort={sortConfig.key === "school_name" ? sortConfig.direction : 'none'}
-                  >
-                    School {sortConfig.key === "school_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="border px-4 py-2 text-center cursor-pointer"
-                    onClick={() => onSort("total_fee")}
-                    onKeyDown={(e) => e.key === 'Enter' && onSort("total_fee")}
-                    tabIndex={0}
-                    aria-sort={sortConfig.key === "total_fee" ? sortConfig.direction : 'none'}
-                  >
-                    Total Fee {sortConfig.key === "total_fee" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="border px-4 py-2 text-center cursor-pointer"
-                    onClick={() => onSort("paid_amount")}
-                    onKeyDown={(e) => e.key === 'Enter' && onSort("paid_amount")}
-                    tabIndex={0}
-                    aria-sort={sortConfig.key === "paid_amount" ? sortConfig.direction : 'none'}
-                  >
-                    Paid Amount {sortConfig.key === "paid_amount" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="border px-4 py-2 text-center cursor-pointer"
-                    onClick={() => onSort("balance_due")}
-                    onKeyDown={(e) => e.key === 'Enter' && onSort("balance_due")}
-                    tabIndex={0}
-                    aria-sort={sortConfig.key === "balance_due" ? sortConfig.direction : 'none'}
-                  >
-                    Balance Due {sortConfig.key === "balance_due" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedData.length > 0 ? (
-                  <>
-                    {sortedData.map((entry, index) => (
-                      <tr key={index} className={index % 2 === 0 ? "bg-gray-200 hover:bg-gray-100" : "bg-gray-50 hover:bg-gray-100"}>
-                        <td className="border px-4 py-2 text-center">{entry.school_name}</td>
-                        <td className="border px-4 py-2 text-center">PKR {entry.total_fee.toLocaleString()}</td>
-                        <td className="border px-4 py-2 text-center">PKR {entry.paid_amount.toLocaleString()}</td>
-                        <td className="border px-4 py-2 text-center">PKR {entry.balance_due.toLocaleString()}</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-gray-300 font-bold">
-                      <td className="border px-4 py-2 text-center">Total</td>
-                      <td className="border px-4 py-2 text-center">PKR {totals.total_fee.toLocaleString()}</td>
-                      <td className="border px-4 py-2 text-center">PKR {totals.paid_amount.toLocaleString()}</td>
-                      <td className="border px-4 py-2 text-center">PKR {totals.balance_due.toLocaleString()}</td>
-                    </tr>
-                  </>
-                ) : (
-                  <tr>
-                    <td className="border px-4 py-2 text-center text-gray-500 italic" colSpan="4">
-                      No Fee Summary Available for {selectedMonth}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-/**
- * New Registrations Table Component.
- */
-const NewRegistrationsTable = ({ data, sortConfig, onSort, collapsed, onToggle }) => {
-  const summarizedData = useMemo(() => {
-    return data.reduce((acc, reg) => {
-      const school = reg.school_name || "Unknown";
-      acc[school] = (acc[school] || 0) + 1;
-      return acc;
-    }, {});
-  }, [data]);
-
-  const tableData = useMemo(() => {
-    return Object.entries(summarizedData).map(([school, count]) => ({
-      school,
-      count
-    }));
-  }, [summarizedData]);
-
-  const sortedData = useMemo(() => {
-    return [...tableData].sort((a, b) => {
-      if (sortConfig.key === "count") {
-        return sortConfig.direction === "asc" ? a.count - b.count : b.count - a.count;
-      }
-      if (sortConfig.key === "school") {
-        return sortConfig.direction === "asc"
-          ? a.school.localeCompare(b.school)
-          : b.school.localeCompare(a.school);
-      }
-      return 0;
-    });
-  }, [tableData, sortConfig]);
-
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">New Registrations by School</h2>
-        <button
-          onClick={onToggle}
-          onKeyDown={(e) => e.key === 'Enter' && onToggle()}
-          className="text-blue-600 hover:text-blue-800"
-          aria-label={collapsed ? "Expand New Registrations" : "Collapse New Registrations"}
-        >
-          {collapsed ? "Expand ▼" : "Collapse ▲"}
-        </button>
-      </div>
-      {!collapsed && (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border bg-gray-100 text-gray-700">
-            <thead className="bg-gray-300 text-gray-800">
-              <tr>
-                <th
-                  className="border px-4 py-2 text-center cursor-pointer"
-                  onClick={() => onSort("school")}
-                  onKeyDown={(e) => e.key === 'Enter' && onSort("school")}
-                  tabIndex={0}
-                  aria-sort={sortConfig.key === "school" ? sortConfig.direction : 'none'}
-                >
-                  School {sortConfig.key === "school" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                </th>
-                <th
-                  className="border px-4 py-2 text-center cursor-pointer"
-                  onClick={() => onSort("count")}
-                  onKeyDown={(e) => e.key === 'Enter' && onSort("count")}
-                  tabIndex={0}
-                  aria-sort={sortConfig.key === "count" ? sortConfig.direction : 'none'}
-                >
-                  Number of Admissions {sortConfig.key === "count" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedData.length > 0 ? (
-                sortedData.map((entry, index) => (
-                  <tr key={index} className={index % 2 === 0 ? "bg-gray-200 hover:bg-gray-100" : "bg-gray-50 hover:bg-gray-100"}>
-                    <td className="border px-4 py-2 text-center">{entry.school}</td>
-                    <td className="border px-4 py-2 text-center">{entry.count}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="border px-4 py-2 text-center text-gray-500 italic" colSpan="2">
-                    No New Registrations Available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-};
-
-/**
- * Student Data Reports Component.
- */
-const StudentDataReports = ({ 
-  selectedReportMonth, 
-  onMonthChange, 
-  selectedSchoolId, 
-  onSchoolChange, 
-  schools, 
-  selectedClass, 
-  onClassChange, 
-  classes, 
-  onFetchData, 
-  loading, 
-  attendance, 
-  topics, 
-  images, 
-  collapsed, 
-  onToggle 
-}) => {
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">Student Data Reports</h2>
-        <button
-          onClick={onToggle}
-          onKeyDown={(e) => e.key === 'Enter' && onToggle()}
-          className="text-blue-600 hover:text-blue-800"
-          aria-label={collapsed ? "Expand Student Data Reports" : "Collapse Student Data Reports"}
-        >
-          {collapsed ? "Expand ▼" : "Collapse ▲"}
-        </button>
-      </div>
-      {!collapsed && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <div>
-              <label htmlFor="reportMonth" className="block text-sm font-medium mb-1 text-gray-700">
-                Select Month
-              </label>
-              <input
-                type="month"
-                id="reportMonth"
-                value={selectedReportMonth}
-                onChange={(e) => onMonthChange(e.target.value)}
-                className="border rounded p-2 w-full max-w-xs"
-                aria-label="Select month for student data reports"
-              />
-            </div>
-            <div>
-              <label htmlFor="schoolId" className="block text-sm font-medium mb-1 text-gray-700">
-                Select School
-              </label>
-              <select
-                id="schoolId"
-                value={selectedSchoolId}
-                onChange={(e) => onSchoolChange(e.target.value)}
-                className="border rounded p-2 w-full max-w-xs"
-                aria-label="Select school for student data reports"
-              >
-                <option value="">Select School</option>
-                {schools.map((school) => (
-                  <option key={school.id} value={school.id}>
-                    {school.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="studentClass" className="block text-sm font-medium mb-1 text-gray-700">
-                Select Class
-              </label>
-              <select
-                id="studentClass"
-                value={selectedClass}
-                onChange={(e) => onClassChange(e.target.value)}
-                className="border rounded p-2 w-full max-w-xs"
-                aria-label="Select class for student data reports"
-                disabled={!selectedSchoolId}
-              >
-                <option value="">Select Class</option>
-                {classes.map((cls, index) => (
-                  <option key={index} value={cls}>
-                    {cls}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={onFetchData}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                disabled={loading}
-              >
-                {loading ? "Loading..." : "Fetch Student Data"}
-              </button>
-            </div>
-          </div>
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2 text-gray-700">Student Performance Overview</h3>
-            {loading ? (
-              <div className="flex justify-center">
-                <ClipLoader color="#000000" size={50} />
-              </div>
-            ) : attendance.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border bg-gray-100 text-gray-700">
-                  <thead className="bg-gray-300 text-gray-800">
-                    <tr>
-                      <th className="border px-4 py-2 text-center">Student ID</th>
-                      <th className="border px-4 py-2 text-center">Name</th>
-                      <th className="border px-4 py-2 text-center bg-blue-100">Present</th>
-                      <th className="border px-4 py-2 text-center bg-blue-100">Absent</th>
-                      <th className="border px-4 py-2 text-center bg-blue-100">Not Marked</th>
-                      <th className="border px-4 py-2 text-center bg-green-100">Topics Achieved</th>
-                      <th className="border px-4 py-2 text-center bg-yellow-100">Images Uploaded</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {attendance.map((attendance, index) => {
-                      const topic = topics.find(t => t.student_id === attendance.student_id) || { topics_achieved: 0 };
-                      const image = images.find(i => i.student_id === attendance.student_id) || { images_uploaded: 0 };
-                      return (
-                        <tr key={index} className={index % 2 === 0 ? "bg-gray-200 hover:bg-gray-100" : "bg-gray-50 hover:bg-gray-100"}>
-                          <td className="border px-4 py-2 text-center">{attendance.student_id}</td>
-                          <td className="border px-4 py-2 text-center">{attendance.name}</td>
-                          <td className="border px-4 py-2 text-center bg-blue-50">{attendance.present}</td>
-                          <td className="border px-4 py-2 text-center bg-blue-50">{attendance.absent}</td>
-                          <td className="border px-4 py-2 text-center bg-blue-50">{attendance.not_marked}</td>
-                          <td className="border px-4 py-2 text-center bg-green-50">{topic.topics_achieved}</td>
-                          <td className="border px-4 py-2 text-center bg-yellow-50">{image.images_uploaded}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center">No student data available.</p>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-function HomePage() {
-  const [studentsState, studentsDispatch] = useReducer(dataReducer, { loading: true, error: null, data: [] });
-  const [feeState, feeDispatch] = useReducer(dataReducer, { loading: true, error: null, data: [] });
-  const [registrationsState, registrationsDispatch] = useReducer(dataReducer, { loading: true, error: null, data: [] });
-  const [schoolsState, schoolsDispatch] = useReducer(dataReducer, { loading: true, error: null, data: [] });
-  const [feeSummaryState, feeSummaryDispatch] = useReducer(dataReducer, { loading: false, error: null, data: [] });
-
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [availableMonths, setAvailableMonths] = useState([]);
-  const [selectedReportMonth, setSelectedReportMonth] = useState("");
-  const [selectedSchoolId, setSelectedSchoolId] = useState("");
-  const [selectedClass, setSelectedClass] = useState("");
-  const [classes, setClasses] = useState([]);
+  // Cleanup effect
+  useEffect(() => {
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+  // State
+  const [studentsPerSchool, setStudentsPerSchool] = useState([]);
+  const [feePerMonth, setFeePerMonth] = useState([]);
+  const [feeSummary, setFeeSummary] = useState([]);
+  const [newRegistrations, setNewRegistrations] = useState([]);
   const [studentAttendance, setStudentAttendance] = useState([]);
   const [studentTopics, setStudentTopics] = useState([]);
   const [studentImages, setStudentImages] = useState([]);
-  const [studentDataLoading, setStudentDataLoading] = useState(false);
-
-  const [collapsedSections, setCollapsedSections] = useState({
-    studentsPerSchool: false,
-    feePerMonth: false,
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [availableMonths, setAvailableMonths] = useState([]);
+  
+  // ✅ NEW: Notification Modal State
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  
+  const [loading, setLoading] = useState({
+    students: true,
+    fee: true,
+    registrations: true,
     feeSummary: false,
-    newRegistrations: false,
-    studentDataReports: false,
+    studentData: false,
   });
 
-  const toggleSection = (section) => {
-    setCollapsedSections((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
+  // Hooks
+  const { schools } = useSchools();
 
-  // Fetch classes for selected school
-  const fetchClasses = async (schoolId) => {
-    if (!schoolId) return;
+  // Fetch initial data
+  useEffect(() => {
+  const fetchInitialData = async () => {
+    // ✅ CHECK 1: Don't start if unmounted
+    if (!isMounted.current) return;
+    
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/classes/?school=${schoolId}`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("access")}`,
-          "Content-Type": "application/json"
-        }
-      });
-      // Remove duplicates by converting to Set and back to array
-      const uniqueClasses = [...new Set(response.data)];
-      setClasses(uniqueClasses);
+      const [studentsRes, feeRes, registrationsRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/students-per-school/`, { headers: getAuthHeaders() }),
+        axios.get(`${API_BASE_URL}/api/fee-per-month/`, { headers: getAuthHeaders() }),
+        axios.get(`${API_BASE_URL}/api/new-registrations/`, { headers: getAuthHeaders() }),
+      ]);
+
+      // ✅ CHECK 2: Don't update state if unmounted
+      if (!isMounted.current) return;
+
+      console.log('📊 Fee per month raw data:', feeRes.data);
+
+      // Students per school
+      setStudentsPerSchool(studentsRes.data);
+
+      // Fee per month - process for chart
+      const processedFeeData = processFeeData(feeRes.data, schools);
+      console.log('📊 Processed fee data:', processedFeeData);
+      setFeePerMonth(processedFeeData);
+
+      // Available months
+      const months = extractAvailableMonths(feeRes.data);
+      setAvailableMonths(months);
+
+      // Set default month (current month or latest)
+      const currentMonth = moment().format('YYYY-MM');
+      const defaultMonth = months.includes(currentMonth) ? currentMonth : months[0] || '';
+      setSelectedMonth(defaultMonth);
+
+      // New registrations
+      setNewRegistrations(registrationsRes.data);
+
+      // ✅ CHECK 3: Only clear loading if mounted
+      if (isMounted.current) {
+        setLoading({ ...loading, students: false, fee: false, registrations: false });
+      }
     } catch (error) {
-      toast.error("Failed to fetch classes");
+      // ✅ CHECK 4: Don't show errors if unmounted
+      if (!isMounted.current) return;
+      
+      console.error('❌ Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+      
+      // ✅ CHECK 5: Only update loading if mounted
+      if (isMounted.current) {
+        setLoading({ ...loading, students: false, fee: false, registrations: false });
+      }
+    }
+  };
+  
+  fetchInitialData();
+}, [schools]);
+
+  // Fetch fee summary when month changes
+  useEffect(() => {
+  const fetchFeeSummary = async () => {
+    // ✅ CHECK 1: Don't start if unmounted
+    if (!isMounted.current) return;
+    
+    setLoading((prev) => ({ ...prev, feeSummary: true }));
+    
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/fee-summary/?month=${selectedMonth}`,
+        { headers: getAuthHeaders() }
+      );
+      
+      // ✅ CHECK 2: Don't update state if unmounted
+      if (!isMounted.current) return;
+      
+      console.log('💰 Fee Summary Data:', response.data);
+      setFeeSummary(response.data);
+    } catch (error) {
+      // ✅ CHECK 3: Don't show errors if unmounted
+      if (!isMounted.current) return;
+      
+      console.error('❌ Error fetching fee summary:', error);
+      toast.error('Failed to load fee summary');
+      setFeeSummary([]);
+    } finally {
+      // ✅ CHECK 4: Only clear loading if mounted
+      if (isMounted.current) {
+        setLoading((prev) => ({ ...prev, feeSummary: false }));
+      }
     }
   };
 
-  // Fetch student data for reports
-  const fetchStudentData = async () => {
-    if (!selectedReportMonth || !selectedSchoolId || !selectedClass) {
-      toast.error("Please select month, school, and class");
+  if (selectedMonth) {
+    fetchFeeSummary();
+  }
+}, [selectedMonth]);
+  // ✅ Extract available months from fee data
+  const extractAvailableMonths = (data) => {
+    if (!data || data.length === 0) return [];
+    
+    const uniqueMonths = Array.from(
+      new Set(
+        data
+          .map(entry => entry.month)
+          .filter(month => month && month !== "Unknown")
+      )
+    );
+    
+    const sortedMonths = uniqueMonths.sort((a, b) => {
+      const dateA = new Date(a + '-01');
+      const dateB = new Date(b + '-01');
+      return dateA - dateB;
+    });
+    
+    console.log('📅 Available months extracted:', sortedMonths);
+    return sortedMonths;
+  };
+
+  // ✅ FIX 1: Process fee data correctly for top 3 schools across 3 months
+  const processFeeData = (data, schoolsList) => {
+    if (!data || data.length === 0) return [];
+
+    console.log('🔄 Processing fee data...');
+
+    // Create school name mapping
+    const schoolMap = schoolsList.reduce((acc, school) => {
+      acc[school.id] = school.name;
+      return acc;
+    }, {});
+
+    // Get last 3 months from data
+    const uniqueMonths = Array.from(new Set(data.map(entry => entry.month)))
+      .filter(month => month && month !== "Unknown")
+      .sort((a, b) => {
+        const [monthA, yearA] = a.split('-');
+        const [monthB, yearB] = b.split('-');
+        if (yearA === yearB) {
+          return new Date(`${monthA} 1, ${yearA}`) - new Date(`${monthB} 1, ${yearB}`);
+        }
+        return yearA - yearB;
+      });
+
+    const last3Months = uniqueMonths.slice(-3);
+    console.log('📅 Last 3 months:', last3Months);
+
+    // Aggregate total fees per school across all 3 months
+    const schoolTotals = {};
+    last3Months.forEach(month => {
+      const monthData = data.filter(entry => entry.month === month);
+      monthData.forEach(entry => {
+        const schoolId = entry.school;
+        const schoolName = schoolMap[schoolId] || `School ${schoolId}`;
+        const fee = Number(entry.total_fee) || 0;
+        schoolTotals[schoolName] = (schoolTotals[schoolName] || 0) + fee;
+      });
+    });
+
+    // Get top 3 schools by total fees
+    const top3Schools = Object.entries(schoolTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([school]) => school);
+
+    console.log('🏆 Top 3 schools:', top3Schools);
+
+    // Build chart data with top 3 schools for each month
+    const chartData = last3Months.map(month => {
+      const monthData = data.filter(entry => entry.month === month);
+      const row = { month };
+
+      top3Schools.forEach(schoolName => {
+        const schoolId = Object.keys(schoolMap).find(id => schoolMap[id] === schoolName);
+        const schoolEntry = monthData.find(entry => entry.school === parseInt(schoolId));
+        row[schoolName] = schoolEntry ? Number(schoolEntry.total_fee) || 0 : 0;
+      });
+
+      return row;
+    });
+
+    console.log('📊 Final chart data:', chartData);
+    return chartData;
+  };
+
+  // Get all school names from chart data for legend
+  const schoolNamesInChart = feePerMonth.length > 0 
+    ? Object.keys(feePerMonth[0]).filter(key => key !== 'month') 
+    : [];
+
+  // ✅ FIX 2: Fetch student data with correct month format
+  const fetchStudentData = async (filters) => {
+    if (!filters.schoolId || !filters.className) {
+      toast.error('Please select school and class');
       return;
     }
 
-    setStudentDataLoading(true);
+    // ✅ CHECK 1: Don't start if unmounted
+    if (!isMounted.current) return;
+
+    setLoading(prev => ({ ...prev, studentData: true }));
+    
     try {
-      const params = `month=${selectedReportMonth}&school_id=${selectedSchoolId}&student_class=${selectedClass}`;
+      // Convert "Oct-2025" to "2025-10"
+      const monthParam = moment(selectedMonth, 'MMM-YYYY').format('YYYY-MM');
+      const params = `month=${monthParam}&school_id=${filters.schoolId}&student_class=${filters.className}`;
 
-      // Fetch attendance counts
-      const attendanceResponse = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/student-attendance-counts/?${params}`,
-        {
-          headers: {
-            "Authorization": `Bearer ${localStorage.getItem("access")}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      setStudentAttendance(attendanceResponse.data);
+      console.log('📡 Fetching student data with params:', params);
 
-      // Fetch achieved topics count
-      const topicsResponse = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/student-achieved-topics-count/?${params}`,
-        {
-          headers: {
-            "Authorization": `Bearer ${localStorage.getItem("access")}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      setStudentTopics(topicsResponse.data);
+      const [attendanceRes, topicsRes, imagesRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/student-attendance-counts/?${params}`, { headers: getAuthHeaders() }),
+        axios.get(`${API_BASE_URL}/api/student-achieved-topics-count/?${params}`, { headers: getAuthHeaders() }),
+        axios.get(`${API_BASE_URL}/api/student-image-uploads-count/?${params}`, { headers: getAuthHeaders() }),
+      ]);
 
-      // Fetch image uploads count
-      const imagesResponse = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/student-image-uploads-count/?${params}`,
-        {
-          headers: {
-            "Authorization": `Bearer ${localStorage.getItem("access")}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      setStudentImages(imagesResponse.data);
+      // ✅ CHECK 2: Don't update state if unmounted
+      if (!isMounted.current) return;
+
+      console.log('✅ Student data fetched successfully');
+      setStudentAttendance(attendanceRes.data);
+      setStudentTopics(topicsRes.data);
+      setStudentImages(imagesRes.data);
     } catch (error) {
-      toast.error("Failed to fetch student data");
+      // ✅ CHECK 3: Don't show errors if unmounted
+      if (!isMounted.current) return;
+      
+      console.error('❌ Error fetching student data:', error.response?.data || error);
+      toast.error(`Failed to fetch student data: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      // ✅ CHECK 4: Only clear loading if mounted
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, studentData: false }));
+      }
     }
-    setStudentDataLoading(false);
   };
 
-  useEffect(() => {
-    fetchClasses(selectedSchoolId);
-  }, [selectedSchoolId]);
+  // Summarize registrations by school
+  const registrationSummary = newRegistrations.reduce((acc, reg) => {
+    const school = reg.school_name || 'Unknown';
+    acc[school] = (acc[school] || 0) + 1;
+    return acc;
+  }, {});
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      studentsDispatch({ type: 'FETCH_START' });
-      feeDispatch({ type: 'FETCH_START' });
-      registrationsDispatch({ type: 'FETCH_START' });
-      schoolsDispatch({ type: 'FETCH_START' });
+  const registrationTableData = Object.entries(registrationSummary).map(([school, count]) => ({
+    school,
+    count,
+  }));
 
-      try {
-        const [studentsRes, feeRes, registrationsRes, schoolsRes] = await Promise.allSettled([
-          axios.get(`${process.env.REACT_APP_API_URL}/api/students-per-school/`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("access")}`, "Content-Type": "application/json" }
-          }),
-          axios.get(`${process.env.REACT_APP_API_URL}/api/fee-per-month/`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("access")}`, "Content-Type": "application/json" }
-          }),
-          axios.get(`${process.env.REACT_APP_API_URL}/api/new-registrations/`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("access")}`, "Content-Type": "application/json" }
-          }),
-          axios.get(`${process.env.REACT_APP_API_URL}/api/schools/`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("access")}`, "Content-Type": "application/json" }
-          })
-        ]);
-
-        if (studentsRes.status === 'fulfilled') {
-          if (!studentsRes.value.data || !Array.isArray(studentsRes.value.data)) throw new Error("Invalid students data");
-          studentsDispatch({ type: 'FETCH_SUCCESS', payload: studentsRes.value.data });
-        } else {
-          studentsDispatch({ type: 'FETCH_ERROR', error: studentsRes.reason.message });
-          toast.error(`Students data error: ${studentsRes.reason.message}`);
-        }
-
-        if (feeRes.status === 'fulfilled') {
-          if (!feeRes.value.data || !Array.isArray(feeRes.value.data)) throw new Error("Invalid fee data");
-          const processedFee = processFeeData(feeRes.value.data, schoolsRes.value?.data || []);
-          feeDispatch({ type: 'FETCH_SUCCESS', payload: processedFee });
-
-          // Extract unique months
-          const uniqueMonths = Array.from(new Set(feeRes.value.data.map(entry => entry.month || "Unknown")))
-            .filter(month => month !== "Unknown")
-            .sort((a, b) => {
-              const [monthA, yearA] = a.split('-');
-              const [monthB, yearB] = b.split('-');
-              if (yearA === yearB) {
-                return new Date(`${monthA} 1, ${yearA}`) - new Date(`${monthB} 1, ${yearB}`);
-              }
-              return yearA - yearB;
-            });
-          setAvailableMonths(uniqueMonths);
-          const recentMonth = uniqueMonths.length > 0 ? uniqueMonths[uniqueMonths.length - 1] : "";
-          setSelectedMonth(recentMonth);
-        } else {
-          feeDispatch({ type: 'FETCH_ERROR', error: feeRes.reason.message });
-          toast.error(`Fee data error: ${feeRes.reason.message}`);
-        }
-
-        if (registrationsRes.status === 'fulfilled') {
-          if (!registrationsRes.value.data || !Array.isArray(registrationsRes.value.data)) throw new Error("Invalid registrations data");
-          registrationsDispatch({ type: 'FETCH_SUCCESS', payload: registrationsRes.value.data });
-        } else {
-          registrationsDispatch({ type: 'FETCH_ERROR', error: registrationsRes.reason.message });
-          toast.error(`Registrations data error: ${registrationsRes.reason.message}`);
-        }
-
-        if (schoolsRes.status === 'fulfilled') {
-          if (!schoolsRes.value.data || !Array.isArray(schoolsRes.value.data)) throw new Error("Invalid schools data");
-          schoolsDispatch({ type: 'FETCH_SUCCESS', payload: schoolsRes.value.data });
-        } else {
-          schoolsDispatch({ type: 'FETCH_ERROR', error: schoolsRes.reason.message });
-          toast.error(`Schools data error: ${schoolsRes.reason.message}`);
-        }
-      } catch (err) {
-        // Global error if needed
-        toast.error(`General error: ${err.message}`);
-      }
-    };
-
-    fetchInitialData();
-  }, []);
-
-  useEffect(() => {
-    const fetchFeeSummary = async () => {
-      if (!selectedMonth) return;
-      feeSummaryDispatch({ type: 'FETCH_START' });
-      try {
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/fee-summary/`, {
-          params: { month: selectedMonth },
-          headers: {
-            "Authorization": `Bearer ${localStorage.getItem("access")}`,
-            "Content-Type": "application/json"
-          }
-        });
-        feeSummaryDispatch({ type: 'FETCH_SUCCESS', payload: response.data });
-      } catch (err) {
-        let errorMessage = "Failed to fetch fee summary";
-        if (err.response?.status === 401) {
-          errorMessage = "Authentication failed. Please log in again.";
-        } else if (err.message) {
-          errorMessage += `: ${err.message}`;
-        }
-        feeSummaryDispatch({ type: 'FETCH_ERROR', error: errorMessage });
-        toast.error(errorMessage);
-      }
-    };
-
-    fetchFeeSummary();
-  }, [selectedMonth]);
-
-  const sortData = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const isLoading = studentsState.loading || feeState.loading || registrationsState.loading || schoolsState.loading;
-  const hasError = studentsState.error || feeState.error || registrationsState.error || schoolsState.error;
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-6 min-h-screen bg-gray-100">
-        <ClipLoader color="#000000" size={50} />
-      </div>
-    );
-  }
-
-  if (hasError) {
-    return (
-      <div className="p-6 text-red-500 flex flex-col items-center">
-        <p>Errors occurred while fetching data. Check console for details.</p>
-        {/* Add per-section retry if needed */}
-      </div>
-    );
-  }
+  // Calculate totals for fee summary
+  const feeTotals = feeSummary.reduce(
+    (acc, entry) => ({
+      total_fee: acc.total_fee + (Number(entry.total_fee) || 0),
+      paid_amount: acc.paid_amount + (Number(entry.paid_amount) || 0),
+      balance_due: acc.balance_due + (Number(entry.balance_due) || 0),
+    }),
+    { total_fee: 0, paid_amount: 0, balance_due: 0 }
+  );
 
   return (
-    <div className="container mx-auto p-6 bg-gray-100 min-h-screen">
-      <header className="bg-blue-600 text-white p-6 rounded-lg shadow-md mb-6">
-        <div className="flex items-center">
-          <img src="/whiteLogo.png" alt="Koder Kids Logo" className="h-12 w-auto mr-4" align="center" />
-          <h1 className="text-2xl font-bold">Koder Kids Admin Dashboard </h1>
+    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto', backgroundColor: '#F3F4F6', minHeight: '100vh' }}>
+      {/* Header with Notification Button */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1.5rem',
+        padding: '1.5rem',
+        backgroundColor: '#FFFFFF',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      }}>
+        <div>
+          <h1 style={{ 
+            fontSize: '1.75rem', 
+            fontWeight: '700', 
+            color: '#1F2937',
+            margin: 0,
+          }}>
+            📊 Admin Dashboard
+          </h1>
+          <p style={{ 
+            fontSize: '0.875rem', 
+            color: '#6B7280',
+            margin: '0.25rem 0 0 0',
+          }}>
+            Welcome back! Here's what's happening today.
+          </p>
         </div>
-      </header>
 
-      <div className="space-y-6">
-        <StudentsPerSchoolBarChart
-          data={studentsState.data}
-          collapsed={collapsedSections.studentsPerSchool}
-          onToggle={() => toggleSection("studentsPerSchool")}
-        />
-
-        <FeePerMonthChart
-          data={feeState.data}
-          collapsed={collapsedSections.feePerMonth}
-          onToggle={() => toggleSection("feePerMonth")}
-        />
-
-        <FeeSummaryTable
-          data={feeSummaryState.data}
-          sortConfig={sortConfig}
-          onSort={sortData}
-          selectedMonth={selectedMonth}
-          availableMonths={availableMonths}
-          onMonthChange={setSelectedMonth}
-          collapsed={collapsedSections.feeSummary}
-          onToggle={() => toggleSection("feeSummary")}
-        />
-
-        <NewRegistrationsTable
-          data={registrationsState.data}
-          sortConfig={sortConfig}
-          onSort={sortData}
-          collapsed={collapsedSections.newRegistrations}
-          onToggle={() => toggleSection("newRegistrations")}
-        />
-
-        <StudentDataReports
-          selectedReportMonth={selectedReportMonth}
-          onMonthChange={setSelectedReportMonth}
-          selectedSchoolId={selectedSchoolId}
-          onSchoolChange={setSelectedSchoolId}
-          schools={schoolsState.data}
-          selectedClass={selectedClass}
-          onClassChange={setSelectedClass}
-          classes={classes}
-          onFetchData={fetchStudentData}
-          loading={studentDataLoading}
-          attendance={studentAttendance}
-          topics={studentTopics}
-          images={studentImages}
-          collapsed={collapsedSections.studentDataReports}
-          onToggle={() => toggleSection("studentDataReports")}
-        />
+        {/* ✅ NEW: Send Notification Button */}
+        <button
+          onClick={() => setIsNotificationModalOpen(true)}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#7C3AED',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '0.875rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            transition: 'background-color 0.15s ease',
+            boxShadow: '0 2px 4px rgba(124, 58, 237, 0.3)',
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#6D28D9'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = '#7C3AED'}
+        >
+          <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          Send Notification
+        </button>
       </div>
+
+      {/* Students Per School Chart */}
+      <CollapsibleSection title="Students Enrolled Per School">
+        {loading.students ? (
+          <LoadingSpinner size="medium" message="Loading students data..." />
+        ) : (
+          <>
+            <BarChartWrapper
+              data={studentsPerSchool}
+              dataKey="total_students"
+              xAxisKey="school"
+              label="Students Distribution"
+              height={350}
+              showLegend={false}
+              showGrid
+              showLabels
+              color="#3B82F6"
+            />
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#EFF6FF', borderRadius: '8px' }}>
+              <p style={{ margin: 0, color: '#1E40AF', fontWeight: '600' }}>
+                Total Enrolled Students: {studentsPerSchool.reduce((sum, s) => sum + s.total_students, 0).toLocaleString()}
+              </p>
+            </div>
+          </>
+        )}
+      </CollapsibleSection>
+
+      {/* ✅ FIX 1: Fee Per Month Chart - Multi-Series for Top 3 Schools */}
+      <CollapsibleSection title="Top 3 Schools - Fee Collection (Last 3 Months)">
+        {loading.fee ? (
+          <LoadingSpinner size="medium" message="Loading fee data..." />
+        ) : feePerMonth.length > 0 && schoolNamesInChart.length > 0 ? (
+          <>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart 
+                data={feePerMonth}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="month" stroke="#6B7280" />
+                <YAxis stroke="#6B7280" />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                  }}
+                  formatter={(value) => `PKR ${value.toLocaleString()}`}
+                />
+                <Legend />
+                {schoolNamesInChart.map((schoolName, index) => (
+                  <Bar 
+                    key={schoolName} 
+                    dataKey={schoolName} 
+                    fill={['#3B82F6', '#10B981', '#F59E0B'][index % 3]}
+                    radius={[4, 4, 0, 0]}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* Total Summary */}
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#F0FDF4', borderRadius: '8px' }}>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: '#059669' }}>3-Month Summary (Top 3 Schools):</h4>
+              {schoolNamesInChart.map(schoolName => {
+                const schoolTotal = feePerMonth.reduce((sum, month) => sum + (month[schoolName] || 0), 0);
+                return (
+                  <p key={schoolName} style={{ margin: '0.25rem 0', color: '#065F46' }}>
+                    <strong>{schoolName}:</strong> PKR {schoolTotal.toLocaleString()}
+                  </p>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <p style={{ textAlign: 'center', color: '#9CA3AF' }}>No fee data available</p>
+        )}
+      </CollapsibleSection>
+
+      {/* Fee Summary Table */}
+      <CollapsibleSection 
+        title="Fee Summary for Selected Month"
+        headerAction={
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            style={{
+              padding: '0.5rem 1rem',
+              border: '1px solid #D1D5DB',
+              borderRadius: '6px',
+              fontSize: '0.875rem',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {availableMonths.map(month => (
+              <option key={month} value={month}>
+                {month}
+              </option>
+            ))}
+          </select>
+        }
+      >
+        <DataTable
+          data={feeSummary}
+          loading={loading.feeSummary}
+          columns={[
+            { key: 'school_name', label: 'School', sortable: true },
+            { 
+              key: 'total_fee', 
+              label: 'Total Fee', 
+              sortable: true, 
+              align: 'right',
+              render: (value) => `PKR ${value.toLocaleString()}`
+            },
+            { 
+              key: 'paid_amount', 
+              label: 'Paid Amount', 
+              sortable: true, 
+              align: 'right',
+              render: (value) => `PKR ${value.toLocaleString()}`
+            },
+            { 
+              key: 'balance_due', 
+              label: 'Balance Due', 
+              sortable: true, 
+              align: 'right',
+              render: (value) => (
+                <span style={{ color: value > 0 ? '#DC2626' : '#059669', fontWeight: '600' }}>
+                  PKR {value.toLocaleString()}
+                </span>
+              )
+            },
+          ]}
+          emptyMessage={`No fee data for ${selectedMonth}`}
+          striped
+          hoverable
+        />
+        
+        {feeSummary.length > 0 && (
+          <div style={{ 
+            marginTop: '1rem', 
+            padding: '1rem', 
+            background: '#F0FDF4', 
+            borderRadius: '8px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem',
+          }}>
+            <div>
+              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.875rem' }}>Total Fee:</p>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#065F46', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                PKR {feeTotals.total_fee.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.875rem' }}>Paid Amount:</p>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#065F46', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                PKR {feeTotals.paid_amount.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.875rem' }}>Balance Due:</p>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#DC2626', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                PKR {feeTotals.balance_due.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* New Registrations */}
+      <CollapsibleSection title="New Registrations by School">
+        <DataTable
+          data={registrationTableData}
+          loading={loading.registrations}
+          columns={[
+            { key: 'school', label: 'School', sortable: true },
+            { key: 'count', label: 'Number of Admissions', sortable: true, align: 'center' },
+          ]}
+          emptyMessage="No new registrations"
+          striped
+          hoverable
+        />
+      </CollapsibleSection>
+
+      {/* Student Data Reports - With Month Selector */}
+      <CollapsibleSection title="Student Data Reports">
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gap: '1rem',
+          marginBottom: '1rem'
+        }}>
+          {/* Month Selector */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
+              Select Month for Student Data
+            </label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #D1D5DB',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+              }}
+            >
+              {availableMonths.map(month => (
+                <option key={month} value={month}>
+                  {month}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <FilterBar
+          onFilter={fetchStudentData}
+          showSchool
+          showClass
+          showMonth={false}
+          submitButtonText="Fetch Student Data"
+        />
+
+        {loading.studentData ? (
+          <LoadingSpinner size="medium" message="Loading student data..." />
+        ) : studentAttendance.length > 0 ? (
+          <DataTable
+            data={studentAttendance.map(attendance => {
+              const topic = studentTopics.find(t => t.student_id === attendance.student_id) || { topics_achieved: 0 };
+              const image = studentImages.find(i => i.student_id === attendance.student_id) || { images_uploaded: 0 };
+              
+              return {
+                ...attendance,
+                topics_achieved: topic.topics_achieved,
+                images_uploaded: image.images_uploaded,
+              };
+            })}
+            columns={[
+              { key: 'student_id', label: 'ID', sortable: true, width: '80px' },
+              { key: 'name', label: 'Name', sortable: true },
+              { key: 'present', label: 'Present', sortable: true, align: 'center' },
+              { key: 'absent', label: 'Absent', sortable: true, align: 'center' },
+              { key: 'not_marked', label: 'Not Marked', sortable: true, align: 'center' },
+              { key: 'topics_achieved', label: 'Topics', sortable: true, align: 'center' },
+              { key: 'images_uploaded', label: 'Images', sortable: true, align: 'center' },
+            ]}
+            striped
+            hoverable
+            maxHeight="400px"
+          />
+        ) : (
+          <div style={{
+            padding: '2rem',
+            textAlign: 'center',
+            color: '#9CA3AF',
+            backgroundColor: '#F9FAFB',
+            borderRadius: '8px',
+            marginTop: '1rem',
+          }}>
+            Select school and class to view student data
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* ✅ NEW: Send Notification Modal */}
+      <SendNotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+      />
     </div>
   );
 }
 
-export default HomePage;
+export default AdminDashboard;

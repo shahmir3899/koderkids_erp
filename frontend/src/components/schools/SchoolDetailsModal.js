@@ -1,5 +1,6 @@
 // ============================================
 // SCHOOL DETAILS MODAL - View/Edit School
+// Updated with Payment Mode Configuration
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -61,6 +62,9 @@ export const SchoolDetailsModal = ({
         established_date: school.established_date || '',
         total_capacity: school.total_capacity || '',
         is_active: school.is_active !== false,
+        // 💰 Payment Configuration
+        payment_mode: school.payment_mode || 'per_student',
+        monthly_subscription_amount: school.monthly_subscription_amount || '',
       });
     }
   }, [school]);
@@ -81,10 +85,21 @@ export const SchoolDetailsModal = ({
   // Handle input change
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      };
+      
+      // 💰 Clear subscription amount when switching to per_student mode
+      if (name === 'payment_mode' && value === 'per_student') {
+        updated.monthly_subscription_amount = '';
+      }
+      
+      return updated;
+    });
+    
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
@@ -122,6 +137,13 @@ export const SchoolDetailsModal = ({
     if (formData.total_capacity && formData.total_capacity < 1) {
       newErrors.total_capacity = 'Capacity must be at least 1';
     }
+    
+    // 💰 Validate payment mode
+    if (formData.payment_mode === 'monthly_subscription') {
+      if (!formData.monthly_subscription_amount || parseFloat(formData.monthly_subscription_amount) <= 0) {
+        newErrors.monthly_subscription_amount = 'Subscription amount is required and must be greater than 0';
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -146,6 +168,11 @@ export const SchoolDetailsModal = ({
         established_date: formData.established_date || null,
         total_capacity: formData.total_capacity ? parseInt(formData.total_capacity) : null,
         is_active: formData.is_active,
+        // 💰 Payment Configuration
+        payment_mode: formData.payment_mode,
+        monthly_subscription_amount: formData.payment_mode === 'monthly_subscription' 
+          ? parseFloat(formData.monthly_subscription_amount)
+          : null,
       };
 
       // TODO: Upload logo if changed
@@ -257,15 +284,37 @@ export const SchoolDetailsModal = ({
   };
 
   const fieldStyle = {
-    marginBottom: '1.5rem',
+    marginBottom: '1.25rem',
   };
 
   const labelStyle = {
+    display: 'block',
     fontSize: '0.875rem',
     fontWeight: '500',
     color: '#374151',
     marginBottom: '0.5rem',
-    display: 'block',
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '0.625rem 0.75rem',
+    border: '1px solid #D1D5DB',
+    borderRadius: '0.5rem',
+    fontSize: '0.875rem',
+    color: '#374151',
+    backgroundColor: '#FFFFFF',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+  };
+
+  const selectStyle = {
+    ...inputStyle,
+    cursor: 'pointer',
+  };
+
+  const textareaStyle = {
+    ...inputStyle,
+    minHeight: '80px',
+    resize: 'vertical',
   };
 
   const valueStyle = {
@@ -276,25 +325,9 @@ export const SchoolDetailsModal = ({
     borderRadius: '0.5rem',
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.625rem 0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    color: '#374151',
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-  };
-
-  const textareaStyle = {
-    ...inputStyle,
-    minHeight: '80px',
-    resize: 'vertical',
-  };
-
   const errorStyle = {
-    fontSize: '0.875rem',
-    color: '#EF4444',
+    color: '#DC2626',
+    fontSize: '0.75rem',
     marginTop: '0.25rem',
   };
 
@@ -308,32 +341,19 @@ export const SchoolDetailsModal = ({
     padding: '1.5rem',
     borderTop: '1px solid #E5E7EB',
     display: 'flex',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     gap: '0.75rem',
     backgroundColor: '#F9FAFB',
   };
 
-  const classBreakdownStyle = {
+  const infoBoxStyle = {
+    backgroundColor: '#EFF6FF',
+    border: '1px solid #BFDBFE',
+    borderRadius: '0.5rem',
+    padding: '1rem',
     marginTop: '1rem',
-  };
-
-  const classItemStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '0.75rem',
-    borderBottom: '1px solid #E5E7EB',
-  };
-
-  const classNameStyle = {
     fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
-  };
-
-  const classStatsStyle = {
-    fontSize: '0.875rem',
-    color: '#6B7280',
+    color: '#1E40AF',
   };
 
   return (
@@ -350,46 +370,59 @@ export const SchoolDetailsModal = ({
         {/* Content */}
         <div style={contentStyle}>
           {/* Statistics (View Mode Only) */}
-          {!isEditing && !isLoadingStats && stats && (
+          {!isEditing && (
             <>
-              <h3 style={sectionTitleStyle}>📊 Statistics</h3>
               <div style={statsGridStyle}>
                 <div style={statItemStyle}>
                   <div style={statLabelStyle}>Students</div>
-                  <div style={statValueStyle}>👥 {stats.total_students || 0}</div>
+                  <div style={statValueStyle}>
+                    {stats?.total_students || school.total_students || 0}
+                  </div>
                 </div>
                 <div style={statItemStyle}>
                   <div style={statLabelStyle}>Classes</div>
-                  <div style={statValueStyle}>📚 {stats.total_classes || 0}</div>
+                  <div style={statValueStyle}>
+                    {stats?.total_classes || school.total_classes || 0}
+                  </div>
                 </div>
                 <div style={statItemStyle}>
                   <div style={statLabelStyle}>Monthly Revenue</div>
                   <div style={statValueStyle}>
-                    💰 {(stats.monthly_revenue / 1000).toFixed(0)}K
+                    PKR {(stats?.monthly_revenue || school.monthly_revenue || 0).toLocaleString()}
                   </div>
                 </div>
                 <div style={statItemStyle}>
                   <div style={statLabelStyle}>Capacity</div>
                   <div style={statValueStyle}>
-                    {stats.capacity_utilization}%
+                    {stats?.capacity_utilization || school.capacity_utilization || 0}%
                   </div>
                 </div>
               </div>
 
-              {/* Class Breakdown */}
-              {stats.class_breakdown && stats.class_breakdown.length > 0 && (
-                <div style={classBreakdownStyle}>
-                  <h4 style={{ ...labelStyle, marginBottom: '0.5rem' }}>
-                    📚 Class Breakdown
-                  </h4>
-                  {stats.class_breakdown.map((cls, idx) => (
-                    <div key={idx} style={classItemStyle}>
-                      <span style={classNameStyle}>{cls.class_name}</span>
-                      <span style={classStatsStyle}>
-                        {cls.students} students • PKR {cls.monthly_revenue.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
+              {/* Class Breakdown (if available) */}
+              {stats?.class_breakdown && stats.class_breakdown.length > 0 && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
+                    📊 Class Breakdown
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {stats.class_breakdown.map((cls, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          backgroundColor: '#F3F4F6',
+                          borderRadius: '0.375rem',
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        <strong>{cls.class_name}:</strong>{' '}
+                        <span style={{ color: '#6B7280' }}>
+                          {cls.students} students • PKR {cls.monthly_revenue.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </>
@@ -577,6 +610,134 @@ export const SchoolDetailsModal = ({
             )}
           </div>
 
+          {/* 💰 PAYMENT CONFIGURATION SECTION */}
+          <div style={{ 
+            borderTop: '2px solid #E5E7EB', 
+            paddingTop: '1.5rem',
+            marginTop: '1.5rem' 
+          }}>
+            <h3 style={sectionTitleStyle}>💰 Payment Configuration</h3>
+          </div>
+
+          {/* Payment Mode */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Payment Mode *</label>
+            {isEditing ? (
+              <select
+                name="payment_mode"
+                value={formData.payment_mode}
+                onChange={handleChange}
+                required
+                style={selectStyle}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#3B82F6';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#D1D5DB';
+                  e.target.style.boxShadow = 'none';
+                }}
+              >
+                <option value="per_student">Per Student (Individual Fees)</option>
+                <option value="monthly_subscription">Monthly Subscription (Fixed Total)</option>
+              </select>
+            ) : (
+              <div style={valueStyle}>
+                {school.payment_mode === 'monthly_subscription' 
+                  ? '💳 Monthly Subscription (Fixed Total)' 
+                  : '👤 Per Student (Individual Fees)'}
+              </div>
+            )}
+          </div>
+
+          {/* Monthly Subscription Amount - Only show if mode is subscription */}
+          {(isEditing ? formData.payment_mode === 'monthly_subscription' : school?.payment_mode === 'monthly_subscription') && (
+            <div style={fieldStyle}>
+              <label style={labelStyle}>
+                Monthly Subscription Amount (PKR) *
+              </label>
+              {isEditing ? (
+                <>
+                  <input
+                    type="number"
+                    name="monthly_subscription_amount"
+                    value={formData.monthly_subscription_amount}
+                    onChange={handleChange}
+                    required={formData.payment_mode === 'monthly_subscription'}
+                    min="0"
+                    step="0.01"
+                    placeholder="Enter total monthly subscription"
+                    style={{
+                      ...inputStyle,
+                      borderColor: errors.monthly_subscription_amount ? '#DC2626' : '#D1D5DB',
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#3B82F6';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = errors.monthly_subscription_amount ? '#DC2626' : '#D1D5DB';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                  {errors.monthly_subscription_amount && (
+                    <div style={errorStyle}>{errors.monthly_subscription_amount}</div>
+                  )}
+                </>
+              ) : (
+                <div style={valueStyle}>
+                  PKR {school.monthly_subscription_amount?.toLocaleString() || 'Not Set'}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Info Box - Show calculation if in subscription mode (view mode only) */}
+          {!isEditing && school?.payment_mode === 'monthly_subscription' && school?.monthly_subscription_amount && (
+            <div style={infoBoxStyle}>
+              <div style={{ marginBottom: '0.5rem', fontWeight: '600' }}>
+                📊 Fee Calculation Info:
+              </div>
+              <div>
+                The subscription amount of <strong>PKR {school.monthly_subscription_amount.toLocaleString()}</strong> will 
+                be divided equally among all active students when creating monthly fee records.
+              </div>
+              {(stats?.total_students || school.total_students) > 0 && (
+                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #BFDBFE' }}>
+                  <div>
+                    <strong>Current Active Students:</strong> {stats?.total_students || school.total_students}
+                  </div>
+                  <div>
+                    <strong>Fee per Student:</strong> PKR{' '}
+                    {(school.monthly_subscription_amount / (stats?.total_students || school.total_students)).toFixed(2)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Info Box - Editing mode explanation */}
+          {isEditing && formData.payment_mode === 'per_student' && (
+            <div style={infoBoxStyle}>
+              <strong>Per Student Mode:</strong> Each student's monthly fee is taken from their individual 
+              student record. Fee records will use each student's configured monthly_fee amount.
+            </div>
+          )}
+
+          {isEditing && formData.payment_mode === 'monthly_subscription' && formData.monthly_subscription_amount && (
+            <div style={infoBoxStyle}>
+              <strong>Monthly Subscription Mode:</strong> The total subscription amount will be divided equally 
+              among all active students when creating fee records.
+              {(stats?.total_students || school.total_students) > 0 && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  Based on current <strong>{stats?.total_students || school.total_students} active students</strong>, 
+                  each student will pay: <strong>PKR {(parseFloat(formData.monthly_subscription_amount) / (stats?.total_students || school.total_students)).toFixed(2)}</strong>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Active Status Checkbox */}
           {isEditing && (
             <div style={fieldStyle}>
               <div style={checkboxContainerStyle}>

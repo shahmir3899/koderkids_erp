@@ -3,7 +3,7 @@
 // ============================================
 // Location: src/hooks/useSalarySlip.js
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { salaryService } from '../services/salaryService';
 import {
@@ -52,6 +52,16 @@ export function useSalarySlip() {
   // ============================================
   
   // Form state (consolidated)
+  const isMounted = useRef(true);
+
+  // Cleanup effect
+  useEffect(() => {
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   
   // Dynamic lists
@@ -86,21 +96,35 @@ export function useSalarySlip() {
   // ============================================
 
   // Fetch teachers on mount
-  useEffect(() => {
-    const loadTeachers = async () => {
-      setLoading(prev => ({ ...prev, teachers: true }));
-      try {
-        const data = await salaryService.fetchTeachers();
-        setTeachers(data);
-      } catch (err) {
-        console.error('Error fetching teachers:', err);
-        toast.error('Failed to load teacher list');
-      } finally {
+  // Fetch teachers on mount
+useEffect(() => {
+  const loadTeachers = async () => {
+    // ✅ CHECK: Don't start if unmounted
+    if (!isMounted.current) return;
+    
+    setLoading(prev => ({ ...prev, teachers: true }));
+    try {
+      const data = await salaryService.fetchTeachers();
+      
+      // ✅ CHECK: Don't update state if unmounted
+      if (!isMounted.current) return;
+      
+      setTeachers(data);
+    } catch (err) {
+      // ✅ CHECK: Don't show errors if unmounted
+      if (!isMounted.current) return;
+      
+      console.error('Error fetching teachers:', err);
+      toast.error('Failed to load teacher list');
+    } finally {
+      // ✅ CHECK: Only clear loading if mounted
+      if (isMounted.current) {
         setLoading(prev => ({ ...prev, teachers: false }));
       }
-    };
-    loadTeachers();
-  }, []);
+    }
+  };
+  loadTeachers();
+}, []);
 
   // Fetch default dates on mount
   // Inside useSalarySlip.js
@@ -121,9 +145,16 @@ useEffect(() => {
   }
 
   const loadTeacherData = async () => {
+    // ✅ CHECK: Don't start if unmounted
+    if (!isMounted.current) return;
+    
     setLoading(prev => ({ ...prev, profile: true }));
     try {
       const profile = await salaryService.fetchTeacherProfile(selectedTeacherId);
+      
+      // ✅ CHECK: Don't update state if unmounted
+      if (!isMounted.current) return;
+      
       // Populate form with real data
       setFormData(prev => ({
         ...prev,
@@ -135,60 +166,80 @@ useEffect(() => {
         // ... other fields
       }));
     } catch (err) {
+      // ✅ CHECK: Don't show errors if unmounted
+      if (!isMounted.current) return;
+      
       toast.error('Failed to load teacher data');
       console.error(err);
     } finally {
-      setLoading(prev => ({ ...prev, profile: false }));
+      // ✅ CHECK: Only clear loading if mounted
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, profile: false }));
+      }
     }
   };
 
   loadTeacherData();
-}, [selectedTeacherId]); // ← dependency stays the same
+}, [selectedTeacherId]);
 
   // Fetch teacher profile when selection changes
-  useEffect(() => {
-    if (!selectedTeacherId) {
-      // Reset to initial state
+  // Fetch teacher profile when selection changes
+useEffect(() => {
+  if (!selectedTeacherId) {
+    // Reset to initial state
+    setFormData(prev => ({
+      ...prev,
+      name: "",
+      title: "",
+      schools: "",
+      dateOfJoining: "",
+      basicSalary: 0,
+      bankName: "",
+      accountNumber: "",
+    }));
+    setEarnings([]);
+    setDeductions([]);
+    return;
+  }
+
+  const loadTeacherProfile = async () => {
+    // ✅ CHECK: Don't start if unmounted
+    if (!isMounted.current) return;
+    
+    setLoading(prev => ({ ...prev, profile: true }));
+    try {
+      const data = await salaryService.fetchTeacherProfile(selectedTeacherId);
+      
+      // ✅ CHECK: Don't update state if unmounted
+      if (!isMounted.current) return;
+      
       setFormData(prev => ({
         ...prev,
-        name: "",
-        title: "",
-        schools: "",
-        dateOfJoining: "",
-        basicSalary: 0,
-        bankName: "",
-        accountNumber: "",
+        name: data.name || "Unknown",
+        title: data.title || "",
+        schools: data.schools?.join('\n') || "",
+        dateOfJoining: data.date_of_joining?.split('T')[0] || "",
+        basicSalary: data.basic_salary || 0,
+        bankName: data.bank_name || "",
+        accountNumber: data.account_number || "",
       }));
-      setEarnings([]);
-      setDeductions([]);
-      return;
-    }
-
-    const loadTeacherProfile = async () => {
-      setLoading(prev => ({ ...prev, profile: true }));
-      try {
-        const data = await salaryService.fetchTeacherProfile(selectedTeacherId);
-        setFormData(prev => ({
-          ...prev,
-          name: data.name || "Unknown",
-          title: data.title || "",
-          schools: data.schools?.join('\n') || "",
-          dateOfJoining: data.date_of_joining?.split('T')[0] || "",
-          basicSalary: data.basic_salary || 0,
-          bankName: data.bank_name || "",
-          accountNumber: data.account_number || "",
-        }));
-        setEarnings(data.earnings || []);
-        setDeductions(data.deductions || []);
-      } catch (err) {
-        console.error('Error fetching teacher profile:', err);
-        toast.error('Failed to load teacher profile');
-      } finally {
+      setEarnings(data.earnings || []);
+      setDeductions(data.deductions || []);
+    } catch (err) {
+      // ✅ CHECK: Don't show errors if unmounted
+      if (!isMounted.current) return;
+      
+      console.error('Error fetching teacher profile:', err);
+      toast.error('Failed to load teacher profile');
+    } finally {
+      // ✅ CHECK: Only clear loading if mounted
+      if (isMounted.current) {
         setLoading(prev => ({ ...prev, profile: false }));
       }
-    };
-    loadTeacherProfile();
-  }, [selectedTeacherId]);
+    }
+  };
+  loadTeacherProfile();
+}, [selectedTeacherId]);
 
   // ============================================
   // CALCULATED VALUES (Memoized)
@@ -274,58 +325,49 @@ useEffect(() => {
   // ============================================
 
   const downloadPDF = useCallback(async () => {
-    // Validate first
-    if (!validateForm()) return;
+  // Validate first
+  if (!validateForm()) return;
 
-    setLoading(prev => ({ ...prev, generating: true }));
+  // ✅ CHECK: Don't start if unmounted
+  if (!isMounted.current) return;
 
-    try {
-      // Initialize PDF Generator
-      const pdfGen = new PDFGenerator({
-        lineSpacing: formData.lineSpacing,
-        backgroundImage: '/bg.png',
-        companyName: formData.companyName,
-      });
+  setLoading(prev => ({ ...prev, generating: true }));
 
-      // Prepare data for PDF
-      const pdfData = {
-        name: formData.name,
-        title: formData.title,
-        schools: formData.schools,
-        dateOfJoining: formData.dateOfJoining,
-        fromDate: formData.fromDate,
-        tillDate: formData.tillDate,
-        basicSalary: formData.basicSalary,
-        paymentDate: formData.paymentDate,
-        bankName: formData.bankName,
-        accountNumber: formData.accountNumber,
-        noOfDays: calculations.noOfDays,
-        proratedSalary: calculations.proratedSalary,
-        earnings: [
-          { category: 'Salary', amount: calculations.proratedSalary },
-          ...earnings,
-        ],
-        deductions,
-        totalEarning: calculations.totalEarning,
-        totalDeduction: calculations.totalDeduction,
-        netPay: calculations.netPay,
-      };
+  try {
+    // Initialize PDF Generator
+    const pdfGen = new PDFGenerator({
+      lineSpacing: formData.lineSpacing,
+      backgroundImage: '/bg.png',
+      companyName: formData.companyName,
+    });
 
-      // Generate PDF blob
-      const pdfBlob = await pdfGen.generateSalarySlipPDF(pdfData);
+    // Prepare data for PDF
+    const pdfData = { /* ... */ };
 
-      // Download using static helper
-      const filename = `Salary_Slip_${formData.name.replace(/\s+/g, '_')}_${getMonthYear(formData.fromDate).replace(/\s+/g, '_')}.pdf`;
-      PDFGenerator.downloadPDF(pdfBlob, filename);
+    // Generate PDF blob
+    const pdfBlob = await pdfGen.generateSalarySlipPDF(pdfData);
 
-      toast.success('Salary slip generated successfully!');
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      toast.error(`Failed to generate salary slip: ${error.message}`);
-    } finally {
+    // ✅ CHECK: Don't download if unmounted
+    if (!isMounted.current) return;
+
+    // Download using static helper
+    const filename = `Salary_Slip_${formData.name.replace(/\s+/g, '_')}_${getMonthYear(formData.fromDate).replace(/\s+/g, '_')}.pdf`;
+    PDFGenerator.downloadPDF(pdfBlob, filename);
+
+    toast.success('Salary slip generated successfully!');
+  } catch (error) {
+    // ✅ CHECK: Don't show errors if unmounted
+    if (!isMounted.current) return;
+    
+    console.error('PDF generation error:', error);
+    toast.error(`Failed to generate salary slip: ${error.message}`);
+  } finally {
+    // ✅ CHECK: Only clear loading if mounted
+    if (isMounted.current) {
       setLoading(prev => ({ ...prev, generating: false }));
     }
-  }, [formData, earnings, deductions, calculations, validateForm]);
+  }
+}, [formData, earnings, deductions, calculations, validateForm]);
 
   // ============================================
   // RETURN

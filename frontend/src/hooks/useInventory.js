@@ -8,7 +8,7 @@
 // - Filters data based on role
 // - Provides permission flags to components
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import {
   fetchInventoryItems,
@@ -51,6 +51,16 @@ export const useInventory = () => {
   // ============================================
   // USER CONTEXT STATE (RBAC)
   // ============================================
+  const isMounted = useRef(true);
+   // Cleanup effect
+  useEffect(() => {
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const [userContext, setUserContext] = useState({
     isAdmin: false,
     allowedSchools: [],
@@ -140,135 +150,184 @@ export const useInventory = () => {
   // FETCH USER CONTEXT (RBAC)
   // ============================================
   const loadUserContext = useCallback(async () => {
-    try {
-      const context = await fetchUserInventoryContext();
-      setUserContext({
-        isAdmin: context.is_admin,
-        allowedSchools: context.allowed_schools || [],
-        allowedSchoolDetails: context.allowed_school_details || [],
-        canDelete: context.can_delete,
-        canManageCategories: context.can_manage_categories,
-        canAccessHeadquarters: context.can_access_headquarters,
-        canAccessUnassigned: context.can_access_unassigned,
-        userName: context.name,
-        userId: context.user_id,
-        loading: false,
-      });
-      return context;
-    } catch (error) {
-      console.error('Failed to load user context:', error);
-      toast.error('Failed to load user permissions');
-      setUserContext(prev => ({ ...prev, loading: false }));
-      return null;
-    }
-  }, []);
+  try {
+    const context = await fetchUserInventoryContext();
+    
+    // ✅ CHECK: Don't update state if unmounted
+    if (!isMounted.current) return null;
+    
+    setUserContext({
+      isAdmin: context.is_admin,
+      allowedSchools: context.allowed_schools || [],
+      allowedSchoolDetails: context.allowed_school_details || [],
+      canDelete: context.can_delete,
+      canManageCategories: context.can_manage_categories,
+      canAccessHeadquarters: context.can_access_headquarters,
+      canAccessUnassigned: context.can_access_unassigned,
+      userName: context.name,
+      userId: context.user_id,
+      loading: false,
+    });
+    return context;
+  } catch (error) {
+    // ✅ CHECK: Don't show errors if unmounted
+    if (!isMounted.current) return null;
+    
+    console.error('Failed to load user context:', error);
+    toast.error('Failed to load user permissions');
+    setUserContext(prev => ({ ...prev, loading: false }));
+    return null;
+  }
+}, []);
 
   // ============================================
   // FETCH FUNCTIONS
   // ============================================
   
   const fetchItems = useCallback(async () => {
-    setLoading(prev => ({ ...prev, items: true }));
-    try {
-      const data = await fetchInventoryItems({
-        locationId: filters.schoolId,
-        categoryId: filters.categoryId,
-        status: filters.status,
-        search: filters.search,
-        location: filters.location,
-      });
-      setInventoryItems(data);
-    } catch (error) {
-      console.error('Error fetching items:', error);
-      toast.error('Failed to load inventory items');
-    } finally {
+  if (!isMounted.current) return; // ✅ CHECK
+  
+  setLoading(prev => ({ ...prev, items: true }));
+  try {
+    const data = await fetchInventoryItems({
+      locationId: filters.schoolId,
+      categoryId: filters.categoryId,
+      status: filters.status,
+      search: filters.search,
+      location: filters.location,
+    });
+    
+    if (!isMounted.current) return; // ✅ CHECK
+    
+    setInventoryItems(data);
+  } catch (error) {
+    if (!isMounted.current) return; // ✅ CHECK
+    
+    console.error('Error fetching items:', error);
+    toast.error('Failed to load inventory items');
+  } finally {
+    if (isMounted.current) { // ✅ CHECK
       setLoading(prev => ({ ...prev, items: false }));
     }
-  }, [filters]);
+  }
+}, [filters]);
 
   const fetchSummaryData = useCallback(async () => {
-    setLoading(prev => ({ ...prev, summary: true }));
-    try {
-      const data = await fetchInventorySummary(filters.schoolId, filters.location);
-      setSummary(data);
-    } catch (error) {
-      console.error('Error fetching summary:', error);
-    } finally {
+  if (!isMounted.current) return; // ✅ ADD
+  
+  setLoading(prev => ({ ...prev, summary: true }));
+  try {
+    const data = await fetchInventorySummary(filters.schoolId, filters.location);
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    setSummary(data);
+  } catch (error) {
+    if (!isMounted.current) return; // ✅ ADD
+    
+    console.error('Error fetching summary:', error);
+  } finally {
+    if (isMounted.current) { // ✅ ADD
       setLoading(prev => ({ ...prev, summary: false }));
     }
-  }, [filters.schoolId, filters.location]);
+  }
+}, [filters.schoolId, filters.location]);
 
   const fetchCategoryList = useCallback(async () => {
-    try {
-      const data = await fetchCategories();
-      setCategories(data);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  }, []);
+  try {
+    const data = await fetchCategories();
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    setCategories(data);
+  } catch (error) {
+    if (!isMounted.current) return; // ✅ ADD
+    
+    console.error('Error fetching categories:', error);
+  }
+}, []);
 
   const fetchSchoolsList = useCallback(async () => {
-    try {
-      // Use role-filtered endpoint
-      const data = await fetchAllowedSchools();
-      setSchools(data);
-    } catch (error) {
-      console.error('Error fetching schools:', error);
-    }
-  }, []);
+  try {
+    const data = await fetchAllowedSchools();
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    setSchools(data);
+  } catch (error) {
+    if (!isMounted.current) return; // ✅ ADD
+    
+    console.error('Error fetching schools:', error);
+  }
+}, []);
 
   const fetchUsersList = useCallback(async () => {
-    try {
-      const data = await fetchAvailableUsers();
-      setUsers(data);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  }, []);
+  try {
+    const data = await fetchAvailableUsers();
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    setUsers(data);
+  } catch (error) {
+    if (!isMounted.current) return; // ✅ ADD
+    
+    console.error('Error fetching users:', error);
+  }
+}, []);
 
   // ============================================
   // INITIAL LOAD
   // ============================================
   
   useEffect(() => {
-    const initializeData = async () => {
-      setLoading(prev => ({ ...prev, initial: true }));
-      
-      // Load user context first (needed for role-based filtering)
-      const context = await loadUserContext();
-      
-      // Load supporting data in parallel
-      await Promise.all([
-        fetchCategoryList(),
-        fetchSchoolsList(),
-        fetchUsersList(),
-      ]);
-      
-      // Then load items and summary (these depend on role context)
-      await Promise.all([
-        fetchItems(),
-        fetchSummaryData(),
-      ]);
-      
+  const initializeData = async () => {
+    if (!isMounted.current) return; // ✅ ADD
+    
+    setLoading(prev => ({ ...prev, initial: true }));
+    
+    // Load user context first (needed for role-based filtering)
+    const context = await loadUserContext();
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    // Load supporting data in parallel
+    await Promise.all([
+      fetchCategoryList(),
+      fetchSchoolsList(),
+      fetchUsersList(),
+    ]);
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    // Then load items and summary (these depend on role context)
+    await Promise.all([
+      fetchItems(),
+      fetchSummaryData(),
+    ]);
+    
+    if (isMounted.current) { // ✅ ADD
       setLoading(prev => ({ ...prev, initial: false }));
-    };
+    }
+  };
+  
+
     
     initializeData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refetch items and summary when filters change
-  useEffect(() => {
-    if (!loading.initial) {
-      const refreshData = async () => {
-        await Promise.all([
-          fetchItems(),
-          fetchSummaryData(),
-        ]);
-      };
-      refreshData();
-    }
-  }, [filters.schoolId, filters.location, filters.categoryId, filters.status, filters.search]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // Refetch items and summary when filters change
+useEffect(() => {
+  if (!loading.initial && isMounted.current) { // ✅ ADD isMounted check
+    const refreshData = async () => {
+      await Promise.all([
+        fetchItems(),
+        fetchSummaryData(),
+      ]);
+    };
+    refreshData();
+  }
+}, [filters.schoolId, filters.location, filters.categoryId, filters.status, filters.search]); // eslint-disable-line react-hooks/exhaustive-deps
   // ============================================
   // FILTER HANDLERS
   // ============================================
@@ -377,23 +436,32 @@ export const useInventory = () => {
   }, [userContext.canDelete, openModal]);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (!itemToDelete || !userContext.canDelete) return;
+  if (!itemToDelete || !userContext.canDelete) return;
+  
+  if (!isMounted.current) return; // ✅ ADD
 
-    setLoading(prev => ({ ...prev, delete: true }));
-    try {
-      await deleteInventoryItem(itemToDelete.id);
-      toast.success(`"${itemToDelete.name}" deleted successfully`);
-      closeModal('confirmDelete');
-      fetchItems();
-      fetchSummaryData();
-    } catch (error) {
-      console.error('Delete error:', error);
-      const errorMsg = error.response?.data?.detail || 'Failed to delete item';
-      toast.error(errorMsg);
-    } finally {
+  setLoading(prev => ({ ...prev, delete: true }));
+  try {
+    await deleteInventoryItem(itemToDelete.id);
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    toast.success(`"${itemToDelete.name}" deleted successfully`);
+    closeModal('confirmDelete');
+    fetchItems();
+    fetchSummaryData();
+  } catch (error) {
+    if (!isMounted.current) return; // ✅ ADD
+    
+    console.error('Delete error:', error);
+    const errorMsg = error.response?.data?.detail || 'Failed to delete item';
+    toast.error(errorMsg);
+  } finally {
+    if (isMounted.current) { // ✅ ADD
       setLoading(prev => ({ ...prev, delete: false }));
     }
-  }, [itemToDelete, userContext.canDelete, closeModal, fetchItems, fetchSummaryData]);
+  }
+}, [itemToDelete, userContext.canDelete, closeModal, fetchItems, fetchSummaryData]);
 
   const handleAddSuccess = useCallback(() => {
     closeModal('add');
@@ -427,54 +495,72 @@ export const useInventory = () => {
   // ============================================
 
   const handlePrintCertificate = useCallback(async (itemId) => {
-    setLoading(prev => ({
-      ...prev,
-      certificate: { ...prev.certificate, [itemId]: true },
-    }));
+  if (!isMounted.current) return; // ✅ ADD
+  
+  setLoading(prev => ({
+    ...prev,
+    certificate: { ...prev.certificate, [itemId]: true },
+  }));
 
-    try {
-      const blob = await generateItemDetailReport(itemId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Item_Certificate_${itemId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success('Certificate downloaded');
-    } catch (error) {
-      console.error('Certificate error:', error);
-      const errorMsg = error.response?.data?.error || 'Failed to generate certificate';
-      toast.error(errorMsg);
-    } finally {
+  try {
+    const blob = await generateItemDetailReport(itemId);
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Item_Certificate_${itemId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    toast.success('Certificate downloaded');
+  } catch (error) {
+    if (!isMounted.current) return; // ✅ ADD
+    
+    console.error('Certificate error:', error);
+    const errorMsg = error.response?.data?.error || 'Failed to generate certificate';
+    toast.error(errorMsg);
+  } finally {
+    if (isMounted.current) { // ✅ ADD
       setLoading(prev => ({
         ...prev,
         certificate: { ...prev.certificate, [itemId]: false },
       }));
     }
-  }, []);
+  }
+}, []);
 
   // ============================================
   // EXPORT HANDLER
   // ============================================
 
   const handleExport = useCallback(async () => {
-    setLoading(prev => ({ ...prev, export: true }));
-    try {
-      await exportInventory({
-        locationId: filters.schoolId,
-        categoryId: filters.categoryId,
-        status: filters.status,
-      });
-      toast.success('Export completed');
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error(error.message || 'Failed to export');
-    } finally {
+  if (!isMounted.current) return; // ✅ ADD
+  
+  setLoading(prev => ({ ...prev, export: true }));
+  try {
+    await exportInventory({
+      locationId: filters.schoolId,
+      categoryId: filters.categoryId,
+      status: filters.status,
+    });
+    
+    if (!isMounted.current) return; // ✅ ADD
+    
+    toast.success('Export completed');
+  } catch (error) {
+    if (!isMounted.current) return; // ✅ ADD
+    
+    console.error('Export error:', error);
+    toast.error(error.message || 'Failed to export');
+  } finally {
+    if (isMounted.current) { // ✅ ADD
       setLoading(prev => ({ ...prev, export: false }));
     }
-  }, [filters]);
+  }
+}, [filters]);
 
   // ============================================
   // CATEGORY HANDLERS

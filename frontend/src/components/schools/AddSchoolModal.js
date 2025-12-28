@@ -1,5 +1,6 @@
 // ============================================
 // ADD SCHOOL MODAL - Multi-Step Creation Wizard
+// Updated with Payment Mode Configuration
 // ============================================
 
 import React, { useState } from 'react';
@@ -35,6 +36,9 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
     established_date: '',
     total_capacity: '',
     is_active: true,
+    // 💰 Payment Configuration
+    payment_mode: 'per_student',
+    monthly_subscription_amount: '',
   });
 
   const [errors, setErrors] = useState({});
@@ -42,10 +46,21 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
   // Handle input change
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      };
+      
+      // 💰 Clear subscription amount when switching to per_student mode
+      if (name === 'payment_mode' && value === 'per_student') {
+        updated.monthly_subscription_amount = '';
+      }
+      
+      return updated;
+    });
+    
     // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
@@ -94,6 +109,13 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
       if (formData.total_capacity && formData.total_capacity < 1) {
         newErrors.total_capacity = 'Capacity must be at least 1';
       }
+      
+      // 💰 Validate payment mode
+      if (formData.payment_mode === 'monthly_subscription') {
+        if (!formData.monthly_subscription_amount || parseFloat(formData.monthly_subscription_amount) <= 0) {
+          newErrors.monthly_subscription_amount = 'Subscription amount is required and must be greater than 0';
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -134,6 +156,11 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
         established_date: formData.established_date || null,
         total_capacity: formData.total_capacity ? parseInt(formData.total_capacity) : null,
         is_active: formData.is_active,
+        // 💰 Payment Configuration
+        payment_mode: formData.payment_mode,
+        monthly_subscription_amount: formData.payment_mode === 'monthly_subscription'
+          ? parseFloat(formData.monthly_subscription_amount)
+          : null,
       };
 
       // Upload logo to Supabase if provided
@@ -165,6 +192,8 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
         established_date: '',
         total_capacity: '',
         is_active: true,
+        payment_mode: 'per_student',
+        monthly_subscription_amount: '',
       });
       setCurrentStep(1);
       
@@ -246,15 +275,15 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
   };
 
   const fieldStyle = {
-    marginBottom: '1.5rem',
+    marginBottom: '1.25rem',
   };
 
   const labelStyle = {
+    display: 'block',
     fontSize: '0.875rem',
     fontWeight: '500',
     color: '#374151',
     marginBottom: '0.5rem',
-    display: 'block',
   };
 
   const inputStyle = {
@@ -264,7 +293,13 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
     borderRadius: '0.5rem',
     fontSize: '0.875rem',
     color: '#374151',
+    backgroundColor: '#FFFFFF',
     transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+  };
+
+  const selectStyle = {
+    ...inputStyle,
+    cursor: 'pointer',
   };
 
   const textareaStyle = {
@@ -274,8 +309,8 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
   };
 
   const errorStyle = {
-    fontSize: '0.875rem',
-    color: '#EF4444',
+    color: '#DC2626',
+    fontSize: '0.75rem',
     marginTop: '0.25rem',
   };
 
@@ -290,8 +325,17 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
     borderTop: '1px solid #E5E7EB',
     display: 'flex',
     justifyContent: 'space-between',
-    gap: '1rem',
     backgroundColor: '#F9FAFB',
+  };
+
+  const infoBoxStyle = {
+    backgroundColor: '#EFF6FF',
+    border: '1px solid #BFDBFE',
+    borderRadius: '0.5rem',
+    padding: '1rem',
+    marginTop: '1rem',
+    fontSize: '0.875rem',
+    color: '#1E40AF',
   };
 
   return (
@@ -423,7 +467,7 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
               </>
             )}
 
-            {/* Step 3: Additional Details */}
+            {/* Step 3: Additional Details + Payment Configuration */}
             {currentStep === 3 && (
               <>
                 <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
@@ -470,6 +514,86 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
                   />
                   {errors.total_capacity && <div style={errorStyle}>{errors.total_capacity}</div>}
                 </div>
+
+                {/* 💰 PAYMENT CONFIGURATION */}
+                <h3 style={{ 
+                  fontSize: '1.125rem', 
+                  fontWeight: '600', 
+                  marginBottom: '1rem',
+                  marginTop: '1.5rem',
+                  paddingTop: '1.5rem',
+                  borderTop: '2px solid #E5E7EB'
+                }}>
+                  💰 Payment Configuration
+                </h3>
+
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Payment Mode *</label>
+                  <select
+                    name="payment_mode"
+                    value={formData.payment_mode}
+                    onChange={handleChange}
+                    required
+                    style={selectStyle}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#3B82F6';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#D1D5DB';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  >
+                    <option value="per_student">Per Student (Individual Fees)</option>
+                    <option value="monthly_subscription">Monthly Subscription (Fixed Total)</option>
+                  </select>
+                </div>
+
+                {/* Show subscription amount field only if subscription mode is selected */}
+                {formData.payment_mode === 'monthly_subscription' && (
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Monthly Subscription Amount (PKR) *</label>
+                    <input
+                      type="number"
+                      name="monthly_subscription_amount"
+                      value={formData.monthly_subscription_amount}
+                      onChange={handleChange}
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder="Enter total monthly subscription (e.g., 50000)"
+                      style={{
+                        ...inputStyle,
+                        borderColor: errors.monthly_subscription_amount ? '#DC2626' : '#D1D5DB',
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#3B82F6';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = errors.monthly_subscription_amount ? '#DC2626' : '#D1D5DB';
+                        e.target.style.boxShadow = 'none';
+                      }}
+                    />
+                    {errors.monthly_subscription_amount && (
+                      <div style={errorStyle}>{errors.monthly_subscription_amount}</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Info box explaining payment modes */}
+                {formData.payment_mode === 'per_student' ? (
+                  <div style={infoBoxStyle}>
+                    <strong>Per Student Mode:</strong> Each student's monthly fee will be taken from their 
+                    individual student record. You can set different fees for different students.
+                  </div>
+                ) : (
+                  <div style={infoBoxStyle}>
+                    <strong>Monthly Subscription Mode:</strong> The total subscription amount will be divided 
+                    equally among all active students when creating monthly fee records. This ensures your 
+                    total monthly revenue stays constant.
+                  </div>
+                )}
 
                 <div style={fieldStyle}>
                   <div style={checkboxContainerStyle}>

@@ -12,6 +12,31 @@ class School(models.Model):
     name = models.CharField(max_length=255, unique=True)
     location = models.CharField(max_length=255, blank=True, null=True)
     # ✅ ADD THESE NEW FIELDS:
+    
+    # 💰 ADD THESE TWO FIELDS:
+    PAYMENT_MODE_CHOICES = [
+        ('per_student', 'Per Student'),
+        ('monthly_subscription', 'Monthly Subscription'),
+    ]
+    
+    payment_mode = models.CharField(
+        max_length=20,
+        choices=PAYMENT_MODE_CHOICES,
+        default='per_student',
+        help_text="Payment calculation method for this school"
+    )
+    
+    monthly_subscription_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Total monthly subscription (only for monthly_subscription mode)"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    # ... rest of existing fields ...
     address = models.TextField(blank=True, null=True)  # More detailed address
     logo = models.URLField(blank=True, null=True)  # Supabase URL for logo
     latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)

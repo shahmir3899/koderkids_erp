@@ -3,7 +3,7 @@
 // Admin: Full CRUD | Teacher: Only assigned schools
 // ============================================
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { useSchools } from '../hooks/useSchools';
 import { deleteSchool } from '../api/services/schoolService';
@@ -47,22 +47,46 @@ function SchoolsPage() {
   const { schools, overview, loading, error, refetch } = useSchools(true, true);
 
   // Get user role from localStorage
-  const userRole = localStorage.getItem('userRole') || 'Teacher';
+  const userRole = localStorage.getItem('role') || 'Teacher';
   const isAdmin = userRole === 'Admin';
+  const isMounted = useRef(true);
 
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
   // ============================================
   // FETCH TEACHER'S ASSIGNED SCHOOLS
   // ============================================
 
+  // ============================================
+// FETCH TEACHER'S ASSIGNED SCHOOLS
+// ============================================
+
+// ============================================
+// FETCH TEACHER'S ASSIGNED SCHOOLS
+// ============================================
+
   useEffect(() => {
     const fetchAssignedSchools = async () => {
-      // Only fetch if user is a teacher
-      if (isAdmin) return;
+      // ✅ CRITICAL FIX: Only fetch for teachers, not admins!
+      if (isAdmin) {
+        console.log('👑 Admin user detected - no need to fetch assigned schools');
+        return;
+      }
+
+      // Check if mounted before starting
+      if (!isMounted.current) return;
 
       setProfileLoading(true);
       try {
+        console.log('👨‍🏫 Fetching teacher dashboard data...');
+        
         // Use the same service as TeacherDashboardFigma
         const dashboardData = await getTeacherDashboardData();
+        
+        // Check before state updates
+        if (!isMounted.current) return;
         
         console.log('✅ Teacher dashboard data loaded:', dashboardData);
         console.log('👨‍🏫 Profile:', dashboardData.profile);
@@ -73,15 +97,24 @@ function SchoolsPage() {
         
         console.log('👨‍🏫 Assigned school names:', schoolNames);
       } catch (err) {
+        // Check before showing errors
+        if (!isMounted.current) return;
+        
         console.error('❌ Error fetching assigned schools:', err);
         console.error('Error details:', err.response?.data);
+        
+        // Set empty array on error for teachers
+        setAssignedSchoolNames([]);
       } finally {
-        setProfileLoading(false);
+        // Check before clearing loading
+        if (isMounted.current) {
+          setProfileLoading(false);
+        }
       }
     };
 
     fetchAssignedSchools();
-  }, [isAdmin]);
+  }, [isAdmin]); // Include isAdmin in dependencies
 
   console.log('👤 User Info:', { 
     userRole, 
@@ -135,37 +168,36 @@ function SchoolsPage() {
 
   // Filter schools by search query AND teacher assignment
   const filteredSchools = useMemo(() => {
-    let schoolsList = schools;
+  let schoolsList = schools;
 
-    // IMPORTANT: Teachers only see their assigned schools
-    if (!isAdmin) {
-      if (assignedSchoolNames.length > 0) {
-        // Teacher has assigned schools - filter by school names
-        schoolsList = schools.filter(school => {
-          const schoolName = String(school.name || '').trim().toLowerCase();
-          return assignedSchoolNames.some(assigned => 
-            String(assigned).trim().toLowerCase() === schoolName
-          );
-        });
-        console.log(`👨‍🏫 Teacher filter: ${assignedSchoolNames.join(', ')} → Found ${schoolsList.length} schools`);
-      } else if (!profileLoading) {
-        // Teacher profile loaded but has NO assigned schools - show empty list
-        console.warn('⚠️ Teacher has no assigned schools - showing empty list');
-        schoolsList = [];
-      }
-    }
+  // ✅ FIX: Only filter for teachers, not admins
+  if (!isAdmin && assignedSchoolNames.length > 0) {
+    // Teacher has assigned schools - filter by school names
+    schoolsList = schools.filter(school => {
+      const schoolName = String(school.name || '').trim().toLowerCase();
+      return assignedSchoolNames.some(assigned => 
+        String(assigned).trim().toLowerCase() === schoolName
+      );
+    });
+    console.log(`👨‍🏫 Teacher filter: ${assignedSchoolNames.join(', ')} → Found ${schoolsList.length} schools`);
+  } else if (!isAdmin && !profileLoading) {
+    // Teacher profile loaded but has NO assigned schools - show empty list
+    console.warn('⚠️ Teacher has no assigned schools - showing empty list');
+    schoolsList = [];
+  }
+  // ✅ ELSE: Admin sees ALL schools (no filtering)
 
-    // Apply search query
-    if (!searchQuery.trim()) return schoolsList;
+  // Apply search query
+  if (!searchQuery.trim()) return schoolsList;
 
-    const query = searchQuery.toLowerCase();
-    return schoolsList.filter(
-      (school) =>
-        school.name?.toLowerCase().includes(query) ||
-        school.address?.toLowerCase().includes(query) ||
-        school.location?.toLowerCase().includes(query)
-    );
-  }, [schools, searchQuery, isAdmin, assignedSchoolNames, profileLoading]);
+  const query = searchQuery.toLowerCase();
+  return schoolsList.filter(
+    (school) =>
+      school.name?.toLowerCase().includes(query) ||
+      school.address?.toLowerCase().includes(query) ||
+      school.location?.toLowerCase().includes(query)
+  );
+}, [schools, searchQuery, isAdmin, assignedSchoolNames, profileLoading]);
 
   // ============================================
   // HANDLERS
