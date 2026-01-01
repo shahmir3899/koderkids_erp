@@ -61,8 +61,36 @@ class CustomUser(AbstractUser):
         ('Teacher', 'Teacher'),
         ('Student', 'Student'),
     ]
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='Student')
-    assigned_schools = models.ManyToManyField('students.School', blank=True, related_name="teachers")  # ✅ Assign multiple schools
+     # Override email to make it unique
+    email = models.EmailField(
+        ('email address'),
+        blank=False,
+        unique=True,  # ← ADDED
+        null=True,
+        error_messages={
+            'unique': 'A user with this email already exists.',
+        }
+    )
+    # Override username to ensure it stays unique (already has this)
+    username = models.CharField(
+        ('username'),
+        max_length=150,
+        unique=True,
+        error_messages={
+            'unique': 'A user with this username already exists.',
+        }
+    )
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='Student')  # ✅ Increased to 50
+    assigned_schools = models.ManyToManyField('students.School', blank=True, related_name="teachers")
+    
+    # ✅ NEW FIELDS FOR USER MANAGEMENT
+    is_super_admin = models.BooleanField(default=False, help_text="Super admin cannot be deleted or demoted")
+    created_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='users_created')
+    updated_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='users_updated')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    # Note: is_active already exists from AbstractUser
+    # Note: last_login already exists from AbstractUser
     # ✅ Fix Foreign Key issue by ensuring proper token relations
     groups = models.ManyToManyField(
         'auth.Group',

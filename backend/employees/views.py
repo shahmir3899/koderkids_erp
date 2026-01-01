@@ -23,6 +23,8 @@ from .serializers import (
     TeacherDeductionSerializer,
     NotificationSerializer,
     NotificationCreateSerializer,
+    AdminProfileSerializer,              # ← ADD THIS
+    AdminProfileUpdateSerializer,        # ← ADD THIS
 )
 from students.models import CustomUser, School
 
@@ -500,3 +502,212 @@ def get_teacher_dashboard_data(request):
         'unread_notifications': unread_count,
         'recent_notifications': NotificationSerializer(recent_notifications, many=True).data,
     })
+
+
+# ============================================
+# ADMIN PROFILE VIEWS (NEW)
+# ============================================
+
+class AdminProfileView(APIView):
+    """
+    GET: Retrieve current admin's profile
+    PUT: Update current admin's profile
+    Uses TeacherProfile model (supports both Teachers and Admins)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Get current admin's profile"""
+        # Verify user is admin
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            # Get or create profile for admin
+            profile, created = TeacherProfile.objects.get_or_create(user=request.user)
+            
+            if created:
+                print(f"✅ Created new profile for admin: {request.user.username}")
+            
+            serializer = AdminProfileSerializer(profile)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Error retrieving admin profile: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def put(self, request):
+        """Update current admin's profile"""
+        # Verify user is admin
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            # Get or create profile for admin
+            profile, created = TeacherProfile.objects.get_or_create(user=request.user)
+            
+            # Update profile
+            serializer = AdminProfileUpdateSerializer(
+                profile, 
+                data=request.data, 
+                partial=True
+            )
+            
+            if serializer.is_valid():
+                serializer.save()
+                
+                # Return full profile data
+                response_serializer = AdminProfileSerializer(profile)
+                return Response(response_serializer.data)
+            
+            return Response(
+                serializer.errors, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Error updating admin profile: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AdminProfilePhotoUploadView(APIView):
+    """
+    POST: Upload admin profile photo to Supabase
+    Same functionality as TeacherProfilePhotoUploadView but for admins
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Upload admin profile photo"""
+        # Verify user is admin
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            # Get or create profile
+            profile, created = TeacherProfile.objects.get_or_create(user=request.user)
+            
+            # Get uploaded file
+            photo = request.FILES.get('photo')
+            if not photo:
+                return Response(
+                    {'error': 'No photo file provided'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Initialize Supabase client
+            supabase = get_supabase_client()
+            if not supabase:
+                return Response(
+                    {'error': 'Supabase not configured'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            # Generate unique filename
+            file_extension = os.path.splitext(photo.name)[1]
+            unique_filename = f"admin_{request.user.id}_{uuid.uuid4().hex[:8]}{file_extension}"
+            
+            # Upload to Supabase
+            bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'student-images')
+            
+            # Read file content
+            file_content = photo.read()
+            
+            # Upload file
+            response = supabase.storage.from_(bucket_name).upload(
+                path=f"profile_photos/{unique_filename}",
+                file=file_content,
+                file_options={"content-type": photo.content_type}
+            )
+            
+            # Get public URL
+            public_url = supabase.storage.from_(bucket_name).get_public_url(
+                f"profile_photos/{unique_filename}"
+            )
+            
+            # Delete old photo if exists
+            if profile.profile_photo_url:
+                try:
+                    old_filename = profile.profile_photo_url.split('/')[-1]
+                    supabase.storage.from_(bucket_name).remove([f"profile_photos/{old_filename}"])
+                except Exception as e:
+                    print(f"Warning: Could not delete old photo: {e}")
+            
+            # Update profile
+            profile.profile_photo_url = public_url
+            profile.save()
+            
+            return Response({
+                'profile_photo_url': public_url,
+                'message': 'Profile photo uploaded successfully'
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to upload photo: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AdminProfilePhotoDeleteView(APIView):
+    """
+    DELETE: Delete admin profile photo from Supabase
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        """Delete admin profile photo"""
+        # Verify user is admin
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            profile = TeacherProfile.objects.get(user=request.user)
+            
+            if profile.profile_photo_url:
+                # Initialize Supabase client
+                supabase = get_supabase_client()
+                if supabase:
+                    try:
+                        # Extract filename from URL
+                        filename = profile.profile_photo_url.split('/')[-1]
+                        bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'student-images')
+                        
+                        # Delete from Supabase
+                        supabase.storage.from_(bucket_name).remove([f"profile_photos/{filename}"])
+                    except Exception as e:
+                        print(f"Warning: Could not delete photo from Supabase: {e}")
+                
+                # Clear URL from profile
+                profile.profile_photo_url = None
+                profile.save()
+            
+            return Response({'message': 'Profile photo deleted successfully'})
+            
+        except TeacherProfile.DoesNotExist:
+            return Response(
+                {'error': 'Profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+# ============================================
+# THAT'S THE END OF NEW CODE
+# Continue with existing NOTIFICATION VIEWS section...
+# ============================================

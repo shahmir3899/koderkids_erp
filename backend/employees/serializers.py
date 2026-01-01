@@ -1,5 +1,6 @@
 # ============================================
 # EMPLOYEES SERIALIZERS
+# NOW INCLUDES ADMIN PROFILE SERIALIZERS
 # ============================================
 
 from rest_framework import serializers
@@ -96,6 +97,83 @@ class TeacherProfileUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 
+# ============================================
+# ADMIN PROFILE SERIALIZERS (NEW)
+# ============================================
+
+class AdminProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Admin profile (uses TeacherProfile model)
+    Similar to TeacherProfileSerializer but without school-related fields
+    """
+    # User fields (read-only from user model)
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    full_name = serializers.SerializerMethodField()
+    role = serializers.CharField(source='user.role', read_only=True)
+    
+    class Meta:
+        model = TeacherProfile
+        fields = [
+            # User info
+            'username', 'email', 'first_name', 'last_name', 'full_name', 'role',
+            # Profile info
+            'employee_id', 'profile_photo_url', 'title', 'gender', 'blood_group',
+            'phone', 'address', 'date_of_joining',
+            # Financial (optional for admin, but keeping for consistency)
+            'basic_salary', 'bank_name', 'account_number',
+            # Timestamps
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['employee_id', 'created_at', 'updated_at']
+
+    def get_full_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
+
+
+class AdminProfileUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating Admin profile
+    Allows updating first_name, last_name, and profile fields
+    """
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+    
+    class Meta:
+        model = TeacherProfile
+        fields = [
+            'first_name', 'last_name',
+            'title', 'gender', 'blood_group', 'phone', 'address',
+            'profile_photo_url',
+        ]
+
+    def update(self, instance, validated_data):
+        # Update user fields if provided
+        first_name = validated_data.pop('first_name', None)
+        last_name = validated_data.pop('last_name', None)
+        
+        if first_name is not None:
+            instance.user.first_name = first_name
+        if last_name is not None:
+            instance.user.last_name = last_name
+        
+        if first_name is not None or last_name is not None:
+            instance.user.save()
+        
+        # Update profile fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
+
+
+# ============================================
+# EARNINGS & DEDUCTIONS SERIALIZERS
+# ============================================
+
 class TeacherEarningSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeacherEarning
@@ -107,6 +185,10 @@ class TeacherDeductionSerializer(serializers.ModelSerializer):
         model = TeacherDeduction
         fields = ['id', 'category', 'amount', 'description', 'created_at']
 
+
+# ============================================
+# NOTIFICATION SERIALIZERS
+# ============================================
 
 class NotificationSerializer(serializers.ModelSerializer):
     """

@@ -4,26 +4,26 @@
 
 import React, { useState, useEffect } from 'react';
 
-import { RichTextEditor } from '../components/common/ui/RichTextEditor';
+import { useUsers } from '../hooks/useUsers';
+
 
 function TestComponents() {
   // State
-const [testText, setTestText] = useState('*Bold* and _italic_ test');
+const { users, loading, fetchUsers } = useUsers();
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  if (loading.users) return <div>Loading...</div>;
 
   return (
-    // Add this JSX where you want the test section
-<div style={{ padding: '2rem', backgroundColor: '#fff', borderRadius: '8px', marginBottom: '2rem' }}>
-  <h2>RichTextEditor Test</h2>
-  <RichTextEditor
-    value={testText}
-    onChange={setTestText}
-    label="Test Editor"
-    placeholder="Try: *bold*, _italic_, ~strike~, ```code```"
-    showPreview={true}
-    showLineSpacing={true}
-  />
-</div>
+    <div>
+      <h1>Users: {users.length}</h1>
+      {users.map(user => (
+        <div key={user.id}>{user.username} - {user.role}</div>
+      ))}
+    </div>
   );
 }
 

@@ -5,7 +5,9 @@ import AdminDashboard from "./pages/AdminDashboard";
 import StudentsPage from "./pages/StudentsPage";
 import FeePage from "./pages/FeePage";
 import SchoolsPage from "./pages/SchoolsPage";
-import SettingsPage from "./pages/SettingsPage";
+import PasswordResetRequestPage from "./pages/PasswordResetRequestPage";
+import PasswordResetConfirmPage from "./pages/PasswordResetConfirmPage";
+//import SettingsPage from "./pages/SettingsPage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import { SchoolsProvider } from './contexts/SchoolsContext';
@@ -31,6 +33,8 @@ import "react-toastify/dist/ReactToastify.css";
 import RobotChat from "./components/RobotChat";
 import InventoryPage from './pages/InventoryPage';
 import CSVUpload from './components/CSVUpload';
+import SettingsPage from './pages/SettingsPage';
+
 
 import { logout } from "./api"; 
 
@@ -114,6 +118,8 @@ function App() {
       <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />
       <Route path="/custom-report" element={<ProtectedRoute element={<CustomReport />}allowedRoles={["Admin"]}/>} />
       <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin"]} />} />
+      <Route path="/settings" element={<SettingsPage />} />
+
 
       {/* ✅ Teacher Specific Routes */}
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Teacher"]} />} />
@@ -126,6 +132,9 @@ function App() {
         {/* NEW ROUTES: Add these two – protected */}
       <Route path="/books-tree" element={<ProtectedRoute element={<BookSelectPage/>} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/books-upload" element={<ProtectedRoute element={CSVUpload} allowedRoles={["Admin", "Teacher"]} />} />
+        {/* Password Reset Routes - NEW */}
+        <Route path="/forgot-password" element={<PasswordResetRequestPage />} />
+        <Route path="/reset-password/:uid/:token" element={<PasswordResetConfirmPage />} />
 
       {/* ✅ Fallback */}
       <Route path="*" element={<Navigate to="/login" />} />

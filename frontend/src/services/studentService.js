@@ -1,141 +1,203 @@
-// ============================================
-// STUDENT SERVICE - Student CRUD Operations
-// ============================================
-
 import axios from 'axios';
-// Adjust these paths to where you saved your files
 import { API_URL, API_ENDPOINTS, STUDENT_STATUS } from '../utils/constants'; 
 import { getAuthHeaders, handleAuthError } from '../utils/authHelpers'; 
 
+// Fallback for API URL if constants aren't loaded
+const API_BASE_URL = API_URL || process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+// ============================================
+// 1. STUDENT PROFILE OPERATIONS (Logged-in Student)
+// ============================================
+
+/**
+ * Get current logged-in student's data
+ */
+export const getStudentProfile = async () => {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/students/my-data/`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  } catch (error) {
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Get current user account info
+ */
+export const getStudentUser = async () => {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/auth/user/`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  } catch (error) {
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Update current student's profile (Auth/User data)
+ */
+export const updateStudentProfile = async (profileData) => {
+  try {
+    const response = await axios.put(
+      `${API_BASE_URL}/api/auth/user/update/`,
+      profileData,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  } catch (error) {
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Combines Dashboard data and User data into one object
+ */
+export const getCompleteStudentProfile = async () => {
+  try {
+    const [dashboardData, userData] = await Promise.all([
+      getStudentProfile(),
+      getStudentUser()
+    ]);
+
+    return {
+      // Base info
+      id: userData.id,
+      username: userData.username,
+      email: userData.email,
+      first_name: userData.first_name || '',
+      last_name: userData.last_name || '',
+      full_name: userData.full_name || `${userData.first_name} ${userData.last_name}`.trim() || userData.username,
+      phone: userData.phone || '',
+      address: userData.address || '',
+      blood_group: userData.blood_group || '',
+      profile_photo_url: userData.profile_photo_url || null,
+      
+      // Academic info from dashboard
+      school: dashboardData.school,
+      class: dashboardData.student_class || dashboardData.class,
+      reg_num: dashboardData.reg_num,
+      
+      // Merge all other fields
+      ...dashboardData,
+      ...userData,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching complete profile:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// 2. STUDENT MANAGEMENT OPERATIONS (Admin/CRUD)
+// ============================================
+
 /**
  * Fetch students with optional filters
- * @param {Object} filters - Filter options
- * @param {number|string} filters.schoolId - School ID (optional)
- * @param {string} filters.studentClass - Class name (optional)
- * @param {string} filters.status - Student status (default: 'Active')
- * @returns {Promise<Array>} List of students
  */
 export const fetchStudents = async (filters = {}) => {
   try {
-    const { schoolId = '', studentClass = '', status = STUDENT_STATUS.ACTIVE } = filters;
-
-    console.log('🔍 DEBUG: Requesting students with raw filters:', { schoolId, studentClass, status });
-
+    const { schoolId = '', studentClass = '', status = STUDENT_STATUS?.ACTIVE || 'Active' } = filters;
+    
     const params = { status };
-
-    // Try multiple param variants for school (log which is used)
-    if (schoolId) {
-      params.school = schoolId;  // Original
-      console.log('🔍 DEBUG: Added school param as "school":', schoolId);
-      // Alternative: Uncomment one at a time to test
-      // params.school_id = schoolId;  // If backend expects school_id
-    }
-
-    // Try multiple param variants for class
+    if (schoolId) params.school = schoolId;
     if (studentClass && studentClass !== 'All Classes') {
-      params.student_class = studentClass;  // Original (recommended)
-      console.log('🔍 DEBUG: Added student_class param as:', studentClass);
-      // Alternatives: Uncomment one at a time if above fails
-      // params.class_name = studentClass;  // If backend expects class_name
-      // params['class'] = studentClass;    // If using 'class' (avoid if possible)
+      params.student_class = studentClass;
     }
 
-    console.log('🔍 DEBUG: Final params object sent to API:', params);
-
-    const response = await axios.get(`${API_URL}${API_ENDPOINTS.STUDENTS}`, {
+    const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.STUDENTS}`, {
       headers: getAuthHeaders(),
       params,
     });
 
-    console.log('✅ Students fetched (count):', response.data.length, 'Data sample:', response.data.slice(0, 2));
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching students:', error.response?.data || error.message);
     handleAuthError(error);
     return [];
   }
 };
 
 /**
- * Add a new student
- * @param {Object} studentData - Student data payload
+ * Add a new student record
  */
 export const addStudent = async (studentData) => {
   try {
-    console.log('🚀 Adding new student:', studentData);
-
-    // Ensure school is sent as an integer ID
     const payload = {
-        ...studentData,
-        school: parseInt(studentData.school), 
-        monthly_fee: parseFloat(studentData.monthly_fee)
+      ...studentData,
+      school: parseInt(studentData.school), 
+      monthly_fee: parseFloat(studentData.monthly_fee)
     };
 
-    const response = await axios.post(`${API_URL}${API_ENDPOINTS.STUDENTS_ADD}`, payload, {
+    const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.STUDENTS_ADD}`, payload, {
       headers: getAuthHeaders(),
     });
 
     return response.data;
   } catch (error) {
-    console.error('❌ Error adding student:', error.response?.data || error.message);
     handleAuthError(error);
     throw error;
   }
 };
 
 /**
- * Update an existing student
- * @param {number} studentId - Student ID (primary key)
- * @param {Object} studentData - Updated data
+ * Update an existing student record
  */
 export const updateStudent = async (studentId, studentData) => {
   try {
-    console.log(`✏️ Updating student ID: ${studentId}`, studentData);
-
-    // Ensure school is sent as an integer ID
     const payload = {
-        ...studentData,
-        school: parseInt(studentData.school),
-        monthly_fee: parseFloat(studentData.monthly_fee)
+      ...studentData,
+      school: parseInt(studentData.school),
+      monthly_fee: parseFloat(studentData.monthly_fee)
     };
 
     const response = await axios.put(
-      `${API_URL}${API_ENDPOINTS.STUDENTS}${studentId}/`,
+      `${API_BASE_URL}${API_ENDPOINTS.STUDENTS}${studentId}/`,
       payload,
       { headers: getAuthHeaders() }
     );
 
     return response.data;
   } catch (error) {
-    console.error('❌ Error updating student:', error.response?.data || error.message);
     handleAuthError(error);
     throw error;
   }
 };
 
 /**
- * Delete a student
- * @param {number} studentId 
+ * Delete a student record
  */
 export const deleteStudent = async (studentId) => {
   try {
-    console.log(`🗑️ Deleting student ID: ${studentId}`);
-
-    const response = await axios.delete(`${API_URL}${API_ENDPOINTS.STUDENTS}${studentId}/`, {
+    const response = await axios.delete(`${API_BASE_URL}${API_ENDPOINTS.STUDENTS}${studentId}/`, {
       headers: getAuthHeaders(),
     });
-
     return response.data;
   } catch (error) {
-    console.error('❌ Error deleting student:', error.response?.data || error.message);
     handleAuthError(error);
     throw error;
   }
 };
 
-export default {
+// ============================================
+// EXPORT ALL
+// ============================================
+const studentService = {
+  getStudentProfile,
+  getStudentUser,
+  updateStudentProfile,
+  getCompleteStudentProfile,
   fetchStudents,
   addStudent,
   updateStudent,
   deleteStudent,
 };
+
+export default studentService;

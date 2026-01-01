@@ -1,5 +1,5 @@
 # ============================================
-# EMPLOYEES URLS - Updated with Admin Notification Features
+# EMPLOYEES URLS - Updated with Admin Profile Features
 # ============================================
 
 from django.urls import path
@@ -12,6 +12,11 @@ from .views import (
     TeacherProfilePhotoUploadView,
     TeacherProfilePhotoDeleteView,
     get_teacher_dashboard_data,
+    
+    # Admin Profile (NEW)
+    AdminProfileView,
+    AdminProfilePhotoUploadView,
+    AdminProfilePhotoDeleteView,
     
     # Notifications
     NotificationListView,
@@ -54,6 +59,20 @@ urlpatterns = [
     
     # GET - Get all dashboard data in one call
     path('teacher/dashboard-data/', get_teacher_dashboard_data, name='teacher-dashboard-data'),
+    
+    # ============================================
+    # Admin Profile Endpoints (NEW)
+    # URLs: /employees/admin/...
+    # ============================================
+    
+    # GET/PUT - Get or update admin profile (current user)
+    path('admin/profile/', AdminProfileView.as_view(), name='admin-profile'),
+    
+    # POST - Upload admin profile photo
+    path('admin/profile/photo/', AdminProfilePhotoUploadView.as_view(), name='admin-photo-upload'),
+    
+    # DELETE - Delete admin profile photo
+    path('admin/profile/photo/delete/', AdminProfilePhotoDeleteView.as_view(), name='admin-photo-delete'),
     
     # ============================================
     # Notification Endpoints

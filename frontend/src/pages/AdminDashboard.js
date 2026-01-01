@@ -14,7 +14,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import moment from 'moment';
-import { AdminHeader } from '../components/admin/AdminHeader';
+import { AdminProfileHeader } from '../components/admin/AdminProfileHeader';
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
 import { FilterBar } from '../components/common/filters/FilterBar';
 import { DataTable } from '../components/common/tables/DataTable';
@@ -589,7 +589,7 @@ function AdminDashboard() {
   if (loading.initial) {
     return (
       <div style={{ padding: '2rem' }}>
-        <AdminHeader />
+        <AdminProfileHeader />
         <LoadingSpinner size="large" message="Loading dashboard..." />
       </div>
     );
@@ -597,7 +597,7 @@ function AdminDashboard() {
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      <AdminHeader />
+      <AdminProfileHeader />
 
       {/* Students per School */}
       <CollapsibleSection 

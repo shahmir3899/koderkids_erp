@@ -5,9 +5,9 @@ from datetime import timedelta
 
 # Load environment variables
 # Supabase Storage Configuration
-SUPABASE_URL = "https://vjulyxmuswlktvlvdhhi.supabase.co"  # Your Supabase Project URL
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqdWx5eG11c3dsa3R2bHZkaGhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MDkyMTMyNCwiZXhwIjoyMDU2NDk3MzI0fQ.civdal8JUya2xw1jS6Tc_J_JJex2N5r2hewPAR5NPqc"  # Your Service Role Key
-SUPABASE_BUCKET = "student-images"  # Your Supabase bucket name
+SUPABASE_URL = "https://vjulyxmuswlktvlvdhhi.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqdWx5eG11c3dsa3R2bHZkaGhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MDkyMTMyNCwiZXhwIjoyMDU2NDk3MzI0fQ.civdal8JUya2xw1jS6Tc_J_JJex2N5r2hewPAR5NPqc"
+SUPABASE_BUCKET = "student-images"
 
 # Get the BASE_DIR (Project Root)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -63,6 +63,7 @@ ALLOWED_HOSTS = [
     'frontend.koderkids.pk',
     'koderkids-erp.onrender.com'
 ]
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 # CORS Headers
 CORS_ALLOW_HEADERS = [
@@ -88,10 +89,10 @@ INSTALLED_APPS = [
     'reports',
     'finance',
     'inventory',
-    'authentication',  # ✅ ADD THIS
-    'lessons',         # We'll use this next
-    'attendance',      # We'll use this later
-    'dashboards',      # We'll use this later
+    'authentication',
+    'lessons',
+    'attendance',
+    'dashboards',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]
@@ -136,7 +137,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://koderkids-erp.onrender.com",
 ]
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 CORS_ALLOW_ALL_ORIGINS = False
 CSRF_TRUSTED_ORIGINS = [
     "https://frontend.koderkids.pk",
@@ -144,6 +145,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 # Cache CORS preflight requests for 24 hours
 CORS_PREFLIGHT_MAX_AGE = 86400
+
 # Authentication & JWT
 AUTH_USER_MODEL = 'students.CustomUser'
 REST_FRAMEWORK = {
@@ -157,3 +159,31 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================================
+# EMAIL CONFIGURATION (Hostnext cPanel - SSL)
+# ============================================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'mail.koderkids.pk')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '465'))  # SSL port as string to avoid int() error
+EMAIL_USE_TLS = False  # Don't use TLS
+EMAIL_USE_SSL = True   # Use SSL on port 465
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'admin@koderkids.pk')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'KoderKids ERP <admin@koderkids.pk>')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# Email timeout (in seconds)
+EMAIL_TIMEOUT = 10
+
+# Debug: Print email settings on startup (REMOVE IN PRODUCTION)
+print("\n" + "="*50)
+print("📧 EMAIL CONFIGURATION LOADED:")
+print("="*50)
+print(f"HOST: {EMAIL_HOST}")
+print(f"PORT: {EMAIL_PORT}")
+print(f"USER: {EMAIL_HOST_USER}")
+print(f"SSL: {EMAIL_USE_SSL}")
+print(f"PASSWORD SET: {'Yes' if EMAIL_HOST_PASSWORD else 'No (MISSING!)'}")
+print(f"FROM EMAIL: {DEFAULT_FROM_EMAIL}")
+print("="*50 + "\n")

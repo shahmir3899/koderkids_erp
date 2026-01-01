@@ -1,0 +1,99 @@
+<!-- backend/templates/emails/account_status_email.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Status Update</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #3B82F6;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f9fafb;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+        }
+        .credentials-box {
+            background-color: white;
+            border: 2px solid #3B82F6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .credential-item {
+            margin: 10px 0;
+        }
+        .label {
+            font-weight: bold;
+            color: #6B7280;
+        }
+        .value {
+            font-size: 18px;
+            color: #1F2937;
+            font-family: monospace;
+        }
+        .button {
+            display: inline-block;
+            background-color: #3B82F6;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            color: #6B7280;
+            font-size: 14px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .warning {
+            background-color: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{% if is_active %}✅{% else %}🚫{% endif %} Account Status Update</h1>
+    </div>
+    
+    <div class="content">
+        <p>Dear <strong>{{ user.first_name }} {{ user.last_name }}</strong>,</p>
+        
+        <div class="status-box">
+            <p style="margin: 0; color: #6B7280;">Your Account Status:</p>
+            <div class="status">{{ status|upper }}</div>
+        </div>
+        
+        {% if is_active %}
+        <p>Your account has been activated. You can now log in to the KoderKids ERP system and access all your assigned features.</p>
+        {% else %}
+        <p>Your account has been deactivated. You will not be able to log in to the system until your account is reactivated.</p>
+        <p>If you believe this is an error or have questions, please contact the system administrator.</p>
+        {% endif %}
+    </div>
+    
+    <div class="footer">
+        <p><strong>KoderKids ERP System</strong></p>
+        <p>This is an automated email. Please do not reply to this message.</p>
+    </div>
+</body>
+</html>

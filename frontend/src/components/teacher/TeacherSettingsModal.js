@@ -7,6 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { updateTeacherProfile } from '../../services/teacherService';
 import { ProfilePhotoUploader } from './ProfilePhotoUploader';
+import { PasswordChangeForm } from '../common/forms/PasswordChangeForm';
+import { changePassword } from '../../services/authService';
 
 /**
  * TeacherSettingsModal Component
@@ -37,6 +39,8 @@ export const TeacherSettingsModal = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
+  const [passwordError, setPasswordError] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Initialize form data when profile changes
   useEffect(() => {
@@ -61,7 +65,53 @@ export const TeacherSettingsModal = ({
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handle form submission
+  // Handle password change
+  const handlePasswordChange = async (passwordData) => {
+    console.log('🔐 Password change triggered:', passwordData);
+    setPasswordError('');
+    setIsChangingPassword(true);
+
+    try {
+      console.log('📡 Calling change password API...');
+      const result = await changePassword(passwordData);
+      console.log('✅ API Success:', result);
+      
+      toast.success('✅ Password changed successfully!');
+      setActiveTab('personal'); // Switch back to personal tab
+      
+    } catch (error) {
+      console.error('❌ Password change failed:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      // Handle different error types
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        if (errorData.current_password) {
+          setPasswordError(errorData.current_password[0] || 'Current password is incorrect.');
+        } else if (errorData.new_password) {
+          setPasswordError(errorData.new_password[0] || 'Invalid new password.');
+        } else if (errorData.confirm_password) {
+          setPasswordError(errorData.confirm_password[0] || 'Passwords do not match.');
+        } else if (errorData.detail) {
+          setPasswordError(errorData.detail);
+        } else {
+          setPasswordError('Failed to change password. Please try again.');
+        }
+      } else if (error.message === 'Not authenticated') {
+        setPasswordError('Session expired. Please login again.');
+        toast.error('Session expired. Please login again.');
+      } else {
+        setPasswordError('Failed to change password. Please try again.');
+      }
+      
+      toast.error('❌ ' + (passwordError || 'Failed to change password'));
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Handle form submission (for Personal Info and Bank Details only)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -121,7 +171,10 @@ export const TeacherSettingsModal = ({
               ...styles.tab,
               ...(activeTab === 'personal' ? styles.tabActive : {}),
             }}
-            onClick={() => setActiveTab('personal')}
+            onClick={() => {
+              setActiveTab('personal');
+              setPasswordError('');
+            }}
           >
             Personal Info
           </button>
@@ -130,192 +183,232 @@ export const TeacherSettingsModal = ({
               ...styles.tab,
               ...(activeTab === 'bank' ? styles.tabActive : {}),
             }}
-            onClick={() => setActiveTab('bank')}
+            onClick={() => {
+              setActiveTab('bank');
+              setPasswordError('');
+            }}
           >
             Bank Details
           </button>
+          <button
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'password' ? styles.tabActive : {}),
+            }}
+            onClick={() => {
+              setActiveTab('password');
+              setPasswordError('');
+            }}
+          >
+            Change Password
+          </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={styles.form}>
-          {activeTab === 'personal' && (
-            <div style={styles.formGrid}>
-              {/* First Name */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>First Name</label>
-                <input
-                  type="text"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Enter first name"
-                />
-              </div>
+        {/* Content - Conditional Form Wrapper */}
+        {(activeTab === 'personal' || activeTab === 'bank') && (
+          <form onSubmit={handleSubmit} style={styles.form}>
+            {activeTab === 'personal' && (
+              <div style={styles.formGrid}>
+                {/* First Name */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>First Name</label>
+                  <input
+                    type="text"
+                    name="first_name"
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="Enter first name"
+                  />
+                </div>
 
-              {/* Last Name */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Last Name</label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Enter last name"
-                />
-              </div>
+                {/* Last Name */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Last Name</label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={formData.last_name}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="Enter last name"
+                  />
+                </div>
 
-              {/* Title */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Job Title</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="e.g., Senior Teacher"
-                />
-              </div>
+                {/* Title */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Job Title</label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="e.g., Senior Teacher"
+                  />
+                </div>
 
-              {/* Phone */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Phone Number</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="e.g., +92 300 1234567"
-                />
-              </div>
+                {/* Phone */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Phone Number</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="e.g., +92 300 1234567"
+                  />
+                </div>
 
-              {/* Gender */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Gender</label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  style={styles.select}
-                >
-                  <option value="">Select gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
+                {/* Gender */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Gender</label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    style={styles.select}
+                  >
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
 
-              {/* Blood Group */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Blood Group</label>
-                <select
-                  name="blood_group"
-                  value={formData.blood_group}
-                  onChange={handleChange}
-                  style={styles.select}
-                >
-                  <option value="">Select blood group</option>
-                  <option value="A+">A+</option>
-                  <option value="A-">A-</option>
-                  <option value="B+">B+</option>
-                  <option value="B-">B-</option>
-                  <option value="AB+">AB+</option>
-                  <option value="AB-">AB-</option>
-                  <option value="O+">O+</option>
-                  <option value="O-">O-</option>
-                </select>
-              </div>
+                {/* Blood Group */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Blood Group</label>
+                  <select
+                    name="blood_group"
+                    value={formData.blood_group}
+                    onChange={handleChange}
+                    style={styles.select}
+                  >
+                    <option value="">Select blood group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
 
-              {/* Address - Full Width */}
-              <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
-                <label style={styles.label}>Address</label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }}
-                  placeholder="Enter your address"
-                />
+                {/* Address - Full Width */}
+                <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
+                  <label style={styles.label}>Address</label>
+                  <textarea
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }}
+                    placeholder="Enter your address"
+                  />
+                </div>
               </div>
+            )}
+
+            {activeTab === 'bank' && (
+              <div style={styles.formGrid}>
+                {/* Bank Name */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Bank Name</label>
+                  <input
+                    type="text"
+                    name="bank_name"
+                    value={formData.bank_name}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="e.g., Habib Bank Limited"
+                  />
+                </div>
+
+                {/* Account Number */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Account Number</label>
+                  <input
+                    type="text"
+                    name="account_number"
+                    value={formData.account_number}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="Enter account number"
+                  />
+                </div>
+
+                {/* Read-only Employee ID */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Employee ID</label>
+                  <input
+                    type="text"
+                    value={profile?.employee_id || 'Not assigned'}
+                    style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
+                    disabled
+                  />
+                  <small style={styles.helperText}>Auto-generated, cannot be changed</small>
+                </div>
+
+                {/* Read-only Basic Salary */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Basic Salary</label>
+                  <input
+                    type="text"
+                    value={profile?.basic_salary ? `PKR ${Number(profile.basic_salary).toLocaleString()}` : 'Not set'}
+                    style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
+                    disabled
+                  />
+                  <small style={styles.helperText}>Contact admin to update salary</small>
+                </div>
+              </div>
+            )}
+
+            {/* Form Actions for Personal & Bank tabs */}
+            <div style={styles.actions}>
+              <button
+                type="button"
+                onClick={onClose}
+                style={styles.cancelButton}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={styles.submitButton}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
+              </button>
             </div>
-          )}
+          </form>
+        )}
 
-          {activeTab === 'bank' && (
-            <div style={styles.formGrid}>
-              {/* Bank Name */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Bank Name</label>
-                <input
-                  type="text"
-                  name="bank_name"
-                  value={formData.bank_name}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="e.g., Habib Bank Limited"
-                />
-              </div>
-
-              {/* Account Number */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Account Number</label>
-                <input
-                  type="text"
-                  name="account_number"
-                  value={formData.account_number}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Enter account number"
-                />
-              </div>
-
-              {/* Read-only Employee ID */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Employee ID</label>
-                <input
-                  type="text"
-                  value={profile?.employee_id || 'Not assigned'}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
-                  disabled
-                />
-                <small style={styles.helperText}>Auto-generated, cannot be changed</small>
-              </div>
-
-              {/* Read-only Basic Salary */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Basic Salary</label>
-                <input
-                  type="text"
-                  value={profile?.basic_salary ? `PKR ${Number(profile.basic_salary).toLocaleString()}` : 'Not set'}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
-                  disabled
-                />
-                <small style={styles.helperText}>Contact admin to update salary</small>
-              </div>
+        {/* Password Tab - NO form wrapper to avoid nesting */}
+        {activeTab === 'password' && (
+          <div style={styles.form}>
+            <PasswordChangeForm
+              onSubmit={handlePasswordChange}
+              isSubmitting={isChangingPassword}
+              error={passwordError}
+            />
+            
+            {/* Close button for password tab */}
+            <div style={styles.actions}>
+              <button
+                type="button"
+                onClick={onClose}
+                style={styles.cancelButton}
+                disabled={isChangingPassword}
+              >
+                Close
+              </button>
             </div>
-          )}
-
-          {/* Form Actions */}
-          <div style={styles.actions}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={styles.cancelButton}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              style={styles.submitButton}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
-            </button>
           </div>
-        </form>
+        )}
       </div>
     </div>
   );

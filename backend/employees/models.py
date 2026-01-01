@@ -1,5 +1,6 @@
 # ============================================
 # EMPLOYEES MODELS - Updated with Employee ID & Notifications
+# NOW SUPPORTS BOTH TEACHERS AND ADMINS
 # ============================================
 
 from django.db import models
@@ -13,7 +14,8 @@ import datetime
 
 class TeacherProfile(models.Model):
     """
-    Extended profile for teachers with auto-generated employee ID
+    Extended profile for employees (Teachers and Admins)
+    Auto-generates employee ID based on role
     """
     GENDER_CHOICES = [
         ('Male', 'Male'),
@@ -32,20 +34,23 @@ class TeacherProfile(models.Model):
         ('O-', 'O-'),
     ]
     
+    # UPDATED: Now supports both Teacher and Admin roles
     user = models.OneToOneField(
         CustomUser,
         on_delete=models.CASCADE,
         related_name='teacher_profile',
-        limit_choices_to={'role': 'Teacher'}
+        limit_choices_to={'role__in': ['Teacher', 'Admin']}
     )
     
-    # Auto-generated Employee ID (KK-T-025, KK-T-026, etc.)
+    # Auto-generated Employee ID
+    # Teachers: KK-T-025, KK-T-026, etc.
+    # Admins: KK-A-001, KK-A-002, etc.
     employee_id = models.CharField(
         max_length=20, 
         unique=True, 
         blank=True, 
         null=True,
-        help_text="Auto-generated employee ID (e.g., KK-T-025)"
+        help_text="Auto-generated employee ID (e.g., KK-T-025 or KK-A-001)"
     )
     
     # Profile Photo URL (stored in Supabase)
@@ -57,7 +62,7 @@ class TeacherProfile(models.Model):
     )
     
     # Personal Info
-    title = models.CharField(max_length=100, blank=True, null=True)  # e.g., "Senior Teacher"
+    title = models.CharField(max_length=100, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
     blood_group = models.CharField(max_length=5, choices=BLOOD_GROUP_CHOICES, blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
@@ -82,8 +87,8 @@ class TeacherProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Teacher Profile"
-        verbose_name_plural = "Teacher Profiles"
+        verbose_name = "Employee Profile"
+        verbose_name_plural = "Employee Profiles"
 
     def __str__(self):
         return f"{self.employee_id or 'No ID'} - {self.user.get_full_name()} ({self.user.username})"
@@ -94,27 +99,38 @@ class TeacherProfile(models.Model):
             self.employee_id = self.generate_employee_id()
         super().save(*args, **kwargs)
 
-    @classmethod
-    def generate_employee_id(cls):
+    def generate_employee_id(self):
         """
-        Generate employee ID in format: KK-T-XXX (starting from 025)
+        Generate employee ID based on role:
+        - Teachers: KK-T-XXX (starting from 025)
+        - Admins: KK-A-XXX (starting from 001)
         """
-        # Get the last employee ID
-        last_profile = cls.objects.filter(
-            employee_id__isnull=False
+        role = self.user.role
+        
+        # Determine prefix and start number based on role
+        if role == 'Admin':
+            prefix = 'KK-A'
+            start_number = 1
+        else:  # Teacher (default)
+            prefix = 'KK-T'
+            start_number = 25
+        
+        # Get the last employee ID with same prefix
+        last_profile = TeacherProfile.objects.filter(
+            employee_id__startswith=prefix
         ).order_by('-employee_id').first()
         
         if last_profile and last_profile.employee_id:
             try:
-                # Extract the number from KK-T-XXX
+                # Extract the number from KK-X-XXX
                 last_number = int(last_profile.employee_id.split('-')[-1])
                 new_number = last_number + 1
             except (ValueError, IndexError):
-                new_number = 25  # Start from 25 if parsing fails
+                new_number = start_number
         else:
-            new_number = 25  # Start from 25
+            new_number = start_number
         
-        return f"KK-T-{new_number:03d}"
+        return f"{prefix}-{new_number:03d}"
 
     @property
     def full_name(self):
@@ -131,7 +147,7 @@ class TeacherEarning(models.Model):
         limit_choices_to={'role': 'Teacher'},
         related_name='earnings'
     )
-    category = models.CharField(max_length=50)  # e.g., "Bonus", "Travel Allowance"
+    category = models.CharField(max_length=50)
     amount = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
@@ -155,7 +171,7 @@ class TeacherDeduction(models.Model):
         limit_choices_to={'role': 'Teacher'},
         related_name='deductions'
     )
-    category = models.CharField(max_length=50)  # e.g., "Loan", "Advance"
+    category = models.CharField(max_length=50)
     amount = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
@@ -229,22 +245,22 @@ class Notification(models.Model):
 
 
 # ============================================
-# SIGNALS - Auto-create TeacherProfile when Teacher user is created
+# SIGNALS - Auto-create TeacherProfile for both Teachers and Admins
 # ============================================
 
 @receiver(post_save, sender=CustomUser)
-def create_teacher_profile(sender, instance, created, **kwargs):
+def create_employee_profile(sender, instance, created, **kwargs):
     """
-    Automatically create TeacherProfile when a new Teacher user is created
+    Automatically create TeacherProfile when a new Teacher or Admin user is created
     """
-    if instance.role == 'Teacher':
+    if instance.role in ['Teacher', 'Admin']:
         TeacherProfile.objects.get_or_create(user=instance)
 
 
 @receiver(post_save, sender=CustomUser)
-def save_teacher_profile(sender, instance, **kwargs):
+def save_employee_profile(sender, instance, **kwargs):
     """
-    Save TeacherProfile when user is saved
+    Save TeacherProfile when user is saved (for both Teachers and Admins)
     """
-    if instance.role == 'Teacher' and hasattr(instance, 'teacher_profile'):
+    if instance.role in ['Teacher', 'Admin'] and hasattr(instance, 'teacher_profile'):
         instance.teacher_profile.save()
