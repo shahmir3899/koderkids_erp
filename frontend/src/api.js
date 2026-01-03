@@ -1,12 +1,25 @@
+// ============================================
+// CENTRALIZED API CONFIGURATION & HELPERS
+// MERGED VERSION: Combines existing functionality with standardized helpers
+// Location: frontend/src/api.js
+// ============================================
+
 import axios from "axios";
-//import { getLessons, getLoggedInUser, getClassImageCount } from "../api";
 
-
+// ============================================
+// BASE CONFIGURATION
+// ============================================
 
 export const API_URL = process.env.REACT_APP_API_URL;
 
+// ============================================
+// AUTHENTICATION HELPERS
+// ============================================
 
-// Helper function to get auth headers
+/**
+ * Get authentication headers with Bearer token
+ * @returns {Object} Headers object with Authorization
+ */
 export const getAuthHeaders = () => {
     const token = localStorage.getItem("access");
     if (!token) {
@@ -16,113 +29,66 @@ export const getAuthHeaders = () => {
     return { Authorization: `Bearer ${token}` };
 };
 
-export const getClassImageCount = async (schoolId) => {
-    try {
-        const response = await axios.get(`${API_URL}/api/class-image-count/`, {
-            headers: { ...getAuthHeaders().headers },
-            params: { school_id: schoolId }
-        });
-        return response.data;
-    } catch (error) {
-        console.error("❌ Error fetching weekly image counts:", error.response?.data || error.message);
-        return null;
-    }
+/**
+ * Get headers for JSON requests (Auth + Content-Type)
+ * @returns {Object} Headers with Authorization and Content-Type
+ */
+export const getJsonHeaders = () => {
+    return {
+        ...getAuthHeaders(),
+        "Content-Type": "application/json",
+    };
 };
 
+/**
+ * Get headers for multipart/form-data requests (file uploads)
+ * Browser automatically sets Content-Type with boundary
+ * @returns {Object} Headers with Authorization only
+ */
+export const getMultipartHeaders = () => {
+    return {
+        ...getAuthHeaders(),
+    };
+};
+
+/**
+ * Check if user is authenticated
+ * @returns {boolean} True if access token exists
+ */
+export const isAuthenticated = () => {
+    return !!localStorage.getItem("access");
+};
+
+// ============================================
+// AUTHENTICATION & SESSION MANAGEMENT
+// ============================================
+
+/**
+ * Logout user and clear all stored data
+ */
 export const logout = () => {
-    // ✅ Clear stored authentication data
+    // Clear stored authentication data
     localStorage.clear();  
     sessionStorage.clear();  
 
-    // ✅ Clear browser cache
+    // Clear browser cache
     caches.keys().then((names) => {
         names.forEach((name) => caches.delete(name));
     });
 
-    // ✅ Redirect to login page
+    // Redirect to login page
     window.location.href = "/login";
 };
 
-
-export const getStudents = async (schoolName = "", studentClass = "") => {
-    console.log("🔍 Requesting students with filters:", { schoolName, studentClass });
-
-    if (!schoolName) {
-        console.error("❌ No school selected! Request cannot proceed.");
-        return [];
-    }
-
-    const params = {
-        school: schoolName, // ✅ Use school name, not ID
-        class: studentClass ? String(studentClass) : "", // ✅ Ensure class is sent as a string
-        status: "Active",  // ✅ Ensure only Active students are fetched
-    };
-
-    try {
-        const response = await axios.get(`${API_URL}/api/students/`, {
-            headers: getAuthHeaders(),
-            params: params
-        });
-
-        console.log("✅ Students API Response:", response.data);
-        return response.data;
-    } catch (error) {
-        console.error("❌ Error fetching students:", error.response?.data || error.message);
-        return [];
-    }
-};
-
-
-// export const getStudents = async (schoolName, params = {}) => {
-//     const queryParams = new URLSearchParams(params);
-    
-//     // Only add the school parameter if schoolName is provided
-//     if (schoolName) {
-//         queryParams.set("school", schoolName);
-//     }
-
-//     // Log the request for debugging
-//     console.log("🔍 Requesting students with filters:", { schoolName, params });
-
-//     // Proceed with the request even if schoolName is null (for all_schools=true)
-//     const response = await fetch(`/api/students/?${queryParams.toString()}`, {
-//         method: "GET",
-//         headers: {
-//             "Authorization": `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
-//             "Content-Type": "application/json"
-//         }
-//     });
-
-//     const data = await response.json();
-//     console.log("✅ Students API Response:", data);
-//     return data;
-// };
-
-export const getSchoolDetails = async (schoolId = null, schoolName = null) => {
-    try {
-        const params = schoolId ? { school_id: schoolId } : { school_name: schoolName };
-        console.log("📡 Fetching school details with params:", params);
-
-        const response = await axios.get(`${API_URL}/api/school-details/`, {
-            headers: getAuthHeaders(),
-            params: params
-        });
-
-        console.log("✅ School Details Response:", response.data);
-        return response.data;
-    } catch (error) {
-        console.error("❌ Error fetching school details:", error.response?.data || error.message);
-        return null;
-    }
-};
-
-
+/**
+ * Redirect user based on their role
+ */
 export const redirectUser = () => {
     const token = localStorage.getItem("access");
     const role = localStorage.getItem("role");
 
     if (!token) {
-        window.location.href = "/login"; // Redirect unauthorized users
+        window.location.href = "/login";
         return;
     }
 
@@ -141,86 +107,92 @@ export const redirectUser = () => {
     }
 };
 
-// Fetch schools (now protected)
-export const getSchools = async () => {
+/**
+ * Fetch logged-in user data
+ * @returns {Promise<Object|null>} User data or null on error
+ */
+export const getLoggedInUser = async () => {
     try {
-        console.log("🔄 Fetching list of schools...");
-        
-        const response = await axios.get(`${API_URL}/api/schools/`, {
-            headers: {
-                ...getAuthHeaders(),
-                "Content-Type": "application/json"
-            }
+        console.log("📡 Fetching logged-in user...");
+        const response = await axios.get(`${API_URL}/api/auth/user/`, {
+            headers: getAuthHeaders(),
         });
 
-        console.log("✅ Schools API Response:", response.data);
+        console.log("✅ Logged-in User Data:", response.data);
         return response.data;
-        
     } catch (error) {
-        console.error("❌ Error fetching schools:", error.response?.data || error.message);
-        throw error;
+        console.error("❌ Error fetching user:", error.response?.data || error.message);
+        return null;
     }
 };
 
-//Used in  LessonPage.js
-export const getClasses = async (schoolId) => {
-    try {
-        if (!schoolId) {
-            console.error("❌ No school ID provided for class fetch!");
-            return [];
-        }
+// ============================================
+// STUDENT MANAGEMENT
+// ============================================
 
-        console.log(`🔄 Fetching classes for school ID: ${schoolId}...`);
-        
-        const response = await axios.get(`${API_URL}/api/classes/`, {
-            headers: {
-                ...getAuthHeaders(),
-                "Content-Type": "application/json"
-            },
-            params: { school: schoolId } // Pass schoolId as a query parameter
+/**
+ * Fetch students with filters
+ * @param {string} schoolName - School name to filter by
+ * @param {string} studentClass - Class to filter by
+ * @returns {Promise<Array>} Array of students
+ */
+export const getStudents = async (schoolName = "", studentClass = "") => {
+    console.log("📡 Requesting students with filters:", { schoolName, studentClass });
+
+    if (!schoolName) {
+        console.error("❌ No school selected! Request cannot proceed.");
+        return [];
+    }
+
+    const params = {
+        school: schoolName,
+        class: studentClass ? String(studentClass) : "",
+        status: "Active",
+    };
+
+    try {
+        const response = await axios.get(`${API_URL}/api/students/`, {
+            headers: getAuthHeaders(),
+            params: params
         });
 
-        console.log("✅ Classes API Response:", response.data);
-
-        // ✅ Remove duplicates & sort classes in ascending order
-        const uniqueSortedClasses = [...new Set(response.data)].sort((a, b) => a.localeCompare(b));
-
-        return uniqueSortedClasses;  // ✅ Return cleaned list
-
+        console.log("✅ Students API Response:", response.data);
+        return response.data;
     } catch (error) {
-        console.error("❌ Error fetching classes:", error.response?.data || error.message);
+        console.error("❌ Error fetching students:", error.response?.data || error.message);
         return [];
     }
 };
 
-
-
-// Update a student (now protected)
+/**
+ * Update a student
+ * @param {number} id - Student ID
+ * @param {Object} studentData - Updated student data
+ * @returns {Promise<Object>} Updated student data
+ */
 export const updateStudent = async (id, studentData) => {
     try {
         const response = await axios.put(`${API_URL}/api/students/${id}/`, studentData, {
-            headers: {
-                ...getAuthHeaders(),
-                "Content-Type": "application/json"
-            }
+            headers: getJsonHeaders()
         });
         return response.data;
     } catch (error) {
-        console.error("Error updating student:", error);
+        console.error("❌ Error updating student:", error);
         throw error;
     }
 };
 
-// Add a new student (now protected)
+/**
+ * Add a new student
+ * @param {Object} studentData - New student data
+ * @returns {Promise<Object>} Created student data
+ */
 export const addStudent = async (studentData) => {
     try {
-        console.log("🚀 Sending Student Data:", studentData);
+        console.log("📡 Sending Student Data:", studentData);
 
         const response = await axios.post(`${API_URL}/api/students/add/`, studentData, {
-            headers: {
-                ...getAuthHeaders(),
-                "Content-Type": "application/json"
-            }
+            headers: getJsonHeaders()
         });
 
         console.log("✅ API Response:", response.data);
@@ -231,10 +203,14 @@ export const addStudent = async (studentData) => {
     }
 };
 
-// Delete a student (now protected)
+/**
+ * Delete a student
+ * @param {number} studentId - Student ID
+ * @returns {Promise<Object>} Success response
+ */
 export const deleteStudent = async (studentId) => {
     try {
-        console.log("🗑️ Deleting student with ID:", studentId);
+        console.log("📡 Deleting student with ID:", studentId);
         const response = await axios.delete(`${API_URL}/api/students/${studentId}/`, {
             headers: getAuthHeaders(),
         });
@@ -246,7 +222,140 @@ export const deleteStudent = async (studentId) => {
     }
 };
 
-// ✅ Lesson Management API Functions
+// ============================================
+// SCHOOL MANAGEMENT
+// ============================================
+
+/**
+ * Fetch all schools
+ * @returns {Promise<Array>} Array of schools
+ */
+export const getSchools = async () => {
+    try {
+        console.log("📡 Fetching list of schools...");
+        
+        const response = await axios.get(`${API_URL}/api/schools/`, {
+            headers: getJsonHeaders()
+        });
+
+        console.log("✅ Schools API Response:", response.data);
+        return response.data;
+        
+    } catch (error) {
+        console.error("❌ Error fetching schools:", error.response?.data || error.message);
+        throw error;
+    }
+};
+
+/**
+ * Fetch school details by ID or name
+ * @param {number|null} schoolId - School ID
+ * @param {string|null} schoolName - School name
+ * @returns {Promise<Object|null>} School details or null
+ */
+export const getSchoolDetails = async (schoolId = null, schoolName = null) => {
+    try {
+        const params = schoolId ? { school_id: schoolId } : { school_name: schoolName };
+        console.log("📡 Fetching school details with params:", params);
+
+        const response = await axios.get(`${API_URL}/api/school-details/`, {
+            headers: getAuthHeaders(),
+            params: params
+        });
+
+        console.log("✅ School Details Response:", response.data);
+        return response.data;
+    } catch (error) {
+        console.error("❌ Error fetching school details:", error.response?.data || error.message);
+        return null;
+    }
+};
+
+/**
+ * Fetch schools with their classes
+ * @returns {Promise<Array>} Array of schools with classes
+ */
+export const getSchoolsWithClasses = async () => {
+    try {
+        console.log("📡 Fetching schools with classes...");
+
+        const response = await axios.get(`${API_URL}/api/schools-with-classes/`, {
+            headers: getJsonHeaders()
+        });
+
+        console.log("✅ Schools with Classes API Response:", response.data);
+        return response.data;
+    } catch (error) {
+        console.error("❌ Error fetching schools with classes:", error.response?.data || error.message);
+        throw error;
+    }
+};
+
+// ============================================
+// CLASS MANAGEMENT
+// ============================================
+
+/**
+ * Fetch classes for a specific school
+ * @param {number} schoolId - School ID
+ * @returns {Promise<Array>} Sorted array of unique classes
+ */
+export const getClasses = async (schoolId) => {
+    try {
+        if (!schoolId) {
+            console.error("❌ No school ID provided for class fetch!");
+            return [];
+        }
+
+        console.log(`📡 Fetching classes for school ID: ${schoolId}...`);
+        
+        const response = await axios.get(`${API_URL}/api/classes/`, {
+            headers: getJsonHeaders(),
+            params: { school: schoolId }
+        });
+
+        console.log("✅ Classes API Response:", response.data);
+
+        // Remove duplicates & sort classes in ascending order
+        const uniqueSortedClasses = [...new Set(response.data)].sort((a, b) => a.localeCompare(b));
+
+        return uniqueSortedClasses;
+
+    } catch (error) {
+        console.error("❌ Error fetching classes:", error.response?.data || error.message);
+        return [];
+    }
+};
+
+/**
+ * Get class image count for a school
+ * @param {number} schoolId - School ID
+ * @returns {Promise<Object|null>} Image count data or null
+ */
+export const getClassImageCount = async (schoolId) => {
+    try {
+        const response = await axios.get(`${API_URL}/api/class-image-count/`, {
+            headers: getAuthHeaders(),
+            params: { school_id: schoolId }
+        });
+        return response.data;
+    } catch (error) {
+        console.error("❌ Error fetching weekly image counts:", error.response?.data || error.message);
+        return null;
+    }
+};
+
+// ============================================
+// LESSON MANAGEMENT
+// ============================================
+
+/**
+ * Fetch lessons for a specific date, school, and class
+ * @param {string} sessionDate - Session date (YYYY-MM-DD)
+ * @param {number} schoolId - School ID
+ * @param {string} studentClass - Student class
+ * @returns {Promise<Object>} Lesson data
+ */
 export const getLessons = async (sessionDate, schoolId, studentClass) => {
     if (!sessionDate || !schoolId || !studentClass) {
         console.error("❌ Missing sessionDate, schoolId, or studentClass in API call");
@@ -255,12 +364,11 @@ export const getLessons = async (sessionDate, schoolId, studentClass) => {
 
     try {
         const apiUrl = `${API_URL}/api/lesson-plan/${sessionDate}/${schoolId}/${studentClass}/`;
-        console.log("📡 API Request:", apiUrl);  // ✅ Debug request URL
+        console.log("📡 API Request:", apiUrl);
         
         const response = await axios.get(apiUrl, { headers: getAuthHeaders() });
         
-        console.log("✅ Lessons API Response:", response.data);  // ✅ Debug API response
-        console.log("🔗 API_URL (inside getLessons):", API_URL);
+        console.log("✅ Lessons API Response:", response.data);
         return response.data;
     } catch (error) {
         console.error("❌ Error fetching lessons:", error.response?.data || error.message);
@@ -268,16 +376,16 @@ export const getLessons = async (sessionDate, schoolId, studentClass) => {
     }
 };
 
-
-
+/**
+ * Add a new lesson
+ * @param {Object} lessonData - Lesson data
+ * @returns {Promise<Object>} Created lesson
+ */
 export const addLesson = async (lessonData) => {
     try {
-        console.log("🚀 Adding lesson:", lessonData);
+        console.log("📡 Adding lesson:", lessonData);
         const response = await axios.post(`${API_URL}/api/lessons/create/`, lessonData, {
-            headers: {
-                ...getAuthHeaders(),
-                "Content-Type": "application/json",
-            },
+            headers: getJsonHeaders(),
         });
         console.log("✅ Lesson added successfully:", response.data);
         return response.data;
@@ -287,14 +395,17 @@ export const addLesson = async (lessonData) => {
     }
 };
 
+/**
+ * Update an existing lesson
+ * @param {number} lessonId - Lesson ID
+ * @param {Object} updatedData - Updated lesson data
+ * @returns {Promise<Object>} Updated lesson
+ */
 export const updateLesson = async (lessonId, updatedData) => {
     try {
-        console.log(`✏️ Updating lesson ID: ${lessonId}...`);
+        console.log(`📡 Updating lesson ID: ${lessonId}...`);
         const response = await axios.put(`${API_URL}/api/lessons/${lessonId}/`, updatedData, {
-            headers: {
-                ...getAuthHeaders(),
-                "Content-Type": "application/json",
-            },
+            headers: getJsonHeaders(),
         });
         console.log("✅ Lesson updated:", response.data);
         return response.data;
@@ -304,23 +415,14 @@ export const updateLesson = async (lessonId, updatedData) => {
     }
 };
 
-// ✅ Fetch Logged-in User (Teacher)
-export const getLoggedInUser = async () => {
-    try {
-        console.log("🔄 Fetching logged-in user...");
-        const response = await axios.get(`${API_URL}/api/auth/user/`, {
-            headers: getAuthHeaders(),
-        });
+// ============================================
+// FINANCIAL MANAGEMENT
+// ============================================
 
-        console.log("✅ Logged-in User Data:", response.data);
-        return response.data; // Response should contain the teacher ID
-    } catch (error) {
-        console.error("❌ Error fetching user:", error.response?.data || error.message);
-        return null; // Handle errors gracefully
-    }
-};
-
-
+/**
+ * Fetch all transactions
+ * @returns {Promise<Array>} Array of transactions
+ */
 export const getTransactions = async () => {
     try {
         const response = await axios.get(`${API_URL}/api/transactions/`, {
@@ -333,36 +435,69 @@ export const getTransactions = async () => {
     }
 };
 
-export const getSchoolsWithClasses = async () => {
-    try {
-        console.log("🔍 Fetching schools with classes...");
+// ============================================
+// ROBOT CHAT
+// ============================================
 
-        const response = await axios.get(`${API_URL}/api/schools-with-classes/`, {
-            headers: {
-                ...getAuthHeaders(),
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            }
-        });
-
-        console.log("✅ Schools with Classes API Response:", response.data);
-        return response.data;
-    } catch (error) {
-        console.error("❌ Error fetching schools with classes:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-
-// 🎯 Send Message to Backend
+/**
+ * Send message to robot chat
+ * @param {string} message - Message to send
+ * @returns {Promise<string>} Robot reply
+ */
 export const sendMessageToRobot = async (message) => {
     try {
         const response = await axios.post(`${API_URL}/api/robot-reply/`, {
-        message: message,
-      });
-      return response.data.reply;
+            message: message,
+        });
+        return response.data.reply;
     } catch (error) {
-      console.error("Error sending message:", error);
-      return "Sorry, something went wrong.";
+        console.error("❌ Error sending message:", error);
+        return "Sorry, something went wrong.";
     }
-  };
+};
+
+// ============================================
+// EXPORT DEFAULT (for convenience)
+// ============================================
+
+export default {
+    // Configuration
+    API_URL,
+    
+    // Auth Helpers
+    getAuthHeaders,
+    getJsonHeaders,
+    getMultipartHeaders,
+    isAuthenticated,
+    
+    // Authentication
+    logout,
+    redirectUser,
+    getLoggedInUser,
+    
+    // Students
+    getStudents,
+    updateStudent,
+    addStudent,
+    deleteStudent,
+    
+    // Schools
+    getSchools,
+    getSchoolDetails,
+    getSchoolsWithClasses,
+    
+    // Classes
+    getClasses,
+    getClassImageCount,
+    
+    // Lessons
+    getLessons,
+    addLesson,
+    updateLesson,
+    
+    // Finance
+    getTransactions,
+    
+    // Robot Chat
+    sendMessageToRobot,
+};

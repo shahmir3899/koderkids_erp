@@ -1,10 +1,12 @@
 // ============================================
-// STUDENT DASHBOARD - Updated with Profile Header
+// STUDENT DASHBOARD - FIXED VERSION
+// Separate loading states for dashboard data and profile
 // ============================================
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { StudentProfileHeader } from "../components/students/StudentProfileHeader";
+import { UnifiedProfileHeader } from '../components/common/UnifiedProfileHeader';
+import { getCompleteStudentProfile } from '../services/studentService';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -14,28 +16,72 @@ const getAuthHeaders = () => ({
 });
 
 const StudentDashboard = () => {
+  // Dashboard data states
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [dashboardLoading, setDashboardLoading] = useState(true); // ← RENAMED
   const [error, setError] = useState(null);
+  
+  // Profile states (separate!)
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true); // ← SEPARATE
 
+  // Fetch dashboard data (fees, attendance, etc.)
   useEffect(() => {
-    // Fetch student dashboard data
+    console.log('📊 Fetching dashboard data...');
+    setDashboardLoading(true);
+    
     axios.get(`${API_URL}/api/students/my-data/`, { headers: getAuthHeaders() })
       .then((res) => {
+        console.log('✅ Dashboard data loaded:', res.data);
         setData(res.data);
-        setLoading(false);
+        setDashboardLoading(false);
       })
       .catch((err) => {
+        console.error('❌ Dashboard data error:', err);
         setError("Failed to load data");
-        setLoading(false);
+        setDashboardLoading(false);
       });
-  }, []);
+  }, []); // ← Empty array: fetch once
 
-  if (loading) {
+  // Fetch profile data (for header)
+  useEffect(() => {
+    const fetchProfile = async () => {
+      console.log('👤 Fetching profile...');
+      setProfileLoading(true);
+      try {
+        const data = await getCompleteStudentProfile();
+        console.log('✅ Profile loaded:', data);
+        setProfile(data);
+      } catch (error) {
+        console.error('❌ Profile error:', error);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, []); // ← Empty array: fetch once
+
+  // Handle profile updates (from settings modal)
+  const handleProfileUpdate = (updatedProfile) => {
+    console.log('📝 Updating profile:', updatedProfile);
+    // ✅ CORRECT: Just merge, don't re-fetch
+    setProfile(prev => ({ ...prev, ...updatedProfile }));
+  };
+
+  // Show loading if either is still loading
+  const isLoading = dashboardLoading || profileLoading;
+
+  if (isLoading) {
     return (
       <div className="p-6">
-        <StudentProfileHeader />
-        <div className="text-center py-8">Loading...</div>
+        <UnifiedProfileHeader
+          role="Student"
+          profile={profile}
+          loading={profileLoading} // ← Use profile loading only
+          onProfileUpdate={handleProfileUpdate}
+        />
+        <div className="text-center py-8">Loading dashboard...</div>
       </div>
     );
   }
@@ -43,7 +89,12 @@ const StudentDashboard = () => {
   if (error || !data) {
     return (
       <div className="p-6">
-        <StudentProfileHeader />
+        <UnifiedProfileHeader
+          role="Student"
+          profile={profile}
+          loading={profileLoading}
+          onProfileUpdate={handleProfileUpdate}
+        />
         <div className="text-red-500 text-center py-8">{error || "No data"}</div>
       </div>
     );
@@ -51,8 +102,13 @@ const StudentDashboard = () => {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      {/* New Profile Header */}
-      <StudentProfileHeader />
+      {/* Profile Header */}
+      <UnifiedProfileHeader
+        role="Student"
+        profile={profile}
+        loading={profileLoading} // ← Use profile loading only
+        onProfileUpdate={handleProfileUpdate}
+      />
 
       {/* Dashboard Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

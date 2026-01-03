@@ -82,7 +82,7 @@ function Sidebar() {
         left: 0,
         top: 0,
         transition: "all 300ms ease-in-out",
-        width: sidebarOpen ? "16rem" : "4rem",
+        width: sidebarOpen ? "14rem" : "4rem",
         boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
         display: "flex",
         flexDirection: "column",

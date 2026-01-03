@@ -7,7 +7,7 @@ from datetime import timedelta
 # Supabase Storage Configuration
 SUPABASE_URL = "https://vjulyxmuswlktvlvdhhi.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqdWx5eG11c3dsa3R2bHZkaGhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MDkyMTMyNCwiZXhwIjoyMDU2NDk3MzI0fQ.civdal8JUya2xw1jS6Tc_J_JJex2N5r2hewPAR5NPqc"
-SUPABASE_BUCKET = "student-images"
+SUPABASE_BUCKET = "profile-photos"
 
 # Get the BASE_DIR (Project Root)
 BASE_DIR = Path(__file__).resolve().parent.parent

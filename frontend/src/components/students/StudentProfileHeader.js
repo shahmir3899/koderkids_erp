@@ -86,8 +86,8 @@ export const StudentProfileHeader = () => {
           {/* Profile Info */}
           <div style={styles.profileInfo}>
             <div style={styles.textInfo}>
-              <p style={styles.name}>{profile?.full_name || 'Student'}</p>
-              <p style={styles.role}>{profile?.reg_num || 'Student'}</p>
+              <p style={styles.name}>{profile?.name || 'Student'}</p>
+              <p style={styles.role}>{profile?.id || 'Student'}</p>
             </div>
             
             {/* Profile Photo */}
@@ -100,7 +100,7 @@ export const StudentProfileHeader = () => {
                 />
               ) : (
                 <div style={styles.photoPlaceholder}>
-                  {(profile?.full_name || profile?.first_name || 'S').charAt(0).toUpperCase()}
+                  {(profile?.full_name || profile?.name || 'S').charAt(0).toUpperCase()}
                 </div>
               )}
             </div>

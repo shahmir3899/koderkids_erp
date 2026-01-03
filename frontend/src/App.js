@@ -80,9 +80,9 @@ function App() {
     <SchoolsProvider>
         <Router>
             <AutoLogout /> 
-            <div className="flex m-0">
-                <Sidebar />
-                <div className="ml-56 w-full p-2 bg-gray-100 min-h-screen">
+            <div className="flex m-0" style={{ gap: 0 }}>
+    <Sidebar />
+    <div className="ml-64 w-full bg-gray-100 min-h-screen" style={{ padding: 0, margin: 0, marginLeft: '14rem' }}>
                 <Routes>
       {/* ✅ Public Routes */}
       <Route path="/register" element={<RegisterPage />} />

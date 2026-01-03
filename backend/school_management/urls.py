@@ -9,7 +9,7 @@ from finance import views as finance_views  # Corrected import
 from employees import views as employee_views  # Corrected import
 from students.views import (
     # Authentication
-    FeeSummaryView,  debug_cors, 
+    FeeSummaryView, StudentProfileViewSet,  debug_cors, 
 
     # Students Management
     StudentViewSet, add_student,  get_students, get_student_details,
@@ -29,6 +29,11 @@ from students.views import (
 
 
     my_student_data, create_single_fee, delete_fees,
+
+    StudentProfilePhotoUploadView,      # ← ADD
+    StudentProfilePhotoDeleteView,      # ← ADD
+    StudentProfileViewSet,            # ← ADD
+
 )
 
 # Register ViewSet-based routes
@@ -94,7 +99,11 @@ urlpatterns = [
     path('api/fee-summary/', FeeSummaryView.as_view(), name='fee-summary'),
     # Includes robot chat APIs
     path("api/", include("robotchat.urls")),
-
+     path('api/students/profile/', StudentProfileViewSet.as_view({
+            'get': 'retrieve',
+            'put': 'update',
+            'patch': 'partial_update'
+        }), name='student-profile'),
     # Inventory
     path('api/inventory/', include('inventory.urls')),
 
@@ -105,13 +114,21 @@ urlpatterns = [
     # Books 
     path('api/books/', include('books.urls')),
     #School Management
-    #path('api/schools/create/', create_school, name='create_school'),
+    
     path('api/schools/overview/', get_schools_overview, name='schools_overview'),
     path('api/schools/stats/<int:pk>/', get_school_stats, name='school_stats'),
-    #path('api/schools/update/<int:pk>/', update_school, name='update_school'),
-    #path('api/schools/delete/<int:pk>/', delete_school, name='delete_school'),
+   
 
-]
+    path('api/students/profile/photo/', StudentProfilePhotoUploadView.as_view(), name='student-photo-upload'),
+    path('api/students/profile/photo/delete/', StudentProfilePhotoDeleteView.as_view(), name='student-photo-delete'),
+
+    
+   
+        
+        path('my-data/', my_student_data, name='my-student-data'),
+ ]
+
+
 
 # Remove the duplicate router and urlpatterns redefinition
 # Move static media handling outside urlpatterns

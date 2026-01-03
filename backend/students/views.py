@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from supabase import create_client
 from django.contrib.auth import get_user_model
 from .models import Student, Fee, School, Attendance,  CustomUser
-from .serializers import StudentSerializer, SchoolSerializer,  FeeSummarySerializer
+from .serializers import StudentSerializer, SchoolSerializer,  FeeSummarySerializer, StudentProfileSerializer, StudentProfileDetailSerializer
 from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -19,6 +19,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.db.models import Count
+import logging
 
 from .serializers import SchoolSerializer, SchoolStatsSerializer
 
@@ -1187,56 +1192,397 @@ def debug_cors(request):
     return Response({"Referer": referer, "Origin": origin})
 
 
+# ============================================
+# ADD TO: backend/students/views.py
+# Student Profile Photo Upload/Delete Views
+# ============================================
+
+# STEP 1: ADD THESE IMPORTS AT TOP (if not already present)
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from django.conf import settings
+import os
+import uuid
+
+# For Supabase (if not already imported)
+try:
+    from supabase import create_client
+except ImportError:
+    pass
 
 
+# ============================================
+# HELPER FUNCTION - Supabase Client
+# ============================================
+
+def get_supabase_client():
+    """Initialize Supabase client if configured"""
+    try:
+        from supabase import create_client
+        supabase_url = os.environ.get('REACT_APP_SUPABASE_URL', getattr(settings, 'SUPABASE_URL', ''))
+        supabase_key = os.environ.get('REACT_APP_SUPABASE_SEC_KEY', getattr(settings, 'SUPABASE_KEY', ''))
+        
+        if not supabase_url or not supabase_key:
+            return None
+        
+        return create_client(supabase_url, supabase_key)
+    except ImportError:
+        return None
+    except Exception as e:
+        print(f"Warning: Could not initialize Supabase: {e}")
+        return None
+
+
+# ============================================
+# STUDENT PHOTO UPLOAD VIEW
+# ============================================
+
+class StudentProfilePhotoUploadView(APIView):
+    """
+    POST: Upload student profile photo to Supabase
+    Organizes photos in: students/{student_id}/profile.jpg
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Upload student profile photo"""
+        # Verify user is a student
+        if request.user.role != 'Student':
+            return Response(
+                {'error': 'Only students can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            # Get uploaded file
+            photo = request.FILES.get('photo')
+            if not photo:
+                return Response(
+                    {'error': 'No photo file provided'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Initialize Supabase client
+            supabase = get_supabase_client()
+            if not supabase:
+                return Response(
+                    {'error': 'Supabase not configured'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            # Get student's registration number or ID for folder name
+            student_identifier = f"student_{request.user.id}"
+            
+            # Try to get student object to use reg_num
+            try:
+                from .models import Student
+                student = Student.objects.filter(user=request.user).first()
+                if student and student.reg_num:
+                    student_identifier = student.reg_num
+            except Exception as e:
+                print(f"Warning: Could not get student reg_num: {e}")
+            
+            # Use simple filename (will overwrite previous uploads for this student)
+            file_extension = os.path.splitext(photo.name)[1] or '.jpg'
+            filename = f"profile{file_extension}"
+            
+            # Organize in student-specific folder
+            folder_path = f"students/{student_identifier}"
+            full_path = f"{folder_path}/{filename}"
+            
+            bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'profile-photos')
+            
+            # Read file content
+            file_content = photo.read()
+            
+            # Delete old photo if exists (same path)
+            if request.user.profile_photo_url:
+                try:
+                    # Extract path from URL
+                    old_path = request.user.profile_photo_url.split('/public/')[-1]
+                    if old_path.startswith(bucket_name):
+                        old_path = old_path.replace(f"{bucket_name}/", "", 1)
+                    
+                    supabase.storage.from_(bucket_name).remove([old_path])
+                    print(f"✅ Deleted old photo: {old_path}")
+                except Exception as e:
+                    print(f"Warning: Could not delete old photo: {e}")
+            
+            # Upload file (upsert to overwrite if exists)
+            response = supabase.storage.from_(bucket_name).upload(
+                path=full_path,
+                file=file_content,
+                file_options={
+                    "content-type": photo.content_type,
+                    "upsert": "true"  # Overwrite if exists
+                }
+            )
+            
+            # Get public URL
+            public_url = supabase.storage.from_(bucket_name).get_public_url(full_path)
+            
+            # Update user profile
+            request.user.profile_photo_url = public_url
+            request.user.save()
+            
+            print(f"✅ Uploaded student photo to: {full_path}")
+            
+            return Response({
+                'profile_photo_url': public_url,
+                'message': 'Profile photo uploaded successfully'
+            })
+            
+        except Exception as e:
+            print(f"❌ Upload error: {str(e)}")
+            return Response(
+                {'error': f'Failed to upload photo: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# ============================================
+# STUDENT PHOTO DELETE VIEW
+# ============================================
+
+class StudentProfilePhotoDeleteView(APIView):
+    """
+    DELETE: Delete student profile photo from Supabase
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        """Delete student profile photo"""
+        # Verify user is a student
+        if request.user.role != 'Student':
+            return Response(
+                {'error': 'Only students can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            if request.user.profile_photo_url:
+                # Initialize Supabase client
+                supabase = get_supabase_client()
+                if supabase:
+                    try:
+                        bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'profile-photos')
+                        
+                        # Extract path from URL
+                        file_path = request.user.profile_photo_url.split('/public/')[-1]
+                        if file_path.startswith(bucket_name):
+                            file_path = file_path.replace(f"{bucket_name}/", "", 1)
+                        
+                        # Delete from Supabase
+                        supabase.storage.from_(bucket_name).remove([file_path])
+                        print(f"✅ Deleted photo: {file_path}")
+                    except Exception as e:
+                        print(f"Warning: Could not delete photo from Supabase: {e}")
+                
+                # Clear URL from user
+                request.user.profile_photo_url = None
+                request.user.save()
+            
+            return Response({'message': 'Profile photo deleted successfully'})
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to delete photo: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# ============================================
+# STUDENT PHOTO DELETE VIEW
+# ============================================
+
+class StudentProfilePhotoDeleteView(APIView):
+    """
+    DELETE: Delete student profile photo from Supabase
+    Only students can delete their own photo
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        """Delete student profile photo"""
+        # Verify user is a student
+        if request.user.role != 'Student':
+            return Response(
+                {'error': 'Only students can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            if request.user.profile_photo_url:
+                # Initialize Supabase client
+                supabase = get_supabase_client()
+                if supabase:
+                    try:
+                        # Extract filename from URL
+                        filename = request.user.profile_photo_url.split('/')[-1]
+                        bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'student-images')
+                        
+                        # Delete from Supabase
+                        supabase.storage.from_(bucket_name).remove([f"profile_photos/{filename}"])
+                    except Exception as e:
+                        print(f"Warning: Could not delete photo from Supabase: {e}")
+                
+                # Clear URL from user
+                request.user.profile_photo_url = None
+                request.user.save()
+            
+            return Response({'message': 'Profile photo deleted successfully'})
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to delete photo: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class StudentProfileViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for student to manage their own profile.
+    
+    Endpoints:
+    - GET /api/students/profile/ - Get student's profile
+    - PUT /api/students/profile/ - Update entire profile
+    - PATCH /api/students/profile/ - Partial update
+    
+    Permissions:
+    - Only authenticated students can access
+    - Students can only see/edit their own profile
+    """
+    
+    permission_classes = [IsAuthenticated]
+    serializer_class = StudentProfileSerializer
+    http_method_names = ['get', 'put', 'patch', 'head', 'options']  # No delete
+    
+    def get_queryset(self):
+        """
+        Filter queryset to only return the current student's profile.
+        """
+        # Only return the student profile for the logged-in user
+        return Student.objects.filter(user=self.request.user).select_related('user', 'school')
+    
+    def get_object(self):
+        """
+        Get the current student's profile.
+        Ensures students can only access their own profile.
+        """
+        # Check if user is a student
+        if self.request.user.role != 'Student':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only students can access this endpoint.")
+        
+        # Get the student profile for this user
+        try:
+            return self.request.user.student_profile
+        except Student.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound("Student profile not found.")
+    
+    def get_serializer_class(self):
+        """
+        Use detailed serializer for GET (includes fees/attendance),
+        Use basic serializer for PUT/PATCH (for updates)
+        """
+        if self.action == 'retrieve':
+            return StudentProfileDetailSerializer
+        return StudentProfileSerializer
+    
+    def list(self, request, *args, **kwargs):
+        """
+        Override list to return single profile instead of array.
+        Since students only have one profile, return it as an object.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Get the student's profile.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Update the student's profile (PUT - full update).
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        
+        if serializer.is_valid():
+            self.perform_update(serializer)
+            
+            # Return updated data with detailed serializer (includes fees/attendance)
+            response_serializer = StudentProfileDetailSerializer(instance)
+            return Response(response_serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partial update of student's profile (PATCH).
+        """
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+
+# ============================================
+# KEEP YOUR EXISTING FUNCTION-BASED VIEW
+# (for backward compatibility or other uses)
+# ============================================
 
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from django.db.models import Count
-import logging
-
-logger = logging.getLogger(__name__)
-
-
+from .models import Fee, Attendance
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_student_data(request):
     """
-    Returns the logged-in student's profile + fees + attendance.
-    Includes the **student id** that the frontend needs for image upload.
+    LEGACY ENDPOINT (Optional - keep for backward compatibility)
+    Returns the logged-in student's FULL profile.
+    
+    NOTE: Consider using StudentProfileViewSet instead for new code.
     """
-    # ------------------------------------------------------------------
-    # 1. Role guard
-    # ------------------------------------------------------------------
+    # 1. Role Check
     if request.user.role != 'Student':
         return Response({"error": "Access denied"}, status=403)
 
-    # ------------------------------------------------------------------
-    # 2. Get the related Student profile
-    # ------------------------------------------------------------------
+    # 2. Get the linked Student profile
     try:
-        # `student_profile` is the reverse relation from User → Student
-        student = request.user.student_profile
+        student = request.user.student_profile 
+        user = request.user 
     except AttributeError:
-        return Response(
-            {"error": "Student profile not linked to this user"},
-            status=404,
-        )
+        return Response({"error": "Student profile not found"}, status=404)
 
-    # ------------------------------------------------------------------
-    # 3. Serialize the data
-    # ------------------------------------------------------------------
+    # 3. Construct Data
     data = {
-        # **Essential fields for the UI**
-        "id": student.id,                                   # <-- NEW
-        "name": f"{student.user.first_name} {student.user.last_name}".strip()
-                or student.user.username,                  # fallback
+        # --- FROM AUTH TABLE ---
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "full_name": f"{user.first_name} {user.last_name}".strip() or user.username,
+
+        # --- FROM STUDENT TABLE ---
+        "id": student.id,
+        "reg_num": student.reg_num,
         "school": student.school.name,
         "class": student.student_class,
+        "phone": student.phone,
+        "address": student.address,
+        
+        # Photo: User table (centralized)
+        "profile_photo_url": user.profile_photo_url,
 
-        # Optional but already present
+        # --- EXTRAS ---
         "fees": list(
             Fee.objects.filter(student_id=student.id)
             .values("month", "balance_due", "status")
@@ -1252,6 +1598,67 @@ def my_student_data(request):
     return Response(data, status=200)
 
 
+
+logger = logging.getLogger(__name__)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_student_data(request):
+    """
+    Returns the logged-in student's FULL profile.
+    Merges User (Identity) and Student (Contact/Academic) tables.
+    """
+    # 1. Role Check
+    if request.user.role != 'Student':
+        return Response({"error": "Access denied"}, status=403)
+
+    # 2. Get the linked Student profile
+    try:
+        # Assuming your User model has a related_name='student_profile' 
+        # based on your previous code. If not, it might be request.user.students_student
+        student = request.user.student_profile 
+        user = request.user 
+    except AttributeError:
+        return Response({"error": "Student profile not found"}, status=404)
+
+    # 3. Construct Data (Mapping fields to correct tables)
+    data = {
+        # --- FROM AUTH TABLE (students_customuser) ---
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        # fallback for full name
+        "full_name": f"{user.first_name} {user.last_name}".strip() or user.username,
+
+        # --- FROM STUDENT TABLE (students_student) ---
+        "id": student.id,                   # Student ID (for updates)
+        "reg_num": student.reg_num,
+        "school": student.school.name,      # Assuming school is a Foreign Key
+        "class": student.student_class,
+        "phone": student.phone,             # <--- Now fetching from STUDENT table
+        "address": student.address,         # <--- Now fetching from STUDENT table
+        
+        # Photo: Student table has priority, fallback to User table
+        "profile_photo_url": student.profile_photo_url or user.profile_photo_url,
+
+        # --- EXTRAS (Fees/Attendance) ---
+        "fees": list(
+            Fee.objects.filter(student_id=student.id)
+            .values("month", "balance_due", "status")
+            .order_by("-month")[:10]
+        ),
+        "attendance": list(
+            Attendance.objects.filter(student=student)
+            .values("session_date", "status")
+            .order_by("-session_date")[:30]
+        ),
+    }
+
+    return Response(data, status=200)
 
 
 

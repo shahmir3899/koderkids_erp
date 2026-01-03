@@ -6,9 +6,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { updateTeacherProfile } from '../../services/teacherService';
-import { ProfilePhotoUploader } from './ProfilePhotoUploader';
+//import { ProfilePhotoUploader } from './ProfilePhotoUploader';
 import { PasswordChangeForm } from '../common/forms/PasswordChangeForm';
 import { changePassword } from '../../services/authService';
+import { ProfilePhotoUploader } from '../common/ProfilePhotoUploader';
+import { uploadProfilePhoto, deleteProfilePhoto } from '../../services/teacherService';
+
 
 /**
  * TeacherSettingsModal Component
@@ -160,6 +163,8 @@ export const TeacherSettingsModal = ({
           <ProfilePhotoUploader
             currentPhotoUrl={profile?.profile_photo_url}
             onPhotoChange={handlePhotoChange}
+            onUpload={uploadProfilePhoto}  // ← Add this prop
+            onDelete={deleteProfilePhoto}  // ← Add this prop
             size={100}
           />
         </div>

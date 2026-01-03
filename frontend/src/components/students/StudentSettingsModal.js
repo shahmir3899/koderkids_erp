@@ -1,11 +1,13 @@
 // ============================================
 // STUDENT SETTINGS MODAL - Profile Settings & Password Change
-// NEW FILE: frontend/src/components/student/StudentSettingsModal.js
+// UPDATED: Now includes photo upload functionality
+// FILE: frontend/src/components/student/StudentSettingsModal.js
 // ============================================
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { updateStudentProfile } from '../../services/studentService';
+import { updateStudentProfile, uploadStudentPhoto, deleteStudentPhoto } from '../../services/studentService';
+import { ProfilePhotoUploader } from '../common/ProfilePhotoUploader';
 import { PasswordChangeForm } from '../common/forms/PasswordChangeForm';
 import { changePassword } from '../../services/authService';
 
@@ -28,6 +30,7 @@ export const StudentSettingsModal = ({
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
+    email: '', // <--- ADD THIS
     phone: '',
     address: '',
   });
@@ -42,6 +45,7 @@ export const StudentSettingsModal = ({
       setFormData({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
+        email: profile.email || '', // <--- ADD THIS
         phone: profile.phone || '',
         address: profile.address || '',
       });
@@ -66,13 +70,12 @@ export const StudentSettingsModal = ({
       console.log('✅ API Success:', result);
       
       toast.success('✅ Password changed successfully!');
-      setActiveTab('personal'); // Switch back to personal tab
+      setActiveTab('personal');
       
     } catch (error) {
       console.error('❌ Password change failed:', error);
       console.error('❌ Error response:', error.response?.data);
       
-      // Handle different error types
       if (error.response?.data) {
         const errorData = error.response.data;
         
@@ -122,6 +125,13 @@ export const StudentSettingsModal = ({
     }
   };
 
+  // Handle photo change
+  const handlePhotoChange = (newPhotoUrl) => {
+    if (onProfileUpdate) {
+      onProfileUpdate({ ...profile, profile_photo_url: newPhotoUrl });
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -135,6 +145,17 @@ export const StudentSettingsModal = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </div>
+
+        {/* Profile Photo Section */}
+        <div style={styles.photoSection}>
+          <ProfilePhotoUploader
+            currentPhotoUrl={profile?.profile_photo_url}
+            onPhotoChange={handlePhotoChange}
+            onUpload={uploadStudentPhoto}  // ← Pass student upload function
+            onDelete={deleteStudentPhoto}  // ← Pass student delete function
+            size={100}
+          />
         </div>
 
         {/* Tabs */}
@@ -209,16 +230,18 @@ export const StudentSettingsModal = ({
               </div>
 
               {/* Email - Read Only */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Email</label>
-                <input
-                  type="email"
-                  value={profile?.email || ''}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
-                  disabled
-                />
-                <small style={styles.helperText}>Contact admin to change email</small>
-              </div>
+              {/* Email Field */}
+<div style={styles.formGroup}>
+  <label style={styles.label}>Email Address</label>
+  <input
+    type="email"
+    name="email" // Important for handleChange
+    value={formData.email} // Changed from profile.email to formData.email
+    onChange={handleChange} // Now it can be typed in
+    style={styles.input}
+    placeholder="student@example.com"
+  />
+</div>
 
               {/* School - Read Only */}
               <div style={styles.formGroup}>
@@ -371,6 +394,12 @@ const styles = {
     cursor: 'pointer',
     color: '#6B7280',
     transition: 'all 0.15s ease',
+  },
+  photoSection: {
+    padding: '1.5rem',
+    borderBottom: '1px solid #E5E7EB',
+    display: 'flex',
+    justifyContent: 'center',
   },
   tabs: {
     display: 'flex',

@@ -9,7 +9,8 @@ import { toast } from 'react-toastify';
 import moment from 'moment';
 
 // Components
-import { ProfileHeaderFigma } from '../components/teacher/ProfileHeaderFigma';
+//import { ProfileHeaderFigma } from '../components/teacher/ProfileHeaderFigma';
+import { UnifiedProfileHeader } from '../components/common/UnifiedProfileHeader';
 import { LessonGrid } from '../components/teacher/LessonGrid';
 import { CircularProgress } from '../components/teacher/CircularProgress';
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
@@ -282,11 +283,15 @@ useEffect(() => {
       {/* Main Content - Sidebar is handled by App.js layout */}
       <div style={styles.mainContent}>
         {/* Profile Header */}
-        <ProfileHeaderFigma 
-          profile={profile} 
-          loading={loading.profile} 
-          onProfileUpdate={handleProfileUpdate}
-        />
+        <UnifiedProfileHeader
+  role="Teacher"
+  profile={profile}
+  loading={loading.profile}
+  onProfileUpdate={handleProfileUpdate}
+  //onNotificationClick={handleNotificationClick}  // Optional: if you use notifications
+/>
+
+        
 
         {/* Course Completion Charts */}
         {!loading.completion && completionData.length > 0 && (

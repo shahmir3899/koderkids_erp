@@ -22,7 +22,7 @@ from .serializers import (
     TeacherEarningSerializer,
     TeacherDeductionSerializer,
     NotificationSerializer,
-    NotificationCreateSerializer,
+    
     AdminProfileSerializer,              # ← ADD THIS
     AdminProfileUpdateSerializer,        # ← ADD THIS
 )

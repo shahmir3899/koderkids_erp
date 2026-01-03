@@ -1,11 +1,11 @@
 // ============================================
 // ADMIN SERVICE - API calls for Admin Profile
-// NEW FILE: frontend/src/services/adminService.js
+// UPDATED: Uses centralized API config
+// Location: frontend/src/services/adminService.js
 // ============================================
 
 import axios from 'axios';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { API_URL, getAuthHeaders, getJsonHeaders, getMultipartHeaders } from '../api';
 
 /**
  * Get current admin's profile
@@ -13,18 +13,10 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
  */
 export const getAdminProfile = async () => {
   try {
-    const token = localStorage.getItem('access');
-    
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
     const response = await axios.get(
-      `${API_BASE_URL}/employees/admin/profile/`,
+      `${API_URL}/employees/admin/profile/`,
       {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(),
       }
     );
 
@@ -43,20 +35,11 @@ export const getAdminProfile = async () => {
  */
 export const updateAdminProfile = async (profileData) => {
   try {
-    const token = localStorage.getItem('access');
-    
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
     const response = await axios.put(
-      `${API_BASE_URL}/employees/admin/profile/`,
+      `${API_URL}/employees/admin/profile/`,
       profileData,
       {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: getJsonHeaders(),
       }
     );
 
@@ -75,23 +58,14 @@ export const updateAdminProfile = async (profileData) => {
  */
 export const uploadAdminPhoto = async (photoFile) => {
   try {
-    const token = localStorage.getItem('access');
-    
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
     const formData = new FormData();
     formData.append('photo', photoFile);
 
     const response = await axios.post(
-      `${API_BASE_URL}/employees/admin/profile/photo/`,
+      `${API_URL}/employees/admin/profile/photo/`,
       formData,
       {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: getMultipartHeaders(),
       }
     );
 
@@ -109,18 +83,10 @@ export const uploadAdminPhoto = async (photoFile) => {
  */
 export const deleteAdminPhoto = async () => {
   try {
-    const token = localStorage.getItem('access');
-    
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
     const response = await axios.delete(
-      `${API_BASE_URL}/employees/admin/profile/photo/delete/`,
+      `${API_URL}/employees/admin/profile/photo/delete/`,
       {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(),
       }
     );
 

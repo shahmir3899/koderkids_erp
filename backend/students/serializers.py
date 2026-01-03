@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 from .models import Student, Fee, School, Attendance, LessonPlan
 
 from .models import LessonPlan, StudentImage
@@ -35,6 +36,201 @@ class StudentSerializer(serializers.ModelSerializer):
         if instance.school:
             representation['school'] = instance.school.name
         return representation
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for student profile that includes both Student and CustomUser fields.
+    
+    Editable Fields:
+    - first_name, last_name (CustomUser)
+    - phone, address (Student)
+    
+    Read-Only Fields:
+    - email, username (CustomUser)
+    - reg_num, school, student_class, monthly_fee, status (Student)
+    """
+    
+    # ============================================
+    # CUSTOMUSER FIELDS (from user relationship)
+    # ============================================
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    
+    # Editable CustomUser fields
+    first_name = serializers.CharField(
+        source='user.first_name',
+        max_length=150,
+        required=False,
+        allow_blank=True
+    )
+    last_name = serializers.CharField(
+        source='user.last_name',
+        max_length=150,
+        required=False,
+        allow_blank=True
+    )
+    
+    # Computed field
+    full_name = serializers.SerializerMethodField()
+    
+    # Profile photo from CustomUser (centralized across all roles)
+    profile_photo_url = serializers.URLField(
+        source='user.profile_photo_url',
+        read_only=True,
+        allow_null=True
+    )
+    
+    # ============================================
+    # STUDENT FIELDS (academic/contact info)
+    # ============================================
+    school_name = serializers.CharField(source='school.name', read_only=True)
+    school_id = serializers.IntegerField(source='school.id', read_only=True)
+    
+    class Meta:
+        model = Student
+        fields = [
+            # CustomUser fields
+            'user_id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'full_name',
+            'profile_photo_url',
+            
+            # Student fields (read-only academic data)
+            'id',
+            'reg_num',
+            'name',
+            'gender',
+            'school_id',
+            'school_name',
+            'student_class',
+            'monthly_fee',
+            'date_of_birth',
+            'status',
+            'date_of_registration',
+            
+            # Student fields (editable contact info)
+            'phone',
+            'address',
+            
+            # Timestamps
+            'created_at',
+            'updated_at',
+        ]
+        
+        read_only_fields = [
+            # Identity fields
+            'user_id',
+            'username',
+            'email',
+            
+            # Student admin-only fields
+            'id',
+            'reg_num',
+            'name',
+            'gender',
+            'school_id',
+            'school_name',
+            'student_class',
+            'monthly_fee',
+            'date_of_birth',
+            'status',
+            'date_of_registration',
+            
+            # System fields
+            'profile_photo_url',
+            'created_at',
+            'updated_at',
+        ]
+    
+    def get_full_name(self, obj):
+        """Compute full name from first_name and last_name"""
+        user = obj.user
+        full_name = f"{user.first_name} {user.last_name}".strip()
+        return full_name if full_name else user.username
+    
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+        Update both CustomUser and Student models in a single transaction.
+        
+        Args:
+            instance: Student instance
+            validated_data: Validated data from serializer
+        
+        Returns:
+            Updated Student instance
+        """
+        # Extract nested user data
+        user_data = validated_data.pop('user', {})
+        
+        # Update CustomUser fields
+        if user_data:
+            user = instance.user
+            for attr, value in user_data.items():
+                setattr(user, attr, value)
+            user.save()
+        
+        # Update Student fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        return instance
+    
+    def validate_phone(self, value):
+        """
+        Validate phone number format (optional - customize as needed)
+        """
+        if value and len(value) < 10:
+            raise serializers.ValidationError("Phone number must be at least 10 digits")
+        return value
+
+
+# ============================================
+# OPTIONAL: Serializer for including fees/attendance
+# (Use this if you want to include related data in responses)
+# ============================================
+
+class StudentProfileDetailSerializer(StudentProfileSerializer):
+    """
+    Extended serializer that includes fees and attendance data.
+    Use this for GET requests if you want to include related data.
+    """
+    
+    fees = serializers.SerializerMethodField()
+    attendance = serializers.SerializerMethodField()
+    
+    class Meta(StudentProfileSerializer.Meta):
+        fields = StudentProfileSerializer.Meta.fields + ['fees', 'attendance']
+    
+    def get_fees(self, obj):
+        """Get recent fee records"""
+        from .models import Fee
+        fees = Fee.objects.filter(student_id=obj.id).order_by('-month')[:10]
+        return [
+            {
+                'month': fee.month,
+                'balance_due': str(fee.balance_due),
+                'status': fee.status
+            }
+            for fee in fees
+        ]
+    
+    def get_attendance(self, obj):
+        """Get recent attendance records"""
+        from .models import Attendance
+        attendance = Attendance.objects.filter(student=obj).order_by('-session_date')[:30]
+        return [
+            {
+                'session_date': att.session_date,
+                'status': att.status
+            }
+            for att in attendance
+        ]
 
 class FeeSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)  # Get student name

@@ -19,7 +19,8 @@ html, body {
 }
 
 #root {
-  @apply min-h-screen p-4 max-w-[95%] mx-auto;
+  @apply min-h-screen m-0 p-0;
+
 }
 
 /* Form Inputs */
@@ -493,3 +494,4 @@ input:focus, select:focus {
   padding: 4px !important;
   border-radius: 6px !important;
 }
+

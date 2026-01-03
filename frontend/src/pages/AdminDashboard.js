@@ -14,14 +14,18 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import moment from 'moment';
-import { AdminProfileHeader } from '../components/admin/AdminProfileHeader';
+//import { AdminProfileHeader } from '../components/admin/AdminProfileHeader';
+import { UnifiedProfileHeader } from '../components/common/UnifiedProfileHeader';
+import { getAdminProfile } from '../services/adminService';
+//import { useState, useEffect } from 'react';
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
 import { FilterBar } from '../components/common/filters/FilterBar';
 import { DataTable } from '../components/common/tables/DataTable';
 import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
+
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { useSchools } from '../hooks/useSchools';
-import { SendNotificationModal } from '../components/admin/sendNotificationModal';
+import { SendNotificationModal } from '../components/admin/SendNotificationModal';
 import {
   BarChart,
   Bar,
@@ -78,6 +82,7 @@ class CacheManager {
 
 const cache = new CacheManager();
 
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -111,6 +116,7 @@ function AdminDashboard() {
   // Loading States - Granular control
   const [loading, setLoading] = useState({
     initial: true,           // First page load
+    profile: true, 
     students: false,         // Students per school
     fee: false,              // Fee per month
     feeSummary: false,       // Fee summary table
@@ -120,7 +126,7 @@ function AdminDashboard() {
 
   // Hooks
   const { schools } = useSchools();
-
+  const [profile, setProfile] = useState(null);
   // ============================================
   // CLEANUP EFFECT
   // ============================================
@@ -132,7 +138,29 @@ function AdminDashboard() {
       fetchingRef.current.clear();
     };
   }, []);
+  // Add profile fetch
+  useEffect(() => {
+  const fetchProfile = async () => {
+    console.log('👤 Fetching admin profile...');
+    setLoading(prev => ({ ...prev, profile: true })); // ← CORRECT
+    try {
+      const data = await getAdminProfile();
+      console.log('✅ Admin profile loaded:', data);
+      setProfile(data);
+    } catch (error) {
+      console.error('❌ Error loading admin profile:', error);
+    } finally {
+      setLoading(prev => ({ ...prev, profile: false })); // ← CORRECT
+    }
+  };
+  
+  fetchProfile();
+}, []);
 
+  // Add update handler
+  const handleProfileUpdate = (updatedProfile) => {
+    setProfile(updatedProfile);
+  };
   // ============================================
   // HELPER FUNCTIONS
   // ============================================
@@ -588,16 +616,31 @@ function AdminDashboard() {
   // Show loading spinner on initial load
   if (loading.initial) {
     return (
-      <div style={{ padding: '2rem' }}>
-        <AdminProfileHeader />
+      <div>
+        <UnifiedProfileHeader
+  role="Admin"
+  profile={profile}
+  loading={loading.profile}
+  onProfileUpdate={handleProfileUpdate}
+/>
+  <div>
+
         <LoadingSpinner size="large" message="Loading dashboard..." />
+      </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      <AdminProfileHeader />
+    <div>
+      <UnifiedProfileHeader
+  role="Admin"
+  profile={profile}
+  loading={loading.profile}
+  onProfileUpdate={handleProfileUpdate}
+/>
+  <div>
+
 
       {/* Students per School */}
       <CollapsibleSection 
@@ -683,7 +726,7 @@ function AdminDashboard() {
             </ResponsiveContainer>
 
             {/* Total Summary */}
-            <div style={{ marginTop: '1rem', padding: '1rem', background: '#F0FDF4', borderRadius: '8px' }}>
+            <div style={{  background: '#F0FDF4' }}>
               <h4 style={{ margin: '0 0 0.5rem 0', color: '#059669' }}>3-Month Summary (Top 3 Schools):</h4>
               {schoolNamesInChart.map(schoolName => {
                 const schoolTotal = feePerMonth.reduce((sum, month) => sum + (month[schoolName] || 0), 0);
@@ -709,9 +752,9 @@ function AdminDashboard() {
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
             style={{
-              padding: '0.5rem 1rem',
+              
               border: '1px solid #D1D5DB',
-              borderRadius: '6px',
+              borderRadius: '0px',
               fontSize: '0.875rem',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -763,9 +806,9 @@ function AdminDashboard() {
         {feeSummary.length > 0 && (
           <div style={{ 
             marginTop: '1rem', 
-            padding: '1rem', 
+             
             background: '#F0FDF4', 
-            borderRadius: '8px',
+            borderRadius: '0px',
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             gap: '1rem',
@@ -897,13 +940,155 @@ function AdminDashboard() {
         )}
       </CollapsibleSection>
 
+      {/* Floating Action Button - Send Notification */}
+      <FloatingNotificationButton 
+        onClick={() => setIsNotificationModalOpen(true)}
+      />
+
       {/* Send Notification Modal */}
       <SendNotificationModal
         isOpen={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
       />
     </div>
+  </div>
   );
 }
+
+// ============================================
+// FLOATING NOTIFICATION BUTTON - Mobile Responsive
+// ============================================
+const FloatingNotificationButton = ({ onClick }) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return (
+    <>
+      <button
+        onClick={onClick}
+        style={{
+          ...fabStyles.container,
+          ...(isMobile ? fabStyles.containerMobile : {}),
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = isMobile ? 'scale(1.1)' : 'scale(1.1) rotate(5deg)';
+          e.currentTarget.style.boxShadow = '0 12px 28px rgba(124, 58, 237, 0.4)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+          e.currentTarget.style.boxShadow = '0 8px 20px rgba(124, 58, 237, 0.3)';
+        }}
+        title="Send Notification to Teachers"
+        aria-label="Send Notification"
+      >
+        <div style={fabStyles.iconWrapper}>
+          <svg style={fabStyles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2.5} 
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" 
+            />
+          </svg>
+          <span style={fabStyles.pulse}></span>
+        </div>
+        {!isMobile && <span style={fabStyles.label}>Send Notification</span>}
+      </button>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.5;
+            transform: scale(1.2);
+          }
+        }
+        
+        @keyframes slideIn {
+          from {
+            transform: translateX(100px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+    </>
+  );
+};
+
+// Styles for FAB
+const fabStyles = {
+  container: {
+    position: 'fixed',
+    bottom: '2rem',
+    right: '2rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '1rem 1.5rem',
+    backgroundColor: '#7C3AED',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '50px',
+    fontSize: '0.9375rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    boxShadow: '0 8px 20px rgba(124, 58, 237, 0.3)',
+    zIndex: 999,
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    animation: 'slideIn 0.5s ease-out',
+    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+  },
+  containerMobile: {
+    width: '56px',
+    height: '56px',
+    padding: '0',
+    borderRadius: '50%',
+    justifyContent: 'center',
+    bottom: '1.5rem',
+    right: '1.5rem',
+  },
+  iconWrapper: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: {
+    width: '1.5rem',
+    height: '1.5rem',
+    strokeWidth: 2.5,
+  },
+  pulse: {
+    position: 'absolute',
+    top: '-2px',
+    right: '-2px',
+    width: '8px',
+    height: '8px',
+    backgroundColor: '#10B981',
+    borderRadius: '50%',
+    border: '2px solid #FFFFFF',
+    animation: 'pulse 2s ease-in-out infinite',
+  },
+  label: {
+    fontWeight: '600',
+    letterSpacing: '0.01em',
+  },
+};
 
 export default AdminDashboard;

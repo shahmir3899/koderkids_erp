@@ -1,12 +1,13 @@
 // ============================================
 // ADMIN SETTINGS MODAL - Profile Settings & Password Change
-// NEW FILE: frontend/src/components/admin/AdminSettingsModal.js
+// UPDATED: Now uses generic ProfilePhotoUploader with admin functions
+// FILE: frontend/src/components/admin/AdminSettingsModal.js
 // ============================================
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { updateAdminProfile } from '../../services/adminService';
-import { ProfilePhotoUploader } from '../teacher/ProfilePhotoUploader';
+import { updateAdminProfile, uploadAdminPhoto, deleteAdminPhoto } from '../../services/adminService';
+import { ProfilePhotoUploader } from '../common/ProfilePhotoUploader'; // ← Updated import path
 import { PasswordChangeForm } from '../common/forms/PasswordChangeForm';
 import { changePassword } from '../../services/authService';
 
@@ -63,7 +64,7 @@ export const AdminSettingsModal = ({
 
   // Handle password change
   const handlePasswordChange = async (passwordData) => {
-    console.log('🔐 Admin password change triggered:', passwordData);
+    console.log('🔐 Admin password change triggered');
     setPasswordError('');
     setIsChangingPassword(true);
 
@@ -73,13 +74,12 @@ export const AdminSettingsModal = ({
       console.log('✅ API Success:', result);
       
       toast.success('✅ Password changed successfully!');
-      setActiveTab('personal'); // Switch back to personal tab
+      setActiveTab('personal');
       
     } catch (error) {
       console.error('❌ Password change failed:', error);
       console.error('❌ Error response:', error.response?.data);
       
-      // Handle different error types
       if (error.response?.data) {
         const errorData = error.response.data;
         
@@ -156,6 +156,8 @@ export const AdminSettingsModal = ({
           <ProfilePhotoUploader
             currentPhotoUrl={profile?.profile_photo_url}
             onPhotoChange={handlePhotoChange}
+            onUpload={uploadAdminPhoto}  // ← Pass admin upload function
+            onDelete={deleteAdminPhoto}  // ← Pass admin delete function
             size={100}
           />
         </div>

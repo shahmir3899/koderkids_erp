@@ -71,6 +71,13 @@ class CustomUser(AbstractUser):
             'unique': 'A user with this email already exists.',
         }
     )
+    # Profile Photo URL (ADD THIS)
+    profile_photo_url = models.URLField(
+        max_length=500, 
+        blank=True, 
+        null=True,
+        help_text="URL to profile photo in Supabase storage"
+    )
     # Override username to ensure it stays unique (already has this)
     username = models.CharField(
         ('username'),
@@ -126,7 +133,13 @@ class Student(models.Model):
     reg_num = models.CharField(max_length=50, unique=True, blank=False)
     name = models.CharField(max_length=100, default="Unknown")
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='Male')
-
+     # Profile Photo URL (stored in Supabase)
+    profile_photo_url = models.URLField(
+        max_length=500, 
+        blank=True, 
+        null=True,
+        help_text="URL to profile photo in Supabase storage"
+    )
     # ✅ Convert school from CharField to ForeignKey
     school = models.ForeignKey('students.School', on_delete=models.CASCADE, related_name="students")
 
