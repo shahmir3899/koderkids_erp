@@ -6,18 +6,21 @@ from django.urls import path
 from .views import (
     # Teacher List (for Admin)
     TeacherListView,
-    
+
     # Teacher Profile
     TeacherProfileView,
     TeacherProfilePhotoUploadView,
     TeacherProfilePhotoDeleteView,
     get_teacher_dashboard_data,
-    
+
     # Admin Profile (NEW)
     AdminProfileView,
     AdminProfilePhotoUploadView,
     AdminProfilePhotoDeleteView,
-    
+
+    # BDM Profile (NEW)
+    BDMProfileView,
+
     # Notifications
     NotificationListView,
     UnreadNotificationCountView,
@@ -25,7 +28,7 @@ from .views import (
     MarkAllNotificationsReadView,
     CreateNotificationView,
     SendNotificationToAllView,
-    
+
     # Earnings & Deductions
     TeacherEarningsView,
     TeacherDeductionsView,
@@ -73,7 +76,15 @@ urlpatterns = [
     
     # DELETE - Delete admin profile photo
     path('admin/profile/photo/delete/', AdminProfilePhotoDeleteView.as_view(), name='admin-photo-delete'),
-    
+
+    # ============================================
+    # BDM Profile Endpoints (NEW)
+    # URLs: /employees/bdm/...
+    # ============================================
+
+    # GET/PUT - Get or update BDM profile (current user)
+    path('bdm/profile/', BDMProfileView.as_view(), name='bdm-profile'),
+
     # ============================================
     # Notification Endpoints
     # URLs: /employees/notifications/...

@@ -5,8 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { updateBDMProfile } from '../../services/bdmService';
-import { uploadAdminPhoto, deleteAdminPhoto } from '../../services/adminService';
+import { updateBDMProfile, uploadBDMPhoto, deleteBDMPhoto } from '../../services/bdmService';
 import { ProfilePhotoUploader } from '../common/ProfilePhotoUploader';
 import { PasswordChangeForm } from '../common/forms/PasswordChangeForm';
 import { changePassword } from '../../services/authService';
@@ -152,8 +151,8 @@ export const BDMSettingsModal = ({
           <ProfilePhotoUploader
             currentPhotoUrl={profile?.profile_photo_url}
             onPhotoChange={handlePhotoChange}
-            onUpload={uploadAdminPhoto}
-            onDelete={deleteAdminPhoto}
+            onUpload={uploadBDMPhoto}
+            onDelete={deleteBDMPhoto}
             size={100}
           />
         </div>

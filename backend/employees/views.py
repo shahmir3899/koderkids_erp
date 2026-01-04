@@ -708,6 +708,82 @@ class AdminProfilePhotoDeleteView(APIView):
 
 
 # ============================================
+# BDM PROFILE VIEWS (DEDICATED ENDPOINTS)
+# ============================================
+
+class BDMProfileView(APIView):
+    """
+    GET: Retrieve current BDM's profile
+    PUT: Update current BDM's profile
+    Dedicated endpoint for BDM role (separate from Admin)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Get current BDM's profile"""
+        # Verify user is BDM
+        if request.user.role != 'BDM':
+            return Response(
+                {'error': 'Only BDMs can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            # Get or create profile for BDM
+            profile, created = TeacherProfile.objects.get_or_create(user=request.user)
+
+            if created:
+                print(f"✅ Created new profile for BDM: {request.user.username}")
+
+            serializer = AdminProfileSerializer(profile)
+            return Response(serializer.data)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Error retrieving BDM profile: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def put(self, request):
+        """Update current BDM's profile"""
+        # Verify user is BDM
+        if request.user.role != 'BDM':
+            return Response(
+                {'error': 'Only BDMs can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            # Get or create profile for BDM
+            profile, created = TeacherProfile.objects.get_or_create(user=request.user)
+
+            # Update profile
+            serializer = AdminProfileUpdateSerializer(
+                profile,
+                data=request.data,
+                partial=True
+            )
+
+            if serializer.is_valid():
+                serializer.save()
+
+                # Return full profile data
+                response_serializer = AdminProfileSerializer(profile)
+                return Response(response_serializer.data)
+
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            return Response(
+                {'error': f'Error updating BDM profile: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# ============================================
 # THAT'S THE END OF NEW CODE
 # Continue with existing NOTIFICATION VIEWS section...
 # ============================================
