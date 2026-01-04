@@ -16,6 +16,7 @@ import { clearCacheOnLogout } from '../../utils/cacheUtils';
 import { TeacherSettingsModal } from '../teacher/TeacherSettingsModal';
 import { AdminSettingsModal } from '../admin/AdminSettingsModal';
 import { StudentSettingsModal } from '../students/StudentSettingsModal';
+import { BDMSettingsModal } from '../bdm/BDMSettingsModal';
 
 /**
  * UnifiedProfileHeader Component - FIXED VERSION
@@ -112,6 +113,8 @@ export const UnifiedProfileHeader = ({
         return <AdminSettingsModal {...modalProps} />;
       case 'Student':
         return <StudentSettingsModal {...modalProps} />;
+      case 'BDM':
+        return <BDMSettingsModal {...modalProps} />;
       default:
         console.warn('⚠️ Unknown role for modal:', role);
         return null;

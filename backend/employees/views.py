@@ -510,18 +510,18 @@ def get_teacher_dashboard_data(request):
 
 class AdminProfileView(APIView):
     """
-    GET: Retrieve current admin's profile
-    PUT: Update current admin's profile
-    Uses TeacherProfile model (supports both Teachers and Admins)
+    GET: Retrieve current admin's/BDM's profile
+    PUT: Update current admin's/BDM's profile
+    Uses TeacherProfile model (supports both Teachers, Admins, and BDMs)
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get current admin's profile"""
-        # Verify user is admin
-        if request.user.role != 'Admin':
+        """Get current admin's/BDM's profile"""
+        # Verify user is admin or BDM
+        if request.user.role not in ['Admin', 'BDM']:
             return Response(
-                {'error': 'Only admins can access this endpoint'},
+                {'error': 'Only admins and BDMs can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -542,11 +542,11 @@ class AdminProfileView(APIView):
             )
 
     def put(self, request):
-        """Update current admin's profile"""
-        # Verify user is admin
-        if request.user.role != 'Admin':
+        """Update current admin's/BDM's profile"""
+        # Verify user is admin or BDM
+        if request.user.role not in ['Admin', 'BDM']:
             return Response(
-                {'error': 'Only admins can access this endpoint'},
+                {'error': 'Only admins and BDMs can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -582,17 +582,17 @@ class AdminProfileView(APIView):
 
 class AdminProfilePhotoUploadView(APIView):
     """
-    POST: Upload admin profile photo to Supabase
-    Same functionality as TeacherProfilePhotoUploadView but for admins
+    POST: Upload admin/BDM profile photo to Supabase
+    Same functionality as TeacherProfilePhotoUploadView but for admins and BDMs
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """Upload admin profile photo"""
-        # Verify user is admin
-        if request.user.role != 'Admin':
+        """Upload admin/BDM profile photo"""
+        # Verify user is admin or BDM
+        if request.user.role not in ['Admin', 'BDM']:
             return Response(
-                {'error': 'Only admins can access this endpoint'},
+                {'error': 'Only admins and BDMs can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -664,16 +664,16 @@ class AdminProfilePhotoUploadView(APIView):
 
 class AdminProfilePhotoDeleteView(APIView):
     """
-    DELETE: Delete admin profile photo from Supabase
+    DELETE: Delete admin/BDM profile photo from Supabase
     """
     permission_classes = [IsAuthenticated]
 
     def delete(self, request):
-        """Delete admin profile photo"""
-        # Verify user is admin
-        if request.user.role != 'Admin':
+        """Delete admin/BDM profile photo"""
+        # Verify user is admin or BDM
+        if request.user.role not in ['Admin', 'BDM']:
             return Response(
-                {'error': 'Only admins can access this endpoint'},
+                {'error': 'Only admins and BDMs can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
             )
         

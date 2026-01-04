@@ -60,6 +60,7 @@ class CustomUser(AbstractUser):
         ('Admin', 'Admin'),
         ('Teacher', 'Teacher'),
         ('Student', 'Student'),
+        ('BDM', 'Business Development Manager'),
     ]
      # Override email to make it unique
     email = models.EmailField(

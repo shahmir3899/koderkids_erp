@@ -35,6 +35,11 @@ import InventoryPage from './pages/InventoryPage';
 import CSVUpload from './components/CSVUpload';
 import SettingsPage from './pages/SettingsPage';
 
+// CRM Pages
+import BDMDashboard from './pages/crm/BDMDashboard';
+import LeadsListPage from './pages/crm/LeadsListPage';
+import ActivitiesPage from './pages/crm/ActivitiesPage';
+
 
 import { logout } from "./api"; 
 
@@ -119,6 +124,11 @@ function App() {
       <Route path="/custom-report" element={<ProtectedRoute element={<CustomReport />}allowedRoles={["Admin"]}/>} />
       <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin"]} />} />
       <Route path="/settings" element={<SettingsPage />} />
+
+      {/* ✅ CRM Routes - Admin & BDM Only */}
+      <Route path="/crm/dashboard" element={<ProtectedRoute element={<BDMDashboard />} allowedRoles={["Admin", "BDM"]} />} />
+      <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
+      <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
 
 
       {/* ✅ Teacher Specific Routes */}

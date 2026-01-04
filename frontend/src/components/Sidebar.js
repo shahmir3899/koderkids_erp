@@ -31,6 +31,7 @@ function Sidebar() {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [studentsDataOpen, setStudentsDataOpen] = useState(false);
+  const [crmOpen, setCrmOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
 
   const username = localStorage.getItem("fullName") || "Unknown";
@@ -46,6 +47,7 @@ function Sidebar() {
       setInventoryOpen(false);
       setCustomOpen(false);
       setStudentsDataOpen(false);
+      setCrmOpen(false);
     }
   }, [sidebarOpen]);
 
@@ -111,7 +113,7 @@ function Sidebar() {
       {/* Logo */}
       {sidebarOpen && (
         <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem" }}>
-          <img src="whiteLogo.png" alt="Logo" style={{ width: "8rem", height: "4rem" }} />
+          <img src="/whiteLogo.png" alt="Logo" style={{ width: "8rem", height: "4rem" }} />
         </div>
       )}
       {!sidebarOpen && <div style={{ height: "5.5rem" }} />}
@@ -145,6 +147,8 @@ function Sidebar() {
                 ? "/teacherdashboard"
                 : role === "Student"
                 ? "/student-dashboard"
+                : role === "BDM"
+                ? "/crm/dashboard"
                 : "/publicdashboard"
             }
             style={{ display: "flex", alignItems: "center" }}
@@ -344,6 +348,74 @@ function Sidebar() {
                 </li>
               </ul>
             )}
+          </>
+        )}
+
+        {/* CRM - Admin Only */}
+        {role === "Admin" && (
+          <>
+            <li
+              style={getItemStyle(false, "crm")}
+              onMouseEnter={() => setHoveredItem("crm")}
+              onMouseLeave={() => setHoveredItem(null)}
+              onClick={() => sidebarOpen && setCrmOpen(!crmOpen)}
+            >
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <FontAwesomeIcon icon={faUsers} style={{ marginRight: "0.75rem" }} />
+                {sidebarOpen && <span style={{ flex: 1 }}>CRM</span>}
+                {sidebarOpen && (
+                  <FontAwesomeIcon icon={crmOpen ? faChevronUp : faChevronDown} />
+                )}
+              </div>
+            </li>
+            {crmOpen && sidebarOpen && (
+              <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
+                <li style={getItemStyle(location.pathname === "/crm/dashboard", "crm-dashboard")}>
+                  <Link to="/crm/dashboard" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faChartBar} style={{ marginRight: "0.75rem" }} />
+                    <span>CRM Dashboard</span>
+                  </Link>
+                </li>
+                <li style={getItemStyle(location.pathname === "/crm/leads", "crm-leads")}>
+                  <Link to="/crm/leads" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faUsers} style={{ marginRight: "0.75rem" }} />
+                    <span>Leads</span>
+                  </Link>
+                </li>
+                <li style={getItemStyle(location.pathname === "/crm/activities", "crm-activities")}>
+                  <Link to="/crm/activities" style={{ display: "flex", alignItems: "center" }}>
+                    <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.75rem" }} />
+                    <span>Activities</span>
+                  </Link>
+                </li>
+              </ul>
+            )}
+          </>
+        )}
+
+        {/* Leads - BDM Only (Direct Link) */}
+        {role === "BDM" && (
+          <>
+            <li
+              style={getItemStyle(location.pathname === "/crm/leads", "crm-leads")}
+              onMouseEnter={() => setHoveredItem("crm-leads")}
+              onMouseLeave={() => setHoveredItem(null)}
+            >
+              <Link to="/crm/leads" style={{ display: "flex", alignItems: "center" }}>
+                <FontAwesomeIcon icon={faUsers} style={{ marginRight: "0.75rem" }} />
+                {sidebarOpen && <span>Leads</span>}
+              </Link>
+            </li>
+            <li
+              style={getItemStyle(location.pathname === "/crm/activities", "crm-activities")}
+              onMouseEnter={() => setHoveredItem("crm-activities")}
+              onMouseLeave={() => setHoveredItem(null)}
+            >
+              <Link to="/crm/activities" style={{ display: "flex", alignItems: "center" }}>
+                <FontAwesomeIcon icon={faChartLine} style={{ marginRight: "0.75rem" }} />
+                {sidebarOpen && <span>Activities</span>}
+              </Link>
+            </li>
           </>
         )}
 

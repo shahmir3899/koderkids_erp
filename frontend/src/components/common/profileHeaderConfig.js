@@ -246,6 +246,85 @@ export const PROFILE_HEADER_CONFIG = {
     // Modal
     settingsModal: 'StudentSettingsModal',
   },
+
+  // ============================================
+  // BDM CONFIGURATION
+  // ============================================
+  BDM: {
+    // Identity
+    idField: 'employee_id',
+    idPrefix: 'Emp #',
+    idFallback: 'Not Assigned',
+
+    // Display - Check multiple fields
+    nameFields: ['full_name', 'first_name', 'username'],
+    roleName: 'Business Development Manager',
+
+    // Details Row Configuration
+    details: [
+      {
+        key: 'gender',
+        label: 'Gender',
+        fields: ['gender'],
+        fallback: 'Not Set',
+        format: (value) => value || 'Not Set',
+      },
+      {
+        key: 'joining_date',
+        label: 'Joining Date',
+        fields: ['date_of_joining', 'joining_date'],
+        fallback: 'Not Set',
+        format: (value) => {
+          if (!value) return 'Not Set';
+          try {
+            const date = new Date(value);
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${String(date.getDate()).padStart(2, '0')}-${months[date.getMonth()]}-${date.getFullYear()}`;
+          } catch (e) {
+            return 'Not Set';
+          }
+        },
+      },
+      {
+        key: 'phone',
+        label: 'Phone',
+        fields: ['phone', 'phone_number', 'contact'],
+        fallback: 'Not Set',
+        format: (value) => value || 'Not Set',
+      },
+      {
+        key: 'email',
+        label: 'Email',
+        fields: ['email', 'email_address'],
+        fallback: 'Not Set',
+        format: (value) => value || 'Not Set',
+        noBorder: true,
+      },
+    ],
+
+    // Features
+    features: {
+      showNotifications: false,
+      showMessages: false,
+      showSettings: true,
+      showLogout: true,
+      showSmallAvatar: true,
+    },
+
+    // Theme
+    colors: {
+      accent: '#F59E0B',
+      avatarBg: '#F59E0B',
+      iconHover: '#F3F4F6',
+    },
+
+    // Avatar
+    avatarSize: 101,
+    avatarFallback: '/images/bdm-avatar.jpg',
+
+    // Modal
+    settingsModal: 'BDMSettingsModal',
+  },
 };
 
 /**
