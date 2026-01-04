@@ -93,6 +93,7 @@ INSTALLED_APPS = [
     'lessons',
     'attendance',
     'dashboards',
+    'crm',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]
@@ -178,7 +179,7 @@ EMAIL_TIMEOUT = 10
 
 # Debug: Print email settings on startup (REMOVE IN PRODUCTION)
 print("\n" + "="*50)
-print("📧 EMAIL CONFIGURATION LOADED:")
+print("EMAIL CONFIGURATION LOADED:")
 print("="*50)
 print(f"HOST: {EMAIL_HOST}")
 print(f"PORT: {EMAIL_PORT}")

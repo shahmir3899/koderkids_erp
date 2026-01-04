@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py runserver:*)",
+      "Bash(npm start)",
+      "Bash(python manage.py shell:*)",
+      "Bash(python add_test_data.py:*)",
+      "Bash(npm run build:*)",
+      "Bash(del nul)",
+      "Bash(rm:*)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

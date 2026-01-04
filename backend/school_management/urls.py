@@ -60,6 +60,7 @@ urlpatterns = [
     path('api/attendance/', include('attendance.urls')),
     path('api/dashboards/', include('dashboards.urls')),
     path('api/reports/', include('reports.urls')),
+    path('api/crm/', include('crm.urls')),
 
 
 

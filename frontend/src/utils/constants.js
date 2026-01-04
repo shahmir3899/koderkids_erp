@@ -10,6 +10,7 @@ export const ROLES = {
   ADMIN: 'Admin',
   TEACHER: 'Teacher',
   STUDENT: 'Student',
+  BDM: 'BDM',
 };
 
 // Status Options
@@ -144,6 +145,52 @@ export const API_ENDPOINTS = {
   
   // Other
   ROBOT_REPLY: '/api/robot-reply/',
+
+  // CRM
+  CRM_LEADS: '/api/crm/leads/',
+  CRM_ACTIVITIES: '/api/crm/activities/',
+  CRM_TARGETS: '/api/crm/targets/',
+  CRM_DASHBOARD_STATS: '/api/crm/dashboard/stats/',
+  CRM_LEAD_SOURCES: '/api/crm/dashboard/lead-sources/',
+  CRM_CONVERSION_METRICS: '/api/crm/dashboard/conversion-rate/',
+  CRM_UPCOMING_ACTIVITIES: '/api/crm/dashboard/upcoming/',
+  CRM_TARGET_PROGRESS: '/api/crm/dashboard/targets/',
+};
+
+// CRM Specific Constants
+export const LEAD_STATUS = {
+  NEW: 'New',
+  CONTACTED: 'Contacted',
+  INTERESTED: 'Interested',
+  NOT_INTERESTED: 'Not Interested',
+  CONVERTED: 'Converted',
+  LOST: 'Lost',
+};
+
+export const LEAD_SOURCES = {
+  WEBSITE: 'Website',
+  REFERRAL: 'Referral',
+  COLD_CALL: 'Cold Call',
+  WALK_IN: 'Walk-in',
+  SOCIAL_MEDIA: 'Social Media',
+  OTHER: 'Other',
+};
+
+export const ACTIVITY_TYPES = {
+  CALL: 'Call',
+  MEETING: 'Meeting',
+};
+
+export const ACTIVITY_STATUS = {
+  SCHEDULED: 'Scheduled',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+};
+
+export const TARGET_PERIODS = {
+  MONTHLY: 'Monthly',
+  QUARTERLY: 'Quarterly',
+  YEARLY: 'Yearly',
 };
 
 // Export all as default for convenience
@@ -161,4 +208,9 @@ export default {
   PAGINATION,
   STORAGE_KEYS,
   API_ENDPOINTS,
+  LEAD_STATUS,
+  LEAD_SOURCES,
+  ACTIVITY_TYPES,
+  ACTIVITY_STATUS,
+  TARGET_PERIODS,
 };
