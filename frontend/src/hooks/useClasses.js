@@ -1,85 +1,34 @@
 // ============================================
-// useClasses Hook - Fetch Classes by School
+// useClasses Hook - Uses Global Classes Context
 // ============================================
+// Location: src/hooks/useClasses.js
+//
+// PURPOSE: Provides easy access to classes data cached by school
+// BENEFIT: Eliminates repeated classes API calls for the same school
 
-import { useState, useEffect, useRef } from 'react';
-import { fetchClasses } from '../api/services/schoolService';
-import { toast } from 'react-toastify';
+import { useContext } from 'react';
+import ClassesContext from '../contexts/ClassesContext';
 
 /**
- * Custom hook to fetch classes for a specific school
- * @param {number|string} schoolId - School ID to fetch classes for
- * @param {boolean} autoFetch - Whether to automatically fetch when schoolId changes (default: true)
- * @returns {Object} Classes data, loading state, error, and refetch function
+ * Custom hook to access classes from global context
+ * @returns {Object} Classes data and functions
+ * @returns {Object} classesCache - Map of classes by school ID
+ * @returns {Object} loading - Loading states by school ID
+ * @returns {string|null} error - Error message if any
+ * @returns {Function} fetchClassesBySchool - Fetch classes for a school (uses cache)
+ * @returns {Function} getCachedClasses - Get cached classes synchronously
+ * @returns {Function} clearSchoolCache - Clear cache for a specific school
+ * @returns {Function} clearAllCache - Clear all classes cache
+ * @returns {Function} prefetchClasses - Prefetch classes for multiple schools
  */
-export const useClasses = (schoolId, autoFetch = true) => {
-  const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const isMounted = useRef(true);
+export const useClasses = () => {
+  const context = useContext(ClassesContext);
 
-  // Cleanup effect
-  useEffect(() => {
-    isMounted.current = true;
-    
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  /**
-   * Fetch classes from API
-   */
-  const loadClasses = async () => {
-  if (!schoolId) {
-    setClasses([]);
-    return;
+  if (!context) {
+    throw new Error('useClasses must be used within ClassesProvider');
   }
 
-  // ✅ CHECK: Don't start if unmounted
-  if (!isMounted.current) return;
-
-  setLoading(true);
-  setError(null);
-
-  try {
-    const data = await fetchClasses(schoolId);
-    
-    // ✅ CHECK: Don't update state if unmounted
-    if (!isMounted.current) return;
-    
-    setClasses(data);
-  } catch (err) {
-    // ✅ CHECK: Don't show errors if unmounted
-    if (!isMounted.current) return;
-    
-    const errorMessage = err.response?.data?.message || 'Failed to fetch classes';
-    setError(errorMessage);
-    toast.error(errorMessage);
-    setClasses([]);
-  } finally {
-    // ✅ CHECK: Only clear loading if mounted
-    if (isMounted.current) {
-      setLoading(false);
-    }
-  }
-};
-
-  // Fetch when schoolId changes (if autoFetch is enabled)
-  useEffect(() => {
-    if (autoFetch && schoolId) {
-      loadClasses();
-    } else if (!schoolId) {
-      setClasses([]);
-    }
-  }, [schoolId, autoFetch]);
-
-  return {
-    classes,
-    loading,
-    error,
-    refetch: loadClasses,
-  };
+  return context;
 };
 
 export default useClasses;

@@ -311,6 +311,31 @@ export const deleteActivity = async (activityId) => {
 };
 
 // ============================================
+// BDM OPERATIONS
+// ============================================
+
+/**
+ * Fetch list of BDMs (Admin only)
+ * @returns {Promise<Array>} List of BDMs with id and full_name
+ */
+export const fetchBDMs = async () => {
+  try {
+    console.log('📡 Fetching BDM list');
+
+    const response = await axios.get(`${API_URL}${CRM_BASE}/bdm-list/`, {
+      headers: getAuthHeaders(),
+    });
+
+    console.log('✅ BDMs fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching BDMs:', error.response?.data || error.message);
+    handleAuthError(error);
+    return [];
+  }
+};
+
+// ============================================
 // TARGET OPERATIONS
 // ============================================
 
@@ -492,6 +517,73 @@ export const fetchTargetProgress = async () => {
   }
 };
 
+// ============================================
+// ADMIN DASHBOARD OPERATIONS
+// ============================================
+
+/**
+ * Fetch admin dashboard overview (Admin only)
+ * @returns {Promise<Object>} Comprehensive dashboard data
+ */
+export const fetchAdminDashboardOverview = async () => {
+  try {
+    console.log('📡 Fetching admin dashboard overview');
+
+    const response = await axios.get(`${API_URL}${CRM_BASE}/dashboard/admin/overview/`, {
+      headers: getAuthHeaders(),
+    });
+
+    console.log('✅ Admin dashboard overview fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching admin dashboard overview:', error.response?.data || error.message);
+    handleAuthError(error);
+    return null;
+  }
+};
+
+/**
+ * Fetch lead distribution across BDMs (Admin only)
+ * @returns {Promise<Array>} Lead distribution data
+ */
+export const fetchAdminLeadDistribution = async () => {
+  try {
+    console.log('📡 Fetching admin lead distribution');
+
+    const response = await axios.get(`${API_URL}${CRM_BASE}/dashboard/admin/lead-distribution/`, {
+      headers: getAuthHeaders(),
+    });
+
+    console.log('✅ Admin lead distribution fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching admin lead distribution:', error.response?.data || error.message);
+    handleAuthError(error);
+    return [];
+  }
+};
+
+/**
+ * Fetch recent activities across all BDMs (Admin only)
+ * @returns {Promise<Array>} Recent activities data
+ */
+export const fetchAdminRecentActivities = async () => {
+  try {
+    console.log('📡 Fetching admin recent activities');
+
+    const response = await axios.get(`${API_URL}${CRM_BASE}/dashboard/admin/recent-activities/`, {
+      headers: getAuthHeaders(),
+    });
+
+    console.log('✅ Admin recent activities fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching admin recent activities:', error.response?.data || error.message);
+    handleAuthError(error);
+    return [];
+  }
+};
+
 // Export all functions
 export default {
   // Leads
@@ -509,6 +601,9 @@ export default {
   updateActivity,
   completeActivity,
   deleteActivity,
+
+  // BDMs
+  fetchBDMs,
 
   // Targets
   fetchTargets,

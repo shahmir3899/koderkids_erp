@@ -2,7 +2,7 @@
 // CLASS FILTER - Class Dropdown Component
 // ============================================
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useClasses } from '../../../hooks/useClasses';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
@@ -30,7 +30,43 @@ export const ClassFilter = ({
   label = '',
   required = false,
 }) => {
-  const { classes, loading, error } = useClasses(schoolId);
+  const { fetchClassesBySchool, getCachedClasses, loading: contextLoading } = useClasses();
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadClasses = async () => {
+      if (!schoolId) {
+        setClasses([]);
+        return;
+      }
+
+      // Check cache first
+      const cached = getCachedClasses(schoolId);
+      if (cached) {
+        setClasses(cached);
+        return;
+      }
+
+      // Not in cache, fetch from API
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await fetchClassesBySchool(schoolId);
+        setClasses(data);
+      } catch (err) {
+        console.error('ClassFilter: Error loading classes:', err);
+        setError('Failed to load classes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadClasses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId]); // Only depend on schoolId, not the functions
 
   const handleChange = (e) => {
     const selectedClass = e.target.value;

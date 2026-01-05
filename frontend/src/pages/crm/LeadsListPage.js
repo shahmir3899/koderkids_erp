@@ -19,6 +19,7 @@ import { ConfirmationModal } from '../../components/common/modals/ConfirmationMo
 import { LeadStatusBadge } from '../../components/crm/LeadStatusBadge';
 import { CreateLeadModal } from '../../components/crm/CreateLeadModal';
 import { ConvertLeadModal } from '../../components/crm/ConvertLeadModal';
+import { EditLeadModal } from '../../components/crm/EditLeadModal';
 
 // CRM Services & Constants
 import { fetchLeads, deleteLead } from '../../api/services/crmService';
@@ -39,6 +40,8 @@ function LeadsListPage() {
   // UI States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [leadToEdit, setLeadToEdit] = useState(null);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -138,6 +141,17 @@ function LeadsListPage() {
   // HANDLERS
   // ============================================
 
+  const handleEditClick = (lead) => {
+    setLeadToEdit(lead);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    setIsEditModalOpen(false);
+    setLeadToEdit(null);
+    loadLeads();
+  };
+
   const handleDeleteClick = (lead) => {
     if (!lead || !lead.id) {
       console.error('❌ Invalid lead data:', lead);
@@ -155,8 +169,20 @@ function LeadsListPage() {
     setLoading((prev) => ({ ...prev, delete: true }));
 
     try {
-      await deleteLead(deleteConfirm.leadId);
-      toast.success('Lead deleted successfully');
+      const response = await deleteLead(deleteConfirm.leadId);
+
+      // Show success message with cascade deletion info
+      if (response?.message) {
+        toast.success(response.message);
+      } else {
+        toast.success('Lead deleted successfully');
+      }
+
+      // Show info about deleted activities if any
+      if (response?.deleted_activities && response.deleted_activities > 0) {
+        toast.info(`${response.deleted_activities} associated activity/activities were also deleted`, { autoClose: 5000 });
+      }
+
       loadLeads();
     } catch (err) {
       console.error('❌ Error deleting lead:', err);
@@ -262,6 +288,12 @@ function LeadsListPage() {
       label: 'Actions',
       render: (value, row) => (
         <div className="flex gap-2">
+          <button
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            onClick={() => handleEditClick(row)}
+          >
+            Edit
+          </button>
           <button
             className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
             onClick={() => handleViewDetails(row)}
@@ -423,6 +455,17 @@ function LeadsListPage() {
       {/* Modals */}
       {isCreateModalOpen && (
         <CreateLeadModal onClose={() => setIsCreateModalOpen(false)} onSuccess={handleCreateSuccess} />
+      )}
+
+      {isEditModalOpen && leadToEdit && (
+        <EditLeadModal
+          lead={leadToEdit}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setLeadToEdit(null);
+          }}
+          onSuccess={handleEditSuccess}
+        />
       )}
 
       {isConvertModalOpen && selectedLead && (

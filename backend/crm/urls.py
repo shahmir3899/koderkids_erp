@@ -13,6 +13,10 @@ from .views import (
     conversion_metrics,
     upcoming_activities,
     target_progress,
+    bdm_list,
+    admin_dashboard_overview,
+    admin_lead_distribution,
+    admin_recent_activities,
 )
 
 # Create router for ViewSets
@@ -24,13 +28,21 @@ router.register(r'targets', BDMTargetViewSet, basename='target')
 urlpatterns = [
     # Router URLs (ViewSets)
     path('', include(router.urls)),
-    
-    # Dashboard endpoints
+
+    # BDM List (for activity assignment dropdown)
+    path('bdm-list/', bdm_list, name='bdm_list'),
+
+    # Dashboard endpoints (BDM/Admin - role-filtered)
     path('dashboard/stats/', dashboard_stats, name='dashboard_stats'),
     path('dashboard/lead-sources/', lead_sources_breakdown, name='lead_sources'),
     path('dashboard/conversion-rate/', conversion_metrics, name='conversion_rate'),
     path('dashboard/upcoming/', upcoming_activities, name='upcoming_activities'),
     path('dashboard/targets/', target_progress, name='target_progress'),
+
+    # Admin Dashboard endpoints (Admin only)
+    path('dashboard/admin/overview/', admin_dashboard_overview, name='admin_dashboard_overview'),
+    path('dashboard/admin/lead-distribution/', admin_lead_distribution, name='admin_lead_distribution'),
+    path('dashboard/admin/recent-activities/', admin_recent_activities, name='admin_recent_activities'),
 ]
 
 """

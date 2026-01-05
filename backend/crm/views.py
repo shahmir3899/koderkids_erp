@@ -21,6 +21,10 @@ from .serializers import (
 )
 from .permissions import IsBDMOrAdmin, IsAdminOnly, IsAdminOrOwner
 from students.models import School, CustomUser
+from .emails import send_lead_assignment_email, send_activity_scheduled_email
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class LeadViewSet(viewsets.ModelViewSet):
@@ -74,11 +78,78 @@ class LeadViewSet(viewsets.ModelViewSet):
         if self.action == 'retrieve':
             return LeadDetailSerializer
         return LeadSerializer
-    
+
     def perform_create(self, serializer):
-        """Set created_by to current user"""
-        serializer.save(created_by=self.request.user)
-    
+        """Set created_by to current user and send email if BDM assigned"""
+        lead = serializer.save(created_by=self.request.user)
+
+        # Send email if lead is assigned to BDM during creation
+        if lead.assigned_to and lead.assigned_to.role == 'BDM':
+            try:
+                assigned_by_name = f"{self.request.user.first_name} {self.request.user.last_name}".strip() or self.request.user.username
+                email_sent = send_lead_assignment_email(lead, lead.assigned_to, assigned_by_name)
+                if email_sent:
+                    logger.info(f"Lead assignment email sent to {lead.assigned_to.email}")
+            except Exception as e:
+                logger.error(f"Failed to send lead assignment email: {str(e)}")
+
+    def update(self, request, *args, **kwargs):
+        """Override update to include automation notifications"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        # Save and check for automation
+        self.perform_update(serializer)
+
+        # Check if automation occurred
+        automation_message = getattr(self, '_automation_message', None)
+
+        response_data = serializer.data
+        if automation_message:
+            response_data['automation'] = automation_message
+
+        return Response(response_data)
+
+    def perform_update(self, serializer):
+        """
+        Handle lead updates
+        AUTO-RULE: Cancel scheduled activities when lead changes to 'Lost' or 'Not Interested'
+        EMAIL: Send notification when BDM is reassigned
+        """
+        self._automation_message = None  # Reset automation message
+
+        # Get the old values before update
+        lead = self.get_object()
+        old_status = lead.status
+        old_bdm = lead.assigned_to
+
+        # Perform the update
+        updated_lead = serializer.save()
+        new_status = updated_lead.status
+        new_bdm = updated_lead.assigned_to
+
+        # EMAIL: Send notification if BDM changed
+        if old_bdm != new_bdm and new_bdm and new_bdm.role == 'BDM':
+            try:
+                assigned_by_name = f"{self.request.user.first_name} {self.request.user.last_name}".strip() or self.request.user.username
+                email_sent = send_lead_assignment_email(updated_lead, new_bdm, assigned_by_name)
+                if email_sent:
+                    logger.info(f"Lead reassignment email sent to {new_bdm.email}")
+            except Exception as e:
+                logger.error(f"Failed to send lead reassignment email: {str(e)}")
+
+        # AUTOMATION: Auto-cancel activities when lead becomes Lost/Not Interested
+        if old_status != new_status and new_status in ['Lost', 'Not Interested']:
+            cancelled_count = updated_lead.activities.filter(status='Scheduled').update(
+                status='Cancelled',
+                completed_date=timezone.now()
+            )
+            if cancelled_count > 0:
+                self._automation_message = f"{cancelled_count} scheduled activity(ies) automatically cancelled (lead marked as '{new_status}')"
+                print(f"[AUTO-RULE] {cancelled_count} scheduled activities auto-cancelled for Lead #{updated_lead.id} ({updated_lead.school_name or updated_lead.phone}) - status changed to '{new_status}'")
+
     @action(detail=True, methods=['post'])
     def convert(self, request, pk=None):
         """
@@ -167,9 +238,20 @@ class LeadViewSet(viewsets.ModelViewSet):
         
         try:
             bdm = CustomUser.objects.get(id=bdm_id, role='BDM')
+            old_bdm = lead.assigned_to
             lead.assigned_to = bdm
             lead.save()
-            
+
+            # Send email notification to BDM if newly assigned
+            if old_bdm != bdm:
+                try:
+                    assigned_by_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+                    email_sent = send_lead_assignment_email(lead, bdm, assigned_by_name)
+                    if email_sent:
+                        logger.info(f"Lead assignment email sent to {bdm.email}")
+                except Exception as e:
+                    logger.error(f"Failed to send lead assignment email: {str(e)}")
+
             return Response({
                 'message': f'Lead assigned to {bdm.get_full_name()}',
                 'lead': LeadSerializer(lead).data
@@ -179,7 +261,33 @@ class LeadViewSet(viewsets.ModelViewSet):
                 {'error': 'BDM not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-    
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a lead and its associated activities
+        Warns user about cascade deletion
+        """
+        lead = self.get_object()
+
+        # Count associated activities
+        activity_count = lead.activities.count()
+
+        # Store lead info for response message
+        lead_name = lead.school_name or lead.phone
+
+        # Perform deletion (CASCADE will delete activities)
+        lead.delete()
+
+        # Return success message with cascade info
+        message = f"Lead '{lead_name}' deleted successfully"
+        if activity_count > 0:
+            message += f" (along with {activity_count} associated activity/activities)"
+
+        return Response(
+            {'message': message, 'deleted_activities': activity_count},
+            status=status.HTTP_200_OK
+        )
+
     def _update_bdm_targets(self, bdm, conversion_date):
         """Update BDM targets after conversion"""
         # Find active target for this BDM
@@ -232,12 +340,57 @@ class ActivityViewSet(viewsets.ModelViewSet):
         
         return queryset.select_related('lead', 'assigned_to')
     
+    def create(self, request, *args, **kwargs):
+        """Override create to include automation notifications"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Save and check for automation
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+
+        # Check if automation occurred
+        automation_message = getattr(self, '_automation_message', None)
+
+        response_data = serializer.data
+        if automation_message:
+            response_data['automation'] = automation_message
+
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_create(self, serializer):
-        """Set assigned_to to current user if not specified"""
+        """
+        Set assigned_to to current user if not specified
+        AUTO-RULE: Change lead status to 'Contacted' if lead is 'New' and this is first activity
+        EMAIL: Send notification to BDM when activity is scheduled for them
+        """
+        self._automation_message = None  # Reset automation message
+
         if not serializer.validated_data.get('assigned_to'):
-            serializer.save(assigned_to=self.request.user)
+            activity = serializer.save(assigned_to=self.request.user)
         else:
-            serializer.save()
+            activity = serializer.save()
+
+        # EMAIL: Send notification to BDM when activity is scheduled
+        if activity.assigned_to and activity.assigned_to.role == 'BDM' and activity.status == 'Scheduled':
+            try:
+                email_sent = send_activity_scheduled_email(activity, activity.assigned_to)
+                if email_sent:
+                    logger.info(f"Activity scheduled email sent to {activity.assigned_to.email}")
+            except Exception as e:
+                logger.error(f"Failed to send activity scheduled email: {str(e)}")
+
+        # AUTOMATION: Auto-change lead to 'Contacted' on first activity
+        lead = activity.lead
+        if lead.status == 'New':
+            # Check if this is the first activity for this lead
+            activity_count = lead.activities.count()
+            if activity_count == 1:  # This is the first activity
+                old_status = lead.status
+                lead.status = 'Contacted'
+                lead.save()
+                self._automation_message = f"Lead status automatically changed from '{old_status}' to 'Contacted' (first activity)"
+                print(f"[AUTO-RULE] Lead #{lead.id} ({lead.school_name or lead.phone}) auto-changed from 'New' to 'Contacted' (first activity created)")
     
     @action(detail=True, methods=['patch'])
     def complete(self, request, pk=None):
@@ -522,3 +675,156 @@ def target_progress(request):
     return Response(
         BDMTargetSerializer(targets, many=True).data
     )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminOnly])
+def bdm_list(request):
+    """
+    Get list of all BDMs (Admin only)
+    GET /api/crm/bdm-list/
+    """
+    bdms = CustomUser.objects.filter(
+        role='BDM',
+        is_active=True
+    ).values('id', 'username', 'first_name', 'last_name', 'email')
+
+    # Format with full name
+    bdm_data = [
+        {
+            'id': bdm['id'],
+            'username': bdm['username'],
+            'full_name': f"{bdm['first_name']} {bdm['last_name']}".strip() or bdm['username'],
+            'email': bdm['email']
+        }
+        for bdm in bdms
+    ]
+
+    return Response(bdm_data)
+
+
+# ============================================
+# ADMIN DASHBOARD ENDPOINTS
+# ============================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminOnly])
+def admin_dashboard_overview(request):
+    """
+    Get comprehensive dashboard overview for Admin
+    GET /api/crm/dashboard/admin/overview/
+
+    Returns:
+    - Total leads by status
+    - BDM performance comparison
+    - Recent activity summary
+    - Conversion metrics
+    """
+    # All leads
+    all_leads = Lead.objects.all()
+
+    # Lead statistics by status
+    lead_stats = {
+        'total': all_leads.count(),
+        'new': all_leads.filter(status='New').count(),
+        'contacted': all_leads.filter(status='Contacted').count(),
+        'interested': all_leads.filter(status='Interested').count(),
+        'not_interested': all_leads.filter(status='Not Interested').count(),
+        'converted': all_leads.filter(status='Converted').count(),
+        'lost': all_leads.filter(status='Lost').count(),
+    }
+
+    # BDM Performance comparison
+    bdms = CustomUser.objects.filter(role='BDM', is_active=True)
+    bdm_performance = []
+
+    for bdm in bdms:
+        bdm_leads = all_leads.filter(assigned_to=bdm)
+        bdm_activities = Activity.objects.filter(assigned_to=bdm)
+
+        bdm_performance.append({
+            'id': bdm.id,
+            'name': f"{bdm.first_name} {bdm.last_name}".strip() or bdm.username,
+            'total_leads': bdm_leads.count(),
+            'converted_leads': bdm_leads.filter(status='Converted').count(),
+            'conversion_rate': round((bdm_leads.filter(status='Converted').count() / bdm_leads.count() * 100) if bdm_leads.count() > 0 else 0, 1),
+            'total_activities': bdm_activities.count(),
+            'scheduled_activities': bdm_activities.filter(status='Scheduled').count(),
+            'completed_activities': bdm_activities.filter(status='Completed').count(),
+        })
+
+    # Recent activities (last 7 days)
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    recent_activities = Activity.objects.filter(
+        created_at__gte=seven_days_ago
+    ).count()
+
+    # This month conversion stats
+    month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    this_month_converted = all_leads.filter(
+        conversion_date__gte=month_start
+    ).count()
+
+    return Response({
+        'lead_stats': lead_stats,
+        'bdm_performance': bdm_performance,
+        'recent_activities_count': recent_activities,
+        'this_month_conversions': this_month_converted,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminOnly])
+def admin_lead_distribution(request):
+    """
+    Get lead distribution across BDMs
+    GET /api/crm/dashboard/admin/lead-distribution/
+    """
+    bdms = CustomUser.objects.filter(role='BDM', is_active=True)
+    distribution = []
+
+    unassigned_count = Lead.objects.filter(assigned_to__isnull=True).count()
+
+    for bdm in bdms:
+        lead_count = Lead.objects.filter(assigned_to=bdm).count()
+        distribution.append({
+            'bdm_id': bdm.id,
+            'bdm_name': f"{bdm.first_name} {bdm.last_name}".strip() or bdm.username,
+            'lead_count': lead_count
+        })
+
+    distribution.append({
+        'bdm_id': None,
+        'bdm_name': 'Unassigned',
+        'lead_count': unassigned_count
+    })
+
+    return Response(distribution)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminOnly])
+def admin_recent_activities(request):
+    """
+    Get recent activities across all BDMs
+    GET /api/crm/dashboard/admin/recent-activities/
+    """
+    # Get recent activities (last 10)
+    recent_activities = Activity.objects.select_related(
+        'lead', 'assigned_to'
+    ).order_by('-created_at')[:10]
+
+    activities_data = []
+    for activity in recent_activities:
+        activities_data.append({
+            'id': activity.id,
+            'type': activity.activity_type,
+            'subject': activity.subject,
+            'status': activity.status,
+            'scheduled_date': activity.scheduled_date,
+            'lead_name': activity.lead.school_name or activity.lead.phone,
+            'assigned_to_name': f"{activity.assigned_to.first_name} {activity.assigned_to.last_name}".strip() or activity.assigned_to.username if activity.assigned_to else 'Unassigned',
+            'created_at': activity.created_at,
+        })
+
+    return Response(activities_data)

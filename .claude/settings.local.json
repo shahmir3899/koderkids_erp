@@ -9,7 +9,14 @@
       "Bash(del nul)",
       "Bash(rm:*)",
       "Bash(git rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(cat:*)",
+      "Bash(cp:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

@@ -68,6 +68,13 @@ export const UserStatsCards = ({
       color: '#F59E0B',
       bgColor: '#FFFBEB',
     },
+    {
+      label: 'BDMs',
+      value: stats.bdms || 0,
+      icon: '💼',
+      color: '#06B6D4',
+      bgColor: '#ECFEFF',
+    },
   ];
 
   // If search performed, show filtered count

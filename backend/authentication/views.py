@@ -155,10 +155,10 @@ class UserViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing users (Admin only)
     """
-    queryset = CustomUser.objects.filter(role__in=['Admin', 'Teacher'])
+    queryset = CustomUser.objects.filter(role__in=['Admin', 'Teacher', 'BDM'])
 
     permission_classes = [IsAdminUser]
-    
+
     def get_serializer_class(self):
         """Return appropriate serializer based on action"""
         if self.action == 'list':
@@ -170,33 +170,34 @@ class UserViewSet(viewsets.ModelViewSet):
         elif self.action == 'retrieve':
             return UserDetailSerializer
         return UserDetailSerializer
-    
+
+    def get_queryset(self):
         """
         Filter queryset based on query parameters
         """
-        # ✅ Only get Admins and Teachers
+        # Get Admins, Teachers, and BDMs (excluding Students)
         queryset = CustomUser.objects.filter(
-            role__in=['Admin', 'Teacher']
+            role__in=['Admin', 'Teacher', 'BDM']
         ).select_related(
             'created_by', 'updated_by'
         ).prefetch_related('assigned_schools')
-        
+
         # Filter by role
         role = self.request.query_params.get('role', None)
         if role and role != 'All':
             queryset = queryset.filter(role=role)
-        
+
         # Filter by school
         school_id = self.request.query_params.get('school', None)
         if school_id:
             queryset = queryset.filter(assigned_schools__id=school_id)
-        
+
         # Filter by status
         is_active = self.request.query_params.get('is_active', None)
         if is_active is not None:
             is_active_bool = is_active.lower() == 'true'
             queryset = queryset.filter(is_active=is_active_bool)
-        
+
         # Search
         search = self.request.query_params.get('search', None)
         if search:
@@ -206,7 +207,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 Q(first_name__icontains=search) |
                 Q(last_name__icontains=search)
             )
-        
+
         queryset = queryset.order_by('-created_at')
         return queryset
     
@@ -596,32 +597,34 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='user-stats')
     def user_stats(self, request):
         """
-        Get user statistics for Admins and Teachers only
+        Get user statistics for Admins, Teachers, and BDMs
         Students are managed on the Students page
         """
-        # Only count Admins and Teachers
+        # Count all non-student users
         admins_count = CustomUser.objects.filter(role='Admin').count()
         teachers_count = CustomUser.objects.filter(role='Teacher').count()
-        total_users = admins_count + teachers_count
-        
+        bdms_count = CustomUser.objects.filter(role='BDM').count()
+        total_users = admins_count + teachers_count + bdms_count
+
         # Active/Inactive counts (excluding students)
         active_users = CustomUser.objects.filter(
-            role__in=['Admin', 'Teacher'],
+            role__in=['Admin', 'Teacher', 'BDM'],
             is_active=True
         ).count()
         inactive_users = CustomUser.objects.filter(
-            role__in=['Admin', 'Teacher'],
+            role__in=['Admin', 'Teacher', 'BDM'],
             is_active=False
         ).count()
-        
+
         super_admins_count = CustomUser.objects.filter(is_super_admin=True).count()
-        
+
         return Response({
             'total_users': total_users,
             'active_users': active_users,
             'inactive_users': inactive_users,
             'admins': admins_count,
             'teachers': teachers_count,
+            'bdms': bdms_count,
             'super_admins': super_admins_count,
         }, status=status.HTTP_200_OK)
     

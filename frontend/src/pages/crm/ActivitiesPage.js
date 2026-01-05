@@ -11,8 +11,12 @@ import { DataTable } from '../../components/common/tables/DataTable';
 import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { LoadingSpinner } from '../../components/common/ui/LoadingSpinner';
 
+// CRM Components
+import { CreateActivityModal } from '../../components/crm/CreateActivityModal';
+import { EditActivityModal } from '../../components/crm/EditActivityModal';
+
 // CRM Services
-import { fetchActivities, deleteActivity } from '../../api/services/crmService';
+import { fetchActivities, deleteActivity, completeActivity } from '../../api/services/crmService';
 
 function ActivitiesPage() {
   const navigate = useNavigate();
@@ -26,6 +30,9 @@ function ActivitiesPage() {
     status: '',
     search: '',
   });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState(null);
 
   // Load activities
   const loadActivities = useCallback(async () => {
@@ -74,6 +81,53 @@ function ActivitiesPage() {
   // Handle filter change
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Handle create activity success
+  const handleCreateSuccess = () => {
+    setShowCreateModal(false);
+    loadActivities();
+  };
+
+  // Handle edit activity
+  const handleEdit = (activity) => {
+    setSelectedActivity(activity);
+    setShowEditModal(true);
+  };
+
+  // Handle edit success
+  const handleEditSuccess = () => {
+    setShowEditModal(false);
+    setSelectedActivity(null);
+    loadActivities();
+  };
+
+  // Handle mark as complete
+  const handleComplete = async (activityId) => {
+    try {
+      await completeActivity(activityId);
+      toast.success('Activity marked as completed');
+      loadActivities();
+    } catch (error) {
+      console.error('Error completing activity:', error);
+      toast.error('Failed to complete activity');
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async (activityId) => {
+    if (!window.confirm('Are you sure you want to delete this activity?')) {
+      return;
+    }
+
+    try {
+      await deleteActivity(activityId);
+      toast.success('Activity deleted successfully');
+      loadActivities();
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+      toast.error('Failed to delete activity');
+    }
   };
 
   // Table columns
@@ -135,15 +189,54 @@ function ActivitiesPage() {
       label: 'Assigned To',
       render: (value, row) => row?.assigned_to_name || 'Unassigned',
     },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (value, row) => (
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleEdit(row)}
+            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+            title="Edit activity"
+          >
+            Edit
+          </button>
+          {row.status === 'Scheduled' && (
+            <button
+              onClick={() => handleComplete(row.id)}
+              className="text-green-600 hover:text-green-800 font-medium text-sm"
+              title="Mark as completed"
+            >
+              Complete
+            </button>
+          )}
+          <button
+            onClick={() => handleDelete(row.id)}
+            className="text-red-600 hover:text-red-800 font-medium text-sm"
+            title="Delete activity"
+          >
+            Delete
+          </button>
+        </div>
+      ),
+    },
   ];
 
   // Render
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Activities</h1>
-        <p className="text-gray-600">Manage calls and meetings with leads</p>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Activities</h1>
+          <p className="text-gray-600">Manage calls and meetings with leads</p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+        >
+          + Add Activity
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -276,6 +369,26 @@ function ActivitiesPage() {
             className="rounded-lg"
           />
         </div>
+      )}
+
+      {/* Create Activity Modal */}
+      {showCreateModal && (
+        <CreateActivityModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
+
+      {/* Edit Activity Modal */}
+      {showEditModal && selectedActivity && (
+        <EditActivityModal
+          activity={selectedActivity}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedActivity(null);
+          }}
+          onSuccess={handleEditSuccess}
+        />
       )}
     </div>
   );

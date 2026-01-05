@@ -21,6 +21,7 @@ import {
   faChevronUp,
   faChevronDown,
   faWallet,
+  faCog,
 } from "@fortawesome/free-solid-svg-icons";
 import LogoutButton from "./LogoutButton";
 
@@ -370,10 +371,10 @@ function Sidebar() {
             </li>
             {crmOpen && sidebarOpen && (
               <ul style={{ paddingLeft: "0.75rem", gap: "0.5rem", display: "flex", flexDirection: "column" }}>
-                <li style={getItemStyle(location.pathname === "/crm/dashboard", "crm-dashboard")}>
-                  <Link to="/crm/dashboard" style={{ display: "flex", alignItems: "center" }}>
+                <li style={getItemStyle(location.pathname === "/crm/admin-dashboard", "crm-admin-dashboard")}>
+                  <Link to="/crm/admin-dashboard" style={{ display: "flex", alignItems: "center" }}>
                     <FontAwesomeIcon icon={faChartBar} style={{ marginRight: "0.75rem" }} />
-                    <span>CRM Dashboard</span>
+                    <span>Admin Dashboard</span>
                   </Link>
                 </li>
                 <li style={getItemStyle(location.pathname === "/crm/leads", "crm-leads")}>
@@ -391,6 +392,20 @@ function Sidebar() {
               </ul>
             )}
           </>
+        )}
+
+        {/* Settings - Admin Only */}
+        {role === "Admin" && (
+          <li
+            style={getItemStyle(location.pathname === "/settings", "settings")}
+            onMouseEnter={() => setHoveredItem("settings")}
+            onMouseLeave={() => setHoveredItem(null)}
+          >
+            <Link to="/settings" style={{ display: "flex", alignItems: "center" }}>
+              <FontAwesomeIcon icon={faCog} style={{ marginRight: "0.75rem" }} />
+              {sidebarOpen && <span>Settings</span>}
+            </Link>
+          </li>
         )}
 
         {/* Leads - BDM Only (Direct Link) */}

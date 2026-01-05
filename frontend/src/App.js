@@ -11,6 +11,9 @@ import PasswordResetConfirmPage from "./pages/PasswordResetConfirmPage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import { SchoolsProvider } from './contexts/SchoolsContext';
+import { UserProvider } from './contexts/UserContext';
+import { BooksProvider } from './contexts/BooksContext';
+import { ClassesProvider } from './contexts/ClassesContext';
 import ProtectedRoute from "./components/ProtectedRoute";
 import InventoryDashboard from './pages/InventoryDashboard';
 import Sidebar from "./components/Sidebar";
@@ -37,6 +40,7 @@ import SettingsPage from './pages/SettingsPage';
 
 // CRM Pages
 import BDMDashboard from './pages/crm/BDMDashboard';
+import AdminCRMDashboard from './pages/crm/AdminDashboard';
 import LeadsListPage from './pages/crm/LeadsListPage';
 import ActivitiesPage from './pages/crm/ActivitiesPage';
 
@@ -83,7 +87,10 @@ function App() {
   }, []);
     return (
     <SchoolsProvider>
-        <Router>
+      <UserProvider>
+        <BooksProvider>
+          <ClassesProvider>
+            <Router>
             <AutoLogout /> 
             <div className="flex m-0" style={{ gap: 0 }}>
     <Sidebar />
@@ -125,8 +132,9 @@ function App() {
       <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin"]} />} />
       <Route path="/settings" element={<SettingsPage />} />
 
-      {/* ✅ CRM Routes - Admin & BDM Only */}
-      <Route path="/crm/dashboard" element={<ProtectedRoute element={<BDMDashboard />} allowedRoles={["Admin", "BDM"]} />} />
+      {/* ✅ CRM Routes - Admin & BDM */}
+      <Route path="/crm/admin-dashboard" element={<ProtectedRoute element={<AdminCRMDashboard />} allowedRoles={["Admin"]} />} />
+      <Route path="/crm/dashboard" element={<ProtectedRoute element={<BDMDashboard />} allowedRoles={["BDM"]} />} />
       <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
       <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
 
@@ -162,7 +170,10 @@ function App() {
                     pauseOnHover
                 />
             </div>
-        </Router>
+            </Router>
+          </ClassesProvider>
+        </BooksProvider>
+      </UserProvider>
             </SchoolsProvider>
 
     );

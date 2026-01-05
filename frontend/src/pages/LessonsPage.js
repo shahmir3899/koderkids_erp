@@ -28,18 +28,19 @@ import { ExportButtons } from '../components/common/ui/ExportButtons';
 import { RichTextEditor } from '../components/common/ui/RichTextEditor'; // NEW: Rich Text Editor
 
 // Lesson-specific Components
-import LessonPlanModal from '../components/LessonPlanModal';
+// import LessonPlanModal from '../components/LessonPlanModal'; // OLD - Backup available
+import LessonPlanWizard from '../components/lessons/LessonPlanWizard'; // NEW - Wizard mode
 import { ExportableLessonTable } from '../components/lessons/ExportableLessonTable';
 
 // Hooks
-//import { useSchools } from '../hooks/useSchools';
+import { useSchools } from '../hooks/useSchools';
 import { useExportLessons } from '../hooks/useExportLessons';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
 function LessonsPage() {
   const { user } = useAuth();
-  //const { schools, loading: schoolsLoading } = useSchools();
+  const { schools, loading: schoolsLoading } = useSchools();
 
   // ============================================
   // STATE - Consolidated
@@ -48,7 +49,6 @@ function LessonsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSchoolName, setSelectedSchoolName] = useState('');
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -83,11 +83,11 @@ useEffect(() => {
   // ============================================
   // DERIVED VALUES
   // ============================================
-  //const selectedSchoolName = useMemo(() => {
-    //if (!filters.schoolId || !schools.length) return '';
-    //const school = schools.find((s) => s.id === parseInt(filters.schoolId));
-    //return school?.name || 'Unknown School';
-  //}, [filters.schoolId, schools]);
+  const selectedSchoolName = useMemo(() => {
+    if (!filters.schoolId || !schools.length) return '';
+    const school = schools.find((s) => s.id === parseInt(filters.schoolId));
+    return school?.name || 'Unknown School';
+  }, [filters.schoolId, schools]);
 
   const dateRangeFormatted = useMemo(() => {
     if (!filters.startDate || !filters.endDate) return '';
@@ -608,11 +608,17 @@ const handleDelete = async (lessonId) => {
         id="lessonTableExport"
       />
 
-      {/* Lesson Plan Modal */}
+      {/* Lesson Plan Wizard - NEW */}
       {isModalOpen && (
-        <LessonPlanModal
+        <LessonPlanWizard
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
+          onSuccess={() => {
+            // Refresh lessons after successful creation
+            if (filters.startDate && filters.endDate && filters.schoolId && filters.className) {
+              debouncedFetch(filters);
+            }
+          }}
         />
       )}
     </div>
