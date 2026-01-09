@@ -578,6 +578,31 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=False, methods=['get'], url_path='employees-for-tasks')
+    def get_employees_for_tasks(self, request):
+        """
+        Get list of active employees (Admin, Teacher, BDM) for task assignment
+        """
+        try:
+            employees = CustomUser.objects.filter(
+                Q(role='Admin') | Q(role='Teacher') | Q(role='BDM'), 
+                is_active=True
+            ).values('id', 'first_name', 'last_name', 'email', 'role').order_by('first_name')
+            
+            # Format names and role
+            employee_list = []
+            for emp in employees:
+                employee_list.append({
+                    'id': emp['id'],
+                    'fullName': f"{emp['first_name']} {emp['last_name']}".strip(),
+                    'email': emp['email'],
+                    'role': emp['role']
+                })
+            
+            return Response(employee_list, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['get'], url_path='available-roles')
     def available_roles(self, request):
         """

@@ -44,6 +44,10 @@ import AdminCRMDashboard from './pages/crm/AdminDashboard';
 import LeadsListPage from './pages/crm/LeadsListPage';
 import ActivitiesPage from './pages/crm/ActivitiesPage';
 
+// Task Management Pages
+import TaskManagementPage from './pages/TaskManagementPage';
+import MyTasksPage from './pages/MyTasksPage';
+
 
 import { logout } from "./api"; 
 
@@ -78,9 +82,13 @@ const AutoLogout = () => {
 };
 
 function App() {
-    const [role, setRole] = React.useState(localStorage.getItem("role") || null);
+    const [sidebarOpen, setSidebarOpen] = React.useState(true);
+    
     React.useEffect(() => {
-    const handleStorage = () => setRole(localStorage.getItem("role"));
+    const handleStorage = () => {
+        const role = localStorage.getItem("role");
+        // Handle role changes if needed
+    };
     window.addEventListener("storage", handleStorage);
     handleStorage();
     return () => window.removeEventListener("storage", handleStorage);
@@ -92,9 +100,16 @@ function App() {
           <ClassesProvider>
             <Router>
             <AutoLogout /> 
-            <div className="flex m-0" style={{ gap: 0 }}>
-    <Sidebar />
-    <div className="ml-64 w-full bg-gray-100 min-h-screen" style={{ padding: 0, margin: 0, marginLeft: '14rem' }}>
+            <div className="flex" style={{ gap: 0, position: 'relative', minHeight: '100vh' }}>
+    <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+    <div className="flex-1 bg-gray-100 min-h-screen" style={{ 
+      padding: '1rem', 
+      margin: 0, 
+      marginLeft: sidebarOpen ? '14rem' : '4rem',
+      transition: 'margin-left 0.3s ease-in-out',
+      position: 'relative',
+      zIndex: 1
+    }}>
                 <Routes>
       {/* ✅ Public Routes */}
       <Route path="/register" element={<RegisterPage />} />
@@ -138,6 +153,9 @@ function App() {
       <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
       <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
 
+      {/* ✅ Task Management Routes */}
+      <Route path="/task-management" element={<ProtectedRoute element={<TaskManagementPage />} allowedRoles={["Admin"]} />} />
+      <Route path="/my-tasks" element={<ProtectedRoute element={<MyTasksPage />} allowedRoles={["Admin", "Teacher", "BDM"]} />} />
 
       {/* ✅ Teacher Specific Routes */}
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Teacher"]} />} />

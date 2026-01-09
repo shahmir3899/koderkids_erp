@@ -1,0 +1,382 @@
+/**
+ * Bulk Task Assignment Modal following SendNotificationModal.js patterns
+ * Location: frontend/src/components/tasks/BulkTaskModal.js
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Modal, Form, Button, Alert, Badge } from 'react-bootstrap';
+import taskApiService, { taskErrorHandling, taskValidation, taskConstants } from '../../utils/taskApi';
+
+const BulkTaskModal = ({ 
+    show, 
+    onHide, 
+    onSubmit, 
+    initialData = {},
+    isLoading = false 
+}) => {
+    const [formData, setFormData] = useState({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        priority: initialData.priority || taskConstants.priorities.MEDIUM,
+        task_type: initialData.task_type || taskConstants.types.GENERAL,
+        due_date: initialData.due_date || ''
+    });
+
+    const [submitting, setSubmitting] = useState(false);
+    const [employees, setEmployees] = useState([]);
+    const [selectedEmployees, setSelectedEmployees] = useState([]);
+    const [employeesCount, setEmployeesCount] = useState(0);
+
+    useEffect(() => {
+        // Fetch employees when modal opens
+        if (show) {
+            fetchEmployees();
+        }
+    }, [show]);
+
+    const fetchEmployees = async () => {
+        try {
+            // Use existing teachers API (includes Admin, Teacher, BDM)
+            const data = await taskApiService.makeRequest('GET', '/employees/teachers/');
+            setEmployees(data);
+            setEmployeesCount(data.length);
+        } catch (error) {
+            taskErrorHandling.handleTaskError(error);
+        }
+    };
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!taskValidation.validateTaskForm(formData)) {
+            return;
+        }
+
+        // Validate employee selection
+        if (selectedEmployees.length === 0 && !initialData.id) {
+            taskErrorHandling.handleTaskError(new Error('Please select at least one employee'));
+            return;
+        }
+
+        setSubmitting(true);
+        
+        try {
+            // If editing existing task, update it
+            if (initialData.id) {
+                await taskApiService.updateTask(initialData.id, formData);
+                taskErrorHandling.handleSuccess('Task updated successfully');
+            } else {
+                // Create task for selected employees
+                let taskCount = 0;
+                for (const employeeId of selectedEmployees) {
+                    await taskApiService.createTask({
+                        ...formData,
+                        assigned_to: employeeId
+                    });
+                    taskCount++;
+                }
+                taskErrorHandling.handleSuccess(`Task created for ${taskCount} employees successfully`);
+            }
+            
+            // Reset form
+            setFormData({
+                title: '',
+                description: '',
+                priority: taskConstants.priorities.MEDIUM,
+                task_type: taskConstants.types.GENERAL,
+                due_date: ''
+            });
+            setSelectedEmployees([]);
+            onHide();
+            
+            if (onSubmit) {
+                onSubmit();
+            }
+        } catch (error) {
+            taskErrorHandling.handleTaskError(error);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const resetForm = () => {
+        setFormData({
+            title: '',
+            description: '',
+            priority: taskConstants.priorities.MEDIUM,
+            task_type: taskConstants.types.GENERAL,
+            due_date: ''
+        });
+    };
+
+    const getPriorityColor = (priority) => {
+        const colors = {
+            [taskConstants.priorities.LOW]: 'success',
+            [taskConstants.priorities.MEDIUM]: 'warning',
+            [taskConstants.priorities.HIGH]: 'danger',
+            [taskConstants.priorities.URGENT]: 'primary'
+        };
+        return colors[priority] || 'secondary';
+    };
+
+    const getTypeColor = (type) => {
+        const colors = {
+            [taskConstants.types.GENERAL]: 'secondary',
+            [taskConstants.types.ACADEMIC]: 'info',
+            [taskConstants.types.ADMINISTRATIVE]: 'dark'
+        };
+        return colors[type] || 'secondary';
+    };
+
+    return (
+        <Modal 
+            show={show} 
+            onHide={onHide}
+            size="lg"
+            backdrop="static"
+            keyboard={false}
+        >
+            <Modal.Header closeButton>
+                <Modal.Title className="d-flex align-items-center gap-2">
+                    <span>
+                        {initialData.id ? 'Update Task Assignment' : 'Assign Task to Employees'}
+                    </span>
+                    <Badge bg="info" className="ms-auto">
+                        {employees.length} Available
+                    </Badge>
+                </Modal.Title>
+            </Modal.Header>
+            
+<Modal.Body>
+            {submitting && (
+                <Alert variant="info" className="mb-3">
+                    <i className="fas fa-spinner fa-spin me-2"></i>
+                    {initialData.id ? 'Updating task...' : 'Assigning task to employees...'} This may take a moment.
+                </Alert>
+            )}
+
+            {/* Employee Selection Section - Only for new tasks */}
+            {!initialData.id && (
+                <Form.Group className="mb-3">
+                    <Form.Label className="fw-bold">
+                        <i className="fas fa-users me-2"></i>
+                        Select Employees (Optional)
+                        <Badge bg="secondary" className="ms-2">
+                            {selectedEmployees.length} selected
+                        </Badge>
+                    </Form.Label>
+                    <div className="border rounded p-3" style={{maxHeight: '200px', overflowY: 'auto'}}>
+                        {employees.length === 0 ? (
+                            <div className="text-center text-muted py-3">
+                                <i className="fas fa-spinner fa-spin me-2"></i>
+                                Loading employees...
+                            </div>
+                        ) : (
+                            <>
+                                {/* Select All / None controls */}
+                                <div className="mb-2 pb-2 border-bottom">
+                                    <Button 
+                                        variant="outline-primary" 
+                                        size="sm" 
+                                        className="me-2"
+                                        onClick={() => setSelectedEmployees(employees.map(e => e.id))}
+                                    >
+                                        <i className="fas fa-check-square me-1"></i>
+                                        Select All
+                                    </Button>
+                                    <Button 
+                                        variant="outline-secondary" 
+                                        size="sm"
+                                        onClick={() => setSelectedEmployees([])}
+                                    >
+                                        <i className="fas fa-times me-1"></i>
+                                        Clear Selection
+                                    </Button>
+                                </div>
+                                
+                                {/* Employee list */}
+                                {employees.map(employee => (
+                                    <Form.Check
+                                        key={employee.id}
+                                        type="checkbox"
+                                        label={`${employee.first_name} ${employee.last_name} (${employee.role})`}
+                                        checked={selectedEmployees.includes(employee.id)}
+                                        onChange={() => {
+                                            if (selectedEmployees.includes(employee.id)) {
+                                                setSelectedEmployees(selectedEmployees.filter(id => id !== employee.id));
+                                            } else {
+                                                setSelectedEmployees([...selectedEmployees, employee.id]);
+                                            }
+                                        }}
+                                        disabled={submitting}
+                                        className="mb-2"
+                                    />
+                                ))}
+                            </>
+                        )}
+                    </div>
+                    <Form.Text className="text-muted">
+                        If no employees selected, task will be assigned to all active employees
+                    </Form.Text>
+                </Form.Group>
+            )}
+
+                <Form onSubmit={handleSubmit}>
+                    <Form.Group className="mb-3">
+                        <Form.Label className="fw-bold">Task Title *</Form.Label>
+                        <Form.Control
+                            type="text"
+                            name="title"
+                            value={formData.title}
+                            onChange={handleChange}
+                            placeholder="Enter task title"
+                            maxLength={200}
+                            disabled={submitting}
+                            required
+                        />
+                        <Form.Text className="text-muted">
+                            {formData.title.length}/200 characters
+                        </Form.Text>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                        <Form.Label className="fw-bold">Description</Form.Label>
+                        <Form.Control
+                            as="textarea"
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange}
+                            placeholder="Enter task description"
+                            rows={4}
+                            maxLength={2000}
+                            disabled={submitting}
+                        />
+                        <Form.Text className="text-muted">
+                            {formData.description.length}/2000 characters
+                        </Form.Text>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                        <Form.Label className="fw-bold">Priority *</Form.Label>
+                        <div>
+                            {Object.entries(taskConstants.priorityLabels).map(([value, label]) => (
+                                <Form.Check
+                                    key={value}
+                                    type="radio"
+                                    name="priority"
+                                    id={`priority-${value}`}
+                                    value={value}
+                                    checked={formData.priority === value}
+                                    onChange={handleChange}
+                                    disabled={submitting}
+                                    label={
+                                        <Badge bg={getPriorityColor(value)} className="me-2">
+                                            {label}
+                                        </Badge>
+                                    }
+                                />
+                            ))}
+                        </div>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                        <Form.Label className="fw-bold">Task Type *</Form.Label>
+                        <div>
+                            {Object.entries(taskConstants.typeLabels).map(([value, label]) => (
+                                <Form.Check
+                                    key={value}
+                                    type="radio"
+                                    name="task_type"
+                                    id={`type-${value}`}
+                                    value={value}
+                                    checked={formData.task_type === value}
+                                    onChange={handleChange}
+                                    disabled={submitting}
+                                    label={
+                                        <Badge bg={getTypeColor(value)} className="me-2">
+                                            {label}
+                                        </Badge>
+                                    }
+                                />
+                            ))}
+                        </div>
+                    </Form.Group>
+
+                    <Form.Group className="mb-4">
+                        <Form.Label className="fw-bold">Due Date</Form.Label>
+                        <Form.Control
+                            type="datetime-local"
+                            name="due_date"
+                            value={formData.due_date}
+                            onChange={handleChange}
+                            disabled={submitting}
+                            min={new Date().toISOString().slice(0, 16)}
+                        />
+                        <Form.Text className="text-muted">
+                            Leave empty if no due date is required
+                        </Form.Text>
+                    </Form.Group>
+
+                    <div className="d-flex gap-2 justify-content-end">
+                        <Button
+                            variant="secondary"
+                            onClick={onHide}
+                            disabled={submitting}
+                            className="px-4"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            disabled={submitting || !formData.title.trim()}
+                            className="px-4"
+                        >
+                            {submitting ? (
+                                <>
+                                    <i className="fas fa-spinner fa-spin me-2"></i>
+                                    {initialData.id ? 'Updating...' : 
+                                        selectedEmployees.length > 0 
+                                            ? `Creating ${selectedEmployees.length} tasks...`
+                                            : `Assigning to all ${employees.length} employees...`
+                                    }
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fas fa-users me-2"></i>
+                                    {initialData.id ? 'Update Task' : 
+selectedEmployees.length > 0 
+                            ? `Create for ${selectedEmployees.length} Selected Employees`
+                            : `Assign to All ${employees.length} Employees`
+                                    }
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </Form>
+            </Modal.Body>
+
+            <Modal.Footer className="bg-light">
+                <small className="text-muted">
+                    <i className="fas fa-info-circle me-1"></i>
+                    {initialData.id 
+                        ? 'This will update the existing task.'
+                        : selectedEmployees.length > 0 
+                            ? `This will create a task for ${selectedEmployees.length} selected employees.`
+                            : 'This will create a task for all active employees (Admin, Teacher, BDM).'
+                    }
+                </small>
+            </Modal.Footer>
+        </Modal>
+    );
+};
+
+export default BulkTaskModal;

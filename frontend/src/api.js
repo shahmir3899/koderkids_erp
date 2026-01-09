@@ -5,6 +5,7 @@
 // ============================================
 
 import axios from "axios";
+import { taskAPI, taskHelpers } from "./api/tasks";
 
 // ============================================
 // BASE CONFIGURATION
@@ -107,6 +108,25 @@ export const redirectUser = () => {
             break;
         default:
             window.location.href = "/login";
+    }
+};
+
+/**
+ * Get current user from localStorage (synchronous version)
+ * @returns {Object|null} User data from localStorage
+ */
+export const getAuthUser = () => {
+    try {
+        const user = {
+            fullName: localStorage.getItem("fullName"),
+            role: localStorage.getItem("role"),
+            email: localStorage.getItem("email"),
+            userId: localStorage.getItem("userId")
+        };
+        return user;
+    } catch (error) {
+        console.error("❌ Error getting user data:", error);
+        return null;
     }
 };
 
@@ -460,10 +480,10 @@ export const sendMessageToRobot = async (message) => {
 };
 
 // ============================================
-// EXPORT DEFAULT (for convenience)
+// NAMED EXPORT OBJECT (for convenience)
 // ============================================
 
-export default {
+export const apiExports = {
     // Configuration
     API_URL,
     
@@ -477,6 +497,7 @@ export default {
     logout,
     redirectUser,
     getLoggedInUser,
+    getAuthUser,
     
     // Students
     getStudents,
@@ -497,6 +518,10 @@ export default {
     getLessons,
     addLesson,
     updateLesson,
+    
+    // Tasks
+    taskAPI,
+    taskHelpers,
     
     // Finance
     getTransactions,

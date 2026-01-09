@@ -260,9 +260,15 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
     }
   }, [isOpen]);
 
+  // Fetch classes only when selected school changes
   useEffect(() => {
-    fetchClasses();
-  }, [fetchClasses]);
+    if (wizardData.selectedSchool) {
+      fetchClasses();
+    } else {
+      setClasses([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardData.selectedSchool]);
 
   // ============================================================
   // RENDER

@@ -1,0 +1,23 @@
+    @property
+    def is_overdue(self):
+        if self.due_date and self.status not in ['completed']:
+            return timezone.now() > self.due_date
+        return False
+    
+    def get_priority_color(self):
+        colors = {
+            'low': '#10B981',
+            'medium': '#3B82F6', 
+            'high': '#F59E0B',
+            'urgent': '#EF4444'
+        }
+        return colors.get(self.priority, '#6B7280')
+    
+    def get_status_color(self):
+        colors = {
+            'pending': '#6B7280',
+            'in_progress': '#3B82F6',
+            'completed': '#10B981',
+            'overdue': '#EF4444'
+        }
+        return colors.get(self.status, '#6B7280')

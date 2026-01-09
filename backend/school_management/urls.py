@@ -61,6 +61,7 @@ urlpatterns = [
     path('api/dashboards/', include('dashboards.urls')),
     path('api/reports/', include('reports.urls')),
     path('api/crm/', include('crm.urls')),
+    path('api/tasks/', include('tasks.urls')),
 
 
 
