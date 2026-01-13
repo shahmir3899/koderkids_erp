@@ -4,6 +4,13 @@
 // Location: src/components/teacher/CircularProgress.js
 
 import React from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
 
 /**
  * CircularProgress Component
@@ -29,28 +36,82 @@ export const CircularProgress = ({
   const offset = circumference - (percentage / 100) * circumference;
   const center = size / 2;
 
+  const containerStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    cursor: 'pointer',
+    transform: hovered ? 'scale(1.05)' : 'scale(1)',
+    transition: `transform ${TRANSITIONS.normal} ease`,
+  };
+
+  const headerStyle = {
+    marginBottom: SPACING.md,
+  };
+
+  const titleStyle = {
+    fontSize: FONT_SIZES.base,
+    fontFamily: 'Poly, serif',
+    color: COLORS.text.primary,
+    marginBottom: SPACING.xs,
+    lineHeight: '1.6',
+  };
+
+  const schoolNameStyle = {
+    fontSize: FONT_SIZES.base,
+    fontFamily: 'Poly, serif',
+    color: COLORS.text.primary,
+    lineHeight: '1.6',
+  };
+
+  const chartContainerStyle = {
+    position: 'relative',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
+  const svgStyle = {
+    display: 'block',
+  };
+
+  const progressCircleStyle = {
+    transition: `stroke-dashoffset 1.5s ease-in-out, filter ${TRANSITIONS.normal} ease`,
+    animation: 'progress-fill 1.5s ease-in-out',
+    filter: hovered ? 'drop-shadow(0 0 8px rgba(176, 97, 206, 0.6))' : 'none',
+  };
+
+  const percentageTextStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    fontSize: hovered ? '34px' : '30px',
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.accent.purple,
+    fontFamily: 'Inter, sans-serif',
+    lineHeight: '1',
+    transition: `font-size ${TRANSITIONS.normal} ease`,
+  };
+
   return (
-    <div 
-      style={{
-        ...styles.container,
-        transform: hovered ? 'scale(1.05)' : 'scale(1)',
-        transition: 'transform 0.3s ease',
-      }}
+    <div
+      style={containerStyle}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.title}>Course Completion chart</div>
-        <div style={styles.schoolName}>{schoolName}</div>
+      <div style={headerStyle}>
+        <div style={titleStyle}>Course Completion chart</div>
+        <div style={schoolNameStyle}>{schoolName}</div>
       </div>
-      
+
       {/* Chart */}
-      <div style={styles.chartContainer}>
-        <svg 
-          width={size} 
-          height={size} 
-          style={styles.svg}
+      <div style={chartContainerStyle}>
+        <svg
+          width={size}
+          height={size}
+          style={svgStyle}
           viewBox={`0 0 ${size} ${size}`}
         >
           {/* Background circle (light gray) */}
@@ -59,91 +120,34 @@ export const CircularProgress = ({
             cy={center}
             r={radius}
             fill="none"
-            stroke="#F2F2F7"
+            stroke={COLORS.background.offWhite}
             strokeWidth={strokeWidth}
             opacity={0.3}
           />
-          
+
           {/* Progress circle (purple) with animation */}
           <circle
             cx={center}
             cy={center}
             r={radius}
             fill="none"
-            stroke="#B061CE"
+            stroke={COLORS.accent.purple}
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             strokeLinecap="round"
             transform={`rotate(-90 ${center} ${center})`}
-            style={{
-              ...styles.progressCircle,
-              filter: hovered ? 'drop-shadow(0 0 8px rgba(176, 97, 206, 0.6))' : 'none',
-            }}
+            style={progressCircleStyle}
           />
         </svg>
-        
+
         {/* Percentage Text */}
-        <div style={{
-          ...styles.percentageText,
-          fontSize: hovered ? '34px' : '30px',
-          transition: 'font-size 0.3s ease',
-        }}>
+        <div style={percentageTextStyle}>
           {Math.round(percentage)}%
         </div>
       </div>
     </div>
   );
-};
-
-// Styles
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    cursor: 'pointer',
-  },
-  header: {
-    marginBottom: '1rem',
-  },
-  title: {
-    fontSize: '15px',
-    fontFamily: 'Poly, serif',
-    color: '#000000',
-    marginBottom: '0.25rem',
-    lineHeight: '1.6',
-  },
-  schoolName: {
-    fontSize: '15px',
-    fontFamily: 'Poly, serif',
-    color: '#000000',
-    lineHeight: '1.6',
-  },
-  chartContainer: {
-    position: 'relative',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  svg: {
-    display: 'block',
-  },
-  progressCircle: {
-    transition: 'stroke-dashoffset 1.5s ease-in-out, filter 0.3s ease',
-    animation: 'progress-fill 1.5s ease-in-out',
-  },
-  percentageText: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    fontSize: '30px',
-    fontWeight: '600',
-    color: '#B061CE',
-    fontFamily: 'Inter, sans-serif',
-    lineHeight: '1',
-  },
 };
 
 export default CircularProgress;

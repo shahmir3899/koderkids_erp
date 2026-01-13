@@ -5,6 +5,14 @@
 import React from 'react';
 import { useSchools } from '../../../hooks/useSchools';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * SchoolFilter Component
@@ -37,21 +45,28 @@ export const SchoolFilter = ({
 
   const selectStyle = {
     width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '1rem',
-    backgroundColor: disabled ? '#F3F4F6' : '#FFFFFF',
+    padding: SPACING.sm,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.lg,
+    backgroundColor: disabled ? COLORS.background.offWhite : COLORS.background.white,
     cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'border-color 0.2s ease',
+    transition: `border-color ${TRANSITIONS.normal} ease`,
+  };
+
+  const labelStyle = {
+    display: 'block',
+    marginBottom: SPACING.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.primary,
   };
 
   if (loading) {
     return (
       <div className={className}>
         {label && (
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
-            {label} {required && <span style={{ color: '#EF4444' }}>*</span>}
+          <label style={labelStyle}>
+            {label} {required && <span style={{ color: COLORS.status.error }}>*</span>}
           </label>
         )}
         <LoadingSpinner size="small" message="Loading schools..." />
@@ -63,11 +78,11 @@ export const SchoolFilter = ({
     return (
       <div className={className}>
         {label && (
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
-            {label} {required && <span style={{ color: '#EF4444' }}>*</span>}
+          <label style={labelStyle}>
+            {label} {required && <span style={{ color: COLORS.status.error }}>*</span>}
           </label>
         )}
-        <p style={{ color: '#EF4444', fontSize: '0.875rem' }}>Error loading schools</p>
+        <p style={{ color: COLORS.status.error, fontSize: FONT_SIZES.sm }}>Error loading schools</p>
       </div>
     );
   }
@@ -75,11 +90,8 @@ export const SchoolFilter = ({
   return (
     <div className={className}>
       {label && (
-        <label 
-          htmlFor="school-filter" 
-          style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}
-        >
-          {label} {required && <span style={{ color: '#EF4444' }}>*</span>}
+        <label htmlFor="school-filter" style={labelStyle}>
+          {label} {required && <span style={{ color: COLORS.status.error }}>*</span>}
         </label>
       )}
       <select
@@ -88,8 +100,8 @@ export const SchoolFilter = ({
         onChange={handleChange}
         disabled={disabled}
         style={selectStyle}
-        onFocus={(e) => { e.target.style.borderColor = '#3B82F6'; }}
-        onBlur={(e) => { e.target.style.borderColor = '#D1D5DB'; }}
+        onFocus={(e) => { e.target.style.borderColor = COLORS.status.info; }}
+        onBlur={(e) => { e.target.style.borderColor = COLORS.border.light; }}
         required={required}
       >
         <option value="">{placeholder}</option>

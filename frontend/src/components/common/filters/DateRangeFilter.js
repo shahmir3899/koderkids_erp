@@ -4,6 +4,14 @@
 // Location: src/components/common/filters/DateRangeFilter.js
 
 import React from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * DateRangeFilter Component - Provides start and end date inputs
@@ -31,40 +39,40 @@ export const DateRangeFilter = ({
 }) => {
   const containerStyle = {
     display: inline ? 'flex' : 'contents',
-    gap: inline ? '1rem' : undefined,
+    gap: inline ? SPACING.sm : undefined,
   };
 
   const fieldStyle = {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
+    gap: SPACING.xs,
   };
 
   const labelStyle = {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.primary,
   };
 
   const inputStyle = {
     width: '100%',
-    padding: '0.625rem 0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    color: '#374151',
-    backgroundColor: '#FFFFFF',
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.primary,
+    backgroundColor: COLORS.background.white,
+    transition: `border-color ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
     outline: 'none',
   };
 
   const handleFocus = (e) => {
-    e.target.style.borderColor = '#3B82F6';
-    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+    e.target.style.borderColor = COLORS.status.info;
+    e.target.style.boxShadow = `0 0 0 3px rgba(59, 130, 246, 0.1)`;
   };
 
   const handleBlur = (e) => {
-    e.target.style.borderColor = '#D1D5DB';
+    e.target.style.borderColor = COLORS.border.light;
     e.target.style.boxShadow = 'none';
   };
 
@@ -74,7 +82,7 @@ export const DateRangeFilter = ({
       <div style={fieldStyle}>
         <label style={labelStyle}>
           {startLabel}
-          {required && <span style={{ color: '#EF4444', marginLeft: '4px' }}>*</span>}
+          {required && <span style={{ color: COLORS.status.error, marginLeft: '4px' }}>*</span>}
         </label>
         <input
           type="date"
@@ -91,7 +99,7 @@ export const DateRangeFilter = ({
       <div style={fieldStyle}>
         <label style={labelStyle}>
           {endLabel}
-          {required && <span style={{ color: '#EF4444', marginLeft: '4px' }}>*</span>}
+          {required && <span style={{ color: COLORS.status.error, marginLeft: '4px' }}>*</span>}
         </label>
         <input
           type="date"

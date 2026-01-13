@@ -3,6 +3,15 @@
 // ============================================
 
 import React from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
 
 /**
  * UserStatsCards Component
@@ -118,43 +127,43 @@ export const UserStatsCards = ({
 const containerStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-  gap: '1.5rem',
-  marginBottom: '2rem',
+  gap: SPACING.lg,
+  marginBottom: SPACING.xl,
 };
 
 const cardStyle = {
-  backgroundColor: '#FFFFFF',
-  borderRadius: '12px',
-  padding: '1.5rem',
-  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+  backgroundColor: COLORS.background.white,
+  borderRadius: BORDER_RADIUS.md,
+  padding: SPACING.lg,
+  boxShadow: SHADOWS.sm,
   borderLeft: '4px solid',
-  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+  transition: `transform ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
   cursor: 'default',
 };
 
 const labelStyle = {
-  fontSize: '0.875rem',
-  fontWeight: '500',
-  color: '#6B7280',
-  marginBottom: '0.5rem',
+  fontSize: FONT_SIZES.sm,
+  fontWeight: FONT_WEIGHTS.medium,
+  color: COLORS.text.secondary,
+  marginBottom: SPACING.xs,
 };
 
 const valueStyle = {
-  fontSize: '2rem',
-  fontWeight: '700',
+  fontSize: FONT_SIZES['2xl'],
+  fontWeight: FONT_WEIGHTS.bold,
   lineHeight: '1',
 };
 
 const iconStyle = {
   width: '48px',
   height: '48px',
-  borderRadius: '12px',
+  borderRadius: BORDER_RADIUS.md,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: '1.5rem',
+  fontSize: FONT_SIZES.xl,
   flexShrink: 0,
-  marginLeft: '1rem',
+  marginLeft: SPACING.md,
 };
 
 export default UserStatsCards;

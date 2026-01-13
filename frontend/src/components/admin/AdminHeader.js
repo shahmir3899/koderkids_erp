@@ -3,29 +3,55 @@
 // ============================================
 
 import React from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+} from '../../utils/designConstants';
 
 export const AdminHeader = () => {
   return (
-    <header style={{
-      backgroundColor: '#3B82F6',
-      color: '#FFFFFF',
-      padding: '1.5rem',
-      borderRadius: '12px',
-      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-      marginBottom: '2rem',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <img 
-          src="/whiteLogo.png" 
-          alt="Koder Kids Logo" 
-          style={{ height: '3rem', width: 'auto', marginRight: '1rem' }} 
+    <header style={styles.header}>
+      <div style={styles.container}>
+        <img
+          src="/whiteLogo.png"
+          alt="Koder Kids Logo"
+          style={styles.logo}
         />
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>
+        <h1 style={styles.title}>
           Koder Kids Admin Dashboard
         </h1>
       </div>
     </header>
   );
+};
+
+const styles = {
+  header: {
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    boxShadow: SHADOWS.md,
+    marginBottom: SPACING.xl,
+  },
+  container: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  logo: {
+    height: SPACING.xl,
+    width: 'auto',
+    marginRight: SPACING.sm,
+  },
+  title: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    margin: 0,
+  },
 };
 
 export default AdminHeader;

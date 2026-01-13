@@ -4,6 +4,12 @@
 // Location: src/components/common/ui/ProgressIndicator.js
 
 import React, { useMemo } from 'react';
+import {
+  COLORS,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * ProgressIndicator Component
@@ -27,8 +33,8 @@ export const ProgressIndicator = ({
   showPercentage = true,
   showCounts = true,
   size = 'medium',
-  color = '#3B82F6',
-  backgroundColor = '#E5E7EB',
+  color = COLORS.status.info,
+  backgroundColor = COLORS.border.light,
   className = '',
 }) => {
   // Calculate percentage
@@ -39,17 +45,17 @@ export const ProgressIndicator = ({
 
   // Determine color based on progress
   const progressColor = useMemo(() => {
-    if (percentage >= 100) return '#10B981'; // Green when complete
-    if (percentage >= 50) return color; // Default color
-    if (percentage >= 25) return '#F59E0B'; // Yellow for low progress
-    return '#EF4444'; // Red for very low progress
+    if (percentage >= 100) return COLORS.status.success;
+    if (percentage >= 50) return color;
+    if (percentage >= 25) return COLORS.status.warning;
+    return COLORS.status.error;
   }, [percentage, color]);
 
   // Size configurations
   const sizes = {
-    small: { height: '6px', fontSize: '0.75rem', gap: '0.5rem' },
-    medium: { height: '8px', fontSize: '0.875rem', gap: '0.75rem' },
-    large: { height: '12px', fontSize: '1rem', gap: '1rem' },
+    small: { height: '6px', fontSize: FONT_SIZES.xs, gap: '0.5rem' },
+    medium: { height: '8px', fontSize: FONT_SIZES.sm, gap: '0.75rem' },
+    large: { height: '12px', fontSize: FONT_SIZES.lg, gap: '1rem' },
   };
 
   const { height, fontSize, gap } = sizes[size] || sizes.medium;
@@ -64,8 +70,8 @@ export const ProgressIndicator = ({
 
   const labelStyle = {
     fontSize,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.primary,
     whiteSpace: 'nowrap',
   };
 
@@ -83,7 +89,7 @@ export const ProgressIndicator = ({
     width: `${percentage}%`,
     backgroundColor: progressColor,
     borderRadius: '9999px',
-    transition: 'width 0.3s ease, background-color 0.3s ease',
+    transition: `width ${TRANSITIONS.slow} ease, background-color ${TRANSITIONS.slow} ease`,
   };
 
   const statsStyle = {
@@ -91,17 +97,17 @@ export const ProgressIndicator = ({
     alignItems: 'center',
     gap: '0.5rem',
     fontSize,
-    color: '#6B7280',
+    color: COLORS.text.secondary,
     whiteSpace: 'nowrap',
   };
 
   const countStyle = {
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
   };
 
   const percentageStyle = {
-    fontWeight: '500',
+    fontWeight: FONT_WEIGHTS.medium,
     color: progressColor,
   };
 

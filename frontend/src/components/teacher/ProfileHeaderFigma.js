@@ -8,7 +8,16 @@ import moment from 'moment';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 import { NotificationPanel } from '../common/ui/NotificationPanel';
 import { TeacherSettingsModal } from './TeacherSettingsModal';
-import { clearCacheOnLogout } from '../../utils/cacheUtils';  // ← ADD AT TOP
+import { clearCacheOnLogout } from '../../utils/cacheUtils';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
 
 
 /**
@@ -196,34 +205,34 @@ export const ProfileHeaderFigma = ({ profile, loading, onProfileUpdate }) => {
 // Styles
 const styles = {
   loadingContainer: {
-    backgroundColor: '#FFFFFF',
-    padding: '3rem',
-    marginBottom: '2rem',
+    backgroundColor: COLORS.background.white,
+    padding: SPACING['2xl'],
+    marginBottom: SPACING.xl,
   },
   container: {
     position: 'relative',
     display: 'flex',
     alignItems: 'flex-start',
-    gap: '2rem',
-    backgroundColor: '#FFFFFF',
-    padding: '2rem 3rem',
+    gap: SPACING.xl,
+    backgroundColor: COLORS.background.white,
+    padding: `${SPACING.xl} ${SPACING['2xl']}`,
     marginBottom: '0',
   },
   avatar: {
     width: '101px',
     height: '101px',
-    borderRadius: '50%',
+    borderRadius: BORDER_RADIUS.full,
     objectFit: 'cover',
     flexShrink: 0,
-    border: '3px solid #F3F4F6',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    border: `3px solid ${COLORS.background.offWhite}`,
+    boxShadow: SHADOWS.sm,
   },
   middleSection: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: '1rem',
-    paddingTop: '0.5rem',
+    gap: SPACING.sm,
+    paddingTop: SPACING.xs,
   },
   topRow: {
     display: 'flex',
@@ -232,33 +241,33 @@ const styles = {
   leftColumn: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.25rem',
+    gap: SPACING.xs,
     flex: 1,
   },
   empId: {
-    fontSize: '10px',
-    fontWeight: '600',
-    color: '#666666',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.secondary,
     fontFamily: 'Inter, sans-serif',
     margin: 0,
   },
   welcomeRow: {
     display: 'flex',
     alignItems: 'baseline',
-    gap: '2rem', // Space between name and role (matching Figma ~36% position)
+    gap: SPACING.xl,
   },
   welcomeText: {
     fontSize: '26px',
-    fontWeight: '700',
+    fontWeight: FONT_WEIGHTS.bold,
     color: '#B061CE',
     fontFamily: 'Montserrat, sans-serif',
     margin: 0,
     lineHeight: '26px',
   },
   roleText: {
-    fontSize: '10px',
-    fontWeight: '600',
-    color: '#666666',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.secondary,
     fontFamily: 'Inter, sans-serif',
     margin: 0,
     whiteSpace: 'nowrap',
@@ -266,51 +275,49 @@ const styles = {
   detailsRow: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',  // ← ADD THIS
-
-    fontSize: '10px',
-    color: '#666666',
+    justifyContent: 'space-between',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.secondary,
     fontFamily: 'Inter, sans-serif',
-    paddingTop: '0.5rem',
-    flexWrap: 'wrap', // Allow wrapping on smaller screens
+    paddingTop: SPACING.xs,
+    flexWrap: 'wrap',
   },
   detailItem: {
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHTS.semibold,
     whiteSpace: 'nowrap',
   },
   detailBlock: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    paddingRight: '1rem',
-    //borderRight: '1px solid #D2D2D2',
-    fontWeight: '600',
+    gap: SPACING.xs,
+    paddingRight: SPACING.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
     whiteSpace: 'nowrap',
   },
   label: {
-    fontWeight: '700', // CHANGED: Increased from '600' to '700' to make labels bolder
-    marginRight: '0.25rem',
+    fontWeight: FONT_WEIGHTS.bold,
+    marginRight: SPACING.xs,
   },
   verticalSeparator: {
-    borderRight: '1px solid #D2D2D2',
+    borderRight: `1px solid ${COLORS.border.default}`,
     height: '10px',
     display: 'inline-block',
-    margin: '0 0.25rem',
+    margin: `0 ${SPACING.xs}`,
   },
   iconContainer: {
     display: 'flex',
-    gap: '1rem',
+    gap: SPACING.sm,
     alignItems: 'flex-start',
-    paddingTop: '1rem',
+    paddingTop: SPACING.sm,
   },
   iconButton: {
-    padding: '0.5rem',
+    padding: SPACING.xs,
     background: 'transparent',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    color: '#666666',
-    transition: 'all 0.2s ease',
+    color: COLORS.text.secondary,
+    transition: `all ${TRANSITIONS.base} ease`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -322,10 +329,10 @@ const styles = {
   smallAvatar: {
     width: '2.5rem',
     height: '2.5rem',
-    borderRadius: '50%',
+    borderRadius: BORDER_RADIUS.full,
     objectFit: 'cover',
-    border: '2px solid #F3F4F6',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    border: `2px solid ${COLORS.background.offWhite}`,
+    boxShadow: SHADOWS.xs,
   },
   bottomBorder: {
     position: 'absolute',
@@ -333,7 +340,7 @@ const styles = {
     left: 0,
     right: 0,
     height: '1px',
-    backgroundColor: '#D2D2D2',
+    backgroundColor: COLORS.border.default,
   },
 };
 
@@ -342,8 +349,8 @@ if (typeof document !== 'undefined') {
   const styleSheet = document.createElement('style');
   styleSheet.textContent = `
     .profile-icon-button:hover {
-      background-color: #F3F4F6 !important;
-      color: #1F2937 !important;
+      background-color: ${COLORS.background.offWhite} !important;
+      color: ${COLORS.text.primary} !important;
     }
   `;
   if (!document.head.querySelector('style[data-profile-header-styles]')) {

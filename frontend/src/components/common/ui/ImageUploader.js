@@ -6,6 +6,14 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import Compressor from 'compressorjs';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * ImageUploader Component
@@ -133,53 +141,53 @@ export const ImageUploader = ({
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: SPACING.xs,
   };
 
   const buttonBaseStyle = {
-    padding: '0.5rem 1rem',
-    fontSize: '0.875rem',
-    fontWeight: '500',
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
     border: 'none',
-    borderRadius: '0.375rem',
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: `all ${TRANSITIONS.fast} ease`,
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '0.25rem',
+    gap: SPACING.xs,
   };
 
   const browseButtonStyle = {
     ...buttonBaseStyle,
-    backgroundColor: '#6B7280',
-    color: '#FFFFFF',
+    backgroundColor: COLORS.text.secondary,
+    color: COLORS.text.white,
   };
 
   const uploadButtonStyle = {
     ...buttonBaseStyle,
-    backgroundColor: selectedFile ? '#3B82F6' : '#D1D5DB',
-    color: '#FFFFFF',
+    backgroundColor: selectedFile ? COLORS.status.info : COLORS.border.light,
+    color: COLORS.text.white,
     cursor: selectedFile && !isUploading ? 'pointer' : 'not-allowed',
     opacity: selectedFile ? 1 : 0.6,
   };
 
   const deleteButtonStyle = {
     ...buttonBaseStyle,
-    backgroundColor: '#EF4444',
-    color: '#FFFFFF',
+    backgroundColor: COLORS.status.error,
+    color: COLORS.text.white,
   };
 
   const imagePreviewStyle = {
     width: '80px',
     height: '80px',
-    borderRadius: '0.5rem',
-    border: '1px solid #D1D5DB',
+    borderRadius: BORDER_RADIUS.sm,
+    border: `1px solid ${COLORS.border.light}`,
     objectFit: 'cover',
   };
 
   const fileNameStyle = {
-    fontSize: '0.75rem',
-    color: '#6B7280',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.secondary,
     maxWidth: '150px',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -204,10 +212,10 @@ export const ImageUploader = ({
         disabled={disabled || isProcessing}
         style={browseButtonStyle}
         onMouseEnter={(e) => {
-          if (!disabled) e.currentTarget.style.backgroundColor = '#4B5563';
+          if (!disabled) e.currentTarget.style.backgroundColor = COLORS.text.primary;
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = '#6B7280';
+          e.currentTarget.style.backgroundColor = COLORS.text.secondary;
         }}
       >
         {isProcessing ? '⏳ Processing...' : '📁 Browse'}
@@ -227,12 +235,12 @@ export const ImageUploader = ({
         style={uploadButtonStyle}
         onMouseEnter={(e) => {
           if (selectedFile && !isUploading) {
-            e.currentTarget.style.backgroundColor = '#2563EB';
+            e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
           }
         }}
         onMouseLeave={(e) => {
           if (selectedFile) {
-            e.currentTarget.style.backgroundColor = '#3B82F6';
+            e.currentTarget.style.backgroundColor = COLORS.status.info;
           }
         }}
       >
@@ -255,10 +263,10 @@ export const ImageUploader = ({
             disabled={disabled}
             style={deleteButtonStyle}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#DC2626';
+              e.currentTarget.style.backgroundColor = COLORS.status.errorDark;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#EF4444';
+              e.currentTarget.style.backgroundColor = COLORS.status.error;
             }}
           >
             🗑️ Delete

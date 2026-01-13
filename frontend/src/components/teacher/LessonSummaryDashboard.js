@@ -4,6 +4,15 @@
 // Location: src/components/teacher/LessonSummaryDashboard.js
 
 import React, { useMemo } from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
 
 /**
  * LessonSummaryDashboard Component
@@ -92,7 +101,7 @@ export const LessonSummaryDashboard = ({ data = [], loading = false }) => {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#F3F4F6"
+          stroke={COLORS.background.offWhite}
           strokeWidth={strokeWidth}
         />
         <circle
@@ -100,13 +109,13 @@ export const LessonSummaryDashboard = ({ data = [], loading = false }) => {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#7C3AED"
+          stroke={COLORS.primary}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
           style={{
-            transition: 'stroke-dashoffset 0.5s ease'
+            transition: `stroke-dashoffset ${TRANSITIONS.slower} ease`
           }}
         />
       </svg>
@@ -202,30 +211,30 @@ const styles = {
     width: '100%',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.5rem',
+    gap: SPACING.lg,
   },
   loading: {
     textAlign: 'center',
-    padding: '3rem',
-    color: '#6B7280',
-    fontSize: '1rem',
+    padding: SPACING['2xl'],
+    color: COLORS.text.secondary,
+    fontSize: FONT_SIZES.base,
   },
   empty: {
     textAlign: 'center',
-    padding: '3rem',
-    color: '#6B7280',
-    fontSize: '1rem',
+    padding: SPACING['2xl'],
+    color: COLORS.text.secondary,
+    fontSize: FONT_SIZES.base,
   },
   // Overview Card
   overviewCard: {
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    borderRadius: '12px',
-    padding: '2rem',
-    color: 'white',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.xl,
+    color: COLORS.text.white,
     display: 'flex',
     justifyContent: 'space-around',
     alignItems: 'center',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    boxShadow: SHADOWS.md,
   },
   overviewDonut: {
     position: 'relative',
@@ -240,46 +249,46 @@ const styles = {
     textAlign: 'center',
   },
   overviewDonutPercent: {
-    fontSize: '1.8rem',
-    fontWeight: '700',
+    fontSize: FONT_SIZES['3xl'],
+    fontWeight: FONT_WEIGHTS.bold,
   },
   overviewDonutLabel: {
-    fontSize: '0.75rem',
+    fontSize: FONT_SIZES.xs,
     opacity: 0.9,
   },
   overviewStats: {
     display: 'flex',
-    gap: '3rem',
+    gap: SPACING['2xl'],
   },
   statItem: {
     textAlign: 'center',
   },
   statValue: {
-    fontSize: '2rem',
-    fontWeight: '700',
-    marginBottom: '0.25rem',
+    fontSize: FONT_SIZES['4xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    marginBottom: SPACING.xs,
   },
   statLabel: {
-    fontSize: '0.9rem',
+    fontSize: FONT_SIZES.sm,
     opacity: 0.9,
   },
   // Schools Grid
   schoolsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-    gap: '1.5rem',
+    gap: SPACING.lg,
   },
   schoolCard: {
-    border: '2px solid #E5E7EB',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    backgroundColor: '#FFFFFF',
+    border: `2px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.background.white,
   },
   schoolHeader: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem',
-    marginBottom: '1rem',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
   schoolDonut: {
     position: 'relative',
@@ -292,63 +301,63 @@ const styles = {
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
-    fontSize: '1.2rem',
-    fontWeight: '700',
-    color: '#7C3AED',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.primary,
   },
   schoolInfo: {
     flex: 1,
   },
   schoolName: {
-    fontSize: '1.1rem',
-    color: '#1F2937',
-    marginBottom: '0.25rem',
-    fontWeight: '600',
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
   },
   schoolStats: {
-    fontSize: '0.85rem',
-    color: '#6B7280',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.secondary,
     margin: 0,
   },
   // Progress Bars
   progressBars: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
+    gap: SPACING.sm,
   },
   progressBarItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem',
+    gap: SPACING.sm,
   },
   progressBarLabel: {
     width: '70px',
-    fontSize: '0.85rem',
-    fontWeight: '600',
-    color: '#4B5563',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
   },
   progressBarTrack: {
     flex: 1,
     height: '24px',
-    background: '#F3F4F6',
-    borderRadius: '12px',
+    background: COLORS.background.offWhite,
+    borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden',
     position: 'relative',
   },
   progressBarFill: {
     height: '100%',
     background: 'linear-gradient(to right, #7C3AED, #A78BFA)',
-    transition: 'width 0.5s ease',
+    transition: `width ${TRANSITIONS.slower} ease`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingRight: '0.5rem',
-    minWidth: '50px', // Ensure label is always visible
+    paddingRight: SPACING.xs,
+    minWidth: '50px',
   },
   progressBarPercent: {
-    fontSize: '0.75rem',
-    fontWeight: '600',
-    color: 'white',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
   },
 };
 

@@ -16,6 +16,15 @@ import {
   LabelList,
 } from 'recharts';
 import { CHART_COLORS } from '../../../utils/constants';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  MIXINS,
+  SHADOWS,
+} from '../../../utils/designConstants';
 
 /**
  * BarChartWrapper Component
@@ -54,16 +63,16 @@ export const BarChartWrapper = ({
     if (active && payload && payload.length) {
       return (
         <div style={{
-          backgroundColor: '#FFFFFF',
-          padding: '0.75rem 1rem',
-          border: '1px solid #E5E7EB',
-          borderRadius: '8px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          ...MIXINS.glassmorphicWhite,
+          padding: `0.75rem ${SPACING.sm}`,
+          border: `1px solid ${COLORS.border.whiteMedium}`,
+          borderRadius: BORDER_RADIUS.sm,
+          boxShadow: SHADOWS.md,
         }}>
-          <p style={{ margin: 0, fontWeight: '600', color: '#374151' }}>
+          <p style={{ margin: 0, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.text.primary }}>
             {payload[0].payload[xAxisKey]}
           </p>
-          <p style={{ margin: '0.25rem 0 0 0', color: '#6B7280' }}>
+          <p style={{ margin: '0.25rem 0 0 0', color: COLORS.text.secondary }}>
             {label || dataKey}: <strong>{payload[0].value.toLocaleString()}</strong>
           </p>
         </div>
@@ -74,12 +83,12 @@ export const BarChartWrapper = ({
 
   if (!data || data.length === 0) {
     return (
-      <div style={{ 
-        height: height, 
-        display: 'flex', 
-        alignItems: 'center', 
+      <div style={{
+        height: height,
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
-        color: '#9CA3AF'
+        color: COLORS.text.whiteSubtle
       }}>
         No chart data available
       </div>
@@ -89,11 +98,11 @@ export const BarChartWrapper = ({
   return (
     <div className={className}>
       {label && (
-        <h3 style={{ 
-          marginBottom: '1rem', 
-          fontSize: '1.125rem', 
-          fontWeight: '600',
-          color: '#374151'
+        <h3 style={{
+          marginBottom: SPACING.sm,
+          fontSize: FONT_SIZES.xl,
+          fontWeight: FONT_WEIGHTS.semibold,
+          color: COLORS.text.white
         }}>
           {label}
         </h3>
@@ -104,28 +113,28 @@ export const BarChartWrapper = ({
           layout={horizontal ? 'vertical' : 'horizontal'}
           margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
         >
-          {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />}
-          
+          {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border.whiteSubtle} />}
+
           {horizontal ? (
             <>
-              <XAxis type="number" stroke="#6B7280" />
-              <YAxis type="category" dataKey={xAxisKey} stroke="#6B7280" />
+              <XAxis type="number" stroke={COLORS.text.whiteSubtle} />
+              <YAxis type="category" dataKey={xAxisKey} stroke={COLORS.text.whiteSubtle} />
             </>
           ) : (
             <>
-              <XAxis dataKey={xAxisKey} stroke="#6B7280" />
-              <YAxis stroke="#6B7280" />
+              <XAxis dataKey={xAxisKey} stroke={COLORS.text.whiteSubtle} />
+              <YAxis stroke={COLORS.text.whiteSubtle} />
             </>
           )}
-          
+
           <Tooltip content={customTooltip || <DefaultTooltip />} />
           {showLegend && <Legend />}
-          
+
           <Bar dataKey={dataKey} fill={color} radius={[8, 8, 0, 0]}>
             {colors.length > 0 && data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
             ))}
-            {showLabels && <LabelList dataKey={dataKey} position="top" fill="#374151" />}
+            {showLabels && <LabelList dataKey={dataKey} position="top" fill={COLORS.text.white} />}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

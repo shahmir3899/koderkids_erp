@@ -4,6 +4,14 @@
 
 import React from 'react';
 import { InlineSpinner } from './LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * Button Component
@@ -32,53 +40,53 @@ export const Button = ({
   icon = null,
   ...rest
 }) => {
-  // Variant styles
+  // Variant styles using design constants
   const variantStyles = {
     primary: {
-      backgroundColor: '#3B82F6',
-      color: '#FFFFFF',
+      backgroundColor: COLORS.status.info,
+      color: COLORS.text.white,
       border: 'none',
-      hover: '#2563EB',
+      hover: COLORS.status.infoDark,
     },
     secondary: {
-      backgroundColor: '#FFFFFF',
-      color: '#3B82F6',
-      border: '1px solid #3B82F6',
-      hover: '#F3F4F6',
+      backgroundColor: COLORS.background.white,
+      color: COLORS.status.info,
+      border: `1px solid ${COLORS.status.info}`,
+      hover: COLORS.background.lightGray,
     },
     danger: {
-      backgroundColor: '#EF4444',
-      color: '#FFFFFF',
+      backgroundColor: COLORS.status.error,
+      color: COLORS.text.white,
       border: 'none',
-      hover: '#DC2626',
+      hover: COLORS.status.errorDark,
     },
     success: {
-      backgroundColor: '#10B981',
-      color: '#FFFFFF',
+      backgroundColor: COLORS.status.success,
+      color: COLORS.text.white,
       border: 'none',
-      hover: '#059669',
+      hover: COLORS.status.successDark,
     },
     warning: {
-      backgroundColor: '#F59E0B',
-      color: '#FFFFFF',
+      backgroundColor: COLORS.status.warning,
+      color: COLORS.text.white,
       border: 'none',
-      hover: '#D97706',
+      hover: COLORS.status.warningDark,
     },
   };
 
-  // Size styles
+  // Size styles using design constants
   const sizeStyles = {
     small: {
-      padding: '0.5rem 1rem',
-      fontSize: '0.875rem',
+      padding: `${SPACING.xs} ${SPACING.sm}`,
+      fontSize: FONT_SIZES.sm,
     },
     medium: {
-      padding: '0.75rem 1.5rem',
-      fontSize: '1rem',
+      padding: `${SPACING.xs} ${SPACING.md}`,
+      fontSize: FONT_SIZES.lg,
     },
     large: {
-      padding: '1rem 2rem',
-      fontSize: '1.125rem',
+      padding: `${SPACING.sm} ${SPACING.lg}`,
+      fontSize: FONT_SIZES.xl,
     },
   };
 
@@ -89,11 +97,11 @@ export const Button = ({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.5rem',
-    fontWeight: '500',
-    borderRadius: '0.5rem',
+    gap: SPACING.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    borderRadius: BORDER_RADIUS.sm,
     cursor: disabled || loading ? 'not-allowed' : 'pointer',
-    transition: 'all 0.2s ease',
+    transition: `all ${TRANSITIONS.normal} ease`,
     opacity: disabled || loading ? 0.6 : 1,
     width: fullWidth ? '100%' : 'auto',
     ...currentSize,

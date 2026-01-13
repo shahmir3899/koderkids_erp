@@ -5,6 +5,13 @@
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * TableHeader Component
@@ -38,31 +45,31 @@ export const TableHeader = ({
   };
 
   const headerStyle = {
-    padding: '1rem',
+    padding: SPACING.sm,
     textAlign: align,
-    fontWeight: '600',
-    fontSize: '0.875rem',
-    color: '#374151',
-    backgroundColor: '#F9FAFB',
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.background.whiteMedium,
     cursor: sortable ? 'pointer' : 'default',
     userSelect: 'none',
-    transition: 'background-color 0.15s ease',
-    borderBottom: '2px solid #E5E7EB',
+    transition: `background-color ${TRANSITIONS.fast} ease`,
+    borderBottom: `2px solid ${COLORS.border.whiteMedium}`,
     width: width,
     whiteSpace: 'nowrap',
   };
 
   const getSortIcon = () => {
     if (!sortable) return null;
-    
+
     if (!isSorted) {
-      return <FontAwesomeIcon icon={faSort} style={{ marginLeft: '0.5rem', color: '#9CA3AF' }} />;
+      return <FontAwesomeIcon icon={faSort} style={{ marginLeft: SPACING.xs, color: COLORS.text.whiteSubtle }} />;
     }
-    
+
     return (
-      <FontAwesomeIcon 
-        icon={direction === 'asc' ? faSortUp : faSortDown} 
-        style={{ marginLeft: '0.5rem', color: '#3B82F6' }} 
+      <FontAwesomeIcon
+        icon={direction === 'asc' ? faSortUp : faSortDown}
+        style={{ marginLeft: SPACING.xs, color: COLORS.text.white }}
       />
     );
   };
@@ -73,11 +80,11 @@ export const TableHeader = ({
       onClick={handleClick}
       onMouseEnter={(e) => {
         if (sortable) {
-          e.currentTarget.style.backgroundColor = '#F3F4F6';
+          e.currentTarget.style.backgroundColor = COLORS.background.whiteStrong;
         }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = '#F9FAFB';
+        e.currentTarget.style.backgroundColor = COLORS.background.whiteMedium;
       }}
       className={className}
     >

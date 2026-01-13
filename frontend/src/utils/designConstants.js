@@ -11,20 +11,32 @@ export const COLORS = {
   primary: '#B061CE',
   primaryDark: '#9A4FB8',
   primaryLight: '#C87FDD',
-  
+
   // Background Colors
   background: {
     white: '#FFFFFF',
     gray: '#F2F2F7',
     lightGray: '#F9FAFB',
+    offWhite: '#F3F4F6',
+    gradient: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #2362ab 100%)',
+    whiteVerySubtle: 'rgba(255, 255, 255, 0.05)',
+    whiteSubtle: 'rgba(255, 255, 255, 0.08)',
+    whiteMedium: 'rgba(255, 255, 255, 0.12)',
+    whiteStrong: 'rgba(255, 255, 255, 0.15)',
+    overlay: 'rgba(0, 0, 0, 0.5)',
   },
-  
+
   // Text Colors
   text: {
     primary: '#000000',
     secondary: '#666666',
     tertiary: '#9CA3AF',
+    muted: '#9CA3AF',
     light: '#D1D5DB',
+    white: '#FFFFFF',
+    whiteTransparent: 'rgba(255, 255, 255, 0.9)',
+    whiteMedium: 'rgba(255, 255, 255, 0.8)',
+    whiteSubtle: 'rgba(255, 255, 255, 0.7)',
   },
   
   // Border Colors
@@ -32,14 +44,29 @@ export const COLORS = {
     default: '#D2D2D2',
     light: '#E5E7EB',
     dark: '#9CA3AF',
+    whiteTransparent: 'rgba(255, 255, 255, 0.18)',
+    whiteSubtle: 'rgba(255, 255, 255, 0.1)',
+    whiteMedium: 'rgba(255, 255, 255, 0.2)',
+    whiteStrong: 'rgba(255, 255, 255, 0.3)',
   },
   
   // Status Colors
   status: {
     success: '#10B981',
+    successDark: '#059669',
+    successLight: '#D1FAE5',
     warning: '#F59E0B',
+    warningDark: '#D97706',
+    warningDarker: '#B45309',
+    warningLight: '#FEF3C7',
     error: '#EF4444',
+    errorDark: '#DC2626',
+    errorDarker: '#B91C1C',
+    errorLight: '#FEE2E2',
     info: '#3B82F6',
+    infoDark: '#2563EB',
+    infoDarker: '#1D4ED8',
+    infoLight: '#DBEAFE',
   },
   
   // Class Colors (for lesson calendar)
@@ -49,6 +76,12 @@ export const COLORS = {
     'Class 3': '#3B82F6',
     'Class 4': '#8B5CF6',
     'Class 5': '#EC4899',
+  },
+
+  // Accent Colors (brand colors for special UI elements)
+  accent: {
+    purple: '#B061CE',
+    blue: '#2362ab',
   },
 };
 
@@ -65,15 +98,15 @@ export const FONTS = {
  * Font sizes
  */
 export const FONT_SIZES = {
-  xs: '10px',
-  sm: '12px',
-  base: '14px',
-  md: '15px',
-  lg: '16px',
-  xl: '18px',
-  '2xl': '20px',
-  '3xl': '26px',
-  '4xl': '30px',
+  xs: '0.625rem',   // 10px
+  sm: '0.875rem',   // 14px
+  base: '1rem',     // 16px
+  md: '1.125rem',   // 18px
+  lg: '1.25rem',    // 20px
+  xl: '1.5rem',     // 24px
+  '2xl': '1.875rem', // 30px
+  '3xl': '2.25rem',  // 36px
+  '4xl': '3rem',     // 48px
 };
 
 /**
@@ -88,16 +121,16 @@ export const FONT_WEIGHTS = {
 };
 
 /**
- * Spacing system (based on 8px grid)
+ * Spacing system (based on 4px grid)
  */
 export const SPACING = {
-  xs: '0.5rem',   // 8px
-  sm: '1rem',     // 16px
-  md: '1.5rem',   // 24px
-  lg: '2rem',     // 32px
-  xl: '3rem',     // 48px
-  '2xl': '4rem',  // 64px
-  
+  xs: '0.25rem',  // 4px
+  sm: '0.5rem',   // 8px
+  md: '0.75rem',  // 12px
+  lg: '1rem',     // 16px
+  xl: '1.5rem',   // 24px
+  '2xl': '2rem',  // 32px
+
   // Layout-specific
   sidebar: '257px',
   contentPadding: '2rem',
@@ -108,11 +141,12 @@ export const SPACING = {
  * Border radius
  */
 export const BORDER_RADIUS = {
-  sm: '8px',
-  md: '9px',
-  lg: '16px',
-  xl: '17px',
-  full: '50%',
+  xs: '0.25rem',   // 4px
+  sm: '0.375rem',  // 6px
+  md: '0.5rem',    // 8px
+  lg: '0.75rem',   // 12px
+  xl: '1rem',      // 16px
+  full: '9999px',  // Fully rounded
 };
 
 /**
@@ -202,6 +236,19 @@ export const getCompletionRateColor = (rate) => {
 };
 
 /**
+ * Sidebar-specific constants for new hybrid design
+ */
+export const SIDEBAR = {
+  collapsedWidth: '80px',
+  expandedWidth: '280px',
+  headerHeight: '80px',
+  footerHeight: '80px',
+  iconSize: '24px',
+  transitionDuration: '0.3s',
+  transitionEasing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+};
+
+/**
  * Common style mixins
  */
 export const MIXINS = {
@@ -237,6 +284,39 @@ export const MIXINS = {
     fontFamily: FONTS.primary,
     fontSize: FONT_SIZES.base,
   },
+
+  // Glassmorphic design mixins for sidebar
+  glassmorphic: {
+    background: 'rgba(255, 255, 255, 0.1)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    boxShadow: '4px 0 24px rgba(0, 0, 0, 0.1)',
+  },
+
+  glassmorphicWhite: {
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+  },
+
+  // Glassmorphic cards for main content area
+  glassmorphicCard: {
+    background: 'rgba(255, 255, 255, 0.12)',
+    backdropFilter: 'blur(30px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
+  },
+
+  // Glassmorphic table/subtle containers
+  glassmorphicSubtle: {
+    background: 'rgba(255, 255, 255, 0.08)',
+    backdropFilter: 'blur(20px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+  },
 };
 
 export default {
@@ -251,6 +331,7 @@ export default {
   Z_INDEX,
   TRANSITIONS,
   LAYOUT,
+  SIDEBAR,
   MIXINS,
   getClassColor,
   getCompletionRateColor,

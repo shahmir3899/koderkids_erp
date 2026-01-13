@@ -4,6 +4,14 @@
 // Location: src/components/common/ui/Pagination.js
 
 import React from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * Pagination Component
@@ -29,11 +37,11 @@ export const Pagination = ({
   const isFirstPage = currentPage === 1;
   const isLastPage = currentPage >= totalPages;
 
-  // Size configurations
+  // Size configurations using design constants
   const sizes = {
-    small: { padding: '0.375rem 0.75rem', fontSize: '0.75rem', gap: '0.5rem' },
-    medium: { padding: '0.5rem 1rem', fontSize: '0.875rem', gap: '1rem' },
-    large: { padding: '0.75rem 1.5rem', fontSize: '1rem', gap: '1.5rem' },
+    small: { padding: `${SPACING.xs} 0.75rem`, fontSize: FONT_SIZES.xs, gap: SPACING.xs },
+    medium: { padding: `${SPACING.xs} ${SPACING.sm}`, fontSize: FONT_SIZES.sm, gap: SPACING.sm },
+    large: { padding: `0.75rem ${SPACING.md}`, fontSize: FONT_SIZES.lg, gap: SPACING.md },
   };
 
   const { padding, fontSize, gap } = sizes[size] || sizes.medium;
@@ -43,19 +51,19 @@ export const Pagination = ({
     justifyContent: 'center',
     alignItems: 'center',
     gap,
-    marginTop: '1rem',
+    marginTop: SPACING.sm,
   };
 
   const buttonStyle = {
     padding,
     fontSize,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    backgroundColor: '#3B82F6',
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.status.info,
     border: 'none',
-    borderRadius: '0.5rem',
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: `all ${TRANSITIONS.fast} ease`,
     display: 'flex',
     alignItems: 'center',
     gap: '0.25rem',
@@ -63,15 +71,15 @@ export const Pagination = ({
 
   const disabledButtonStyle = {
     ...buttonStyle,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: COLORS.border.light,
     cursor: 'not-allowed',
     opacity: 0.6,
   };
 
   const pageInfoStyle = {
     fontSize,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: COLORS.text.whiteSubtle,
+    fontWeight: FONT_WEIGHTS.medium,
   };
 
   const handlePrevious = () => {
@@ -97,10 +105,10 @@ export const Pagination = ({
         disabled={isFirstPage}
         style={isFirstPage ? disabledButtonStyle : buttonStyle}
         onMouseEnter={(e) => {
-          if (!isFirstPage) e.currentTarget.style.backgroundColor = '#2563EB';
+          if (!isFirstPage) e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
         }}
         onMouseLeave={(e) => {
-          if (!isFirstPage) e.currentTarget.style.backgroundColor = '#3B82F6';
+          if (!isFirstPage) e.currentTarget.style.backgroundColor = COLORS.status.info;
         }}
         aria-label="Previous page"
       >
@@ -118,10 +126,10 @@ export const Pagination = ({
         disabled={isLastPage}
         style={isLastPage ? disabledButtonStyle : buttonStyle}
         onMouseEnter={(e) => {
-          if (!isLastPage) e.currentTarget.style.backgroundColor = '#2563EB';
+          if (!isLastPage) e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
         }}
         onMouseLeave={(e) => {
-          if (!isLastPage) e.currentTarget.style.backgroundColor = '#3B82F6';
+          if (!isLastPage) e.currentTarget.style.backgroundColor = COLORS.status.info;
         }}
         aria-label="Next page"
       >

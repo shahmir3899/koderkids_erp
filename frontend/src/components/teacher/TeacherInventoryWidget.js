@@ -5,6 +5,15 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -240,7 +249,7 @@ schoolResults.forEach(({ schoolId, summary, items }) => {
         </div>
         <div style={styles.loadingState}>
           <div style={styles.spinner}></div>
-          <span style={{ color: '#9CA3AF' }}>Loading resources...</span>
+          <span style={{ color: COLORS.text.tertiary }}>Loading resources...</span>
         </div>
       </div>
     );
@@ -254,7 +263,7 @@ schoolResults.forEach(({ schoolId, summary, items }) => {
         <button 
           style={styles.viewAllButton}
           onClick={() => window.location.href = '/inventory'}
-          onMouseEnter={(e) => e.target.style.background = '#F3F4F6'}
+          onMouseEnter={(e) => e.target.style.background = COLORS.background.offWhite}
           onMouseLeave={(e) => e.target.style.background = 'none'}
         >
           View All →
@@ -274,7 +283,7 @@ schoolResults.forEach(({ schoolId, summary, items }) => {
         {/* Available */}
         <div style={styles.statCard}>
           <div style={styles.statIcon}>✅</div>
-          <div style={{ ...styles.statValue, color: '#10B981' }}>
+          <div style={{ ...styles.statValue, color: COLORS.status.success }}>
             {data.availableItems}
           </div>
           <div style={styles.statLabel}>Available</div>
@@ -284,7 +293,7 @@ schoolResults.forEach(({ schoolId, summary, items }) => {
         {/* Assigned to Me */}
         <div style={styles.statCard}>
           <div style={styles.statIcon}>👤</div>
-          <div style={{ ...styles.statValue, color: '#8B5CF6' }}>
+          <div style={{ ...styles.statValue, color: COLORS.primary }}>
             {data.assignedToMe}
           </div>
           <div style={styles.statLabel}>Assigned to Me</div>
@@ -294,7 +303,7 @@ schoolResults.forEach(({ schoolId, summary, items }) => {
         {/* Categories Count */}
         <div style={styles.statCard}>
           <div style={styles.statIcon}>📁</div>
-          <div style={{ ...styles.statValue, color: '#3B82F6' }}>
+          <div style={{ ...styles.statValue, color: COLORS.status.info }}>
             {data.categoriesCount}
           </div>
           <div style={styles.statLabel}>Categories</div>
@@ -328,11 +337,11 @@ schoolResults.forEach(({ schoolId, summary, items }) => {
       {/* Empty State */}
       {data.assignedToMe === 0 && (
         <div style={styles.emptyState}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
-          <div style={{ fontSize: '1rem', fontWeight: '600', color: '#4B5563', marginBottom: '0.5rem' }}>
+          <div style={{ fontSize: FONT_SIZES['4xl'], marginBottom: SPACING.sm }}>📦</div>
+          <div style={{ fontSize: FONT_SIZES.base, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.text.primary, marginBottom: SPACING.xs }}>
             No items assigned yet
           </div>
-          <div style={{ fontSize: '0.875rem', color: '#9CA3AF' }}>
+          <div style={{ fontSize: FONT_SIZES.sm, color: COLORS.text.tertiary }}>
             Contact your administrator to request teaching resources
           </div>
         </div>
@@ -344,134 +353,134 @@ schoolResults.forEach(({ schoolId, summary, items }) => {
 // Styles
 const styles = {
   container: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    border: '1px solid #E5E7EB',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
+    border: `1px solid ${COLORS.border.light}`,
+    boxShadow: SHADOWS.sm,
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '1.5rem',
+    marginBottom: SPACING.lg,
   },
   title: {
-    fontSize: '1.125rem',
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
     margin: 0,
   },
   viewAllButton: {
-    fontSize: '0.875rem',
-    color: '#7C3AED',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontWeight: '500',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    transition: 'background 0.2s',
+    fontWeight: FONT_WEIGHTS.medium,
+    padding: `${SPACING.xs} ${SPACING.xs}`,
+    borderRadius: BORDER_RADIUS.xs,
+    transition: `background ${TRANSITIONS.base}`,
   },
   loadingState: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '3rem',
-    gap: '1rem',
+    padding: SPACING['2xl'],
+    gap: SPACING.sm,
   },
   spinner: {
     width: '32px',
     height: '32px',
-    border: '3px solid #E5E7EB',
-    borderTopColor: '#7C3AED',
-    borderRadius: '50%',
+    border: `3px solid ${COLORS.border.light}`,
+    borderTopColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.full,
     animation: 'spin 1s linear infinite',
   },
   statsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-    gap: '1rem',
-    marginBottom: '1.5rem',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
   statCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: '8px',
-    padding: '1rem',
+    backgroundColor: COLORS.background.lightGray,
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm,
     textAlign: 'center',
-    transition: 'transform 0.2s',
+    transition: `transform ${TRANSITIONS.base}`,
     cursor: 'default',
   },
   statIcon: {
-    fontSize: '1.5rem',
-    marginBottom: '0.5rem',
+    fontSize: FONT_SIZES['2xl'],
+    marginBottom: SPACING.xs,
   },
   statValue: {
-    fontSize: '1.75rem',
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: '0.25rem',
+    fontSize: FONT_SIZES['3xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.xs,
   },
   statLabel: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#4B5563',
-    marginBottom: '0.25rem',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.xs,
   },
   statSubtext: {
-    fontSize: '0.75rem',
-    color: '#9CA3AF',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.tertiary,
   },
   categorySection: {
-    marginTop: '1.5rem',
-    paddingTop: '1.5rem',
-    borderTop: '1px solid #E5E7EB',
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.light}`,
   },
   sectionTitle: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#4B5563',
-    margin: '0 0 1rem 0',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
+    margin: `0 0 ${SPACING.sm} 0`,
   },
   categoryList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
+    gap: SPACING.sm,
   },
   categoryItem: {
     display: 'grid',
     gridTemplateColumns: '100px 1fr 40px',
     alignItems: 'center',
-    gap: '0.75rem',
+    gap: SPACING.sm,
   },
   categoryName: {
-    fontSize: '0.875rem',
-    color: '#4B5563',
-    fontWeight: '500',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.primary,
+    fontWeight: FONT_WEIGHTS.medium,
   },
   categoryBar: {
     height: '8px',
-    backgroundColor: '#E5E7EB',
-    borderRadius: '4px',
+    backgroundColor: COLORS.border.light,
+    borderRadius: BORDER_RADIUS.xs,
     overflow: 'hidden',
   },
   categoryBarFill: {
     height: '100%',
-    backgroundColor: '#7C3AED',
-    borderRadius: '4px',
-    transition: 'width 0.5s ease',
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.xs,
+    transition: `width ${TRANSITIONS.slower} ease`,
   },
   categoryCount: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#7C3AED',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.primary,
     textAlign: 'right',
   },
   emptyState: {
     textAlign: 'center',
-    padding: '2rem',
-    marginTop: '1rem',
+    padding: SPACING.xl,
+    marginTop: SPACING.sm,
   },
 };
 

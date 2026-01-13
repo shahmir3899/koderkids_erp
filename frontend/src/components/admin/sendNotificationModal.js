@@ -12,6 +12,13 @@ import { TypeSelector } from '../common/ui/TypeSelector';
 import { ToggleButtonGroup } from '../common/ui/ToggleButtonGroup';
 import { QuickActions } from '../common/ui/QuickActions';
 import { Form } from 'react-bootstrap';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+} from '../../utils/designConstants';
 
 /**
  * SendNotificationModal Component
@@ -351,46 +358,46 @@ export const SendNotificationModal = ({
 // Minimal styles for preview section
 const styles = {
   previewSection: {
-    marginBottom: '1rem',
-    padding: '1rem',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '8px',
+    marginBottom: SPACING.sm,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.background.lightGray,
+    borderRadius: BORDER_RADIUS.sm,
   },
   previewLabel: {
-    fontSize: '0.75rem',
-    fontWeight: '600',
-    color: '#6B7280',
-    margin: '0 0 0.75rem 0',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.secondary,
+    margin: `0 0 ${SPACING.sm} 0`,
     textTransform: 'uppercase',
   },
   previewCard: {
     display: 'flex',
-    gap: '0.75rem',
-    padding: '1rem',
-    backgroundColor: '#FFFFFF',
-    borderRadius: '8px',
-    border: '1px solid #E5E7EB',
+    gap: SPACING.sm,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.sm,
+    border: `1px solid ${COLORS.border.light}`,
   },
   previewIcon: {
-    fontSize: '1.5rem',
+    fontSize: FONT_SIZES['2xl'],
   },
   previewContent: {
     flex: 1,
   },
   previewTitle: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#1F2937',
-    margin: '0 0 0.25rem 0',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
+    margin: `0 0 ${SPACING.xs} 0`,
   },
   previewMessage: {
-    fontSize: '0.8125rem',
-    color: '#6B7280',
-    margin: '0 0 0.25rem 0',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.secondary,
+    margin: `0 0 ${SPACING.xs} 0`,
   },
   previewTime: {
-    fontSize: '0.75rem',
-    color: '#9CA3AF',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.tertiary,
   },
 };
 

@@ -6,6 +6,14 @@ import React from 'react';
 import { TableHeader } from './TableHeader';
 import { useTableSort } from '../../../hooks/useTableSort';
 import { LoadingSpinner, SkeletonLoader } from '../ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  BORDER_RADIUS,
+  MIXINS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * DataTable Component
@@ -35,64 +43,63 @@ export const DataTable = ({
 }) => {
   const { sortedData, sortConfig, handleSort } = useTableSort(data, initialSort);
 
-  // Container style
+  // Container style using design constants
   const containerStyle = {
     width: '100%',
     overflowX: 'auto',
-    borderRadius: '12px',
-    border: '1px solid #E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderRadius: BORDER_RADIUS.lg,
+    ...MIXINS.glassmorphicSubtle,
     ...(maxHeight && {
       maxHeight: maxHeight,
       overflowY: 'auto',
     }),
   };
 
-  // Table style
+  // Table style using design constants
   const tableStyle = {
     width: '100%',
     borderCollapse: 'collapse',
-    fontSize: '0.875rem',
+    fontSize: FONT_SIZES.sm,
   };
 
-  // Row style
+  // Row style using design constants
   const getRowStyle = (index) => ({
-    backgroundColor: striped && index % 2 === 0 ? '#F9FAFB' : '#FFFFFF',
-    transition: 'background-color 0.15s ease',
+    backgroundColor: striped && index % 2 === 0 ? COLORS.border.whiteSubtle : 'transparent',
+    transition: `background-color ${TRANSITIONS.fast} ease`,
     cursor: onRowClick ? 'pointer' : 'default',
-    borderBottom: '1px solid #E5E7EB',
+    borderBottom: `1px solid ${COLORS.border.whiteSubtle}`,
   });
 
-  // Cell style
+  // Cell style using design constants
   const cellStyle = (align = 'left') => ({
-    padding: '1rem',
+    padding: SPACING.sm,
     textAlign: align,
-    color: '#374151',
+    color: COLORS.text.white,
   });
 
-  // Loading state
+  // Loading state using design constants
   if (loading) {
     return (
       <div style={containerStyle}>
-        <div style={{ padding: '2rem' }}>
+        <div style={{ padding: SPACING.lg }}>
           <LoadingSpinner size="medium" message="Loading data..." />
-          <div style={{ marginTop: '1rem' }}>
-            <SkeletonLoader rows={5} height="2rem" />
+          <div style={{ marginTop: SPACING.sm }}>
+            <SkeletonLoader rows={5} height={SPACING.lg} />
           </div>
         </div>
       </div>
     );
   }
 
-  // Empty state
+  // Empty state using design constants
   if (!data || data.length === 0) {
     return (
       <div style={containerStyle}>
-        <div style={{ 
-          padding: '3rem', 
-          textAlign: 'center', 
-          color: '#9CA3AF',
-          fontSize: '1rem'
+        <div style={{
+          padding: SPACING.xl,
+          textAlign: 'center',
+          color: COLORS.text.whiteSubtle,
+          fontSize: FONT_SIZES.lg,
         }}>
           <p>{emptyMessage}</p>
         </div>
@@ -127,13 +134,13 @@ export const DataTable = ({
               onClick={() => onRowClick && onRowClick(row)}
               onMouseEnter={(e) => {
                 if (hoverable) {
-                  e.currentTarget.style.backgroundColor = '#F3F4F6';
+                  e.currentTarget.style.backgroundColor = COLORS.background.whiteStrong;
                 }
               }}
               onMouseLeave={(e) => {
                 if (hoverable) {
-                  e.currentTarget.style.backgroundColor = 
-                    striped && rowIndex % 2 === 0 ? '#F9FAFB' : '#FFFFFF';
+                  e.currentTarget.style.backgroundColor =
+                    striped && rowIndex % 2 === 0 ? COLORS.border.whiteSubtle : 'transparent';
                 }
               }}
             >

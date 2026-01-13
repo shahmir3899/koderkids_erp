@@ -66,7 +66,6 @@ function TransactionsPage() {
 
   // Loading States
   const [loading, setLoading] = useState({
-    initial: true,
     transactions: false,
     accounts: false,
     submit: false,
@@ -248,12 +247,10 @@ function TransactionsPage() {
 
   // Fetch transactions when tab changes
   useEffect(() => {
-    if (loading.initial) return;
     resetAndFetchTransactions();
   }, [activeTab]);
 
   const fetchInitialData = async () => {
-    setLoading((prev) => ({ ...prev, initial: true }));
     setError(null);
 
     try {
@@ -270,8 +267,6 @@ function TransactionsPage() {
       const errorMessage = error.response?.data?.message || error.message || "Failed to load initial data.";
       setError(errorMessage);
       toast.error(errorMessage);
-    } finally {
-      setLoading((prev) => ({ ...prev, initial: false }));
     }
   };
 
@@ -712,32 +707,14 @@ function TransactionsPage() {
   // RENDER
   // ============================================
 
-  // Loading State
-  if (loading.initial) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        minHeight: '100vh',
-        backgroundColor: '#F9FAFB'
-      }}>
-        <LoadingSpinner size="large" message="Loading transactions..." />
-      </div>
-    );
-  }
-
-  // Error State
-  if (error) {
-    return (
-      <div style={{ padding: '2rem' }}>
-        <ErrorDisplay error={error} onRetry={handleRetry} isRetrying={isRetrying} />
-      </div>
-    );
-  }
-
   return (
     <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto', backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
+      {/* Error State */}
+      {error && (
+        <div style={{ marginBottom: '2rem' }}>
+          <ErrorDisplay error={error} onRetry={handleRetry} isRetrying={isRetrying} />
+        </div>
+      )}
       {/* Page Title */}
       <h1
         style={{

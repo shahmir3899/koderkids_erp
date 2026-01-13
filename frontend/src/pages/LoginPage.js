@@ -1,18 +1,15 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { redirectUser, getLoggedInUser } from "../api";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
-import { FcGoogle } from "react-icons/fc"; // Added import for Google icon
+import { MdLock, MdPerson } from "react-icons/md";
+import { useLoading } from "../contexts/LoadingContext";
 
 function LoginPage() {
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
-
-  // Detect mobile for responsive adjustments
-  const isMobile = window.innerWidth <= 768;
+  const { setLoading } = useLoading();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -26,6 +23,7 @@ function LoginPage() {
     }
     setMessage("");
     setIsLoading(true);
+    setLoading(true, "SIGNING IN");
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
@@ -43,276 +41,428 @@ function LoginPage() {
         localStorage.setItem("username", data.username);
 
         // Fetch full name using the updated API
+        setLoading(true, "LOADING PROFILE");
         const userDetails = await getLoggedInUser();
         const fullName = userDetails.fullName || "Unknown";
         localStorage.setItem("fullName", fullName);
 
         setMessage("✅ Login successful!");
+        setLoading(false);
         redirectUser(); // Or navigate("/dashboard");
       } else {
         setMessage(`⚠️ Error: ${data.detail || "Invalid credentials"}`);
+        setLoading(false);
       }
     } catch (error) {
       setMessage("⚠️ Network error. Try again.");
+      setLoading(false);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Extracted style objects for better maintainability
-  const rootStyles = {
-    display: "flex",
-    justifyContent: "flex-start",
-    alignItems: "center",
-    minHeight: "100vh",
-    backgroundImage: "url('/background.jpg')", // Assuming background.jpg is in public folder
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    backgroundColor: "#F9FAFC", // Fallback color
-    position: "relative",
-    overflow: "hidden",
-    fontFamily: "'Rubik', 'Poppins', sans-serif", // Added Poppins for branded typography
-    flexDirection: isMobile ? "column" : "row", // Stack on mobile
-    flexDirection: isMobile ? "column" : "row",
-    alignItems: isMobile ? "center" : "center",   // Center form vertically on mobile
-    justifyContent: isMobile ? "center" : "flex-start",
-    padding: isMobile ? "2rem" : "0",             // Add padding on mobile if needed
-  };
-
-    const mockupStyles = {
-    position: "relative",
-    flexShrink: 0,                    // Prevent it from shrinking
-    width: isMobile ? "0" : "auto",   // On mobile: zero width → takes no space
-    minWidth: isMobile ? "0" : "500px", // Adjust 500px to your design needs
-    height: isMobile ? "0" : "100vh",   // On mobile: zero height
-    marginRight: isMobile ? "0" : "2rem",
-    marginBottom: isMobile ? "0" : "0",
-    transform: isMobile ? "none" : "rotate(-15deg) scale(0.8)",
-    transformOrigin: "top left",
-    backgroundImage: "url('/thematic-illustration.svg')",
-    backgroundSize: "contain",
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "center",
-    pointerEvents: "none",            // Optional: ignore mouse events
-    opacity: isMobile ? 0 : 1,        // Extra safety
-    overflow: "hidden",
-  };
-
-  const formContainerStyles = {
-    maxWidth: "450px",
-    width: isMobile ? "100%" : "90%",
-    padding: "2rem",
-    textAlign: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)", // Semi-transparent for better readability over background
-    borderRadius: "16px",
-    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)", // Added subtle shadow for depth
-    animation: "fadeIn 1s ease-in", // Micro-animation for form load
-  };
-
-  const inputGroupStyles = {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: "16px",
-    width: "100%",
-    maxWidth: "450px",
-    height: "95px",
-    marginBottom: "1rem",
-  };
-
-  const labelStyles = {
-    width: "100%",
-    height: "25px",
-    fontWeight: 400,
-    fontSize: "16px",
-    fontFamily: "'Montserrat', sans-serif",  // Example: Change to a different font (ensure imported)
-    lineHeight: "140%",
-    letterSpacing: "0.2px",
-    color: "#424242",
-    backgroundColor: "rgba(110, 108, 223, 0.1)", // Added light background color for distinction
-    padding: "4px 8px", // Added padding for better visual separation
-    borderRadius: "4px", // Slight rounding for aesthetics
-    textAlign: "left", // Ensure left alignment
-    transition: "transform 0.3s ease", // For float-up effect
-  };
-
-  const inputContainerStyles = {
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    padding: "16px 24px",
-    gap: "10px",
-    width: "100%",
-    height: "54px",
-    background: "#FFFFFF",
-    border: "1px solid rgba(110, 108, 223, 0.8)",
-    borderRadius: "16px",
-    transition: "box-shadow 0.3s ease, border-color 0.3s ease", // For hover and focus effects
-  };
-
-  const inputStyles = {
-    width: "100%",
-    height: "22px",
-    fontWeight: 400,
-    fontSize: "16px",
-    lineHeight: "140%",
-    letterSpacing: "0.2px",
-    color: "#757575",
-    border: "none",
-    background: "transparent",
-    transition: "color 0.3s ease",
-  };
-
-  const passwordContainerStyles = {
-    ...inputContainerStyles,
-    border: "1px solid #BDBDBD",
-    position: "relative",
-  };
-
-  const buttonStyles = {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: "16px",
-    gap: "10px",
-    width: "100%",
-    height: "54px",
-    background: "linear-gradient(90deg, #6E6CDF 0%, #6E6CDF 100%)",
-    borderRadius: "16px",
-    fontWeight: 500,
-    fontSize: "16px",
-    lineHeight: "140%",
-    letterSpacing: "0.2px",
-    color: "#FFFFFF",
-    cursor: "pointer",
-    boxShadow: "0 2px 10px rgba(110, 108, 223, 0.3)", // Added shadow
-    transition: "transform 0.3s ease, box-shadow 0.3s ease", // Hover effects
-  };
-
-  const googleButtonStyles = {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: "16px",
-    gap: "10px",
-    width: "100%",
-    height: "54px",
-    background: "#FFFFFF",
-    border: "1px solid #E0E0E0",
-    borderRadius: "16px",
-    boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)", // Added shadow
-    transition: "transform 0.3s ease, box-shadow 0.3s ease", // Hover effects
-  };
-
-  // Inline keyframes for animations
-  const globalStyles = `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-5px); }
-    }
-  `;
-
   return (
-    <>
-      <style>{globalStyles}</style>
-      <div style={rootStyles}>
-        <div style={mockupStyles} />
-        <div style={formContainerStyles}>
-          <h1 style={{ fontWeight: 600, fontSize: "32px", lineHeight: "130%", letterSpacing: "0.2px", color: "#424242", marginBottom: "2rem", animation: "bounce 1s ease-in-out" }}>Welcome to KoderKids</h1>
-          <form onSubmit={handleSubmit}>
-            {message && <p style={{ marginBottom: "1rem", color: "#FF0000" }}>{message}</p>}
-            <div style={inputGroupStyles}>
-              <label htmlFor="username" style={labelStyles}>Username</label>
+    <div 
+      className="min-h-screen flex overflow-hidden relative"
+      style={{
+        background: 'linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 50%, #1a1f3a 100%)'
+      }}
+    >
+      {/* Futuristic Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Top-Left Geometric Network - White/Light Blue */}
+        <svg className="absolute top-0 left-0 w-1/2 h-1/2" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Network lines */}
+          <line x1="50" y1="100" x2="150" y2="80" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="150" y1="80" x2="250" y2="120" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="250" y1="120" x2="200" y2="200" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="200" y1="200" x2="100" y2="180" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="100" y1="180" x2="50" y2="100" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="150" y1="80" x2="180" y2="150" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="180" y1="150" x2="250" y2="120" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="180" y1="150" x2="200" y2="200" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="50" y1="100" x2="80" y2="140" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          <line x1="80" y1="140" x2="100" y2="180" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6" />
+          
+          {/* Glowing nodes */}
+          <circle cx="50" cy="100" r="4" fill="#ffffff" opacity="0.9" filter="url(#glow)" />
+          <circle cx="150" cy="80" r="5" fill="#60a5fa" opacity="0.9" filter="url(#glow)" />
+          <circle cx="250" cy="120" r="4" fill="#ffffff" opacity="0.9" filter="url(#glow)" />
+          <circle cx="200" cy="200" r="5" fill="#60a5fa" opacity="0.9" filter="url(#glow)" />
+          <circle cx="100" cy="180" r="4" fill="#ffffff" opacity="0.9" filter="url(#glow)" />
+          <circle cx="180" cy="150" r="4" fill="#60a5fa" opacity="0.9" filter="url(#glow)" />
+          <circle cx="80" cy="140" r="3" fill="#ffffff" opacity="0.8" filter="url(#glow)" />
+          
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+        </svg>
+
+        {/* Bottom-Right Geometric Network - Pink/Magenta */}
+        <svg className="absolute bottom-0 right-0 w-1/2 h-1/2" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Network lines */}
+          <line x1="750" y1="500" x2="650" y2="480" stroke="#ec4899" strokeWidth="1.5" opacity="0.7" />
+          <line x1="650" y1="480" x2="550" y2="520" stroke="#ec4899" strokeWidth="1.5" opacity="0.7" />
+          <line x1="550" y1="520" x2="600" y2="400" stroke="#ec4899" strokeWidth="1.5" opacity="0.7" />
+          <line x1="600" y1="400" x2="700" y2="420" stroke="#ec4899" strokeWidth="1.5" opacity="0.7" />
+          <line x1="700" y1="420" x2="750" y2="500" stroke="#ec4899" strokeWidth="1.5" opacity="0.7" />
+          <line x1="650" y1="480" x2="620" y2="450" stroke="#ec4899" strokeWidth="1.5" opacity="0.7" />
+          <line x1="620" y1="450" x2="550" y2="520" stroke="#ec4899" strokeWidth="1.5" opacity="0.7" />
+          <line x1="620" y1="450" x2="600" y2="400" stroke="#ec4899" strokeWidth="1.5" opacity="0.7" />
+          
+          {/* Central bright pink glow */}
+          <circle cx="620" cy="450" r="8" fill="#ec4899" opacity="0.9" filter="url(#glowPink)" />
+          
+          {/* Glowing nodes */}
+          <circle cx="750" cy="500" r="4" fill="#f472b6" opacity="0.9" filter="url(#glowPink)" />
+          <circle cx="650" cy="480" r="5" fill="#ec4899" opacity="0.9" filter="url(#glowPink)" />
+          <circle cx="550" cy="520" r="4" fill="#f472b6" opacity="0.9" filter="url(#glowPink)" />
+          <circle cx="600" cy="400" r="5" fill="#ec4899" opacity="0.9" filter="url(#glowPink)" />
+          <circle cx="700" cy="420" r="4" fill="#f472b6" opacity="0.9" filter="url(#glowPink)" />
+          
+          <defs>
+            <filter id="glowPink">
+              <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+        </svg>
+
+        {/* Floating dots/particles */}
+        <div className="absolute inset-0">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                width: `${2 + Math.random() * 3}px`,
+                height: `${2 + Math.random() * 3}px`,
+                backgroundColor: Math.random() > 0.5 ? '#60a5fa' : '#ec4899',
+                opacity: 0.4 + Math.random() * 0.4,
+                animation: `float ${5 + Math.random() * 5}s ease-in-out infinite`,
+                animationDelay: `${Math.random() * 2}s`
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Abstract Linear Patterns - Top Right */}
+        <svg className="absolute top-0 right-0 w-64 h-32" viewBox="0 0 200 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <line x1="20" y1="30" x2="80" y2="30" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="20" y1="35" x2="80" y2="35" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="20" y1="50" x2="100" y2="50" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="20" y1="55" x2="100" y2="55" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="20" y1="60" x2="100" y2="60" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="120" y1="40" x2="140" y2="40" stroke="#7c3aed" strokeWidth="1" opacity="0.4" strokeDasharray="4 4" />
+        </svg>
+
+        {/* Abstract Linear Patterns - Bottom Left */}
+        <svg className="absolute bottom-0 left-0 w-64 h-32" viewBox="0 0 200 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <line x1="20" y1="70" x2="80" y2="70" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="20" y1="75" x2="80" y2="75" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="20" y1="50" x2="100" y2="50" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="20" y1="45" x2="100" y2="45" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="20" y1="40" x2="100" y2="40" stroke="#7c3aed" strokeWidth="1.5" opacity="0.5" />
+          <line x1="120" y1="60" x2="140" y2="60" stroke="#7c3aed" strokeWidth="1" opacity="0.4" strokeDasharray="4 4" />
+        </svg>
+      </div>
+
+      {/* Left Panel - Promotional Section */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center relative p-12 z-10"
+        style={{ backgroundColor: 'rgba(35, 98, 171, 0.3)' }}
+      >
+
+        {/* Content */}
+        <div className="relative z-10 text-center text-white">
+          {/* White Logo from Sidebar */}
+          <div className="mb-8 flex justify-center">
+            <img 
+              src="/whiteLogo.png" 
+              alt="KoderKids Logo" 
+              className="h-20 sm:h-24 w-auto"
+              style={{ backgroundColor: 'transparent' }}
+            />
+          </div>
+          <h1 className="text-5xl sm:text-6xl font-bold mb-6">
+            KoderKids
+          </h1>
+          <p className="text-lg sm:text-xl font-normal mb-8 max-w-md">
+            Empowering the next generation of coders through innovative learning experiences
+          </p>
+          <a
+            href="https://koderkids.pk"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-8 py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90"
+            style={{ backgroundColor: '#1d4f8a' }}
+          >
+            Read More
+          </a>
+        </div>
+      </div>
+
+      {/* Right Panel - Login Form Section */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 bg-white/95 backdrop-blur-sm z-10">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-2">
+              Hello Again!
+            </h1>
+            <p className="text-lg text-gray-600 font-normal">
+              Welcome Back
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Modern Success/Error Message */}
+            {message && (
               <div
-                style={inputContainerStyles}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 10px rgba(110, 108, 223, 0.5)"; e.currentTarget.style.borderColor = "#6E6CDF"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "rgba(110, 108, 223, 0.8)"; }}
-                onFocus={(e) => { e.currentTarget.style.boxShadow = "0 0 5px rgba(110, 108, 223, 0.5)"; }}
+                className={`relative overflow-hidden rounded-xl p-4 text-sm font-medium transition-all duration-300 ease-out animate-slide-in ${
+                  message.includes("✅")
+                    ? "bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border-2 border-green-300 shadow-lg shadow-green-200/50"
+                    : "bg-gradient-to-r from-red-50 to-rose-50 text-red-800 border-2 border-red-300 shadow-lg shadow-red-200/50"
+                }`}
               >
+                {/* Animated Background Shimmer */}
+                <div
+                  className={`absolute inset-0 opacity-20 ${
+                    message.includes("✅")
+                      ? "bg-gradient-to-r from-transparent via-green-200 to-transparent"
+                      : "bg-gradient-to-r from-transparent via-red-200 to-transparent"
+                  }`}
+                  style={{
+                    animation: 'shimmer 2s infinite',
+                    transform: 'translateX(-100%)'
+                  }}
+                />
+                
+                {/* Content */}
+                <div className="relative z-10 flex items-center gap-3">
+                  {/* Icon */}
+                  {message.includes("✅") ? (
+                    <div className="flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center animate-checkmark">
+                        <svg
+                          className="w-4 h-4 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center animate-shake">
+                        <svg
+                          className="w-4 h-4 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Message Text */}
+                  <div className="flex-1">
+                    <p className="font-semibold">
+                      {message.includes("✅") ? "Success!" : "Error"}
+                    </p>
+                    <p className="text-xs mt-0.5 opacity-90">
+                      {message.replace(/[✅⚠️]/g, "").trim()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Username Field */}
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                <MdPerson className="w-5 h-5" />
+              </div>
                 <input
                   id="username"
                   type="text"
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  placeholder="Enter your Username"
+                placeholder="Username"
                   required
-                  style={inputStyles}
-                />
-              </div>
+                className="w-full pl-12 pr-4 py-3.5 text-base text-gray-900 bg-white border border-gray-200 rounded-xl 
+                         transition-all duration-200 ease-in-out
+                         placeholder:text-gray-400 placeholder:font-normal
+                         focus:outline-none focus:border-gray-300
+                         hover:border-gray-300
+                         disabled:bg-gray-50 disabled:cursor-not-allowed"
+              />
             </div>
-            <div style={inputGroupStyles}>
-              <label htmlFor="password" style={labelStyles}>Password</label>
-              <div
-                style={passwordContainerStyles}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 10px rgba(110, 108, 223, 0.5)"; e.currentTarget.style.borderColor = "#6E6CDF"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#BDBDBD"; }}
-                onFocus={(e) => { e.currentTarget.style.boxShadow = "0 0 5px rgba(110, 108, 223, 0.5)"; }}
-              >
+
+            {/* Password Field */}
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                <MdLock className="w-5 h-5" />
+              </div>
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="Enter your password"
+                placeholder="Password"
                   required
-                  style={{ ...inputStyles, color: "#BDBDBD" }}
+                className="w-full pl-12 pr-12 py-3.5 text-base text-gray-900 bg-white border border-gray-200 rounded-xl 
+                         transition-all duration-200 ease-in-out
+                         placeholder:text-gray-400 placeholder:font-normal
+                         focus:outline-none focus:border-gray-300
+                         hover:border-gray-300
+                         disabled:bg-gray-50 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: "absolute", right: "24px", background: "none", border: "none", cursor: "pointer", transition: "color 0.3s ease" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = "#6E6CDF"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = "#BDBDBD"; }}
-                >
-                  {showPassword ? <AiOutlineEyeInvisible style={{ color: "inherit", fontSize: "20px" }} /> : <AiOutlineEye style={{ color: "inherit", fontSize: "20px" }} />}
+                className="absolute right-4 top-1/2 -translate-y-1/2 
+                         text-gray-400 hover:text-gray-600 
+                         transition-colors duration-200 ease-in-out
+                         focus:outline-none rounded-lg
+                         p-1.5"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <AiOutlineEyeInvisible className="w-5 h-5" />
+                ) : (
+                  <AiOutlineEye className="w-5 h-5" />
+                )}
                 </button>
-              </div>
             </div>
-            <a href="/forgot-password" style={{ display: "block", textAlign: "right", fontSize: "16px", color: "#6E6CDF", marginBottom: "1rem" }}>Forgot Password</a>
+
+            {/* Login Button - Modern Design with Hover Effects */}
             <button
               type="submit"
-              style={buttonStyles}
               disabled={isLoading}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 15px rgba(110, 108, 223, 0.5)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 10px rgba(110, 108, 223, 0.3)"; }}
+              className="w-full py-4 px-6 text-white text-base font-semibold rounded-xl
+                       relative overflow-hidden
+                       transition-all duration-300 ease-in-out
+                       hover:scale-[1.02] hover:shadow-2xl
+                       focus:outline-none focus:ring-2 focus:ring-[#b166cc] focus:ring-offset-2
+                       active:scale-[0.98]
+                       disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none
+                       flex items-center justify-center gap-2
+                       group"
+              style={{
+                background: 'linear-gradient(135deg, #b166cc 0%, #9a4fb8 100%)',
+                width: '100%',
+                boxSizing: 'border-box',
+                boxShadow: '0 4px 15px rgba(177, 102, 204, 0.3)'
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #9a4fb8 0%, #8a3fa8 100%)';
+                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(177, 102, 204, 0.5)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #b166cc 0%, #9a4fb8 100%)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(177, 102, 204, 0.3)';
+                }
+              }}
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              {/* Shine effect on hover */}
+              <span 
+                className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"
+                style={{
+                  background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)'
+                }}
+              />
+              <span className="relative z-10">
+                {isLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5 text-white inline-block mr-2"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  "Login"
+                )}
+              </span>
             </button>
-       {/* REMOVED: Google Login - Coming Soon
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "32px", width: "150px", height: "22px", margin: "1.5rem auto" }}>
-              <div style={{ width: "32px", height: "0px", border: "1px solid #E0E0E0" }} />
-              <span style={{ fontWeight: 400, fontSize: "16px", lineHeight: "140%", letterSpacing: "0.2px", color: "#E0E0E0" }}>OR</span>
-              <div style={{ width: "32px", height: "0px", border: "1px solid #E0E0E0" }} />
-            </div>
-            <button
-              type="button"
-              style={googleButtonStyles}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 15px rgba(0, 0, 0, 0.2)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 10px rgba(0, 0, 0, 0.1)"; }}
-            >
-              <FcGoogle style={{ fontSize: "24px", opacity: 0.9 }} />
-              <span style={{ width: "170px", height: "22px", fontWeight: 500, fontSize: "16px", lineHeight: "140%", letterSpacing: "0.2px", color: "#424242" }}>Continue with Google</span>
-            </button>
-            */}
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "8px", width: "262px", height: "22px", margin: "1.5rem auto 0" }}>
-              <span style={{ width: "190px", height: "22px", fontWeight: 400, fontSize: "16px", lineHeight: "140%", letterSpacing: "0.2px", color: "#9E9E9E" }}>Didn’t have an Account!?</span>
-              <a href="/register" style={{ width: "64px", height: "22px", fontWeight: 600, fontSize: "16px", lineHeight: "140%", letterSpacing: "0.2px", color: "#6E6CDF", textDecoration: "none" }}>Sign-up</a>
+
+            {/* Forgot Password Link */}
+            <div className="flex justify-end">
+              <a
+                href="/forgot-password"
+                className="text-sm text-gray-600 hover:text-gray-900 
+                         transition-colors duration-200 ease-in-out
+                         focus:outline-none rounded font-medium"
+              >
+                Forgot Password?
+              </a>
             </div>
           </form>
         </div>
       </div>
-    </>
+
+      {/* Floating Animation */}
+      <style>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px) translateX(0px);
+            opacity: 0.4;
+          }
+          50% {
+            transform: translateY(-20px) translateX(10px);
+            opacity: 0.8;
+          }
+        }
+      `}</style>
+    </div>
   );
 }
 

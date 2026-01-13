@@ -542,23 +542,14 @@ const handleSubmit = useCallback(async () => {
   };
 
   // ============================================
-  // RENDER - Loading State
-  // ============================================
-
-  if (!user) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <LoadingSpinner size="large" message="Loading..." />
-      </div>
-    );
-  }
-
-  // ============================================
   // RENDER - Main Content
   // ============================================
 
   return (
     <div style={pageContainerStyle}>
+      {/* Show content only if user is loaded */}
+      {!user ? null : (
+        <>
       {/* Page Header */}
       <h1 style={headerStyle}>📊 Session Progress</h1>
 
@@ -701,6 +692,8 @@ const handleSubmit = useCallback(async () => {
         onUploadComplete={handleImageUploadComplete}
         uploadHandler={handleImageUpload}
       />
+      </>
+      )}
     </div>
   );
 };

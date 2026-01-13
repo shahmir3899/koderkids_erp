@@ -9,6 +9,15 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+} from '../../../utils/designConstants';
 
 /**
  * CollapsibleSection Component
@@ -66,52 +75,52 @@ export const CollapsibleSection = ({
   };
 
   const containerStyle = {
-    backgroundColor: '#FFFFFF',
-    padding: '1.5rem',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    marginBottom: '1.5rem',
+    ...MIXINS.glassmorphicCard,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md,
   };
 
   const headerStyle = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: isOpen ? '1.5rem' : 0,
+    marginBottom: isOpen ? SPACING.md : 0,
     cursor: 'pointer',
     userSelect: 'none',
   };
 
   const titleStyle = {
-    fontSize: '1.25rem',
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
     margin: 0,
+    textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
   };
 
   const buttonStyle = {
-    color: '#3B82F6',
+    color: COLORS.text.white,
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: '1rem',
-    padding: '0.5rem',
+    fontSize: FONT_SIZES.lg,
+    padding: SPACING.xs,
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    transition: 'color 0.2s ease',
+    gap: SPACING.xs,
+    transition: `color ${TRANSITIONS.normal} ease`,
   };
 
   return (
     <div style={containerStyle} className={className}>
       <div style={headerStyle} onClick={handleToggle}>
         <h2 style={titleStyle}>{title}</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
           {headerAction && <div onClick={(e) => e.stopPropagation()}>{headerAction}</div>}
           <button
             style={buttonStyle}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#2563EB'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#3B82F6'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = COLORS.text.whiteSubtle; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = COLORS.text.white; }}
             aria-label={isOpen ? 'Collapse section' : 'Expand section'}
           >
             <FontAwesomeIcon icon={isOpen ? faChevronUp : faChevronDown} />

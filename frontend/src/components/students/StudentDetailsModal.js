@@ -6,6 +6,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../common/ui/Button';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../utils/designConstants';
 
 /**
  * StudentDetailsModal Component
@@ -176,81 +186,81 @@ export const StudentDetailsModal = ({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.background.overlay,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
-    padding: '1rem',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.sm,
   };
 
   const modalStyle = {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '12px',
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.md,
     maxWidth: '800px',
     width: '100%',
     maxHeight: '90vh',
     overflowY: 'auto',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    boxShadow: SHADOWS.xl,
   };
 
   const headerStyle = {
-    padding: '1.5rem',
-    borderBottom: '1px solid #E5E7EB',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.light}`,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.background.lightGray,
   };
 
   const titleStyle = {
-    fontSize: '1.5rem',
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
     margin: 0,
   };
 
   const closeButtonStyle = {
     background: 'none',
     border: 'none',
-    fontSize: '1.5rem',
+    fontSize: FONT_SIZES['2xl'],
     cursor: 'pointer',
-    color: '#6B7280',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '0.375rem',
-    transition: 'color 0.15s ease',
+    color: COLORS.text.secondary,
+    padding: `${SPACING.xs} ${SPACING.xs}`,
+    borderRadius: BORDER_RADIUS.xs,
+    transition: `color ${TRANSITIONS.fast} ease`,
   };
 
   const contentStyle = {
-    padding: '1.5rem',
+    padding: SPACING.lg,
   };
 
   const gridStyle = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '1.5rem',
+    gap: SPACING.lg,
   };
 
   const fieldStyle = {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
+    gap: SPACING.xs,
   };
 
   const labelStyle = {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.primary,
   };
 
   const inputStyle = {
-    padding: '0.625rem 0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    color: '#374151',
-    backgroundColor: isEditing ? '#FFFFFF' : '#F9FAFB',
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    border: `1px solid ${COLORS.border.default}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.primary,
+    backgroundColor: isEditing ? COLORS.background.white : COLORS.background.lightGray,
+    transition: `border-color ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
   };
 
   const selectStyle = {
@@ -259,26 +269,26 @@ export const StudentDetailsModal = ({
   };
 
   const valueStyle = {
-    padding: '0.625rem 0.75rem',
-    fontSize: '0.875rem',
-    color: '#1F2937',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '0.5rem',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.primary,
+    backgroundColor: COLORS.background.lightGray,
+    borderRadius: BORDER_RADIUS.sm,
   };
 
   const footerStyle = {
-    padding: '1.5rem',
-    borderTop: '1px solid #E5E7EB',
+    padding: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.light}`,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: '1rem',
-    backgroundColor: '#F9FAFB',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.background.lightGray,
   };
 
   const buttonGroupStyle = {
     display: 'flex',
-    gap: '0.75rem',
+    gap: SPACING.sm,
   };
 
   const deleteConfirmStyle = {
@@ -291,16 +301,16 @@ export const StudentDetailsModal = ({
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1001,
+    zIndex: Z_INDEX.modalOverlay,
   };
 
   const deleteConfirmBoxStyle = {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '8px',
-    padding: '2rem',
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.xl,
     maxWidth: '400px',
     width: '90%',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+    boxShadow: SHADOWS.xl,
   };
 
   if (!student) return null;
@@ -316,8 +326,8 @@ export const StudentDetailsModal = ({
           <button
             style={closeButtonStyle}
             onClick={onClose}
-            onMouseEnter={(e) => e.target.style.color = '#1F2937'}
-            onMouseLeave={(e) => e.target.style.color = '#6B7280'}
+            onMouseEnter={(e) => e.target.style.color = COLORS.text.primary}
+            onMouseLeave={(e) => e.target.style.color = COLORS.text.secondary}
           >
             ✕
           </button>
@@ -345,11 +355,11 @@ export const StudentDetailsModal = ({
                     required
                     style={inputStyle}
                     onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
+                      e.target.style.borderColor = COLORS.status.info;
                       e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
                     }}
                     onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
+                      e.target.style.borderColor = COLORS.border.default;
                       e.target.style.boxShadow = 'none';
                     }}
                   />
@@ -369,11 +379,11 @@ export const StudentDetailsModal = ({
                     required
                     style={selectStyle}
                     onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
+                      e.target.style.borderColor = COLORS.status.info;
                       e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
                     }}
                     onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
+                      e.target.style.borderColor = COLORS.border.default;
                       e.target.style.boxShadow = 'none';
                     }}
                   >
@@ -400,11 +410,11 @@ export const StudentDetailsModal = ({
                     required
                     style={selectStyle}
                     onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
+                      e.target.style.borderColor = COLORS.status.info;
                       e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
                     }}
                     onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
+                      e.target.style.borderColor = COLORS.border.default;
                       e.target.style.boxShadow = 'none';
                     }}
                   >
@@ -433,11 +443,11 @@ export const StudentDetailsModal = ({
                     onChange={handleChange}
                     style={inputStyle}
                     onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
+                      e.target.style.borderColor = COLORS.status.info;
                       e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
                     }}
                     onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
+                      e.target.style.borderColor = COLORS.border.default;
                       e.target.style.boxShadow = 'none';
                     }}
                   />
@@ -459,11 +469,11 @@ export const StudentDetailsModal = ({
                     onChange={handleChange}
                     style={inputStyle}
                     onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
+                      e.target.style.borderColor = COLORS.status.info;
                       e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
                     }}
                     onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
+                      e.target.style.borderColor = COLORS.border.default;
                       e.target.style.boxShadow = 'none';
                     }}
                   />
@@ -487,7 +497,7 @@ export const StudentDetailsModal = ({
                 {isDeleting ? (
                   <>
                     <LoadingSpinner size="small" />
-                    <span style={{ marginLeft: '0.5rem' }}>Deleting...</span>
+                    <span style={{ marginLeft: SPACING.xs }}>Deleting...</span>
                   </>
                 ) : (
                   '🗑️ Delete Student'
@@ -517,7 +527,7 @@ export const StudentDetailsModal = ({
                     {isSubmitting ? (
                       <>
                         <LoadingSpinner size="small" />
-                        <span style={{ marginLeft: '0.5rem' }}>Saving...</span>
+                        <span style={{ marginLeft: SPACING.xs }}>Saving...</span>
                       </>
                     ) : (
                       '💾 Save Changes'
@@ -550,13 +560,13 @@ export const StudentDetailsModal = ({
         {showDeleteConfirm && (
           <div style={deleteConfirmStyle} onClick={() => setShowDeleteConfirm(false)}>
             <div style={deleteConfirmBoxStyle} onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1F2937' }}>
+              <h3 style={{ margin: `0 0 ${SPACING.sm} 0`, fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.text.primary }}>
                 Confirm Delete
               </h3>
-              <p style={{ margin: '0 0 1.5rem 0', color: '#6B7280' }}>
+              <p style={{ margin: `0 0 ${SPACING.lg} 0`, color: COLORS.text.secondary }}>
                 Are you sure you want to delete <strong>{formData.name}</strong>? This action cannot be undone.
               </p>
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: SPACING.sm, justifyContent: 'flex-end' }}>
                 <Button
                   variant="secondary"
                   onClick={() => setShowDeleteConfirm(false)}

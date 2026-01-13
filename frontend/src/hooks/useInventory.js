@@ -124,7 +124,6 @@ export const useInventory = () => {
   // LOADING STATE
   // ============================================
   const [loading, setLoading] = useState({
-    initial: true,
     items: false,
     summary: false,
     delete: false,
@@ -316,9 +315,8 @@ export const useInventory = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refetch items and summary when filters change
-  // Refetch items and summary when filters change
 useEffect(() => {
-  if (!loading.initial && isMounted.current) { // ✅ ADD isMounted check
+  if (isMounted.current) {
     const refreshData = async () => {
       await Promise.all([
         fetchItems(),

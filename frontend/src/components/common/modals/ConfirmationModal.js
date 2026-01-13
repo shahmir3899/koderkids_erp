@@ -4,6 +4,16 @@
 // ============================================
 
 import React, { useEffect, useCallback } from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  Z_INDEX,
+  SHADOWS,
+} from '../../../utils/designConstants';
 
 /**
  * ConfirmationModal Component
@@ -66,28 +76,28 @@ export function ConfirmationModal({
   // ============================================
   if (!isOpen) return null;
 
-  // Variant styles
+  // Variant styles using design constants
   const variantStyles = {
     danger: {
       icon: '⚠️',
-      iconBg: '#FEE2E2',
-      iconColor: '#DC2626',
-      confirmBg: '#DC2626',
-      confirmHoverBg: '#B91C1C',
+      iconBg: COLORS.status.errorLight,
+      iconColor: COLORS.status.errorDark,
+      confirmBg: COLORS.status.errorDark,
+      confirmHoverBg: COLORS.status.errorDarker,
     },
     warning: {
       icon: '⚡',
-      iconBg: '#FEF3C7',
-      iconColor: '#D97706',
-      confirmBg: '#D97706',
-      confirmHoverBg: '#B45309',
+      iconBg: COLORS.status.warningLight,
+      iconColor: COLORS.status.warningDark,
+      confirmBg: COLORS.status.warningDark,
+      confirmHoverBg: COLORS.status.warningDarker,
     },
     info: {
       icon: 'ℹ️',
-      iconBg: '#DBEAFE',
-      iconColor: '#2563EB',
-      confirmBg: '#2563EB',
-      confirmHoverBg: '#1D4ED8',
+      iconBg: COLORS.status.infoLight,
+      iconColor: COLORS.status.infoDark,
+      confirmBg: COLORS.status.infoDark,
+      confirmHoverBg: COLORS.status.infoDarker,
     },
   };
 
@@ -99,19 +109,19 @@ export function ConfirmationModal({
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: COLORS.background.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000,
-        padding: '1rem',
+        zIndex: Z_INDEX.modal,
+        padding: SPACING.sm,
       }}
     >
       <div
         style={{
-          backgroundColor: 'white',
-          borderRadius: '0.75rem',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          backgroundColor: COLORS.background.white,
+          borderRadius: BORDER_RADIUS.lg,
+          boxShadow: SHADOWS.xl,
           maxWidth: '400px',
           width: '100%',
           overflow: 'hidden',
@@ -119,19 +129,19 @@ export function ConfirmationModal({
         }}
       >
         {/* Modal Content */}
-        <div style={{ padding: '1.5rem' }}>
+        <div style={{ padding: SPACING.md }}>
           {/* Icon */}
           <div
             style={{
               width: '3rem',
               height: '3rem',
-              borderRadius: '50%',
+              borderRadius: BORDER_RADIUS.full,
               backgroundColor: currentVariant.iconBg,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              margin: '0 auto 1rem',
-              fontSize: '1.5rem',
+              margin: `0 auto ${SPACING.sm}`,
+              fontSize: FONT_SIZES['2xl'],
             }}
           >
             {currentVariant.icon}
@@ -140,11 +150,11 @@ export function ConfirmationModal({
           {/* Title */}
           <h3
             style={{
-              fontSize: '1.125rem',
-              fontWeight: '600',
-              color: '#111827',
+              fontSize: FONT_SIZES.xl,
+              fontWeight: FONT_WEIGHTS.semibold,
+              color: COLORS.text.primary,
               textAlign: 'center',
-              marginBottom: '0.5rem',
+              marginBottom: SPACING.xs,
             }}
           >
             {title}
@@ -153,11 +163,11 @@ export function ConfirmationModal({
           {/* Message */}
           <p
             style={{
-              fontSize: '0.875rem',
-              color: '#6B7280',
+              fontSize: FONT_SIZES.sm,
+              color: COLORS.text.secondary,
               textAlign: 'center',
               lineHeight: '1.5',
-              marginBottom: itemName ? '0.5rem' : '0',
+              marginBottom: itemName ? SPACING.xs : '0',
             }}
           >
             {message}
@@ -167,13 +177,13 @@ export function ConfirmationModal({
           {itemName && (
             <p
               style={{
-                fontSize: '0.9375rem',
-                fontWeight: '600',
-                color: '#111827',
+                fontSize: FONT_SIZES.md,
+                fontWeight: FONT_WEIGHTS.semibold,
+                color: COLORS.text.primary,
                 textAlign: 'center',
-                padding: '0.5rem',
-                backgroundColor: '#F3F4F6',
-                borderRadius: '0.375rem',
+                padding: SPACING.xs,
+                backgroundColor: COLORS.background.offWhite,
+                borderRadius: BORDER_RADIUS.sm,
                 marginTop: '0.75rem',
               }}
             >
@@ -187,9 +197,9 @@ export function ConfirmationModal({
           style={{
             display: 'flex',
             gap: '0.75rem',
-            padding: '1rem 1.5rem',
-            backgroundColor: '#F9FAFB',
-            borderTop: '1px solid #E5E7EB',
+            padding: `${SPACING.sm} ${SPACING.md}`,
+            backgroundColor: COLORS.background.lightGray,
+            borderTop: `1px solid ${COLORS.border.light}`,
           }}
         >
           {/* Cancel Button */}
@@ -198,24 +208,24 @@ export function ConfirmationModal({
             disabled={isLoading}
             style={{
               flex: 1,
-              padding: '0.625rem 1rem',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              backgroundColor: 'white',
-              border: '1px solid #D1D5DB',
-              borderRadius: '0.5rem',
+              padding: `0.625rem ${SPACING.sm}`,
+              fontSize: FONT_SIZES.sm,
+              fontWeight: FONT_WEIGHTS.medium,
+              color: COLORS.text.secondary,
+              backgroundColor: COLORS.background.white,
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.sm,
               cursor: isLoading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s ease',
+              transition: `all ${TRANSITIONS.fast} ease`,
               opacity: isLoading ? 0.6 : 1,
             }}
             onMouseEnter={(e) => {
               if (!isLoading) {
-                e.target.style.backgroundColor = '#F3F4F6';
+                e.target.style.backgroundColor = COLORS.background.offWhite;
               }
             }}
             onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'white';
+              e.target.style.backgroundColor = COLORS.background.white;
             }}
           >
             {cancelText}
@@ -227,19 +237,19 @@ export function ConfirmationModal({
             disabled={isLoading}
             style={{
               flex: 1,
-              padding: '0.625rem 1rem',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: 'white',
-              backgroundColor: isLoading ? '#9CA3AF' : currentVariant.confirmBg,
+              padding: `0.625rem ${SPACING.sm}`,
+              fontSize: FONT_SIZES.sm,
+              fontWeight: FONT_WEIGHTS.medium,
+              color: COLORS.text.white,
+              backgroundColor: isLoading ? COLORS.text.tertiary : currentVariant.confirmBg,
               border: 'none',
-              borderRadius: '0.5rem',
+              borderRadius: BORDER_RADIUS.sm,
               cursor: isLoading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s ease',
+              transition: `all ${TRANSITIONS.fast} ease`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem',
+              gap: SPACING.xs,
             }}
             onMouseEnter={(e) => {
               if (!isLoading) {
@@ -256,11 +266,11 @@ export function ConfirmationModal({
               <>
                 <span
                   style={{
-                    width: '1rem',
-                    height: '1rem',
-                    border: '2px solid white',
+                    width: SPACING.sm,
+                    height: SPACING.sm,
+                    border: `2px solid ${COLORS.text.white}`,
                     borderTopColor: 'transparent',
-                    borderRadius: '50%',
+                    borderRadius: BORDER_RADIUS.full,
                     animation: 'spin 0.8s linear infinite',
                   }}
                 />

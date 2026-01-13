@@ -11,6 +11,15 @@ import { LoadingSpinner } from './ui/LoadingSpinner';
 import { NotificationPanel } from './ui/NotificationPanel';
 import { logout } from '../../utils/authHelpers';
 import { clearCacheOnLogout } from '../../utils/cacheUtils';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
 
 // Role-specific modals
 import { TeacherSettingsModal } from '../teacher/TeacherSettingsModal';
@@ -153,7 +162,7 @@ export const UnifiedProfileHeader = ({
               <div style={styles.welcomeRow}>
                 <h1 style={{
                   ...styles.welcomeText,
-                  color: config.colors.accent,
+                  color: config.colors.accent || '#FFFFFF',
                 }}>
                   Welcome, {displayName}
                 </h1>
@@ -267,53 +276,65 @@ export const UnifiedProfileHeader = ({
 // Styles
 const styles = {
   loadingContainer: {
-    backgroundColor: '#FFFFFF',
-    padding: '3rem',
-    marginBottom: '2rem',
+    background: 'rgba(255, 255, 255, 0.12)',
+    backdropFilter: 'blur(30px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+    padding: SPACING['2xl'],
+    marginBottom: SPACING.xl,
+    borderRadius: BORDER_RADIUS.md,
   },
   errorContainer: {
-    backgroundColor: '#FEE2E2',
-    padding: '2rem',
-    marginBottom: '2rem',
-    borderRadius: '8px',
+    background: 'rgba(254, 226, 226, 0.9)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
+    borderRadius: BORDER_RADIUS.sm,
     textAlign: 'center',
+    border: '1px solid rgba(239, 68, 68, 0.2)',
   },
   errorText: {
     color: '#991B1B',
-    fontSize: '1rem',
-    margin: '0 0 1rem 0',
+    fontSize: FONT_SIZES.base,
+    margin: `0 0 ${SPACING.sm} 0`,
   },
   retryButton: {
-    backgroundColor: '#DC2626',
-    color: '#FFFFFF',
-    padding: '0.5rem 1rem',
+    backgroundColor: COLORS.status.error,
+    color: COLORS.text.white,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
     border: 'none',
-    borderRadius: '0.375rem',
+    borderRadius: BORDER_RADIUS.xs,
     cursor: 'pointer',
-    fontSize: '0.875rem',
+    fontSize: FONT_SIZES.sm,
   },
   container: {
     position: 'relative',
     display: 'flex',
     alignItems: 'flex-start',
-    gap: '2rem',
-    backgroundColor: '#FFFFFF',
-    padding: '2rem 3rem',
+    gap: SPACING.xl,
+    background: 'rgba(255, 255, 255, 0.12)',
+    backdropFilter: 'blur(30px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+    padding: `${SPACING.xl} ${SPACING['2xl']}`,
     marginBottom: '0',
+    borderRadius: BORDER_RADIUS.md,
+    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
   },
   avatar: {
-    borderRadius: '50%',
+    borderRadius: BORDER_RADIUS.full,
     objectFit: 'cover',
     flexShrink: 0,
-    border: '3px solid #F3F4F6',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    border: '3px solid rgba(255, 255, 255, 0.3)',
+    boxShadow: SHADOWS.md,
   },
   middleSection: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: '1rem',
-    paddingTop: '0.5rem',
+    gap: SPACING.sm,
+    paddingTop: SPACING.xs,
   },
   topRow: {
     display: 'flex',
@@ -322,78 +343,82 @@ const styles = {
   leftColumn: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.25rem',
+    gap: SPACING.xs,
     flex: 1,
   },
   empId: {
-    fontSize: '10px',
-    fontWeight: '600',
-    color: '#666666',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: 'Inter, sans-serif',
     margin: 0,
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
   },
   welcomeRow: {
     display: 'flex',
     alignItems: 'baseline',
-    gap: '2rem',
+    gap: SPACING.xl,
   },
   welcomeText: {
     fontSize: '26px',
-    fontWeight: '700',
+    fontWeight: FONT_WEIGHTS.bold,
     fontFamily: 'Montserrat, sans-serif',
     margin: 0,
     lineHeight: '26px',
+    textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
   },
   roleText: {
-    fontSize: '10px',
-    fontWeight: '600',
-    color: '#666666',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: 'Inter, sans-serif',
     margin: 0,
     whiteSpace: 'nowrap',
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
   },
   detailsRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    fontSize: '10px',
-    color: '#666666',
+    fontSize: FONT_SIZES.xs,
+    color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: 'Inter, sans-serif',
-    paddingTop: '0.5rem',
+    paddingTop: SPACING.xs,
     flexWrap: 'wrap',
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
   },
   detailBlock: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    paddingRight: '1rem',
-    fontWeight: '600',
+    gap: SPACING.xs,
+    paddingRight: SPACING.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
     whiteSpace: 'nowrap',
   },
   label: {
-    fontWeight: '700',
-    marginRight: '0.25rem',
+    fontWeight: FONT_WEIGHTS.bold,
+    marginRight: SPACING.xs,
   },
   verticalSeparator: {
-    borderRight: '1px solid #D2D2D2',
+    borderRight: '1px solid rgba(255, 255, 255, 0.3)',
     height: '10px',
     display: 'inline-block',
-    margin: '0 0.25rem',
+    margin: `0 ${SPACING.xs}`,
   },
   iconContainer: {
     display: 'flex',
-    gap: '1rem',
+    gap: SPACING.sm,
     alignItems: 'flex-start',
-    paddingTop: '1rem',
+    paddingTop: SPACING.sm,
   },
   iconButton: {
-    padding: '0.5rem',
+    padding: SPACING.xs,
     background: 'transparent',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    color: '#666666',
-    transition: 'all 0.2s ease',
+    color: 'rgba(255, 255, 255, 0.9)',
+    transition: `all ${TRANSITIONS.base} ease`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -405,10 +430,10 @@ const styles = {
   smallAvatar: {
     width: '2.5rem',
     height: '2.5rem',
-    borderRadius: '50%',
+    borderRadius: BORDER_RADIUS.full,
     objectFit: 'cover',
-    border: '2px solid #F3F4F6',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    boxShadow: SHADOWS.xs,
   },
   bottomBorder: {
     position: 'absolute',
@@ -416,7 +441,7 @@ const styles = {
     left: 0,
     right: 0,
     height: '1px',
-    backgroundColor: '#D2D2D2',
+    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3) 50%, transparent)',
   },
 };
 
@@ -425,8 +450,8 @@ if (typeof document !== 'undefined') {
   const styleSheet = document.createElement('style');
   styleSheet.textContent = `
     .profile-icon-button:hover {
-      background-color: #F3F4F6 !important;
-      color: #1F2937 !important;
+      background-color: rgba(255, 255, 255, 0.2) !important;
+      color: #FFFFFF !important;
     }
   `;
   if (!document.head.querySelector('style[data-unified-profile-header-styles]')) {

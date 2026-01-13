@@ -4,6 +4,14 @@
 // Location: src/components/common/ui/AttendanceButton.js
 
 import React from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * AttendanceButton Component - Toggles between Present/Absent status
@@ -21,9 +29,9 @@ export const AttendanceButton = ({
 }) => {
   // Size configurations
   const sizes = {
-    small: { padding: '0.25rem 0.5rem', fontSize: '0.7rem', minWidth: '80px' },
-    medium: { padding: '0.375rem 0.75rem', fontSize: '0.8rem', minWidth: '100px' },
-    large: { padding: '0.5rem 1rem', fontSize: '0.875rem', minWidth: '120px' },
+    small: { padding: `0.25rem ${SPACING.xs}`, fontSize: FONT_SIZES.xs, minWidth: '80px' },
+    medium: { padding: `0.375rem ${SPACING.sm}`, fontSize: FONT_SIZES.sm, minWidth: '100px' },
+    large: { padding: `${SPACING.xs} ${SPACING.sm}`, fontSize: FONT_SIZES.base, minWidth: '120px' },
   };
 
   const { padding, fontSize, minWidth } = sizes[size] || sizes.medium;
@@ -33,11 +41,11 @@ export const AttendanceButton = ({
       padding,
       fontSize,
       minWidth,
-      fontWeight: '600',
+      fontWeight: FONT_WEIGHTS.semibold,
       border: 'none',
-      borderRadius: '0.375rem',
+      borderRadius: BORDER_RADIUS.sm,
       cursor: disabled ? 'not-allowed' : 'pointer',
-      transition: 'all 0.2s ease',
+      transition: `all ${TRANSITIONS.normal} ease`,
       opacity: disabled ? 0.6 : 1,
       display: 'inline-flex',
       alignItems: 'center',
@@ -48,21 +56,21 @@ export const AttendanceButton = ({
     if (status === 'Present') {
       return {
         ...baseStyle,
-        backgroundColor: '#10B981',
-        color: '#FFFFFF',
+        backgroundColor: COLORS.status.success,
+        color: COLORS.text.white,
       };
     } else if (status === 'Absent') {
       return {
         ...baseStyle,
-        backgroundColor: '#EF4444',
-        color: '#FFFFFF',
+        backgroundColor: COLORS.status.error,
+        color: COLORS.text.white,
       };
     } else {
       return {
         ...baseStyle,
-        backgroundColor: '#F3F4F6',
-        color: '#6B7280',
-        border: '1px solid #D1D5DB',
+        backgroundColor: COLORS.background.offWhite,
+        color: COLORS.text.secondary,
+        border: `1px solid ${COLORS.border.light}`,
       };
     }
   };

@@ -9,6 +9,14 @@
 // - Inline toolbar (minimal)
 
 import React, { useRef, useState, useCallback } from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * Parse text to HTML for display
@@ -98,16 +106,16 @@ export const CompactRichTextEditor = ({
     width: '100%',
     minHeight: isFocused ? '80px' : '40px',
     maxHeight: '150px',
-    padding: '0.5rem',
-    paddingTop: showToolbar ? '2rem' : '0.5rem',
-    border: `1px solid ${isFocused ? '#3B82F6' : '#D1D5DB'}`,
-    borderRadius: '0.375rem',
-    fontSize: '0.8rem',
+    padding: SPACING.xs,
+    paddingTop: showToolbar ? SPACING.lg : SPACING.xs,
+    border: `1px solid ${isFocused ? COLORS.status.info : COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
     fontFamily: 'inherit',
     resize: 'vertical',
-    transition: 'all 0.2s ease',
+    transition: `all ${TRANSITIONS.fast} ease`,
     outline: 'none',
-    boxShadow: isFocused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
+    boxShadow: isFocused ? `0 0 0 3px ${COLORS.status.infoLight}` : 'none',
   };
 
   const toolbarStyle = {
@@ -116,32 +124,32 @@ export const CompactRichTextEditor = ({
     left: '2px',
     right: '2px',
     display: showToolbar ? 'flex' : 'none',
-    gap: '0.125rem',
-    padding: '0.125rem',
-    backgroundColor: '#F9FAFB',
-    borderBottom: '1px solid #E5E7EB',
-    borderRadius: '0.25rem 0.25rem 0 0',
+    gap: SPACING.xs,
+    padding: SPACING.xs,
+    backgroundColor: COLORS.background.offWhite,
+    borderBottom: `1px solid ${COLORS.border.light}`,
+    borderRadius: `${BORDER_RADIUS.xs} ${BORDER_RADIUS.xs} 0 0`,
     zIndex: 10,
   };
 
   const toolbarButtonStyle = {
-    padding: '0.125rem 0.375rem',
-    fontSize: '0.7rem',
-    fontWeight: '600',
+    padding: `${SPACING.xs} 0.375rem`,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
     border: 'none',
-    borderRadius: '0.25rem',
+    borderRadius: BORDER_RADIUS.xs,
     cursor: 'pointer',
     backgroundColor: 'transparent',
-    color: '#6B7280',
-    transition: 'all 0.15s ease',
+    color: COLORS.text.secondary,
+    transition: `all ${TRANSITIONS.fast} ease`,
   };
 
   const hintStyle = {
     position: 'absolute',
     bottom: '-1.25rem',
     left: 0,
-    fontSize: '0.65rem',
-    color: '#9CA3AF',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.muted,
     display: isFocused ? 'block' : 'none',
   };
 
@@ -156,12 +164,12 @@ export const CompactRichTextEditor = ({
             onClick={() => formatText('bold')}
             title="Bold (*text*)"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#E5E7EB';
-              e.currentTarget.style.color = '#1F2937';
+              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
+              e.currentTarget.style.color = COLORS.text.primary;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = '#6B7280';
+              e.currentTarget.style.color = COLORS.text.secondary;
             }}
           >
             B
@@ -172,12 +180,12 @@ export const CompactRichTextEditor = ({
             onClick={() => formatText('italic')}
             title="Italic (_text_)"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#E5E7EB';
-              e.currentTarget.style.color = '#1F2937';
+              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
+              e.currentTarget.style.color = COLORS.text.primary;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = '#6B7280';
+              e.currentTarget.style.color = COLORS.text.secondary;
             }}
           >
             I
@@ -188,12 +196,12 @@ export const CompactRichTextEditor = ({
             onClick={() => formatText('strike')}
             title="Strikethrough (~text~)"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#E5E7EB';
-              e.currentTarget.style.color = '#1F2937';
+              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
+              e.currentTarget.style.color = COLORS.text.primary;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = '#6B7280';
+              e.currentTarget.style.color = COLORS.text.secondary;
             }}
           >
             S
@@ -204,12 +212,12 @@ export const CompactRichTextEditor = ({
             onClick={() => formatText('code')}
             title="Code (```text```)"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#E5E7EB';
-              e.currentTarget.style.color = '#1F2937';
+              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
+              e.currentTarget.style.color = COLORS.text.primary;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = '#6B7280';
+              e.currentTarget.style.color = COLORS.text.secondary;
             }}
           >
             {'</>'}

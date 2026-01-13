@@ -15,6 +15,15 @@ import { ClassFilter } from './ClassFilter';
 import { MonthFilter } from './MonthFilter';
 import { Button } from '../ui/Button';
 import moment from 'moment';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  SHADOWS,
+} from '../../../utils/designConstants';
 
 /**
  * FilterBar Component - Combines School, Class, Month, Date filters with optional search
@@ -122,18 +131,19 @@ export const FilterBar = ({
   const containerStyle = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: '1rem',
-    padding: '1.25rem',
-    backgroundColor: '#FFFFFF',
-    borderRadius: '0.75rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    marginBottom: '1.5rem',
+    gap: SPACING.md,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.lg,
+    boxShadow: SHADOWS.md,
+    marginBottom: SPACING.lg,
     alignItems: 'end',
+    border: `1px solid ${COLORS.border.light}`,
   };
 
   const buttonContainerStyle = {
     display: 'flex',
-    gap: '0.75rem',
+    gap: SPACING.sm,
     alignItems: 'flex-end',
     flexWrap: 'wrap',
   };
@@ -141,34 +151,34 @@ export const FilterBar = ({
   const inputContainerStyle = {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.375rem',
+    gap: SPACING.xs,
   };
 
   const labelStyle = {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.primary,
   };
 
   const inputStyle = {
     width: '100%',
-    padding: '0.625rem 0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    color: '#374151',
-    backgroundColor: '#FFFFFF',
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.primary,
+    backgroundColor: COLORS.background.white,
+    transition: `border-color ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
   };
 
   const handleInputFocus = (e) => {
-    e.target.style.borderColor = '#3B82F6';
-    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+    e.target.style.borderColor = COLORS.status.info;
+    e.target.style.boxShadow = `0 0 0 3px ${COLORS.status.infoLight}`;
     e.target.style.outline = 'none';
   };
 
   const handleInputBlur = (e) => {
-    e.target.style.borderColor = '#D1D5DB';
+    e.target.style.borderColor = COLORS.border.light;
     e.target.style.boxShadow = 'none';
   };
 

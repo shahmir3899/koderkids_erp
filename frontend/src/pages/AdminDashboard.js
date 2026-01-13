@@ -26,6 +26,16 @@ import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { useSchools } from '../hooks/useSchools';
 import { SendNotificationModal } from '../components/admin/SendNotificationModal';
+import { FinancialSummaryCard } from '../components/finance/FinancialSummaryCard';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+} from '../utils/designConstants';
 import {
   BarChart,
   Bar,
@@ -115,7 +125,6 @@ function AdminDashboard() {
   
   // Loading States - Granular control
   const [loading, setLoading] = useState({
-    initial: true,           // First page load
     profile: true, 
     students: false,         // Students per school
     fee: false,              // Fee per month
@@ -613,33 +622,15 @@ function AdminDashboard() {
   // RENDER
   // ============================================
 
-  // Show loading spinner on initial load
-  if (loading.initial) {
-    return (
-      <div>
-        <UnifiedProfileHeader
-  role="Admin"
-  profile={profile}
-  loading={loading.profile}
-  onProfileUpdate={handleProfileUpdate}
-/>
-  <div>
-
-        <LoadingSpinner size="large" message="Loading dashboard..." />
-      </div>
-      </div>
-    );
-  }
-
   return (
     <div>
       <UnifiedProfileHeader
-  role="Admin"
-  profile={profile}
-  loading={loading.profile}
-  onProfileUpdate={handleProfileUpdate}
-/>
-  <div>
+        role="Admin"
+        profile={profile}
+        loading={loading.profile}
+        onProfileUpdate={handleProfileUpdate}
+      />
+      <div>
 
 
       {/* Students per School */}
@@ -744,27 +735,32 @@ function AdminDashboard() {
       </CollapsibleSection>
 
       {/* Fee Summary Table */}
-      <CollapsibleSection 
+      <CollapsibleSection
         title="Fee Summary for Selected Month"
         defaultOpen
         headerAction={
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            style={{
-              
-              border: '1px solid #D1D5DB',
-              borderRadius: '0px',
-              fontSize: '0.875rem',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {availableMonths.map(month => (
-              <option key={month} value={month}>
-                {month}
-              </option>
-            ))}
-          </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{
+                padding: SPACING.sm,
+                border: `1px solid ${COLORS.border.default}`,
+                borderRadius: BORDER_RADIUS.sm,
+                fontSize: FONT_SIZES.sm,
+                fontFamily: 'Inter, sans-serif',
+                color: COLORS.text.primary,
+                backgroundColor: COLORS.background.white,
+                cursor: 'pointer',
+              }}
+            >
+              {availableMonths.map(month => (
+                <option key={month} value={month}>
+                  {month}
+                </option>
+              ))}
+            </select>
+          </div>
         }
       >
         <DataTable
@@ -804,34 +800,13 @@ function AdminDashboard() {
         />
         
         {feeSummary.length > 0 && (
-          <div style={{ 
-            marginTop: '1rem', 
-             
-            background: '#F0FDF4', 
-            borderRadius: '0px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem',
-          }}>
-            <div>
-              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.875rem' }}>Total Fee:</p>
-              <p style={{ margin: '0.25rem 0 0 0', color: '#065F46', fontSize: '1.5rem', fontWeight: 'bold' }}>
-                PKR {feeTotals.total_fee.toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.875rem' }}>Paid Amount:</p>
-              <p style={{ margin: '0.25rem 0 0 0', color: '#065F46', fontSize: '1.5rem', fontWeight: 'bold' }}>
-                PKR {feeTotals.paid_amount.toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.875rem' }}>Balance Due:</p>
-              <p style={{ margin: '0.25rem 0 0 0', color: '#DC2626', fontSize: '1.5rem', fontWeight: 'bold' }}>
-                PKR {feeTotals.balance_due.toLocaleString()}
-              </p>
-            </div>
-          </div>
+          <FinancialSummaryCard
+            totalFee={feeTotals.total_fee}
+            paidAmount={feeTotals.paid_amount}
+            balanceDue={feeTotals.balance_due}
+            loading={false}
+            compact={true}
+          />
         )}
       </CollapsibleSection>
 
@@ -860,15 +835,20 @@ function AdminDashboard() {
 
       {/* Student Data Reports */}
       <CollapsibleSection title="Student Data Reports" defaultOpen={false}>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '1rem',
-          marginBottom: '1rem'
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: SPACING.lg,
+          marginBottom: SPACING.lg
         }}>
           {/* Month Selector */}
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: SPACING.sm,
+              fontWeight: FONT_WEIGHTS.medium,
+              color: COLORS.text.primary
+            }}>
               Select Month for Student Data
             </label>
             <select
@@ -876,10 +856,14 @@ function AdminDashboard() {
               onChange={(e) => setSelectedMonth(e.target.value)}
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #D1D5DB',
-                borderRadius: '0.5rem',
-                fontSize: '1rem',
+                padding: SPACING.md,
+                border: `1px solid ${COLORS.border.default}`,
+                borderRadius: BORDER_RADIUS.md,
+                fontSize: FONT_SIZES.base,
+                fontFamily: 'Inter, sans-serif',
+                color: COLORS.text.primary,
+                backgroundColor: COLORS.background.white,
+                cursor: 'pointer',
               }}
             >
               {availableMonths.map(month => (
@@ -928,12 +912,13 @@ function AdminDashboard() {
           />
         ) : (
           <div style={{
-            padding: '2rem',
+            padding: SPACING['2xl'],
             textAlign: 'center',
-            color: '#9CA3AF',
-            backgroundColor: '#F9FAFB',
-            borderRadius: '8px',
-            marginTop: '1rem',
+            color: COLORS.text.secondary,
+            backgroundColor: COLORS.background.lightGray,
+            borderRadius: BORDER_RADIUS.md,
+            marginTop: SPACING.lg,
+            fontFamily: 'Inter, sans-serif',
           }}>
             Select school and class to view student data
           </div>
@@ -1035,22 +1020,22 @@ const FloatingNotificationButton = ({ onClick }) => {
 const fabStyles = {
   container: {
     position: 'fixed',
-    bottom: '2rem',
-    right: '2rem',
+    bottom: SPACING['2xl'],
+    right: SPACING['2xl'],
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
-    padding: '1rem 1.5rem',
-    backgroundColor: '#7C3AED',
-    color: '#FFFFFF',
+    gap: SPACING.md,
+    padding: `${SPACING.lg} ${SPACING.xl}`,
+    backgroundColor: COLORS.primary,
+    color: COLORS.background.white,
     border: 'none',
     borderRadius: '50px',
-    fontSize: '0.9375rem',
-    fontWeight: '600',
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
     cursor: 'pointer',
-    boxShadow: '0 8px 20px rgba(124, 58, 237, 0.3)',
+    boxShadow: SHADOWS.xl,
     zIndex: 999,
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: `all ${TRANSITIONS.base} cubic-bezier(0.4, 0, 0.2, 1)`,
     animation: 'slideIn 0.5s ease-out',
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
   },
@@ -1058,10 +1043,10 @@ const fabStyles = {
     width: '56px',
     height: '56px',
     padding: '0',
-    borderRadius: '50%',
+    borderRadius: BORDER_RADIUS.full,
     justifyContent: 'center',
-    bottom: '1.5rem',
-    right: '1.5rem',
+    bottom: SPACING.xl,
+    right: SPACING.xl,
   },
   iconWrapper: {
     position: 'relative',
@@ -1070,8 +1055,8 @@ const fabStyles = {
     justifyContent: 'center',
   },
   icon: {
-    width: '1.5rem',
-    height: '1.5rem',
+    width: SPACING.xl,
+    height: SPACING.xl,
     strokeWidth: 2.5,
   },
   pulse: {
@@ -1080,13 +1065,13 @@ const fabStyles = {
     right: '-2px',
     width: '8px',
     height: '8px',
-    backgroundColor: '#10B981',
-    borderRadius: '50%',
-    border: '2px solid #FFFFFF',
+    backgroundColor: COLORS.status.success,
+    borderRadius: BORDER_RADIUS.full,
+    border: `2px solid ${COLORS.background.white}`,
     animation: 'pulse 2s ease-in-out infinite',
   },
   label: {
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHTS.semibold,
     letterSpacing: '0.01em',
   },
 };

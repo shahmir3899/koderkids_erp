@@ -4,6 +4,14 @@
 // Location: src/components/common/ui/ModeSelector.js
 
 import React from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * ModeSelector Component - Radio button group for selecting modes
@@ -26,33 +34,33 @@ export const ModeSelector = ({
   const containerStyle = {
     display: 'flex',
     flexDirection: layout === 'vertical' ? 'column' : 'row',
-    gap: '1rem',
+    gap: SPACING.sm,
     alignItems: layout === 'vertical' ? 'flex-start' : 'center',
   };
 
   const labelStyle = {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: SPACING.xs,
     cursor: 'pointer',
-    padding: '0.5rem 1rem',
-    borderRadius: '0.5rem',
-    transition: 'background-color 0.15s ease',
-    fontSize: '0.875rem',
-    color: '#374151',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.sm,
+    transition: `background-color ${TRANSITIONS.fast} ease`,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.primary,
   };
 
   const labelActiveStyle = {
     ...labelStyle,
-    backgroundColor: '#EFF6FF',
-    color: '#1D4ED8',
-    fontWeight: '500',
+    backgroundColor: COLORS.status.infoLight,
+    color: COLORS.status.infoDarker,
+    fontWeight: FONT_WEIGHTS.medium,
   };
 
   const radioStyle = {
     width: '16px',
     height: '16px',
-    accentColor: '#3B82F6',
+    accentColor: COLORS.status.info,
     cursor: 'pointer',
   };
 
@@ -64,7 +72,7 @@ export const ModeSelector = ({
           style={value === option.value ? labelActiveStyle : labelStyle}
           onMouseEnter={(e) => {
             if (value !== option.value) {
-              e.currentTarget.style.backgroundColor = '#F3F4F6';
+              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
             }
           }}
           onMouseLeave={(e) => {

@@ -49,9 +49,7 @@ function FinanceDashboard() {
   const [loanSummary, setLoanSummary] = useState([]);
 
   // Loading States (Consolidated)
-  const [loading, setLoading] = useState({
-    initial: true,
-  });
+  const [loading, setLoading] = useState({});
 
   // Error States
   const [error, setError] = useState(null);
@@ -70,7 +68,6 @@ function FinanceDashboard() {
   }, []);
 
   const fetchData = async () => {
-    setLoading((prev) => ({ ...prev, initial: true }));
     setError(null);
 
     try {
@@ -92,8 +89,6 @@ function FinanceDashboard() {
       }
       setError(errorMessage);
       toast.error(errorMessage);
-    } finally {
-      setLoading((prev) => ({ ...prev, initial: false }));
     }
   };
 
@@ -172,23 +167,18 @@ function FinanceDashboard() {
 
       {/* Error Display */}
       {error && (
-        <ErrorDisplay error={error} onRetry={handleRetry} isRetrying={isRetrying} />
-      )}
-
-      {/* Loading State for Initial Data */}
-      {loading.initial && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem 0' }}>
-          <LoadingSpinner size="large" message="Loading dashboard data..." />
+        <div style={{ marginBottom: '2rem' }}>
+          <ErrorDisplay error={error} onRetry={handleRetry} isRetrying={isRetrying} />
         </div>
       )}
 
       {/* Main Dashboard Content */}
-      {!loading.initial && !error && (
+      {!error && (
         <div>
           {/* ============================================ */}
           {/* SUMMARY CARDS */}
           {/* ============================================ */}
-          <FinanceSummaryCards summary={summary} loading={loading.initial} />
+          <FinanceSummaryCards summary={summary} loading={false} />
           {/* ============================================ */}
           {/* EXISTING: SIMPLE INCOME VS EXPENSES BAR CHART */}
           {/* ============================================ */}
@@ -245,7 +235,7 @@ function FinanceDashboard() {
           <CollapsibleSection title="💳 Account Balances" defaultOpen={false}>
             <DataTable
               data={summary.accounts}
-              loading={loading.initial}
+              loading={false}
               columns={[
                 {
                   key: 'account_name',
@@ -328,7 +318,7 @@ function FinanceDashboard() {
           <CollapsibleSection title="💳 Loan Summary" defaultOpen={false}>
             <DataTable
               data={loanSummary}
-              loading={loading.initial}
+              loading={false}
               columns={[
                 {
                   key: 'person',

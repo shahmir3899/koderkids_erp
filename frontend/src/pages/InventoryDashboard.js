@@ -98,23 +98,6 @@ const InventoryDashboard = () => {
   } = useInventory();
 
   // ============================================
-  // LOADING STATE
-  // ============================================
-
-  if (loading.initial || userContext.loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '60vh',
-      }}>
-        <LoadingSpinner size="large" message="Loading inventory..." />
-      </div>
-    );
-  }
-
-  // ============================================
   // RENDER
   // ============================================
 

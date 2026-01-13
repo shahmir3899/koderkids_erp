@@ -471,15 +471,8 @@ const handleDelete = async (lessonId) => {
   // ============================================
   // RENDER - Auth Checks
   // ============================================
-  if (!user) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <LoadingSpinner size="large" message="Loading..." />
-      </div>
-    );
-  }
 
-  if (!['admin', 'teacher'].includes(user.role)) {
+  if (user && !['admin', 'teacher'].includes(user.role)) {
     return (
       <div style={{ textAlign: 'center', marginTop: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', color: '#EF4444' }}>

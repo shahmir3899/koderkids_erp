@@ -365,15 +365,8 @@ function SchoolsPage() {
         </div>
       )}
 
-      {/* Loading State */}
-      {isLoading && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-          <LoadingSpinner size="large" />
-        </div>
-      )}
-
       {/* Schools Grid */}
-      {!isLoading && !error && filteredSchools.length > 0 && (
+      {!error && filteredSchools.length > 0 && (
         <div
           style={{
             display: 'grid',
@@ -396,7 +389,7 @@ function SchoolsPage() {
       )}
 
       {/* Empty State */}
-      {!isLoading && !error && filteredSchools.length === 0 && (
+      {!error && filteredSchools.length === 0 && (
         <div
           style={{
             textAlign: 'center',

@@ -4,12 +4,22 @@
 // Location: src/components/common/ui/NotificationPanel.js
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  getNotifications, 
+import {
+  getNotifications,
   getUnreadNotificationCount,
-  markNotificationAsRead, 
-  markAllNotificationsAsRead 
+  markNotificationAsRead,
+  markAllNotificationsAsRead
 } from '../../../services/teacherService';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../../utils/designConstants';
 
 /**
  * NotificationPanel Component
@@ -109,42 +119,42 @@ export const NotificationPanel = ({ onNotificationClick }) => {
 
   // Get notification icon based on type
   const getNotificationIcon = (type) => {
-    const iconStyle = { width: '1.25rem', height: '1.25rem' };
-    
+    const iconStyle = { width: SPACING.md, height: SPACING.md };
+
     switch (type) {
       case 'success':
         return (
-          <svg style={{ ...iconStyle, color: '#10B981' }} fill="currentColor" viewBox="0 0 24 24">
+          <svg style={{ ...iconStyle, color: COLORS.status.success }} fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
           </svg>
         );
       case 'warning':
         return (
-          <svg style={{ ...iconStyle, color: '#F59E0B' }} fill="currentColor" viewBox="0 0 24 24">
+          <svg style={{ ...iconStyle, color: COLORS.status.warning }} fill="currentColor" viewBox="0 0 24 24">
             <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
           </svg>
         );
       case 'error':
         return (
-          <svg style={{ ...iconStyle, color: '#EF4444' }} fill="currentColor" viewBox="0 0 24 24">
+          <svg style={{ ...iconStyle, color: COLORS.status.error }} fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
           </svg>
         );
       case 'message':
         return (
-          <svg style={{ ...iconStyle, color: '#3B82F6' }} fill="currentColor" viewBox="0 0 24 24">
+          <svg style={{ ...iconStyle, color: COLORS.status.info }} fill="currentColor" viewBox="0 0 24 24">
             <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
           </svg>
         );
       case 'reminder':
         return (
-          <svg style={{ ...iconStyle, color: '#8B5CF6' }} fill="currentColor" viewBox="0 0 24 24">
+          <svg style={{ ...iconStyle, color: COLORS.primary }} fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z" />
           </svg>
         );
       default:
         return (
-          <svg style={{ ...iconStyle, color: '#6B7280' }} fill="currentColor" viewBox="0 0 24 24">
+          <svg style={{ ...iconStyle, color: COLORS.text.secondary }} fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
           </svg>
         );
@@ -209,7 +219,7 @@ export const NotificationPanel = ({ onNotificationClick }) => {
                   key={notification.id}
                   style={{
                     ...styles.notificationItem,
-                    backgroundColor: notification.is_read ? 'transparent' : '#F0F9FF',
+                    backgroundColor: notification.is_read ? 'transparent' : COLORS.status.infoLight,
                   }}
                   onClick={() => handleNotificationClick(notification)}
                   role="button"
@@ -252,30 +262,30 @@ const styles = {
   },
   bellButton: {
     position: 'relative',
-    padding: '0.75rem',
+    padding: SPACING.sm,
     background: 'transparent',
     border: 'none',
-    borderRadius: '50%',
+    borderRadius: BORDER_RADIUS.full,
     cursor: 'pointer',
-    color: '#6B7280',
-    transition: 'all 0.2s ease',
+    color: COLORS.text.secondary,
+    transition: `all ${TRANSITIONS.normal} ease`,
   },
   bellIcon: {
-    width: '1.5rem',
-    height: '1.5rem',
+    width: SPACING.lg,
+    height: SPACING.lg,
   },
   badge: {
     position: 'absolute',
-    top: '0.25rem',
-    right: '0.25rem',
-    minWidth: '1.25rem',
-    height: '1.25rem',
-    padding: '0 0.25rem',
-    backgroundColor: '#EF4444',
-    color: '#FFFFFF',
-    fontSize: '0.625rem',
-    fontWeight: '600',
-    borderRadius: '9999px',
+    top: SPACING.xs,
+    right: SPACING.xs,
+    minWidth: SPACING.md,
+    height: SPACING.md,
+    padding: `0 ${SPACING.xs}`,
+    backgroundColor: COLORS.status.error,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    borderRadius: BORDER_RADIUS.full,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -286,36 +296,36 @@ const styles = {
     right: 0,
     width: '360px',
     maxHeight: '480px',
-    backgroundColor: '#FFFFFF',
-    borderRadius: '12px',
-    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.md,
+    boxShadow: SHADOWS.lg,
     overflow: 'hidden',
-    zIndex: 1000,
-    marginTop: '0.5rem',
+    zIndex: Z_INDEX.modal,
+    marginTop: SPACING.xs,
   },
   panelHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '1rem',
-    borderBottom: '1px solid #E5E7EB',
+    padding: SPACING.sm,
+    borderBottom: `1px solid ${COLORS.border.light}`,
   },
   panelTitle: {
-    fontSize: '1rem',
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
     margin: 0,
   },
   markAllButton: {
-    padding: '0.25rem 0.5rem',
+    padding: `${SPACING.xs} ${SPACING.xs}`,
     backgroundColor: 'transparent',
-    color: '#3B82F6',
+    color: COLORS.status.info,
     border: 'none',
-    borderRadius: '4px',
-    fontSize: '0.75rem',
-    fontWeight: '500',
+    borderRadius: BORDER_RADIUS.xs,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
-    transition: 'background-color 0.15s ease',
+    transition: `background-color ${TRANSITIONS.fast} ease`,
   },
   notificationList: {
     maxHeight: '360px',
@@ -324,53 +334,53 @@ const styles = {
   notificationItem: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: '0.75rem',
-    padding: '1rem',
-    borderBottom: '1px solid #F3F4F6',
+    gap: SPACING.sm,
+    padding: SPACING.sm,
+    borderBottom: `1px solid ${COLORS.background.offWhite}`,
     cursor: 'pointer',
-    transition: 'background-color 0.15s ease',
+    transition: `background-color ${TRANSITIONS.fast} ease`,
     position: 'relative',
   },
   notificationIcon: {
     flexShrink: 0,
-    width: '2rem',
-    height: '2rem',
+    width: SPACING.xl,
+    height: SPACING.xl,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: '50%',
+    backgroundColor: COLORS.background.offWhite,
+    borderRadius: BORDER_RADIUS.full,
   },
   notificationContent: {
     flex: 1,
     minWidth: 0,
   },
   notificationTitle: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.primary,
     margin: 0,
-    marginBottom: '0.25rem',
+    marginBottom: SPACING.xs,
   },
   notificationMessage: {
-    fontSize: '0.8125rem',
-    color: '#6B7280',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.secondary,
     margin: 0,
-    marginBottom: '0.25rem',
+    marginBottom: SPACING.xs,
     display: '-webkit-box',
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
   },
   notificationTime: {
-    fontSize: '0.75rem',
-    color: '#9CA3AF',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.tertiary,
   },
   unreadDot: {
-    width: '0.5rem',
-    height: '0.5rem',
-    backgroundColor: '#3B82F6',
-    borderRadius: '50%',
+    width: SPACING.xs,
+    height: SPACING.xs,
+    backgroundColor: COLORS.status.info,
+    borderRadius: BORDER_RADIUS.full,
     flexShrink: 0,
   },
   loadingState: {
@@ -378,16 +388,16 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '3rem',
-    color: '#9CA3AF',
-    gap: '0.5rem',
+    padding: SPACING.xl,
+    color: COLORS.text.tertiary,
+    gap: SPACING.xs,
   },
   spinner: {
-    width: '1.5rem',
-    height: '1.5rem',
-    border: '2px solid #E5E7EB',
-    borderTopColor: '#3B82F6',
-    borderRadius: '50%',
+    width: SPACING.lg,
+    height: SPACING.lg,
+    border: `2px solid ${COLORS.border.light}`,
+    borderTopColor: COLORS.status.info,
+    borderRadius: BORDER_RADIUS.full,
     animation: 'spin 1s linear infinite',
   },
   emptyState: {
@@ -395,30 +405,30 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '3rem',
-    color: '#9CA3AF',
-    gap: '0.5rem',
+    padding: SPACING.xl,
+    color: COLORS.text.tertiary,
+    gap: SPACING.xs,
   },
   emptyIcon: {
-    width: '3rem',
-    height: '3rem',
-    color: '#D1D5DB',
+    width: SPACING['2xl'],
+    height: SPACING['2xl'],
+    color: COLORS.border.light,
   },
   panelFooter: {
-    padding: '0.75rem',
-    borderTop: '1px solid #E5E7EB',
+    padding: SPACING.sm,
+    borderTop: `1px solid ${COLORS.border.light}`,
     textAlign: 'center',
   },
   viewAllButton: {
-    padding: '0.5rem 1rem',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
     backgroundColor: 'transparent',
-    color: '#3B82F6',
+    color: COLORS.status.info,
     border: 'none',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    fontWeight: '500',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
-    transition: 'background-color 0.15s ease',
+    transition: `background-color ${TRANSITIONS.fast} ease`,
   },
 };
 

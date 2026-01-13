@@ -11,6 +11,14 @@
 // - Resizable textarea
 
 import React, { useRef, useState, useCallback } from 'react';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * Parse text to HTML for preview
@@ -149,80 +157,80 @@ export const RichTextEditor = ({
   const containerStyle = {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
+    gap: SPACING.xs,
   };
 
   const editorContainerStyle = {
     display: showPreview ? 'grid' : 'block',
     gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr',
-    gap: '1rem',
+    gap: SPACING.sm,
   };
 
   const toolbarStyle = {
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: '0.25rem',
-    padding: '0.5rem',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #D1D5DB',
+    gap: SPACING.xs,
+    padding: SPACING.xs,
+    backgroundColor: COLORS.background.white,
+    border: `1px solid ${COLORS.border.light}`,
     borderBottom: 'none',
-    borderRadius: '0.5rem 0.5rem 0 0',
+    borderRadius: `${BORDER_RADIUS.sm} ${BORDER_RADIUS.sm} 0 0`,
   };
 
   const toolbarButtonStyle = {
-    padding: '0.375rem 0.625rem',
+    padding: `${SPACING.xs} 0.625rem`,
     backgroundColor: 'transparent',
     border: 'none',
-    borderRadius: '0.25rem',
+    borderRadius: BORDER_RADIUS.xs,
     cursor: 'pointer',
-    fontSize: '0.875rem',
-    color: '#374151',
-    transition: 'background-color 0.15s ease',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.primary,
+    transition: `background-color ${TRANSITIONS.fast} ease`,
   };
 
   const textareaStyle = {
     width: '100%',
     height: `${textAreaHeight}px`,
-    padding: '1rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0 0 0.5rem 0.5rem',
-    fontSize: '0.875rem',
+    padding: SPACING.sm,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: `0 0 ${BORDER_RADIUS.sm} ${BORDER_RADIUS.sm}`,
+    fontSize: FONT_SIZES.sm,
     fontFamily: 'inherit',
     resize: 'none',
     outline: 'none',
-    transition: 'border-color 0.15s ease',
+    transition: `border-color ${TRANSITIONS.fast} ease`,
   };
 
   const previewStyle = {
     height: `${textAreaHeight}px`,
-    padding: '1rem',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
+    padding: SPACING.sm,
+    backgroundColor: COLORS.background.white,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.sm,
     overflow: 'auto',
-    fontSize: '0.875rem',
+    fontSize: FONT_SIZES.sm,
     lineHeight: '1.6',
   };
 
   const labelStyle = {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.primary,
   };
 
   const selectStyle = {
-    padding: '0.375rem 0.5rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.25rem',
-    fontSize: '0.75rem',
+    padding: `${SPACING.xs} ${SPACING.xs}`,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.xs,
+    fontSize: FONT_SIZES.xs,
     cursor: 'pointer',
   };
 
   const sliderContainerStyle = {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: SPACING.xs,
     marginLeft: 'auto',
   };
 
@@ -232,7 +240,7 @@ export const RichTextEditor = ({
       {label && (
         <label style={labelStyle}>
           {label}
-          {required && <span style={{ color: '#EF4444', marginLeft: '4px' }}>*</span>}
+          {required && <span style={{ color: COLORS.status.error, marginLeft: '4px' }}>*</span>}
         </label>
       )}
 
@@ -246,7 +254,7 @@ export const RichTextEditor = ({
               onClick={() => formatText('bold')}
               style={toolbarButtonStyle}
               title="Bold (*text*)"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               <strong>B</strong>
@@ -256,7 +264,7 @@ export const RichTextEditor = ({
               onClick={() => formatText('italic')}
               style={toolbarButtonStyle}
               title="Italic (_text_)"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               <em>I</em>
@@ -266,7 +274,7 @@ export const RichTextEditor = ({
               onClick={() => formatText('strike')}
               style={toolbarButtonStyle}
               title="Strikethrough (~text~)"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               <s>S</s>
@@ -276,20 +284,20 @@ export const RichTextEditor = ({
               onClick={() => formatText('mono')}
               style={toolbarButtonStyle}
               title="Monospace (```text```)"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               <code style={{ fontFamily: 'monospace' }}>M</code>
             </button>
 
-            <div style={{ width: '1px', height: '20px', backgroundColor: '#D1D5DB', margin: '0 0.25rem' }} />
+            <div style={{ width: '1px', height: '20px', backgroundColor: COLORS.border.light, margin: `0 ${SPACING.xs}` }} />
 
             <button
               type="button"
               onClick={() => formatText('bullet')}
               style={toolbarButtonStyle}
               title="Bullet List"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               •
@@ -299,20 +307,20 @@ export const RichTextEditor = ({
               onClick={() => formatText('number')}
               style={toolbarButtonStyle}
               title="Numbered List"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               1.
             </button>
 
-            <div style={{ width: '1px', height: '20px', backgroundColor: '#D1D5DB', margin: '0 0.25rem' }} />
+            <div style={{ width: '1px', height: '20px', backgroundColor: COLORS.border.light, margin: `0 ${SPACING.xs}` }} />
 
             <button
               type="button"
               onClick={() => formatText('newline')}
               style={toolbarButtonStyle}
               title="New Line"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               ↵
@@ -322,7 +330,7 @@ export const RichTextEditor = ({
               onClick={() => formatText('emptyline')}
               style={toolbarButtonStyle}
               title="Empty Line"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               ⏎
@@ -331,7 +339,7 @@ export const RichTextEditor = ({
             {/* Line Spacing */}
             {showLineSpacing && onLineSpacingChange && (
               <>
-                <div style={{ width: '1px', height: '20px', backgroundColor: '#D1D5DB', margin: '0 0.25rem' }} />
+                <div style={{ width: '1px', height: '20px', backgroundColor: COLORS.border.light, margin: `0 ${SPACING.xs}` }} />
                 <select
                   value={lineSpacing}
                   onChange={(e) => onLineSpacingChange(e.target.value)}
@@ -347,7 +355,7 @@ export const RichTextEditor = ({
 
             {/* Height Slider */}
             <div style={sliderContainerStyle}>
-              <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>Height:</span>
+              <span style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.secondary }}>Height:</span>
               <input
                 type="range"
                 min={minHeight}
@@ -357,7 +365,7 @@ export const RichTextEditor = ({
                 style={{ width: '80px', cursor: 'pointer' }}
                 title="Adjust Text Area Height"
               />
-              <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>{textAreaHeight}px</span>
+              <span style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.secondary }}>{textAreaHeight}px</span>
             </div>
           </div>
 
@@ -369,8 +377,8 @@ export const RichTextEditor = ({
             placeholder={placeholder}
             style={textareaStyle}
             required={required}
-            onFocus={(e) => (e.target.style.borderColor = '#3B82F6')}
-            onBlur={(e) => (e.target.style.borderColor = '#D1D5DB')}
+            onFocus={(e) => (e.target.style.borderColor = COLORS.status.info)}
+            onBlur={(e) => (e.target.style.borderColor = COLORS.border.light)}
           />
         </div>
 
@@ -380,10 +388,10 @@ export const RichTextEditor = ({
             <div
               style={{
                 ...labelStyle,
-                padding: '0.5rem',
-                backgroundColor: '#F9FAFB',
-                borderRadius: '0.5rem 0.5rem 0 0',
-                border: '1px solid #D1D5DB',
+                padding: SPACING.xs,
+                backgroundColor: COLORS.background.lightGray,
+                borderRadius: `${BORDER_RADIUS.sm} ${BORDER_RADIUS.sm} 0 0`,
+                border: `1px solid ${COLORS.border.light}`,
                 borderBottom: 'none',
               }}
             >
@@ -395,7 +403,7 @@ export const RichTextEditor = ({
       </div>
 
       {/* Help Text */}
-      <div style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
+      <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.tertiary }}>
         Use *bold*, _italic_, ~strike~, ```mono``` for formatting. Use - or 1. for lists.
       </div>
     </div>

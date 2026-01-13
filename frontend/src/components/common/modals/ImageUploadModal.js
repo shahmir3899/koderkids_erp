@@ -7,6 +7,16 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import Compressor from 'compressorjs';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../../utils/designConstants';
 
 /**
  * ImageUploadModal Component
@@ -154,115 +164,115 @@ export const ImageUploadModal = ({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.background.overlay,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    zIndex: Z_INDEX.modal,
     backdropFilter: 'blur(4px)',
   };
 
   const modalStyle = {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '1rem',
-    padding: '1.5rem',
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
     maxWidth: '500px',
     width: '90%',
     maxHeight: '90vh',
     overflow: 'auto',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: SHADOWS.xl,
   };
 
   const headerStyle = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '1.5rem',
-    paddingBottom: '1rem',
-    borderBottom: '1px solid #E5E7EB',
+    marginBottom: SPACING.lg,
+    paddingBottom: SPACING.sm,
+    borderBottom: `1px solid ${COLORS.border.light}`,
   };
 
   const titleStyle = {
-    fontSize: '1.25rem',
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.primary,
     margin: 0,
   };
 
   const closeButtonStyle = {
     background: 'none',
     border: 'none',
-    fontSize: '1.5rem',
+    fontSize: FONT_SIZES['2xl'],
     cursor: 'pointer',
-    color: '#6B7280',
-    padding: '0.25rem',
+    color: COLORS.text.secondary,
+    padding: SPACING.xs,
     lineHeight: 1,
   };
 
   const studentInfoStyle = {
-    padding: '0.75rem 1rem',
-    backgroundColor: '#F3F4F6',
-    borderRadius: '0.5rem',
-    marginBottom: '1.5rem',
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    backgroundColor: COLORS.background.offWhite,
+    borderRadius: BORDER_RADIUS.sm,
+    marginBottom: SPACING.lg,
   };
 
   const dropZoneStyle = {
-    border: '2px dashed #D1D5DB',
-    borderRadius: '0.75rem',
-    padding: '2rem',
+    border: `2px dashed ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.xl,
     textAlign: 'center',
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    backgroundColor: '#F9FAFB',
+    transition: `all ${TRANSITIONS.normal} ease`,
+    backgroundColor: COLORS.background.lightGray,
   };
 
   const previewContainerStyle = {
-    marginTop: '1rem',
-    padding: '1rem',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '0.5rem',
+    marginTop: SPACING.sm,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.background.lightGray,
+    borderRadius: BORDER_RADIUS.sm,
     textAlign: 'center',
   };
 
   const previewImageStyle = {
     maxWidth: '100%',
     maxHeight: '200px',
-    borderRadius: '0.5rem',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    borderRadius: BORDER_RADIUS.sm,
+    boxShadow: SHADOWS.md,
   };
 
   const footerStyle = {
     display: 'flex',
     justifyContent: 'flex-end',
-    gap: '0.75rem',
-    marginTop: '1.5rem',
-    paddingTop: '1rem',
-    borderTop: '1px solid #E5E7EB',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.sm,
+    borderTop: `1px solid ${COLORS.border.light}`,
   };
 
   const buttonStyle = {
-    padding: '0.625rem 1.25rem',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    borderRadius: '0.5rem',
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: `all ${TRANSITIONS.fast} ease`,
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: SPACING.xs,
   };
 
   const cancelButtonStyle = {
     ...buttonStyle,
-    backgroundColor: '#F3F4F6',
-    color: '#374151',
-    border: '1px solid #D1D5DB',
+    backgroundColor: COLORS.background.offWhite,
+    color: COLORS.text.primary,
+    border: `1px solid ${COLORS.border.light}`,
   };
 
   const uploadButtonStyle = {
     ...buttonStyle,
-    backgroundColor: selectedFile && !isUploading ? '#3B82F6' : '#9CA3AF',
-    color: '#FFFFFF',
+    backgroundColor: selectedFile && !isUploading ? COLORS.status.info : COLORS.text.tertiary,
+    color: COLORS.text.white,
     border: 'none',
     cursor: selectedFile && !isUploading ? 'pointer' : 'not-allowed',
   };
@@ -284,10 +294,10 @@ export const ImageUploadModal = ({
 
         {/* Student Info */}
         <div style={studentInfoStyle}>
-          <p style={{ margin: 0, color: '#374151' }}>
+          <p style={{ margin: 0, color: COLORS.text.primary }}>
             <strong>Student:</strong> {studentName}
           </p>
-          <p style={{ margin: '0.25rem 0 0 0', color: '#6B7280', fontSize: '0.875rem' }}>
+          <p style={{ margin: `${SPACING.xs} 0 0 0`, color: COLORS.text.secondary, fontSize: FONT_SIZES.sm }}>
             <strong>Date:</strong> {sessionDate}
           </p>
         </div>
@@ -306,28 +316,28 @@ export const ImageUploadModal = ({
           style={dropZoneStyle}
           onClick={openFileDialog}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#3B82F6';
-            e.currentTarget.style.backgroundColor = '#EFF6FF';
+            e.currentTarget.style.borderColor = COLORS.status.info;
+            e.currentTarget.style.backgroundColor = COLORS.status.infoLight;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = '#D1D5DB';
-            e.currentTarget.style.backgroundColor = '#F9FAFB';
+            e.currentTarget.style.borderColor = COLORS.border.light;
+            e.currentTarget.style.backgroundColor = COLORS.background.lightGray;
           }}
         >
           {isProcessing ? (
             <div>
               <LoadingSpinner size="medium" />
-              <p style={{ marginTop: '0.75rem', color: '#6B7280' }}>
+              <p style={{ marginTop: SPACING.sm, color: COLORS.text.secondary }}>
                 Processing image...
               </p>
             </div>
           ) : (
             <>
-              <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📁</div>
-              <p style={{ margin: 0, color: '#374151', fontWeight: '500' }}>
+              <div style={{ fontSize: FONT_SIZES['4xl'], marginBottom: SPACING.sm }}>📁</div>
+              <p style={{ margin: 0, color: COLORS.text.primary, fontWeight: FONT_WEIGHTS.medium }}>
                 Click to browse or drag and drop
               </p>
-              <p style={{ margin: '0.5rem 0 0 0', color: '#9CA3AF', fontSize: '0.875rem' }}>
+              <p style={{ margin: `${SPACING.xs} 0 0 0`, color: COLORS.text.tertiary, fontSize: FONT_SIZES.sm }}>
                 Supports: JPG, PNG, GIF (max 10MB)
               </p>
             </>
@@ -337,15 +347,15 @@ export const ImageUploadModal = ({
         {/* Preview */}
         {previewUrl && (
           <div style={previewContainerStyle}>
-            <p style={{ margin: '0 0 0.75rem 0', color: '#374151', fontWeight: '500' }}>
+            <p style={{ margin: `0 0 ${SPACING.sm} 0`, color: COLORS.text.primary, fontWeight: FONT_WEIGHTS.medium }}>
               Preview:
             </p>
-            <img 
-              src={previewUrl} 
-              alt="Preview" 
+            <img
+              src={previewUrl}
+              alt="Preview"
               style={previewImageStyle}
             />
-            <p style={{ margin: '0.75rem 0 0 0', color: '#6B7280', fontSize: '0.875rem' }}>
+            <p style={{ margin: `${SPACING.sm} 0 0 0`, color: COLORS.text.secondary, fontSize: FONT_SIZES.sm }}>
               {selectedFile?.name} ({(selectedFile?.size / 1024).toFixed(1)} KB)
             </p>
           </div>
@@ -357,10 +367,10 @@ export const ImageUploadModal = ({
             style={cancelButtonStyle}
             onClick={onClose}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#E5E7EB';
+              e.currentTarget.style.backgroundColor = COLORS.border.light;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#F3F4F6';
+              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
             }}
           >
             Cancel
@@ -371,12 +381,12 @@ export const ImageUploadModal = ({
             disabled={!selectedFile || isUploading}
             onMouseEnter={(e) => {
               if (selectedFile && !isUploading) {
-                e.currentTarget.style.backgroundColor = '#2563EB';
+                e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
               }
             }}
             onMouseLeave={(e) => {
               if (selectedFile && !isUploading) {
-                e.currentTarget.style.backgroundColor = '#3B82F6';
+                e.currentTarget.style.backgroundColor = COLORS.status.info;
               }
             }}
           >

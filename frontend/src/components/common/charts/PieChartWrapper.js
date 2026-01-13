@@ -12,6 +12,15 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { CHART_COLORS } from '../../../utils/constants';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  MIXINS,
+  SHADOWS,
+} from '../../../utils/designConstants';
 
 /**
  * PieChartWrapper Component
@@ -55,19 +64,19 @@ export const PieChartWrapper = ({
     if (active && payload && payload.length) {
       return (
         <div style={{
-          backgroundColor: '#FFFFFF',
-          padding: '0.75rem 1rem',
-          border: '1px solid #E5E7EB',
-          borderRadius: '8px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          ...MIXINS.glassmorphicWhite,
+          padding: `0.75rem ${SPACING.sm}`,
+          border: `1px solid ${COLORS.border.whiteMedium}`,
+          borderRadius: BORDER_RADIUS.sm,
+          boxShadow: SHADOWS.md,
         }}>
-          <p style={{ margin: 0, fontWeight: '600', color: '#374151' }}>
+          <p style={{ margin: 0, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.text.primary }}>
             {payload[0].name}
           </p>
-          <p style={{ margin: '0.25rem 0 0 0', color: '#6B7280' }}>
+          <p style={{ margin: '0.25rem 0 0 0', color: COLORS.text.secondary }}>
             Value: <strong>{payload[0].value.toLocaleString()}</strong>
           </p>
-          <p style={{ margin: '0.25rem 0 0 0', color: '#6B7280', fontSize: '0.875rem' }}>
+          <p style={{ margin: '0.25rem 0 0 0', color: COLORS.text.secondary, fontSize: FONT_SIZES.sm }}>
             {payload[0].percent ? `(${(payload[0].percent * 100).toFixed(1)}%)` : ''}
           </p>
         </div>
@@ -84,12 +93,12 @@ export const PieChartWrapper = ({
 
   if (!data || data.length === 0) {
     return (
-      <div style={{ 
-        height: height, 
-        display: 'flex', 
-        alignItems: 'center', 
+      <div style={{
+        height: height,
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
-        color: '#9CA3AF'
+        color: COLORS.text.whiteSubtle
       }}>
         No chart data available
       </div>
@@ -99,11 +108,11 @@ export const PieChartWrapper = ({
   return (
     <div className={className}>
       {label && (
-        <h3 style={{ 
-          marginBottom: '1rem', 
-          fontSize: '1.125rem', 
-          fontWeight: '600',
-          color: '#374151',
+        <h3 style={{
+          marginBottom: SPACING.sm,
+          fontSize: FONT_SIZES.xl,
+          fontWeight: FONT_WEIGHTS.semibold,
+          color: COLORS.text.white,
           textAlign: 'center'
         }}>
           {label}

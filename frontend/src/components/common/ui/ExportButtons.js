@@ -5,6 +5,14 @@
 
 import React from 'react';
 import { Button } from './Button';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * ExportButtons Component - Provides Image, PDF, and Print export buttons
@@ -35,34 +43,42 @@ export const ExportButtons = ({
   const containerStyle = {
     display: 'flex',
     justifyContent: 'center',
-    gap: '1rem',
+    gap: SPACING.sm,
     flexWrap: 'wrap',
   };
+
+  const sizeMap = {
+    small: { padding: `${SPACING.xs} ${SPACING.sm}`, fontSize: FONT_SIZES.xs },
+    medium: { padding: `${SPACING.xs} 1.25rem`, fontSize: FONT_SIZES.sm },
+    large: { padding: `0.875rem ${SPACING.md}`, fontSize: FONT_SIZES.lg },
+  };
+
+  const { padding, fontSize } = sizeMap[size] || sizeMap.medium;
 
   const buttonStyle = {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    padding: size === 'small' ? '0.5rem 1rem' : size === 'large' ? '0.875rem 1.5rem' : '0.625rem 1.25rem',
-    fontSize: size === 'small' ? '0.75rem' : size === 'large' ? '1rem' : '0.875rem',
-    fontWeight: '500',
-    color: '#FFFFFF',
-    backgroundColor: '#3B82F6',
+    gap: SPACING.xs,
+    padding,
+    fontSize,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.status.info,
     border: 'none',
-    borderRadius: '0.5rem',
+    borderRadius: BORDER_RADIUS.sm,
     cursor: disabled || loading ? 'not-allowed' : 'pointer',
     opacity: disabled || loading ? 0.6 : 1,
-    transition: 'background-color 0.15s ease, transform 0.1s ease',
+    transition: `background-color ${TRANSITIONS.fast} ease, transform 0.1s ease`,
   };
 
   const handleMouseEnter = (e) => {
     if (!disabled && !loading) {
-      e.target.style.backgroundColor = '#2563EB';
+      e.target.style.backgroundColor = COLORS.status.infoDark;
     }
   };
 
   const handleMouseLeave = (e) => {
-    e.target.style.backgroundColor = '#3B82F6';
+    e.target.style.backgroundColor = COLORS.status.info;
   };
 
   return (

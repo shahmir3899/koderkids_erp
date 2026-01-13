@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import "./App.css";
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import AdminDashboard from "./pages/AdminDashboard";
 import StudentsPage from "./pages/StudentsPage";
 import FeePage from "./pages/FeePage";
@@ -14,9 +14,10 @@ import { SchoolsProvider } from './contexts/SchoolsContext';
 import { UserProvider } from './contexts/UserContext';
 import { BooksProvider } from './contexts/BooksContext';
 import { ClassesProvider } from './contexts/ClassesContext';
+import { LoadingProvider, useLoading } from './contexts/LoadingContext';
 import ProtectedRoute from "./components/ProtectedRoute";
 import InventoryDashboard from './pages/InventoryDashboard';
-import Sidebar from "./components/Sidebar";
+import Sidebar from "./components/sidebar";
 import ProgressPage from "./pages/ProgressPage";
 import BookSelectPage from "./components/BookSelectPage";
 import CustomReport from "./pages/CustomReport";
@@ -37,16 +38,13 @@ import RobotChat from "./components/RobotChat";
 import InventoryPage from './pages/InventoryPage';
 import CSVUpload from './components/CSVUpload';
 import SettingsPage from './pages/SettingsPage';
+import ERPLoader from './components/ERPLoader';
 
 // CRM Pages
 import BDMDashboard from './pages/crm/BDMDashboard';
 import AdminCRMDashboard from './pages/crm/AdminDashboard';
 import LeadsListPage from './pages/crm/LeadsListPage';
 import ActivitiesPage from './pages/crm/ActivitiesPage';
-
-// Task Management Pages
-import TaskManagementPage from './pages/TaskManagementPage';
-import MyTasksPage from './pages/MyTasksPage';
 
 
 import { logout } from "./api"; 
@@ -81,39 +79,44 @@ const AutoLogout = () => {
     return null;
 };
 
-function App() {
-    const [sidebarOpen, setSidebarOpen] = React.useState(true);
-    
-    React.useEffect(() => {
-    const handleStorage = () => {
-        const role = localStorage.getItem("role");
-        // Handle role changes if needed
-    };
+function AppContent() {
+  const location = useLocation();
+  const [role, setRole] = React.useState(localStorage.getItem("role") || null);
+  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const isPublicRoute = location.pathname === '/login' || location.pathname === '/register';
+
+  React.useEffect(() => {
+    const handleStorage = () => setRole(localStorage.getItem("role"));
     window.addEventListener("storage", handleStorage);
     handleStorage();
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
-    return (
-    <SchoolsProvider>
-      <UserProvider>
-        <BooksProvider>
-          <ClassesProvider>
-            <Router>
-            <AutoLogout /> 
-            <div className="flex" style={{ gap: 0, position: 'relative', minHeight: '100vh' }}>
-    <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-    <div className="flex-1 bg-gray-100 min-h-screen" style={{ 
-      padding: '1rem', 
-      margin: 0, 
-      marginLeft: sidebarOpen ? '14rem' : '4rem',
-      transition: 'margin-left 0.3s ease-in-out',
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      overflow: 'hidden', // Prevent horizontal scroll
       position: 'relative',
-      zIndex: 1
+      background: isPublicRoute ? 'white' : 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #2362ab 100%)',
     }}>
-                <Routes>
-      {/* ✅ Public Routes */}
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      {!isPublicRoute && <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+
+      <div
+        style={{
+          marginLeft: isPublicRoute ? 0 : (sidebarOpen ? '280px' : '80px'),
+          transition: 'margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+          minHeight: '100vh',
+          backgroundColor: isPublicRoute ? 'white' : 'transparent',
+          overflowX: 'hidden',
+          overflowY: 'auto',
+          position: 'relative',
+          zIndex: 1
+        }}
+      >
+        <Routes>
+          {/* ✅ Public Routes */}
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<LoginPage />} />
 
       {/* ✅ Admin & Teacher Routes */}
       <Route path="/students" element={<ProtectedRoute element={<StudentsPage />} allowedRoles={["Admin", "Teacher"]} />} />
@@ -153,9 +156,6 @@ function App() {
       <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
       <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
 
-      {/* ✅ Task Management Routes */}
-      <Route path="/task-management" element={<ProtectedRoute element={<TaskManagementPage />} allowedRoles={["Admin"]} />} />
-      <Route path="/my-tasks" element={<ProtectedRoute element={<MyTasksPage />} allowedRoles={["Admin", "Teacher", "BDM"]} />} />
 
       {/* ✅ Teacher Specific Routes */}
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Teacher"]} />} />
@@ -174,27 +174,66 @@ function App() {
 
       {/* ✅ Fallback */}
       <Route path="*" element={<Navigate to="/login" />} />
-    </Routes>
-                </div>
-                <ToastContainer
-                    position="top-right"
-                    autoClose={3000}
-                    hideProgressBar={false}
-                    newestOnTop={false}
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                />
-            </div>
-            </Router>
+        </Routes>
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
+      </div>
+    </div>
+  );
+}
+
+function AppWithLoader() {
+  const { isLoading, loadingMessage } = useLoading();
+  const [showInitialLoader, setShowInitialLoader] = React.useState(true);
+
+  React.useEffect(() => {
+    // Show initial loader for 2 seconds
+    const timer = setTimeout(() => {
+      setShowInitialLoader(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <>
+      {(showInitialLoader || isLoading) && (
+        <ERPLoader 
+          isLoading={showInitialLoader || isLoading} 
+          loadingMessage={loadingMessage}
+        />
+      )}
+      {!showInitialLoader && <AppContent />}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <SchoolsProvider>
+      <UserProvider>
+        <BooksProvider>
+          <ClassesProvider>
+            <LoadingProvider>
+              <Router>
+                <AutoLogout />
+                <AppWithLoader />
+              </Router>
+            </LoadingProvider>
           </ClassesProvider>
         </BooksProvider>
       </UserProvider>
-            </SchoolsProvider>
-
-    );
+    </SchoolsProvider>
+  );
 }
 
 export default App;

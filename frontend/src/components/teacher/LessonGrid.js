@@ -6,6 +6,13 @@
 import React, { useMemo } from 'react';
 import moment from 'moment';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+} from '../../utils/designConstants';
 
 /**
  * LessonGrid Component - Table-based layout
@@ -180,95 +187,94 @@ export const LessonGrid = ({ lessons = [], loading = false, selectedMonth }) => 
 const styles = {
   container: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background.white,
     overflowX: 'auto',
   },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background.white,
   },
   // HEADER STYLES
   emptyHeaderCell: {
     width: '125px',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background.white,
     border: 'none',
-    padding: '0.5rem',
+    padding: SPACING.xs,
   },
   dayHeader: {
     width: '260px',
     backgroundColor: 'transparent',
     border: 'none',
-    padding: '0.5rem',
+    padding: SPACING.xs,
     textAlign: 'center',
-    fontWeight: '600',
-    fontSize: '14px',
-    color: '#666666',
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.secondary,
     fontFamily: 'Inter, sans-serif',
   },
   dateHeader: {
     width: '260px',
     backgroundColor: 'transparent',
     border: 'none',
-    padding: '0.5rem 0.5rem 1rem',
+    padding: `${SPACING.xs} ${SPACING.xs} ${SPACING.sm}`,
     textAlign: 'center',
-    fontWeight: '600',
-    fontSize: '14px',
-    color: '#666666',
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.secondary,
     fontFamily: 'Inter, sans-serif',
   },
   dateText: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#666666',
-    marginBottom: '0.25rem',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.xs,
   },
   schoolHeaderText: {
-    fontSize: '10px',
-    fontWeight: '700',
-    color: '#7C3AED',
-    marginTop: '0.25rem',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.primary,
+    marginTop: SPACING.xs,
   },
   // CLASS COLUMN (First Column)
   classCell: {
     width: '125px',
-    backgroundColor: '#FFFFFF',
-    borderRight: '1px solid #D2D2D2',
-    borderBottom: '1px solid #D2D2D2',
-    padding: '1rem',
+    backgroundColor: COLORS.background.white,
+    borderRight: `1px solid ${COLORS.border.default}`,
+    borderBottom: `1px solid ${COLORS.border.default}`,
+    padding: SPACING.sm,
     verticalAlign: 'top',
   },
   classLabel: {
     backgroundColor: 'transparent',
-    borderRadius: '9px',
-    padding: '0.4rem 0.8rem',
-    fontSize: '15px',
-    fontWeight: '600',
-    color: '#000000',
+    borderRadius: BORDER_RADIUS.sm,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.black,
     textAlign: 'center',
     lineHeight: '1.4',
   },
   // LESSON CELLS (Day Columns)
   lessonCell: {
     width: '260px',
-    backgroundColor: '#F9FAFB',
-    borderRight: '1px solid #D2D2D2',
-    borderBottom: '1px solid #D2D2D2',
-    padding: '1rem 0.75rem',
+    backgroundColor: COLORS.background.lightGray,
+    borderRight: `1px solid ${COLORS.border.default}`,
+    borderBottom: `1px solid ${COLORS.border.default}`,
+    padding: `${SPACING.sm} ${SPACING.sm}`,
     verticalAlign: 'top',
-    fontSize: '10px',
-    color: '#666666',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.secondary,
     fontFamily: 'Inter, sans-serif',
   },
   lessonCard: {
-    marginBottom: '0.75rem',
-    // Removed borderBottom - no lines between lessons
+    marginBottom: SPACING.sm,
   },
   lessonText: {
-    fontWeight: '600',
-    color: '#666666',
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.secondary,
     lineHeight: '1.5',
-    fontSize: '10px',
+    fontSize: FONT_SIZES.xs,
   },
 };
 

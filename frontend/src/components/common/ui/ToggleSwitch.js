@@ -4,6 +4,11 @@
 // Location: src/components/common/ui/ToggleSwitch.js
 
 import React from 'react';
+import {
+  COLORS,
+  TRANSITIONS,
+  SHADOWS,
+} from '../../../utils/designConstants';
 
 /**
  * ToggleSwitch Component - A styled toggle/switch input
@@ -23,8 +28,8 @@ export const ToggleSwitch = ({
   label = 'Toggle',
   size = 'medium',
   disabled = false,
-  onColor = '#3B82F6',
-  offColor = '#D1D5DB',
+  onColor = COLORS.status.info,
+  offColor = COLORS.border.light,
   className = '',
 }) => {
   // Size configurations
@@ -61,7 +66,7 @@ export const ToggleSwitch = ({
     bottom: 0,
     backgroundColor: checked ? onColor : offColor,
     borderRadius: `${height}px`,
-    transition: 'background-color 0.3s ease',
+    transition: `background-color ${TRANSITIONS.slow} ease`,
   };
 
   const knobStyle = {
@@ -71,11 +76,11 @@ export const ToggleSwitch = ({
     width: `${knob}px`,
     left: '2px',
     bottom: '2px',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.text.white,
     borderRadius: '50%',
-    transition: 'transform 0.3s ease',
+    transition: `transform ${TRANSITIONS.slow} ease`,
     transform: checked ? `translateX(${translateX}px)` : 'translateX(0)',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+    boxShadow: SHADOWS.sm,
   };
 
   const handleClick = () => {

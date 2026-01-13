@@ -4,6 +4,15 @@
 
 import React from 'react';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
 
 /**
  * SchoolStatsCards Component
@@ -62,52 +71,47 @@ export const SchoolStatsCards = ({
   const containerStyle = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: '1.5rem',
-    marginBottom: '2rem',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
   };
 
-  const cardStyle = (bgColor) => ({
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E5E7EB',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.2s ease',
+  const cardStyle = () => ({
+    backgroundColor: COLORS.background.white,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
+    boxShadow: SHADOWS.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
     cursor: 'default',
     position: 'relative',
     overflow: 'hidden',
   });
 
-  const cardHoverStyle = {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-  };
-
   const iconContainerStyle = (bgColor, color) => ({
     width: '48px',
     height: '48px',
-    borderRadius: '12px',
+    borderRadius: BORDER_RADIUS.md,
     backgroundColor: bgColor,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '1.5rem',
-    marginBottom: '1rem',
+    fontSize: FONT_SIZES.xl,
+    marginBottom: SPACING.md,
     border: `2px solid ${color}20`,
   });
 
   const labelStyle = {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: '0.5rem',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.xs,
     textTransform: 'uppercase',
     letterSpacing: '0.025em',
   };
 
   const valueStyle = (color) => ({
-    fontSize: '1.875rem',
-    fontWeight: '700',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
     color: color,
     lineHeight: '1.2',
   });
@@ -121,8 +125,8 @@ export const SchoolStatsCards = ({
 
   // Loading skeleton
   const skeletonStyle = {
-    backgroundColor: '#F3F4F6',
-    borderRadius: '12px',
+    backgroundColor: COLORS.background.offWhite,
+    borderRadius: BORDER_RADIUS.md,
     minHeight: '140px',
     animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
   };
@@ -158,13 +162,14 @@ export const SchoolStatsCards = ({
       {stats.map((stat) => (
         <div
           key={stat.id}
-          style={cardStyle(stat.bgColor)}
+          style={cardStyle()}
           onMouseEnter={(e) => {
-            Object.assign(e.currentTarget.style, cardHoverStyle);
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = SHADOWS.md;
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+            e.currentTarget.style.boxShadow = SHADOWS.sm;
           }}
         >
           {/* Icon */}
@@ -187,7 +192,7 @@ export const SchoolStatsCards = ({
               width: '80px',
               height: '80px',
               background: `linear-gradient(135deg, ${stat.color}10, transparent)`,
-              borderRadius: '0 12px 0 100%',
+              borderRadius: `0 ${BORDER_RADIUS.md} 0 100%`,
               pointerEvents: 'none',
             }}
           />

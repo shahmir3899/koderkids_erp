@@ -4,51 +4,61 @@
 
 import React from 'react';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+} from '../../utils/designConstants';
 
 const SummaryCard = ({ title, value, color }) => {
   const colorStyles = {
     green: {
-      background: '#D1FAE5',
-      titleColor: '#065F46',
-      valueColor: '#059669',
+      background: COLORS.status.successLight,
+      titleColor: COLORS.status.successDark,
+      valueColor: COLORS.status.successDark,
     },
     red: {
-      background: '#FEE2E2',
-      titleColor: '#7F1D1D',
-      valueColor: '#DC2626',
+      background: COLORS.status.errorLight,
+      titleColor: COLORS.status.errorDarker,
+      valueColor: COLORS.status.errorDark,
     },
     blue: {
-      background: '#DBEAFE',
-      titleColor: '#1E3A8A',
-      valueColor: '#2563EB',
+      background: COLORS.status.infoLight,
+      titleColor: COLORS.status.infoDarker,
+      valueColor: COLORS.status.infoDark,
     },
   };
 
   const style = colorStyles[color] || colorStyles.blue;
 
+  const cardStyle = {
+    backgroundColor: style.background,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.sm,
+    boxShadow: SHADOWS.sm,
+  };
+
+  const titleStyle = {
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: style.titleColor,
+    margin: `0 0 ${SPACING.xs} 0`,
+  };
+
+  const valueStyle = {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: style.valueColor,
+    margin: 0,
+  };
+
   return (
-    <div style={{
-      backgroundColor: style.background,
-      padding: '1.5rem',
-      borderRadius: '8px',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    }}>
-      <h3 style={{
-        fontSize: '1rem',
-        fontWeight: '600',
-        color: style.titleColor,
-        margin: '0 0 0.5rem 0',
-      }}>
-        {title}
-      </h3>
-      <p style={{
-        fontSize: '2rem',
-        fontWeight: 'bold',
-        color: style.valueColor,
-        margin: 0,
-      }}>
-        PKR {value.toLocaleString()}
-      </p>
+    <div style={cardStyle}>
+      <h3 style={titleStyle}>{title}</h3>
+      <p style={valueStyle}>PKR {value.toLocaleString()}</p>
     </div>
   );
 };
@@ -60,13 +70,15 @@ export const FinanceSummaryCards = ({ summary, loading }) => {
 
   const netBalance = summary.income - summary.expenses;
 
+  const containerStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
+  };
+
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-      gap: '1.5rem',
-      marginBottom: '2rem',
-    }}>
+    <div style={containerStyle}>
       <SummaryCard
         title="Total Income"
         value={summary.income}

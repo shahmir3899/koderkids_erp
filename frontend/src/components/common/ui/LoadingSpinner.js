@@ -1,9 +1,15 @@
 // ============================================
 // LOADING SPINNER - Reusable Loading Component
 // ============================================
+// Location: src/components/common/ui/LoadingSpinner.js
 
 import React from 'react';
 import { ClipLoader } from 'react-spinners';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+} from '../../../utils/designConstants';
 
 /**
  * LoadingSpinner Component
@@ -14,12 +20,12 @@ import { ClipLoader } from 'react-spinners';
  * @param {boolean} props.fullScreen - Whether to center in full screen (default: false)
  * @param {string} props.className - Additional CSS classes
  */
-export const LoadingSpinner = ({ 
-  size = 'medium', 
-  color = '#3B82F6', 
-  message = '', 
+export const LoadingSpinner = ({
+  size = 'medium',
+  color = COLORS.status.info,
+  message = '',
   fullScreen = false,
-  className = '' 
+  className = ''
 }) => {
   // Size mapping
   const sizeMap = {
@@ -46,17 +52,19 @@ export const LoadingSpinner = ({
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: '2rem',
+        padding: SPACING.lg,
       };
+
+  const messageStyle = {
+    marginTop: SPACING.md,
+    color: COLORS.text.secondary,
+    fontSize: FONT_SIZES.base,
+  };
 
   return (
     <div style={containerStyle} className={className}>
       <ClipLoader color={color} size={spinnerSize} />
-      {message && (
-        <p style={{ marginTop: '1rem', color: '#6B7280', fontSize: '1rem' }}>
-          {message}
-        </p>
-      )}
+      {message && <p style={messageStyle}>{message}</p>}
     </div>
   );
 };
@@ -64,12 +72,12 @@ export const LoadingSpinner = ({
 /**
  * Inline Loading Spinner (for buttons, etc.)
  */
-export const InlineSpinner = ({ color = '#FFFFFF', size = 16 }) => {
+export const InlineSpinner = ({ color = COLORS.text.white, size = 16 }) => {
   return (
-    <ClipLoader 
-      color={color} 
-      size={size} 
-      cssOverride={{ display: 'inline-block', verticalAlign: 'middle' }} 
+    <ClipLoader
+      color={color}
+      size={size}
+      cssOverride={{ display: 'inline-block', verticalAlign: 'middle' }}
     />
   );
 };
@@ -78,18 +86,17 @@ export const InlineSpinner = ({ color = '#FFFFFF', size = 16 }) => {
  * Skeleton Loading (for tables, cards)
  */
 export const SkeletonLoader = ({ rows = 3, height = '1rem' }) => {
+  const skeletonItemStyle = {
+    height: height,
+    backgroundColor: COLORS.background.offWhite,
+    borderRadius: SPACING.xs,
+    animation: 'pulse 1.5s ease-in-out infinite',
+  };
+
   return (
     <div className="space-y-2">
       {Array.from({ length: rows }).map((_, index) => (
-        <div
-          key={index}
-          style={{
-            height: height,
-            backgroundColor: '#E5E7EB',
-            borderRadius: '0.5rem',
-            animation: 'pulse 1.5s ease-in-out infinite',
-          }}
-        />
+        <div key={index} style={skeletonItemStyle} />
       ))}
       <style>
         {`

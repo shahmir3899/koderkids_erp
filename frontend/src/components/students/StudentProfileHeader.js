@@ -8,6 +8,15 @@ import { useNavigate } from 'react-router-dom';
 import { getCompleteStudentProfile } from '../../services/studentService';
 import { StudentSettingsModal } from './StudentSettingsModal';
 import { logout } from '../../utils/authHelpers';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
 
 /**
  * StudentProfileHeader Component
@@ -149,12 +158,12 @@ export const StudentProfileHeader = () => {
 // Styles
 const styles = {
   header: {
-    backgroundColor: '#10B981', // Green for students
-    color: '#FFFFFF',
-    padding: '1.5rem',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-    marginBottom: '2rem',
+    backgroundColor: COLORS.status.success,
+    color: COLORS.text.white,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    boxShadow: SHADOWS.md,
+    marginBottom: SPACING.xl,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -162,51 +171,51 @@ const styles = {
   leftSection: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem',
+    gap: SPACING.sm,
   },
   logo: {
-    height: '3rem',
+    height: SPACING.xl,
     width: 'auto',
   },
   title: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
     margin: 0,
   },
   subtitle: {
-    fontSize: '0.875rem',
-    margin: '0.25rem 0 0 0',
+    fontSize: FONT_SIZES.sm,
+    margin: `${SPACING.xs} 0 0 0`,
     opacity: 0.9,
   },
   rightSection: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem',
+    gap: SPACING.sm,
   },
   profileInfo: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem',
+    gap: SPACING.sm,
   },
   textInfo: {
     textAlign: 'right',
   },
   name: {
     margin: 0,
-    fontSize: '1rem',
-    fontWeight: '600',
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
   },
   role: {
     margin: 0,
-    fontSize: '0.875rem',
+    fontSize: FONT_SIZES.sm,
     opacity: 0.9,
   },
   photoContainer: {
     width: '48px',
     height: '48px',
-    borderRadius: '50%',
+    borderRadius: BORDER_RADIUS.full,
     overflow: 'hidden',
-    border: '2px solid #FFFFFF',
+    border: `2px solid ${COLORS.text.white}`,
   },
   photo: {
     width: '100%',
@@ -220,42 +229,42 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '1.25rem',
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
   },
   iconButton: {
-    padding: '0.5rem',
+    padding: SPACING.xs,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    color: '#FFFFFF',
-    transition: 'all 0.15s ease',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoutButton: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#DC2626',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    backgroundColor: COLORS.status.error,
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    color: '#FFFFFF',
-    transition: 'all 0.15s ease',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    fontSize: '0.875rem',
-    fontWeight: '500',
+    gap: SPACING.xs,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
   },
   icon: {
-    width: '1.25rem',
-    height: '1.25rem',
+    width: SPACING.sm,
+    height: SPACING.sm,
   },
   loadingText: {
-    fontSize: '0.875rem',
+    fontSize: FONT_SIZES.sm,
     opacity: 0.9,
   },
 };

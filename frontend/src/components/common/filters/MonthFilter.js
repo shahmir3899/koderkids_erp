@@ -4,6 +4,14 @@
 
 import React from 'react';
 import moment from 'moment';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../../utils/designConstants';
 
 /**
  * MonthFilter Component
@@ -43,23 +51,27 @@ export const MonthFilter = ({
 
   const inputStyle = {
     width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '1rem',
-    backgroundColor: disabled ? '#F3F4F6' : '#FFFFFF',
+    padding: SPACING.sm,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.lg,
+    backgroundColor: disabled ? COLORS.background.offWhite : COLORS.background.white,
     cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'border-color 0.2s ease',
+    transition: `border-color ${TRANSITIONS.normal} ease`,
+  };
+
+  const labelStyle = {
+    display: 'block',
+    marginBottom: SPACING.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.primary,
   };
 
   return (
     <div className={className}>
       {label && (
-        <label 
-          htmlFor="month-filter" 
-          style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}
-        >
-          {label} {required && <span style={{ color: '#EF4444' }}>*</span>}
+        <label htmlFor="month-filter" style={labelStyle}>
+          {label} {required && <span style={{ color: COLORS.status.error }}>*</span>}
         </label>
       )}
       <input
@@ -71,8 +83,8 @@ export const MonthFilter = ({
         min={min}
         max={max}
         style={inputStyle}
-        onFocus={(e) => { e.target.style.borderColor = '#3B82F6'; }}
-        onBlur={(e) => { e.target.style.borderColor = '#D1D5DB'; }}
+        onFocus={(e) => { e.target.style.borderColor = COLORS.status.info; }}
+        onBlur={(e) => { e.target.style.borderColor = COLORS.border.light; }}
         required={required}
       />
     </div>

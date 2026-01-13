@@ -10,6 +10,16 @@ import { updateAdminProfile, uploadAdminPhoto, deleteAdminPhoto } from '../../se
 import { ProfilePhotoUploader } from '../common/ProfilePhotoUploader'; // ← Updated import path
 import { PasswordChangeForm } from '../common/forms/PasswordChangeForm';
 import { changePassword } from '../../services/authService';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../utils/designConstants';
 
 /**
  * AdminSettingsModal Component
@@ -289,7 +299,7 @@ export const AdminSettingsModal = ({
                 <input
                   type="email"
                   value={profile?.email || ''}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
+                  style={{ ...styles.input, backgroundColor: COLORS.background.offWhite }}
                   disabled
                 />
                 <small style={styles.helperText}>Contact support to change email</small>
@@ -301,7 +311,7 @@ export const AdminSettingsModal = ({
                 <input
                   type="text"
                   value={profile?.employee_id || 'Not assigned'}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
+                  style={{ ...styles.input, backgroundColor: COLORS.background.offWhite }}
                   disabled
                 />
                 <small style={styles.helperText}>Auto-generated ID</small>
@@ -373,17 +383,17 @@ const styles = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.background.overlay,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000,
-    padding: '1rem',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.sm,
   },
   modal: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '16px',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.lg,
+    boxShadow: SHADOWS.xl,
     width: '100%',
     maxWidth: '600px',
     maxHeight: '90vh',
@@ -393,118 +403,118 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '1.5rem',
-    borderBottom: '1px solid #E5E7EB',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.light}`,
   },
   title: {
-    fontSize: '1.25rem',
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.primary,
     margin: 0,
   },
   closeButton: {
-    padding: '0.5rem',
+    padding: SPACING.xs,
     background: 'transparent',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    color: '#6B7280',
-    transition: 'all 0.15s ease',
+    color: COLORS.text.secondary,
+    transition: `all ${TRANSITIONS.fast} ease`,
   },
   photoSection: {
-    padding: '1.5rem',
-    borderBottom: '1px solid #E5E7EB',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.light}`,
     display: 'flex',
     justifyContent: 'center',
   },
   tabs: {
     display: 'flex',
-    borderBottom: '1px solid #E5E7EB',
-    padding: '0 1.5rem',
+    borderBottom: `1px solid ${COLORS.border.light}`,
+    padding: `0 ${SPACING.lg}`,
   },
   tab: {
-    padding: '1rem 1.5rem',
+    padding: `${SPACING.sm} ${SPACING.lg}`,
     background: 'transparent',
     border: 'none',
     borderBottom: '2px solid transparent',
     cursor: 'pointer',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#6B7280',
-    transition: 'all 0.15s ease',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.secondary,
+    transition: `all ${TRANSITIONS.fast} ease`,
   },
   tabActive: {
-    color: '#7C3AED',
-    borderBottomColor: '#7C3AED',
+    color: COLORS.primary,
+    borderBottomColor: COLORS.primary,
   },
   form: {
-    padding: '1.5rem',
+    padding: SPACING.lg,
   },
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '1rem',
+    gap: SPACING.sm,
   },
   formGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.25rem',
+    gap: SPACING.xs,
   },
   label: {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.primary,
   },
   input: {
-    padding: '0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '8px',
-    fontSize: '0.875rem',
-    transition: 'all 0.15s ease',
+    padding: SPACING.sm,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
     outline: 'none',
   },
   select: {
-    padding: '0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '8px',
-    fontSize: '0.875rem',
-    backgroundColor: '#FFFFFF',
+    padding: SPACING.sm,
+    border: `1px solid ${COLORS.border.light}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    backgroundColor: COLORS.background.white,
     cursor: 'pointer',
     outline: 'none',
   },
   helperText: {
-    fontSize: '0.75rem',
-    color: '#9CA3AF',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.tertiary,
   },
   actions: {
     display: 'flex',
     justifyContent: 'flex-end',
-    gap: '0.75rem',
-    marginTop: '1.5rem',
-    paddingTop: '1.5rem',
-    borderTop: '1px solid #E5E7EB',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.light}`,
   },
   cancelButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#F3F4F6',
-    color: '#374151',
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.background.offWhite,
+    color: COLORS.text.primary,
     border: 'none',
-    borderRadius: '8px',
-    fontSize: '0.875rem',
-    fontWeight: '500',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: `all ${TRANSITIONS.fast} ease`,
   },
   submitButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#7C3AED',
-    color: '#FFFFFF',
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.primary,
+    color: COLORS.text.white,
     border: 'none',
-    borderRadius: '8px',
-    fontSize: '0.875rem',
-    fontWeight: '500',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: `all ${TRANSITIONS.fast} ease`,
   },
 };
 
