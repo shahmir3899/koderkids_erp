@@ -25,7 +25,7 @@ import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
 
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { useSchools } from '../hooks/useSchools';
-import { SendNotificationModal } from '../components/admin/SendNotificationModal';
+import { SendNotificationModal } from '../components/admin/sendNotificationModal';
 import { FinancialSummaryCard } from '../components/finance/FinancialSummaryCard';
 import {
   COLORS,
