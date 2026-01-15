@@ -1,5 +1,5 @@
 // ============================================
-// USER STATS CARDS - Statistics Display
+// USER STATS CARDS - Glassmorphism Design System
 // ============================================
 
 import React from 'react';
@@ -9,34 +9,37 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  SHADOWS,
   TRANSITIONS,
+  MIXINS,
 } from '../../utils/designConstants';
 
 /**
  * UserStatsCards Component
- * Displays user statistics in card format
- * 
+ * Displays user statistics in glassmorphic card format
+ *
  * @param {Object} props
  * @param {Object} props.stats - Statistics object from API
  * @param {number} props.filteredCount - Number of filtered users (optional)
  * @param {boolean} props.hasSearched - Whether search has been performed
  * @param {boolean} props.isLoading - Loading state
  */
-export const UserStatsCards = ({ 
-  stats, 
-  filteredCount, 
-  hasSearched = false, 
-  isLoading = false 
+export const UserStatsCards = ({
+  stats,
+  filteredCount,
+  hasSearched = false,
+  isLoading = false
 }) => {
   // If loading, show skeleton
   if (isLoading) {
     return (
-      <div style={containerStyle}>
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} style={{ ...cardStyle, opacity: 0.6 }}>
-            <div style={{ ...labelStyle }}>Loading...</div>
-            <div style={{ ...valueStyle }}>-</div>
+      <div style={styles.container}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} style={{ ...styles.card, opacity: 0.6 }}>
+            <div style={styles.cardContent}>
+              <div style={styles.label}>Loading...</div>
+              <div style={styles.value}>-</div>
+            </div>
+            <div style={styles.iconPlaceholder}></div>
           </div>
         ))}
       </div>
@@ -53,36 +56,36 @@ export const UserStatsCards = ({
       label: 'Total Users',
       value: stats.total_users || 0,
       icon: '👥',
-      color: '#3B82F6',
-      bgColor: '#EFF6FF',
+      color: '#60A5FA', // Light Blue
+      bgColor: 'rgba(96, 165, 250, 0.2)',
     },
     {
       label: 'Active Users',
       value: stats.active_users || 0,
       icon: '✅',
-      color: '#10B981',
-      bgColor: '#ECFDF5',
+      color: '#34D399', // Light Green
+      bgColor: 'rgba(52, 211, 153, 0.2)',
     },
     {
       label: 'Admins',
       value: stats.admins || 0,
       icon: '👑',
-      color: '#8B5CF6',
-      bgColor: '#F5F3FF',
+      color: '#A78BFA', // Light Purple
+      bgColor: 'rgba(167, 139, 250, 0.2)',
     },
     {
       label: 'Teachers',
       value: stats.teachers || 0,
       icon: '👨‍🏫',
-      color: '#F59E0B',
-      bgColor: '#FFFBEB',
+      color: '#FBBF24', // Yellow
+      bgColor: 'rgba(251, 191, 36, 0.2)',
     },
     {
       label: 'BDMs',
       value: stats.bdms || 0,
       icon: '💼',
-      color: '#06B6D4',
-      bgColor: '#ECFEFF',
+      color: '#22D3EE', // Light Cyan
+      bgColor: 'rgba(34, 211, 238, 0.2)',
     },
   ];
 
@@ -92,27 +95,26 @@ export const UserStatsCards = ({
       label: 'Filtered Results',
       value: filteredCount,
       icon: '🔍',
-      color: '#EC4899',
-      bgColor: '#FDF2F8',
+      color: '#F472B6', // Light Pink
+      bgColor: 'rgba(244, 114, 182, 0.2)',
     });
   }
 
   return (
-    <div style={containerStyle}>
+    <div style={styles.container}>
       {cards.map((card, index) => (
-        <div key={index} style={{ ...cardStyle, borderLeftColor: card.color }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1 }}>
-              <div style={labelStyle}>{card.label}</div>
-              <div style={{ ...valueStyle, color: card.color }}>{card.value.toLocaleString()}</div>
+        <div key={index} style={styles.card}>
+          <div style={styles.cardContent}>
+            <div style={styles.label}>{card.label}</div>
+            <div style={{ ...styles.value, color: card.color }}>
+              {card.value.toLocaleString()}
             </div>
-            <div style={{ 
-              ...iconStyle, 
-              backgroundColor: card.bgColor,
-              color: card.color 
-            }}>
-              {card.icon}
-            </div>
+          </div>
+          <div style={{
+            ...styles.iconWrapper,
+            backgroundColor: card.bgColor,
+          }}>
+            <span style={styles.icon}>{card.icon}</span>
           </div>
         </div>
       ))}
@@ -121,49 +123,70 @@ export const UserStatsCards = ({
 };
 
 // ============================================
-// STYLES
+// STYLES - Glassmorphism Design System
 // ============================================
 
-const containerStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-  gap: SPACING.lg,
-  marginBottom: SPACING.xl,
-};
+const styles = {
+  container: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING['2xl'],
+  },
 
-const cardStyle = {
-  backgroundColor: COLORS.background.white,
-  borderRadius: BORDER_RADIUS.md,
-  padding: SPACING.lg,
-  boxShadow: SHADOWS.sm,
-  borderLeft: '4px solid',
-  transition: `transform ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
-  cursor: 'default',
-};
+  card: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.lg,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    transition: `all ${TRANSITIONS.normal}`,
+    cursor: 'default',
+  },
 
-const labelStyle = {
-  fontSize: FONT_SIZES.sm,
-  fontWeight: FONT_WEIGHTS.medium,
-  color: COLORS.text.secondary,
-  marginBottom: SPACING.xs,
-};
+  cardContent: {
+    flex: 1,
+  },
 
-const valueStyle = {
-  fontSize: FONT_SIZES['2xl'],
-  fontWeight: FONT_WEIGHTS.bold,
-  lineHeight: '1',
-};
+  label: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.whiteSubtle,
+    marginBottom: SPACING.xs,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
 
-const iconStyle = {
-  width: '48px',
-  height: '48px',
-  borderRadius: BORDER_RADIUS.md,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: FONT_SIZES.xl,
-  flexShrink: 0,
-  marginLeft: SPACING.md,
+  value: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    lineHeight: 1,
+  },
+
+  iconWrapper: {
+    width: '52px',
+    height: '52px',
+    borderRadius: BORDER_RADIUS.lg,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginLeft: SPACING.md,
+  },
+
+  icon: {
+    fontSize: FONT_SIZES['2xl'],
+  },
+
+  iconPlaceholder: {
+    width: '52px',
+    height: '52px',
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    flexShrink: 0,
+    marginLeft: SPACING.md,
+  },
 };
 
 export default UserStatsCards;

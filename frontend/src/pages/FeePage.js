@@ -15,6 +15,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ClipLoader } from 'react-spinners';
 
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  LAYOUT,
+} from '../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../hooks/useResponsive';
+
 // Hooks
 import { useFees } from '../hooks/useFees';
 import { useFeePDF } from '../hooks/useFeePDF';
@@ -27,8 +40,71 @@ import BulkActionsBar from '../components/fees/BulkActionsBar';
 import FeeSummaryHeader from '../components/fees/FeeSummaryHeader';
 import FeeTable from '../components/fees/FeeTable';
 import SingleFeeModal from '../components/fees/SingleFeeModal';
+import { PageHeader } from '../components/common/PageHeader';
+
+// Responsive Styles Generator
+const getResponsiveStyles = (isMobile, isTablet) => ({
+  pageContainer: {
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+    padding: isMobile ? SPACING.md : isTablet ? SPACING.lg : SPACING.xl,
+  },
+  contentWrapper: {
+    maxWidth: LAYOUT.maxWidth.md,
+    margin: '0 auto',
+    width: '100%',
+  },
+  pageHeader: {
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+  },
+  pageTitle: {
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+  },
+  pageSubtitle: {
+    color: COLORS.text.whiteMedium,
+    marginTop: SPACING.xs,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.base,
+  },
+  errorBanner: {
+    backgroundColor: COLORS.status.errorLight,
+    border: `1px solid ${COLORS.status.error}30`,
+    color: COLORS.status.errorDark,
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.md} ${SPACING.lg}`,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.lg,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  errorCloseButton: {
+    color: COLORS.status.error,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: SPACING.xs,
+    minWidth: '44px', // Touch-friendly
+    minHeight: '44px', // Touch-friendly
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: isMobile ? SPACING.xl : `${SPACING['2xl']} 0`,
+  },
+});
 
 function FeePage() {
+  // Responsive hook
+  const { isMobile, isTablet } = useResponsive();
+  const responsiveStyles = getResponsiveStyles(isMobile, isTablet);
+
   // Schools data
   const { schools, loading: schoolsLoading } = useSchools();
   
@@ -200,12 +276,14 @@ function FeePage() {
   const pageLoading = schoolsLoading || loading.fees;
 
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div style={responsiveStyles.pageContainer}>
+      <div style={responsiveStyles.contentWrapper}>
       {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Fee Management</h1>
-        <p className="text-gray-500 mt-1">Create, manage, and track student fee records</p>
-      </div>
+      <PageHeader
+        icon="💰"
+        title="Fee Management"
+        subtitle="Create, manage, and track student fee records"
+      />
 
       {/* Create Records Section */}
       <CreateRecordsSection
@@ -223,18 +301,18 @@ function FeePage() {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <div style={responsiveStyles.errorBanner}>
+          <div style={styles.errorContent}>
+            <svg style={styles.errorIcon} fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             {error}
           </div>
-          <button 
+          <button
             onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-700"
+            style={responsiveStyles.errorCloseButton}
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <svg style={styles.errorIcon} fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
           </button>
@@ -272,8 +350,8 @@ function FeePage() {
 
       {/* Loading State */}
       {pageLoading && (
-        <div className="flex justify-center items-center py-12">
-          <ClipLoader color="#2563eb" size={50} />
+        <div style={responsiveStyles.loadingContainer}>
+          <ClipLoader color={COLORS.status.info} size={isMobile ? 40 : 50} />
         </div>
       )}
 
@@ -309,8 +387,69 @@ function FeePage() {
         selectedMonth={filters.month}
         schoolName={schoolName}
       />
+      </div>
     </div>
   );
 }
+
+// ============================================
+// STYLES - Centralized design constants
+// ============================================
+const styles = {
+  pageContainer: {
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+    padding: SPACING.xl,
+  },
+  contentWrapper: {
+    maxWidth: LAYOUT.maxWidth.md,
+    margin: '0 auto',
+  },
+  pageHeader: {
+    marginBottom: SPACING.xl,
+  },
+  pageTitle: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+  },
+  pageSubtitle: {
+    color: COLORS.text.whiteMedium,
+    marginTop: SPACING.xs,
+  },
+  errorBanner: {
+    backgroundColor: COLORS.status.errorLight,
+    border: `1px solid ${COLORS.status.error}30`,
+    color: COLORS.status.errorDark,
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.lg,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  errorIcon: {
+    width: '20px',
+    height: '20px',
+  },
+  errorCloseButton: {
+    color: COLORS.status.error,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: SPACING.xs,
+  },
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: `${SPACING['2xl']} 0`,
+  },
+};
 
 export default FeePage;

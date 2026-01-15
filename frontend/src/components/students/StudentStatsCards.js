@@ -1,9 +1,9 @@
 // ============================================
-// STUDENT STATS CARDS - Statistics Display
-// Shows key metrics for student management
+// STUDENT STATS CARDS - Glassmorphism Design System
+// Matches Task Page stats card design with hover effects
 // ============================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   COLORS,
   SPACING,
@@ -12,11 +12,13 @@ import {
   BORDER_RADIUS,
   SHADOWS,
   TRANSITIONS,
+  MIXINS,
 } from '../../utils/designConstants';
 
 /**
  * StudentStatsCards Component
- * 
+ * Glassmorphic stats cards matching Task page design
+ *
  * @param {number} totalStudents - Total count of all students
  * @param {number} filteredCount - Count of students after filtering
  * @param {number} schoolsCount - Number of unique schools
@@ -32,49 +34,11 @@ export function StudentStatsCards({
   hasSearched = false,
   isLoading = false,
 }) {
-  const stats = [
-    {
-      id: 'total',
-      label: 'Total Students',
-      value: totalStudents,
-      icon: '👨‍🎓',
-      color: '#3B82F6',
-      bgColor: '#EFF6FF',
-      format: 'number',
-    },
-    {
-      id: 'filtered',
-      label: 'Filtered Results',
-      value: hasSearched ? filteredCount : '-',
-      icon: '🔍',
-      color: '#8B5CF6',
-      bgColor: '#F5F3FF',
-      format: hasSearched ? 'number' : 'text',
-      subtitle: hasSearched ? 'Matching filters' : 'Search to filter',
-    },
-    {
-      id: 'schools',
-      label: 'Schools',
-      value: schoolsCount,
-      icon: '🏫',
-      color: '#10B981',
-      bgColor: '#ECFDF5',
-      format: 'number',
-    },
-    {
-      id: 'fees',
-      label: 'Total Monthly Fees',
-      value: totalFees,
-      icon: '💰',
-      color: '#F59E0B',
-      bgColor: '#FFFBEB',
-      format: 'currency',
-    },
-  ];
+  const [hoveredCard, setHoveredCard] = useState(null);
 
   const formatValue = (value, format) => {
     if (isLoading) return '...';
-    
+
     switch (format) {
       case 'currency':
         return `PKR ${Number(value).toLocaleString()}`;
@@ -86,106 +50,124 @@ export function StudentStatsCards({
     }
   };
 
-  const containerStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
-  };
+  const stats = [
+    {
+      id: 'total',
+      label: 'Total Students',
+      value: totalStudents,
+      icon: '👨‍🎓',
+      color: '#60A5FA', // Light Blue
+      format: 'number',
+    },
+    {
+      id: 'filtered',
+      label: 'Filtered',
+      value: hasSearched ? filteredCount : '-',
+      icon: '🔍',
+      color: '#A78BFA', // Light Purple
+      format: hasSearched ? 'number' : 'text',
+    },
+    {
+      id: 'schools',
+      label: 'Schools',
+      value: schoolsCount,
+      icon: '🏫',
+      color: '#FBBF24', // Yellow
+      format: 'number',
+    },
+    {
+      id: 'fees',
+      label: 'Monthly Fees',
+      value: totalFees,
+      icon: '💰',
+      color: '#F59E0B', // Amber
+      format: 'currency',
+    },
+  ];
 
-  const cardStyle = {
-    backgroundColor: COLORS.background.white,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.lg,
-    boxShadow: SHADOWS.sm,
-    border: `1px solid ${COLORS.border.light}`,
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: SPACING.md,
-    transition: `transform ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
-    cursor: 'default',
-  };
-
-  const getIconStyle = (bgColor) => ({
-    width: '3rem',
-    height: '3rem',
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: bgColor,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: FONT_SIZES.xl,
-    flexShrink: 0,
+  const getCardStyle = (isHovered) => ({
+    ...styles.statCard,
+    transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+    boxShadow: isHovered
+      ? '0 12px 40px rgba(0, 0, 0, 0.25)'
+      : '0 4px 24px rgba(0, 0, 0, 0.12)',
+    background: isHovered
+      ? 'rgba(255, 255, 255, 0.18)'
+      : 'rgba(255, 255, 255, 0.12)',
+    borderColor: isHovered
+      ? 'rgba(255, 255, 255, 0.3)'
+      : 'rgba(255, 255, 255, 0.18)',
   });
 
-  const contentStyle = {
-    flex: 1,
-    minWidth: 0,
-  };
-
-  const labelStyle = {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: '0.025em',
-    marginBottom: SPACING.xs,
-  };
-
-  const getValueStyle = (color) => ({
-    fontSize: FONT_SIZES.xl,
-    fontWeight: FONT_WEIGHTS.bold,
-    color: color,
-    lineHeight: '1.2',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+  const getIconStyle = (isHovered) => ({
+    ...styles.statIcon,
+    transform: isHovered ? 'scale(1.2)' : 'scale(1)',
+    transition: `transform ${TRANSITIONS.normal}`,
   });
-
-  const subtitleStyle = {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.text.tertiary,
-    marginTop: SPACING.xs,
-  };
 
   return (
-    <div style={containerStyle}>
+    <div style={styles.statsGrid}>
       {stats.map((stat) => (
         <div
           key={stat.id}
-          style={cardStyle}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = SHADOWS.md;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = SHADOWS.sm;
-          }}
+          style={getCardStyle(hoveredCard === stat.id)}
+          onMouseEnter={() => setHoveredCard(stat.id)}
+          onMouseLeave={() => setHoveredCard(null)}
         >
-          {/* Icon */}
-          <div style={getIconStyle(stat.bgColor)}>
-            {stat.icon}
+          <span style={getIconStyle(hoveredCard === stat.id)}>{stat.icon}</span>
+          <div style={{ ...styles.statValue, color: stat.color }}>
+            {formatValue(stat.value, stat.format)}
           </div>
-
-          {/* Content */}
-          <div style={contentStyle}>
-            <p style={labelStyle}>
-              {stat.label}
-            </p>
-            <p style={getValueStyle(stat.color)}>
-              {formatValue(stat.value, stat.format)}
-            </p>
-            {stat.subtitle && (
-              <p style={subtitleStyle}>
-                {stat.subtitle}
-              </p>
-            )}
-          </div>
+          <div style={styles.statLabel}>{stat.label}</div>
         </div>
       ))}
     </div>
   );
 }
+
+// ============================================
+// STYLES - Glassmorphism Design System
+// Matches MyTasksPage stats card styling
+// ============================================
+
+const styles = {
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING['2xl'],
+  },
+
+  statCard: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    textAlign: 'center',
+    transition: `all ${TRANSITIONS.normal}`,
+    cursor: 'default',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+  },
+
+  statIcon: {
+    fontSize: FONT_SIZES['2xl'],
+    marginBottom: SPACING.sm,
+    display: 'block',
+  },
+
+  statValue: {
+    fontSize: FONT_SIZES['3xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    margin: `${SPACING.sm} 0`,
+    lineHeight: 1,
+  },
+
+  statLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+    fontWeight: FONT_WEIGHTS.medium,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+};
 
 export default StudentStatsCards;

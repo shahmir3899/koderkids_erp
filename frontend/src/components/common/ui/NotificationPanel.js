@@ -10,6 +10,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead
 } from '../../../services/teacherService';
+import { useResponsive } from '../../../hooks/useResponsive';
 import {
   COLORS,
   SPACING,
@@ -19,6 +20,8 @@ import {
   SHADOWS,
   TRANSITIONS,
   Z_INDEX,
+  MIXINS,
+  TOUCH_TARGETS,
 } from '../../../utils/designConstants';
 
 /**
@@ -34,6 +37,7 @@ export const NotificationPanel = ({ onNotificationClick }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const panelRef = useRef(null);
+  const { isMobile } = useResponsive();
 
   // Fetch unread count on mount
   useEffect(() => {
@@ -161,6 +165,9 @@ export const NotificationPanel = ({ onNotificationClick }) => {
     }
   };
 
+  // Get responsive styles
+  const styles = getStyles(isMobile);
+
   return (
     <div ref={panelRef} style={styles.container}>
       {/* Bell Button */}
@@ -168,16 +175,17 @@ export const NotificationPanel = ({ onNotificationClick }) => {
         onClick={togglePanel}
         style={styles.bellButton}
         aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+        className="profile-icon-button"
       >
         <svg style={styles.bellIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" 
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
           />
         </svg>
-        
+
         {/* Badge */}
         {unreadCount > 0 && (
           <span style={styles.badge}>
@@ -186,98 +194,124 @@ export const NotificationPanel = ({ onNotificationClick }) => {
         )}
       </button>
 
-      {/* Dropdown Panel */}
+      {/* Dropdown Panel - fullscreen overlay on mobile */}
       {isOpen && (
-        <div style={styles.panel}>
-          {/* Panel Header */}
-          <div style={styles.panelHeader}>
-            <h3 style={styles.panelTitle}>Notifications</h3>
-            {unreadCount > 0 && (
-              <button onClick={handleMarkAllRead} style={styles.markAllButton}>
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          {/* Notifications List */}
-          <div style={styles.notificationList}>
-            {isLoading ? (
-              <div style={styles.loadingState}>
-                <div style={styles.spinner} />
-                <span>Loading...</span>
-              </div>
-            ) : notifications.length === 0 ? (
-              <div style={styles.emptyState}>
-                <svg style={styles.emptyIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                </svg>
-                <span>No notifications yet</span>
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  style={{
-                    ...styles.notificationItem,
-                    backgroundColor: notification.is_read ? 'transparent' : COLORS.status.infoLight,
-                  }}
-                  onClick={() => handleNotificationClick(notification)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div style={styles.notificationIcon}>
-                    {getNotificationIcon(notification.notification_type)}
-                  </div>
-                  <div style={styles.notificationContent}>
-                    <p style={styles.notificationTitle}>{notification.title}</p>
-                    <p style={styles.notificationMessage}>{notification.message}</p>
-                    <span style={styles.notificationTime}>{notification.time_ago}</span>
-                  </div>
-                  {!notification.is_read && (
-                    <div style={styles.unreadDot} />
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Panel Footer */}
-          {notifications.length > 0 && (
-            <div style={styles.panelFooter}>
-              <button style={styles.viewAllButton}>
-                View all notifications
-              </button>
-            </div>
+        <>
+          {/* Mobile backdrop */}
+          {isMobile && (
+            <div
+              style={styles.mobileBackdrop}
+              onClick={() => setIsOpen(false)}
+              aria-hidden="true"
+            />
           )}
-        </div>
+          <div style={styles.panel}>
+            {/* Panel Header */}
+            <div style={styles.panelHeader}>
+              <h3 style={styles.panelTitle}>Notifications</h3>
+              <div style={styles.headerActions}>
+                {unreadCount > 0 && (
+                  <button onClick={handleMarkAllRead} style={styles.markAllButton}>
+                    Mark all read
+                  </button>
+                )}
+                {isMobile && (
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    style={styles.closeButton}
+                    aria-label="Close notifications"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Notifications List */}
+            <div style={styles.notificationList}>
+              {isLoading ? (
+                <div style={styles.loadingState}>
+                  <div style={styles.spinner} />
+                  <span>Loading...</span>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div style={styles.emptyState}>
+                  <svg style={styles.emptyIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                  </svg>
+                  <span>No notifications yet</span>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    style={{
+                      ...styles.notificationItem,
+                      backgroundColor: notification.is_read ? 'transparent' : COLORS.status.infoLight,
+                    }}
+                    onClick={() => handleNotificationClick(notification)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div style={styles.notificationIcon}>
+                      {getNotificationIcon(notification.notification_type)}
+                    </div>
+                    <div style={styles.notificationContent}>
+                      <p style={styles.notificationTitle}>{notification.title}</p>
+                      <p style={styles.notificationMessage}>{notification.message}</p>
+                      <span style={styles.notificationTime}>{notification.time_ago}</span>
+                    </div>
+                    {!notification.is_read && (
+                      <div style={styles.unreadDot} />
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Panel Footer */}
+            {notifications.length > 0 && (
+              <div style={styles.panelFooter}>
+                <button style={styles.viewAllButton}>
+                  View all notifications
+                </button>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
 };
 
-// Styles
-const styles = {
+// Responsive Styles Generator
+const getStyles = (isMobile) => ({
   container: {
     position: 'relative',
   },
   bellButton: {
     position: 'relative',
-    padding: SPACING.sm,
+    padding: isMobile ? SPACING.sm : SPACING.xs,
     background: 'transparent',
     border: 'none',
-    borderRadius: BORDER_RADIUS.full,
+    borderRadius: BORDER_RADIUS.sm,
     cursor: 'pointer',
-    color: COLORS.text.secondary,
+    color: 'rgba(255, 255, 255, 0.9)',
     transition: `all ${TRANSITIONS.normal} ease`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+    minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
   },
   bellIcon: {
-    width: SPACING.lg,
-    height: SPACING.lg,
+    width: isMobile ? '28px' : '32px',
+    height: isMobile ? '28px' : '32px',
   },
   badge: {
     position: 'absolute',
-    top: SPACING.xs,
-    right: SPACING.xs,
+    top: isMobile ? '2px' : SPACING.xs,
+    right: isMobile ? '2px' : SPACING.xs,
     minWidth: SPACING.md,
     height: SPACING.md,
     padding: `0 ${SPACING.xs}`,
@@ -290,65 +324,107 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  panel: {
-    position: 'absolute',
-    top: '100%',
+  // Mobile backdrop
+  mobileBackdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
     right: 0,
-    width: '360px',
-    maxHeight: '480px',
-    backgroundColor: COLORS.background.white,
-    borderRadius: BORDER_RADIUS.md,
-    boxShadow: SHADOWS.lg,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: Z_INDEX.popover - 1,
+  },
+  // Panel - fullscreen on mobile, dropdown on desktop
+  panel: {
+    position: isMobile ? 'fixed' : 'absolute',
+    top: isMobile ? 0 : '100%',
+    left: isMobile ? 0 : 'auto',
+    right: 0,
+    bottom: isMobile ? 0 : 'auto',
+    width: isMobile ? '100%' : '360px',
+    maxWidth: isMobile ? '100%' : '360px',
+    maxHeight: isMobile ? '100vh' : '480px',
+    ...MIXINS.glassmorphicCard,
+    borderRadius: isMobile ? 0 : BORDER_RADIUS.md,
     overflow: 'hidden',
-    zIndex: Z_INDEX.modal,
-    marginTop: SPACING.xs,
+    zIndex: Z_INDEX.popover,
+    marginTop: isMobile ? 0 : SPACING.xs,
+    display: 'flex',
+    flexDirection: 'column',
   },
   panelHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: SPACING.sm,
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    padding: isMobile ? SPACING.md : SPACING.sm,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    flexShrink: 0,
+    // Safe area for mobile notch
+    paddingTop: isMobile ? `max(${SPACING.md}, env(safe-area-inset-top))` : SPACING.sm,
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   panelTitle: {
-    fontSize: FONT_SIZES.lg,
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES.lg,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
     margin: 0,
   },
   markAllButton: {
-    padding: `${SPACING.xs} ${SPACING.xs}`,
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.xs}`,
     backgroundColor: 'transparent',
-    color: COLORS.status.info,
+    color: COLORS.accent.cyan,
     border: 'none',
-    borderRadius: BORDER_RADIUS.xs,
-    fontSize: FONT_SIZES.xs,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
     transition: `background-color ${TRANSITIONS.fast} ease`,
+    minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+  },
+  closeButton: {
+    padding: SPACING.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    cursor: 'pointer',
+    minWidth: TOUCH_TARGETS.minimum,
+    minHeight: TOUCH_TARGETS.minimum,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   notificationList: {
-    maxHeight: '360px',
+    flex: 1,
     overflowY: 'auto',
+    WebkitOverflowScrolling: 'touch',
+    maxHeight: isMobile ? 'none' : '360px',
   },
   notificationItem: {
     display: 'flex',
     alignItems: 'flex-start',
     gap: SPACING.sm,
-    padding: SPACING.sm,
-    borderBottom: `1px solid ${COLORS.background.offWhite}`,
+    padding: isMobile ? SPACING.md : SPACING.sm,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
     cursor: 'pointer',
     transition: `background-color ${TRANSITIONS.fast} ease`,
     position: 'relative',
+    minHeight: isMobile ? TOUCH_TARGETS.large : 'auto',
   },
   notificationIcon: {
     flexShrink: 0,
-    width: SPACING.xl,
-    height: SPACING.xl,
+    width: isMobile ? SPACING['2xl'] : SPACING.xl,
+    height: isMobile ? SPACING['2xl'] : SPACING.xl,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background.offWhite,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: BORDER_RADIUS.full,
   },
   notificationContent: {
@@ -356,29 +432,29 @@ const styles = {
     minWidth: 0,
   },
   notificationTitle: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: isMobile ? FONT_SIZES.md : FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
     margin: 0,
     marginBottom: SPACING.xs,
   },
   notificationMessage: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.secondary,
+    color: COLORS.text.whiteMedium,
     margin: 0,
     marginBottom: SPACING.xs,
     display: '-webkit-box',
-    WebkitLineClamp: 2,
+    WebkitLineClamp: isMobile ? 3 : 2,
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
   },
   notificationTime: {
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.tertiary,
+    color: COLORS.text.whiteSubtle,
   },
   unreadDot: {
-    width: SPACING.xs,
-    height: SPACING.xs,
+    width: isMobile ? SPACING.sm : SPACING.xs,
+    height: isMobile ? SPACING.sm : SPACING.xs,
     backgroundColor: COLORS.status.info,
     borderRadius: BORDER_RADIUS.full,
     flexShrink: 0,
@@ -389,14 +465,15 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,
-    color: COLORS.text.tertiary,
-    gap: SPACING.xs,
+    color: COLORS.text.whiteSubtle,
+    gap: SPACING.sm,
+    flex: 1,
   },
   spinner: {
     width: SPACING.lg,
     height: SPACING.lg,
-    border: `2px solid ${COLORS.border.light}`,
-    borderTopColor: COLORS.status.info,
+    border: `2px solid ${COLORS.border.whiteTransparent}`,
+    borderTopColor: COLORS.accent.cyan,
     borderRadius: BORDER_RADIUS.full,
     animation: 'spin 1s linear infinite',
   },
@@ -406,31 +483,37 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,
-    color: COLORS.text.tertiary,
-    gap: SPACING.xs,
+    color: COLORS.text.whiteSubtle,
+    gap: SPACING.sm,
+    flex: 1,
   },
   emptyIcon: {
-    width: SPACING['2xl'],
-    height: SPACING['2xl'],
-    color: COLORS.border.light,
+    width: isMobile ? SPACING['3xl'] : SPACING['2xl'],
+    height: isMobile ? SPACING['3xl'] : SPACING['2xl'],
+    color: COLORS.text.whiteSubtle,
   },
   panelFooter: {
-    padding: SPACING.sm,
-    borderTop: `1px solid ${COLORS.border.light}`,
+    padding: isMobile ? SPACING.md : SPACING.sm,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
     textAlign: 'center',
+    flexShrink: 0,
+    // Safe area for mobile bottom
+    paddingBottom: isMobile ? `max(${SPACING.md}, env(safe-area-inset-bottom))` : SPACING.sm,
   },
   viewAllButton: {
-    padding: `${SPACING.xs} ${SPACING.sm}`,
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.sm}`,
     backgroundColor: 'transparent',
-    color: COLORS.status.info,
+    color: COLORS.accent.cyan,
     border: 'none',
     borderRadius: BORDER_RADIUS.sm,
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
     transition: `background-color ${TRANSITIONS.fast} ease`,
+    minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+    width: isMobile ? '100%' : 'auto',
   },
-};
+});
 
 // Add CSS animation
 const styleSheet = document.createElement('style');

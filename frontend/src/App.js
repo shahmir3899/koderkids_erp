@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import "./App.css";
+import "./styles/responsive.css";
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AdminDashboard from "./pages/AdminDashboard";
 import StudentsPage from "./pages/StudentsPage";
 import FeePage from "./pages/FeePage";
@@ -46,10 +48,26 @@ import AdminCRMDashboard from './pages/crm/AdminDashboard';
 import LeadsListPage from './pages/crm/LeadsListPage';
 import ActivitiesPage from './pages/crm/ActivitiesPage';
 
+// Task Pages
+import TaskManagementPage from './pages/TaskManagementPage';
+import MyTasksPage from './pages/MyTasksPage';
 
 import { logout } from "./api"; 
 
 export const REACT_APP_BACKEND_URL = process.env.REACT_APP_API_URL;
+
+// React Query Client Configuration
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes - data considered fresh
+      cacheTime: 10 * 60 * 1000, // 10 minutes - cache retained
+      refetchOnWindowFocus: false, // Don't refetch when tab gains focus
+      retry: 1, // Only retry failed requests once
+      refetchOnMount: false, // Don't refetch on component mount if data is fresh
+    },
+  },
+});
 
 
 
@@ -156,6 +174,9 @@ function AppContent() {
       <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
       <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
 
+      {/* ✅ Task Routes */}
+      <Route path="/task-management" element={<ProtectedRoute element={<TaskManagementPage />} allowedRoles={["Admin"]} />} />
+      <Route path="/my-tasks" element={<ProtectedRoute element={<MyTasksPage />} allowedRoles={["Admin", "Teacher", "BDM"]} />} />
 
       {/* ✅ Teacher Specific Routes */}
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Teacher"]} />} />
@@ -219,20 +240,22 @@ function AppWithLoader() {
 
 function App() {
   return (
-    <SchoolsProvider>
-      <UserProvider>
-        <BooksProvider>
-          <ClassesProvider>
-            <LoadingProvider>
-              <Router>
-                <AutoLogout />
-                <AppWithLoader />
-              </Router>
-            </LoadingProvider>
-          </ClassesProvider>
-        </BooksProvider>
-      </UserProvider>
-    </SchoolsProvider>
+    <QueryClientProvider client={queryClient}>
+      <SchoolsProvider>
+        <UserProvider>
+          <BooksProvider>
+            <ClassesProvider>
+              <LoadingProvider>
+                <Router>
+                  <AutoLogout />
+                  <AppWithLoader />
+                </Router>
+              </LoadingProvider>
+            </ClassesProvider>
+          </BooksProvider>
+        </UserProvider>
+      </SchoolsProvider>
+    </QueryClientProvider>
   );
 }
 

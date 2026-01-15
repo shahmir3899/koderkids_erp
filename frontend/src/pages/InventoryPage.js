@@ -1,3 +1,7 @@
+// ============================================
+// INVENTORY PAGE - Glassmorphism Design Version
+// ============================================
+
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { API_URL, getAuthHeaders } from "../api";
@@ -15,16 +19,234 @@ import {
 } from "@tanstack/react-table";
 import AddInventory from "./AddInventory";
 
+// Design System
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  MIXINS,
+  LAYOUT,
+  TRANSITIONS,
+} from '../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../hooks/useResponsive';
+
+// Custom select styles for dark theme
+const selectStyles = {
+  control: (base, state) => ({
+    ...base,
+    background: 'rgba(255, 255, 255, 0.08)',
+    borderColor: state.isFocused ? COLORS.primary : 'rgba(255, 255, 255, 0.15)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    boxShadow: state.isFocused ? `0 0 0 1px ${COLORS.primary}` : 'none',
+    '&:hover': {
+      borderColor: COLORS.primary,
+    },
+  }),
+  menu: (base) => ({
+    ...base,
+    background: '#1e1e2e',
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected
+      ? COLORS.primary
+      : state.isFocused
+        ? 'rgba(176, 97, 206, 0.2)'
+        : 'transparent',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: COLORS.text.white,
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: 'rgba(255, 255, 255, 0.5)',
+  }),
+  input: (base) => ({
+    ...base,
+    color: COLORS.text.white,
+  }),
+};
+
+// Styles
+const styles = {
+  pageContainer: {
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+    padding: SPACING.xl,
+  },
+  contentWrapper: {
+    maxWidth: LAYOUT.maxWidth.lg,
+    margin: '0 auto',
+  },
+  pageTitle: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.xl,
+    textAlign: 'center',
+  },
+  filtersGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+  addButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    background: `linear-gradient(90deg, ${COLORS.status.success} 0%, #059669 100%)`,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+    marginBottom: SPACING.lg,
+  },
+  tableContainer: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+    marginBottom: SPACING.xl,
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+  },
+  tableHeader: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  tableHeaderCell: {
+    padding: SPACING.md,
+    textAlign: 'left',
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: FONT_SIZES.sm,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  tableRow: {
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    transition: TRANSITIONS.fast,
+  },
+  tableCell: {
+    padding: SPACING.md,
+    color: COLORS.text.whiteMedium,
+    fontSize: FONT_SIZES.sm,
+  },
+  actionButton: (variant) => ({
+    padding: SPACING.sm,
+    backgroundColor: variant === 'edit'
+      ? 'rgba(59, 130, 246, 0.2)'
+      : 'rgba(239, 68, 68, 0.2)',
+    color: variant === 'edit' ? '#60A5FA' : '#F87171',
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    cursor: 'pointer',
+    transition: TRANSITIONS.fast,
+  }),
+  qrSection: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
+  },
+  qrTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.lg,
+  },
+  qrGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+    gap: SPACING.lg,
+  },
+  qrCard: {
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
+    textAlign: 'center',
+  },
+  qrName: {
+    marginTop: SPACING.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+  },
+  qrId: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
+  exportButtonsContainer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+  },
+  exportButton: (color) => ({
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: color,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+  }),
+  modalOverlay: {
+    position: 'fixed',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backdropFilter: 'blur(4px)',
+    zIndex: 1000,
+  },
+  modalContent: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.xl,
+    width: '100%',
+    maxWidth: '500px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.lg,
+  },
+  loadingText: {
+    color: COLORS.text.whiteMedium,
+    textAlign: 'center',
+    padding: SPACING.xl,
+  },
+};
+
 async function exportInventoryToPDF(filteredItems, userMap, locationMap, selectedLocationType, selectedLocationId) {
   try {
     const locationName = selectedLocationType === "School" ? (selectedLocationId ? locationMap[selectedLocationId] || "All Schools" : "All Schools") : selectedLocationType || '';
 
-    // Create HTML template for the report
     const htmlContent = `
       <html>
         <head>
           <style>
-            body { font-family: Arial, sans-serif; margin: 50px; background: url('public/bg.png') no-repeat center center / cover; }
+            body { font-family: Arial, sans-serif; margin: 50px; }
             h1 { text-align: center; font-size: 18pt; }
             h2 { font-size: 12pt; margin-bottom: 10px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -45,7 +267,6 @@ async function exportInventoryToPDF(filteredItems, userMap, locationMap, selecte
                 <th>Name</th>
                 <th>Category</th>
                 <th class="right-align">Unique ID</th>
-               
                 <th>Assigned To</th>
                 <th>Location</th>
               </tr>
@@ -56,7 +277,6 @@ async function exportInventoryToPDF(filteredItems, userMap, locationMap, selecte
                   <td>${item.name || '—'}</td>
                   <td>${item.category_name || '—'}</td>
                   <td class="right-align">${item.unique_id || '—'}</td>
-                  
                   <td>${userMap[item.assigned_to] || item.assigned_to_name || '—'}</td>
                   <td>${selectedLocationType === "School" ? (selectedLocationId ? locationMap[selectedLocationId] || "School" : "School") : item.location || '—'}</td>
                 </tr>
@@ -70,7 +290,6 @@ async function exportInventoryToPDF(filteredItems, userMap, locationMap, selecte
       </html>
     `;
 
-    // Configure html2pdf options for better rendering
     const opt = {
       margin: 1,
       filename: `inventory_report_${new Date().toISOString().slice(0, 10)}.pdf`,
@@ -80,7 +299,6 @@ async function exportInventoryToPDF(filteredItems, userMap, locationMap, selecte
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
     };
 
-    // Generate PDF from HTML string
     await html2pdf().set(opt).from(htmlContent).save();
     toast.success("PDF exported successfully!");
   } catch (error) {
@@ -89,23 +307,150 @@ async function exportInventoryToPDF(filteredItems, userMap, locationMap, selecte
   }
 }
 
+// Responsive Styles Generator
+const getResponsiveStyles = (isMobile, isTablet) => ({
+  pageContainer: {
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+    padding: isMobile ? SPACING.md : isTablet ? SPACING.lg : SPACING.xl,
+  },
+  contentWrapper: {
+    maxWidth: LAYOUT.maxWidth.lg,
+    margin: '0 auto',
+    width: '100%',
+  },
+  pageTitle: {
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    textAlign: 'center',
+  },
+  filtersGrid: {
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: isMobile ? SPACING.md : SPACING.lg,
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+  },
+  addButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    padding: isMobile ? `${SPACING.md} ${SPACING.lg}` : `${SPACING.md} ${SPACING.xl}`,
+    background: `linear-gradient(90deg, ${COLORS.status.success} 0%, #059669 100%)`,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+    marginBottom: SPACING.lg,
+    width: isMobile ? '100%' : 'auto',
+    minHeight: '44px', // Touch-friendly
+  },
+  tableContainer: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'auto',
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+  },
+  tableHeaderCell: {
+    padding: isMobile ? SPACING.sm : SPACING.md,
+    textAlign: 'left',
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    whiteSpace: 'nowrap',
+  },
+  tableCell: {
+    padding: isMobile ? SPACING.sm : SPACING.md,
+    color: COLORS.text.whiteMedium,
+    fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+  },
+  qrGrid: {
+    display: 'grid',
+    gridTemplateColumns: isMobile
+      ? 'repeat(auto-fill, minmax(140px, 1fr))'
+      : 'repeat(auto-fill, minmax(180px, 1fr))',
+    gap: isMobile ? SPACING.md : SPACING.lg,
+  },
+  qrCard: {
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    padding: isMobile ? SPACING.md : SPACING.lg,
+    textAlign: 'center',
+  },
+  exportButtonsContainer: {
+    display: 'flex',
+    flexDirection: isMobile ? 'column' : 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+  },
+  exportButton: (color) => ({
+    padding: isMobile ? `${SPACING.md} ${SPACING.lg}` : `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: color,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+    minHeight: '44px', // Touch-friendly
+    width: isMobile ? '100%' : 'auto',
+  }),
+  modalContent: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: isMobile ? SPACING.md : SPACING.xl,
+    width: isMobile ? '95%' : '100%',
+    maxWidth: '500px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    margin: isMobile ? SPACING.md : 0,
+  },
+  actionButton: (variant) => ({
+    padding: isMobile ? SPACING.md : SPACING.sm,
+    backgroundColor: variant === 'edit'
+      ? 'rgba(59, 130, 246, 0.2)'
+      : 'rgba(239, 68, 68, 0.2)',
+    color: variant === 'edit' ? '#60A5FA' : '#F87171',
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    cursor: 'pointer',
+    transition: TRANSITIONS.fast,
+    minWidth: '44px', // Touch-friendly
+    minHeight: '44px', // Touch-friendly
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }),
+});
+
 const InventoryPage = () => {
+  // Responsive hook
+  const { isMobile, isTablet } = useResponsive();
+  const responsiveStyles = getResponsiveStyles(isMobile, isTablet);
+
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [users, setUsers] = useState([]);
-  const [locations, setLocations] = useState([]); // Derived from models LOCATION_CHOICES
+  const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [selectedAssignedTo, setSelectedAssignedTo] = useState(null);
   const [selectedSchool, setSelectedSchool] = useState(null);
-  const [schools, setSchools] = useState([]); // Fetch schools if needed
+  const [schools, setSchools] = useState([]);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showQR, setShowQR] = useState(false);
-  const [loading, setLoading] = useState(true); // Added for debugging loading issues
+  const [loading, setLoading] = useState(true);
 
-  // Status options from models (for reference, but not used in filters)
   const statusOptions = [
     { value: '', label: 'Select Status' },
     { value: 'Available', label: 'Available' },
@@ -115,15 +460,12 @@ const InventoryPage = () => {
     { value: 'Disposed', label: 'Disposed' },
   ];
 
-  // Location options from models
   const locationOptions = [
     { value: 'School', label: 'School' },
     { value: 'Headquarters', label: 'Headquarters' },
     { value: 'Unassigned', label: 'Unassigned' },
-    // Add more if defined in models
   ];
 
-  // Fetch initial data (categories, users, schools, etc.)
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
@@ -131,17 +473,14 @@ const InventoryPage = () => {
         const [catsRes, usersRes, schoolsRes] = await Promise.all([
           axios.get(`${API_URL}/api/inventory/categories/`, { headers: getAuthHeaders() }),
           axios.get(`${API_URL}/api/inventory/assigned-users/`, { headers: getAuthHeaders() }),
-          axios.get(`${API_URL}/api/schools/`, { headers: getAuthHeaders() }), // Assuming schools endpoint
+          axios.get(`${API_URL}/api/schools/`, { headers: getAuthHeaders() }),
         ]);
-        console.log('Categories data:', catsRes.data); // Debug log
-        console.log('Users data:', usersRes.data);
-        console.log('Schools data:', schoolsRes.data);
         setCategories(catsRes.data.map(c => ({ value: c.id, label: c.name })));
         setUsers(usersRes.data.map(u => ({ value: u.id, label: u.name })));
         setSchools(schoolsRes.data.map(s => ({ value: s.id, label: s.name })));
-        setLocations(locationOptions); // Static from models
+        setLocations(locationOptions);
       } catch (error) {
-        console.error('Fetch initial data error:', error); // Debug log
+        console.error('Fetch initial data error:', error);
         toast.error("Failed to load initial data");
       } finally {
         setLoading(false);
@@ -150,7 +489,6 @@ const InventoryPage = () => {
     fetchInitialData();
   }, []);
 
-  // Fetch items with filters (backend filtering via query params)
   useEffect(() => {
     const fetchItems = async () => {
       setLoading(true);
@@ -159,13 +497,11 @@ const InventoryPage = () => {
         if (selectedSchool) params.append('school', selectedSchool.value);
         if (selectedAssignedTo) params.append('assigned_to', selectedAssignedTo.value);
         if (selectedLocation) params.append('location', selectedLocation.value);
-        // Add more filters if needed
 
         const res = await axios.get(`${API_URL}/api/inventory/items/?${params.toString()}`, { headers: getAuthHeaders() });
-        console.log('Items data:', res.data); // Debug log
         setItems(res.data);
       } catch (error) {
-        console.error('Fetch items error:', error); // Debug log
+        console.error('Fetch items error:', error);
         toast.error("Failed to load items");
       } finally {
         setLoading(false);
@@ -174,26 +510,35 @@ const InventoryPage = () => {
     fetchItems();
   }, [selectedSchool, selectedAssignedTo, selectedLocation]);
 
-  // Table columns
   const columns = useMemo(() => [
     { accessorKey: 'name', header: 'Name' },
     { accessorKey: 'unique_id', header: 'Unique ID' },
-    { accessorKey: 'description', header: 'Description' },
+    ...(!isMobile ? [{ accessorKey: 'description', header: 'Description' }] : []),
     { accessorKey: 'status', header: 'Status' },
-    { accessorKey: 'category_name', header: 'Category' },
-    { accessorKey: 'assigned_to_name', header: 'Assigned To' },
-    { accessorKey: 'location', header: 'Location' },
+    ...(!isMobile ? [{ accessorKey: 'category_name', header: 'Category' }] : []),
+    ...(!isMobile ? [{ accessorKey: 'assigned_to_name', header: 'Assigned To' }] : []),
+    ...(!isMobile ? [{ accessorKey: 'location', header: 'Location' }] : []),
     {
       id: 'actions',
       cell: ({ row }) => (
-        <div className="flex gap-2">
-          <button onClick={() => openEditModal(row.original)}><PencilIcon className="h-5 w-5" /></button>
-          <button onClick={() => handleDelete(row.original.id)}><TrashIcon className="h-5 w-5" /></button>
+        <div style={{ display: 'flex', gap: SPACING.sm }}>
+          <button
+            onClick={() => openEditModal(row.original)}
+            style={responsiveStyles.actionButton('edit')}
+          >
+            <PencilIcon style={{ width: isMobile ? '18px' : '20px', height: isMobile ? '18px' : '20px' }} />
+          </button>
+          <button
+            onClick={() => handleDelete(row.original.id)}
+            style={responsiveStyles.actionButton('delete')}
+          >
+            <TrashIcon style={{ width: isMobile ? '18px' : '20px', height: isMobile ? '18px' : '20px' }} />
+          </button>
         </div>
       ),
       header: 'Actions',
     },
-  ], []);
+  ], [isMobile, responsiveStyles]);
 
   const table = useReactTable({
     data: items,
@@ -203,7 +548,6 @@ const InventoryPage = () => {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  // Handlers
   const onAddSubmit = async (data) => {
     setIsSubmitting(true);
     try {
@@ -245,7 +589,7 @@ const InventoryPage = () => {
   };
 
   const openAddModal = () => {
-    setSelectedItem(null); // Clear for add
+    setSelectedItem(null);
     setAddModalOpen(true);
   };
 
@@ -254,7 +598,6 @@ const InventoryPage = () => {
   };
 
   const openEditModal = (item) => {
-    // Prepare initialValues, adjusting for Select values
     const initial = {
       ...item,
       category: categories.find(c => c.value === item.category) || null,
@@ -285,164 +628,163 @@ const InventoryPage = () => {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Inventory Management</h1>
+    <div style={responsiveStyles.pageContainer}>
+      <div style={responsiveStyles.contentWrapper}>
+        <h1 style={responsiveStyles.pageTitle}>Inventory Management</h1>
 
-      {/* Filters - Aligned in one row on medium+ screens */}
-      {loading ? (
-        <p>Loading filters...</p>
-      ) : (
-        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Select
-            value={selectedSchool}
-            onChange={setSelectedSchool}
-            options={schools}
-            placeholder="Filter by School"
-            isClearable
-          />
-          <Select
-            value={selectedAssignedTo}
-            onChange={setSelectedAssignedTo}
-            options={users}
-            placeholder="Filter by Assigned To"
-            isClearable
-          />
-          <Select
-            value={selectedLocation}
-            onChange={setSelectedLocation}
-            options={locations}
-            placeholder="Filter by Location"
-            isClearable
-          />
-        </div>
-      )}
-
-      {/* Add Button */}
-      <button
-        onClick={openAddModal}
-        className="mb-4 px-4 py-2 bg-green-500 text-white rounded flex items-center gap-2"
-      >
-        <PlusIcon className="h-5 w-5" />
-        Add New Inventory
-      </button>
-
-      {/* Table */}
-      <div className="overflow-x-auto mb-6">
-        <table className="min-w-full bg-white border">
-          <thead>
-            {table.getHeaderGroups().map(headerGroup => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-                  <th key={header.id} className="p-2 border">
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map(row => (
-              <tr key={row.id}>
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id} className="p-2 border">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Add Modal */}
-      {addModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-            <h2 className="text-lg font-bold mb-4">Add New Item</h2>
-            <AddInventory
-              mode="add"
-              onSubmit={onAddSubmit}
-              onCancel={closeAddModal}
-              categories={categories}
-              availableUsers={users}
-              statusOptions={statusOptions.slice(1)}
-              isSubmitting={isSubmitting}
+        {/* Filters */}
+        {loading ? (
+          <p style={styles.loadingText}>Loading filters...</p>
+        ) : (
+          <div style={responsiveStyles.filtersGrid}>
+            <Select
+              value={selectedSchool}
+              onChange={setSelectedSchool}
+              options={schools}
+              placeholder="Filter by School"
+              isClearable
+              styles={selectStyles}
+            />
+            <Select
+              value={selectedAssignedTo}
+              onChange={setSelectedAssignedTo}
+              options={users}
+              placeholder="Filter by Assigned To"
+              isClearable
+              styles={selectStyles}
+            />
+            <Select
+              value={selectedLocation}
+              onChange={setSelectedLocation}
+              options={locations}
+              placeholder="Filter by Location"
+              isClearable
+              styles={selectStyles}
             />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Edit Modal */}
-      {editModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-            <h2 className="text-lg font-bold mb-4">Edit Item</h2>
-            <AddInventory
-              mode="edit"
-              initialValues={selectedItem}
-              onSubmit={onEditSubmit}
-              onCancel={closeEditModal}
-              categories={categories}
-              availableUsers={users}
-              statusOptions={statusOptions.slice(1)}
-              isSubmitting={isSubmitting}
-            />
+        {/* Add Button */}
+        <button onClick={openAddModal} style={responsiveStyles.addButton}>
+          <PlusIcon style={{ width: '20px', height: '20px' }} />
+          Add New Inventory
+        </button>
+
+        {/* Table */}
+        <div style={responsiveStyles.tableContainer}>
+          <table style={styles.table}>
+            <thead style={styles.tableHeader}>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <th key={header.id} style={responsiveStyles.tableHeaderCell}>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map(row => (
+                <tr key={row.id} style={styles.tableRow}>
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} style={responsiveStyles.tableCell}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Add Modal */}
+        {addModalOpen && (
+          <div style={styles.modalOverlay}>
+            <div style={responsiveStyles.modalContent}>
+              <h2 style={styles.modalTitle}>Add New Item</h2>
+              <AddInventory
+                mode="add"
+                onSubmit={onAddSubmit}
+                onCancel={closeAddModal}
+                categories={categories}
+                availableUsers={users}
+                statusOptions={statusOptions.slice(1)}
+                isSubmitting={isSubmitting}
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* QR Section */}
-      {showQR && (
-        <div className="my-6">
-          <h2 className="text-lg font-bold mb-4">QR Codes for Filtered Items</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {/* Edit Modal */}
+        {editModalOpen && (
+          <div style={styles.modalOverlay}>
+            <div style={responsiveStyles.modalContent}>
+              <h2 style={styles.modalTitle}>Edit Item</h2>
+              <AddInventory
+                mode="edit"
+                initialValues={selectedItem}
+                onSubmit={onEditSubmit}
+                onCancel={closeEditModal}
+                categories={categories}
+                availableUsers={users}
+                statusOptions={statusOptions.slice(1)}
+                isSubmitting={isSubmitting}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* QR Section */}
+        {showQR && (
+          <div style={styles.qrSection}>
+            <h2 style={styles.qrTitle}>QR Codes for Filtered Items</h2>
+            <div style={responsiveStyles.qrGrid}>
+              {items.map((item) => (
+                <div key={item.id} style={responsiveStyles.qrCard}>
+                  <QRCode value={item.unique_id} size={isMobile ? 100 : 128} />
+                  <p style={styles.qrName}>{item.name}</p>
+                  <p style={styles.qrId}>{item.unique_id}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Export Buttons */}
+        <div style={responsiveStyles.exportButtonsContainer}>
+          <button
+            onClick={handleExportTablePDF}
+            style={responsiveStyles.exportButton(COLORS.status.info)}
+          >
+            Export PDF
+          </button>
+          <button
+            onClick={() => setShowQR(!showQR)}
+            style={responsiveStyles.exportButton(COLORS.accent.purple)}
+          >
+            {showQR ? "Hide QR Codes" : "Generate QR Codes"}
+          </button>
+          <button
+            onClick={handleDownloadQRAsPDF}
+            style={responsiveStyles.exportButton('#9333EA')}
+          >
+            Download QR PDF
+          </button>
+        </div>
+
+        {/* Hidden Elements for Exports */}
+        <div id="qr-pdf-content" style={{ display: 'none', padding: SPACING.lg }}>
+          <h2 style={{ fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.bold, marginBottom: SPACING.lg }}>QR Codes for Filtered Inventory</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: SPACING.lg }}>
             {items.map((item) => (
-              <div key={item.id} className="border p-4 rounded shadow bg-white text-center">
+              <div key={item.id} style={{ border: '1px solid #ddd', padding: SPACING.lg, borderRadius: BORDER_RADIUS.md, backgroundColor: 'white', textAlign: 'center', width: '170px' }}>
                 <QRCode value={item.unique_id} size={128} />
-                <p className="mt-2 font-semibold text-sm">{item.name}</p>
-                <p className="text-xs text-gray-500">{item.unique_id}</p>
+                <p style={{ marginTop: SPACING.sm, fontWeight: FONT_WEIGHTS.semibold, fontSize: FONT_SIZES.sm }}>{item.name}</p>
+                <p style={{ fontSize: FONT_SIZES.xs, color: '#6B7280' }}>{item.unique_id}</p>
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Export Buttons */}
-      <div className="flex flex-wrap gap-4">
-        <button
-          onClick={handleExportTablePDF}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label="Export advanced PDF"
-        >
-          Export PDF
-        </button>
-        <button
-          onClick={() => setShowQR(!showQR)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          aria-label={showQR ? "Hide QR Codes" : "Generate QR Codes"}
-        >
-          {showQR ? "Hide QR Codes" : "Generate QR Codes"}
-        </button>
-        <button
-          onClick={handleDownloadQRAsPDF}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          aria-label="Download QR PDF"
-        >
-          Download QR PDF
-        </button>
-      </div>
-
-      {/* Hidden Elements for Exports */}
-      <div id="qr-pdf-content" className="hidden p-4">
-        <h2 className="text-xl font-bold mb-4">QR Codes for Filtered Inventory</h2>
-        <div className="grid grid-cols-4 gap-6">
-          {items.map((item) => (
-            <div key={item.id} className="border p-4 rounded shadow bg-white text-center w-[170px]">
-              <QRCode value={item.unique_id} size={128} />
-              <p className="mt-2 font-semibold text-sm">{item.name}</p>
-              <p className="text-xs text-gray-500">{item.unique_id}</p>
-            </div>
-          ))}
         </div>
       </div>
     </div>

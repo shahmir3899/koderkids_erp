@@ -1,0 +1,802 @@
+/* ============================================
+   RESPONSIVE UTILITIES CSS
+   ============================================
+   Location: src/styles/responsive.css
+   Purpose: Global responsive utility classes for mobile/tablet/desktop
+
+   Breakpoints:
+   - Mobile: < 768px
+   - Tablet: 768px - 1023px
+   - Desktop: >= 1024px
+
+   Import this file in your App.js or index.js:
+   import './styles/responsive.css';
+   ============================================ */
+
+/* ============================================
+   1. VISIBILITY UTILITIES
+   ============================================ */
+
+/* Hide on specific screen sizes */
+@media (max-width: 767px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hide-tablet {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+/* Show only on specific screen sizes */
+.show-mobile-only {
+  display: none !important;
+}
+@media (max-width: 767px) {
+  .show-mobile-only {
+    display: block !important;
+  }
+}
+
+.show-tablet-only {
+  display: none !important;
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .show-tablet-only {
+    display: block !important;
+  }
+}
+
+.show-desktop-only {
+  display: none !important;
+}
+@media (min-width: 1024px) {
+  .show-desktop-only {
+    display: block !important;
+  }
+}
+
+/* Flex variants of show utilities */
+.show-mobile-only-flex {
+  display: none !important;
+}
+@media (max-width: 767px) {
+  .show-mobile-only-flex {
+    display: flex !important;
+  }
+}
+
+.show-tablet-only-flex {
+  display: none !important;
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .show-tablet-only-flex {
+    display: flex !important;
+  }
+}
+
+.show-desktop-only-flex {
+  display: none !important;
+}
+@media (min-width: 1024px) {
+  .show-desktop-only-flex {
+    display: flex !important;
+  }
+}
+
+/* ============================================
+   2. TOUCH TARGET UTILITIES
+   ============================================ */
+
+/* Minimum touch target size (44px as per WCAG guidelines) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.touch-target-sm {
+  min-height: 36px;
+  min-width: 36px;
+}
+
+.touch-target-lg {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Apply touch targets only on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .touch-target-auto {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Increase tap targets for buttons on mobile */
+  button,
+  [role="button"],
+  .btn,
+  .button {
+    min-height: 44px;
+  }
+
+  /* Increase spacing between clickable items */
+  .touch-spacing > * + * {
+    margin-top: 8px;
+  }
+}
+
+/* ============================================
+   3. RESPONSIVE SPACING
+   ============================================ */
+
+/* Responsive padding */
+.responsive-padding {
+  padding: 1rem;
+}
+@media (min-width: 768px) {
+  .responsive-padding {
+    padding: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .responsive-padding {
+    padding: 2rem;
+  }
+}
+
+.responsive-padding-x {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+@media (min-width: 768px) {
+  .responsive-padding-x {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .responsive-padding-x {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+.responsive-padding-y {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+@media (min-width: 768px) {
+  .responsive-padding-y {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .responsive-padding-y {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+}
+
+/* Responsive margin */
+.responsive-margin {
+  margin: 1rem;
+}
+@media (min-width: 768px) {
+  .responsive-margin {
+    margin: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .responsive-margin {
+    margin: 2rem;
+  }
+}
+
+/* Responsive gap for flex/grid */
+.responsive-gap {
+  gap: 0.75rem;
+}
+@media (min-width: 768px) {
+  .responsive-gap {
+    gap: 1rem;
+  }
+}
+@media (min-width: 1024px) {
+  .responsive-gap {
+    gap: 1.5rem;
+  }
+}
+
+/* ============================================
+   4. TABLE RESPONSIVE UTILITIES
+   ============================================ */
+
+/* Horizontal scroll wrapper for tables */
+.table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: -ms-autohiding-scrollbar;
+}
+
+/* Show scroll indicator on mobile */
+.table-scroll-indicator {
+  position: relative;
+}
+.table-scroll-indicator::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  background: linear-gradient(to left, rgba(255,255,255,0.9), transparent);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s;
+}
+@media (min-width: 1024px) {
+  .table-scroll-indicator::after {
+    display: none;
+  }
+}
+
+/* Card-style table for mobile */
+@media (max-width: 767px) {
+  .table-card-mobile {
+    display: block;
+  }
+
+  .table-card-mobile thead {
+    display: none;
+  }
+
+  .table-card-mobile tbody {
+    display: block;
+  }
+
+  .table-card-mobile tr {
+    display: block;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .table-card-mobile td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .table-card-mobile td:last-child {
+    border-bottom: none;
+  }
+
+  .table-card-mobile td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #374151;
+    margin-right: 1rem;
+  }
+}
+
+/* ============================================
+   5. RESPONSIVE CONTAINERS
+   ============================================ */
+
+/* Container that adjusts width based on screen size */
+.container-responsive {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+@media (min-width: 768px) {
+  .container-responsive {
+    max-width: 720px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .container-responsive {
+    max-width: 960px;
+  }
+}
+@media (min-width: 1280px) {
+  .container-responsive {
+    max-width: 1200px;
+  }
+}
+
+/* Full-width container with responsive padding */
+.container-fluid {
+  width: 100%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+@media (min-width: 768px) {
+  .container-fluid {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .container-fluid {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* ============================================
+   6. RESPONSIVE GRID UTILITIES
+   ============================================ */
+
+/* Auto-responsive grid */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .grid-responsive {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 1280px) {
+  .grid-responsive {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Grid with auto-fit (fluid columns) */
+.grid-auto-fit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .grid-auto-fit {
+    gap: 1.5rem;
+  }
+}
+
+/* Grid with auto-fill (fixed minimum) */
+.grid-auto-fill {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+/* ============================================
+   7. RESPONSIVE FLEX UTILITIES
+   ============================================ */
+
+/* Flex that stacks on mobile */
+.flex-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .flex-responsive {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* Flex that wraps responsively */
+.flex-wrap-responsive {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+@media (min-width: 768px) {
+  .flex-wrap-responsive {
+    gap: 1rem;
+  }
+}
+
+/* Center content on mobile, space-between on larger */
+.flex-mobile-center {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+@media (min-width: 768px) {
+  .flex-mobile-center {
+    justify-content: space-between;
+  }
+}
+
+/* ============================================
+   8. RESPONSIVE TEXT UTILITIES
+   ============================================ */
+
+/* Responsive headings */
+.text-responsive-h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+@media (min-width: 768px) {
+  .text-responsive-h1 {
+    font-size: 2.25rem;
+  }
+}
+@media (min-width: 1024px) {
+  .text-responsive-h1 {
+    font-size: 2.5rem;
+  }
+}
+
+.text-responsive-h2 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+@media (min-width: 768px) {
+  .text-responsive-h2 {
+    font-size: 1.75rem;
+  }
+}
+@media (min-width: 1024px) {
+  .text-responsive-h2 {
+    font-size: 2rem;
+  }
+}
+
+.text-responsive-h3 {
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+@media (min-width: 768px) {
+  .text-responsive-h3 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Truncate text with ellipsis */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Multi-line truncate */
+.text-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.text-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================
+   9. RESPONSIVE WIDTH UTILITIES
+   ============================================ */
+
+/* Full width on mobile, auto on larger screens */
+.w-full-mobile {
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .w-full-mobile {
+    width: auto;
+  }
+}
+
+/* Responsive max-width */
+.max-w-responsive {
+  max-width: 100%;
+}
+@media (min-width: 768px) {
+  .max-w-responsive {
+    max-width: 90%;
+  }
+}
+@media (min-width: 1024px) {
+  .max-w-responsive {
+    max-width: 80%;
+  }
+}
+
+/* Safe area responsive width (for modals, dropdowns) */
+.w-safe {
+  width: min(90vw, 400px);
+}
+
+.w-safe-sm {
+  width: min(85vw, 320px);
+}
+
+.w-safe-md {
+  width: min(90vw, 500px);
+}
+
+.w-safe-lg {
+  width: min(95vw, 700px);
+}
+
+/* ============================================
+   10. MODAL/POPUP RESPONSIVE UTILITIES
+   ============================================ */
+
+/* Responsive modal container */
+.modal-responsive {
+  width: 95vw;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+@media (min-width: 768px) {
+  .modal-responsive {
+    width: 80vw;
+    max-width: 600px;
+  }
+}
+@media (min-width: 1024px) {
+  .modal-responsive {
+    width: 60vw;
+    max-width: 700px;
+  }
+}
+
+/* Full-screen modal on mobile */
+.modal-fullscreen-mobile {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
+}
+@media (min-width: 768px) {
+  .modal-fullscreen-mobile {
+    width: auto;
+    height: auto;
+    max-width: 600px;
+    max-height: 90vh;
+    border-radius: 12px;
+  }
+}
+
+/* Drawer style for mobile (slides from bottom) */
+.drawer-mobile {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-height: 85vh;
+  border-radius: 16px 16px 0 0;
+  transform: translateY(0);
+  transition: transform 0.3s ease;
+}
+@media (min-width: 768px) {
+  .drawer-mobile {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    width: auto;
+    max-height: none;
+    border-radius: 12px;
+    transform: none;
+  }
+}
+
+/* ============================================
+   11. IMAGE RESPONSIVE UTILITIES
+   ============================================ */
+
+/* Responsive image */
+.img-responsive {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Object-fit utilities for responsive images */
+.img-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.img-contain {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ============================================
+   12. FORM RESPONSIVE UTILITIES
+   ============================================ */
+
+/* Form inputs with mobile-friendly sizing */
+.input-responsive {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  font-size: 16px; /* Prevents iOS zoom on focus */
+}
+@media (min-width: 768px) {
+  .input-responsive {
+    min-height: 40px;
+    padding: 0.5rem 0.75rem;
+    font-size: 14px;
+  }
+}
+
+/* Form layout that stacks on mobile */
+.form-row-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .form-row-responsive {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+}
+
+/* Form field that takes full width on mobile */
+.form-field-responsive {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .form-field-responsive {
+    width: auto;
+    min-width: 200px;
+  }
+}
+
+/* ============================================
+   13. BUTTON RESPONSIVE UTILITIES
+   ============================================ */
+
+/* Responsive button sizing */
+.btn-responsive {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+}
+@media (min-width: 768px) {
+  .btn-responsive {
+    width: auto;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Button group that stacks on mobile */
+.btn-group-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .btn-group-responsive {
+    flex-direction: row;
+    width: auto;
+  }
+}
+
+/* ============================================
+   14. SCROLL BEHAVIOR
+   ============================================ */
+
+/* Smooth scrolling with reduced motion support */
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-smooth {
+    scroll-behavior: auto;
+  }
+}
+
+/* Horizontal scroll container */
+.scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Hide scrollbar but keep functionality */
+.scroll-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   15. SAFE AREA UTILITIES (for notched devices)
+   ============================================ */
+
+/* Padding for safe areas (iPhone notch, etc.) */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+.safe-area-all {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* ============================================
+   16. PRINT UTILITIES
+   ============================================ */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-break-before {
+    page-break-before: always;
+  }
+
+  .print-break-after {
+    page-break-after: always;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid;
+  }
+}
+
+.print-only {
+  display: none;
+}

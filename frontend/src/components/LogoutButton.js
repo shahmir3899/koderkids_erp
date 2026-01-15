@@ -3,6 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { FiPower } from "react-icons/fi";
 import { clearCacheOnLogout } from "../utils/cacheUtils";
 
+// Design Constants
+import {
+    COLORS,
+    SPACING,
+    BORDER_RADIUS,
+    SHADOWS,
+    TRANSITIONS,
+} from "../utils/designConstants";
+
 function LogoutButton({ style, compact = false }) {
     const navigate = useNavigate();
     const [isHovered, setIsHovered] = useState(false);
@@ -41,26 +50,29 @@ function LogoutButton({ style, compact = false }) {
     );
 }
 
+// ============================================
+// STYLES (using design constants)
+// ============================================
 const defaultStyles = {
     button: {
         width: "32px",
         height: "32px",
         padding: "0",
-        backgroundColor: "rgba(220, 53, 69, 0.9)",
-        color: "white",
-        border: "2px solid rgba(255, 255, 255, 0.3)",
-        borderRadius: "50%",
+        backgroundColor: `rgba(220, 53, 69, 0.9)`, // danger color with opacity
+        color: COLORS.background.white,
+        border: `2px solid rgba(255, 255, 255, 0.3)`,
+        borderRadius: BORDER_RADIUS.full,
         cursor: "pointer",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        transition: "all 0.2s ease",
-        boxShadow: "0 2px 8px rgba(220, 53, 69, 0.3)",
+        transition: TRANSITIONS.default,
+        boxShadow: `0 2px 8px rgba(220, 53, 69, 0.3)`,
     },
     buttonHover: {
-        backgroundColor: "#dc3545",
+        backgroundColor: COLORS.status.danger,
         transform: "scale(1.1)",
-        boxShadow: "0 4px 12px rgba(220, 53, 69, 0.5)",
+        boxShadow: `0 4px 12px rgba(220, 53, 69, 0.5)`,
     },
 };
 

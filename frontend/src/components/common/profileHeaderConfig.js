@@ -82,11 +82,11 @@ export const PROFILE_HEADER_CONFIG = {
     
     // Theme
     colors: {
-      accent: '#B061CE',
+      accent: '#FBBF24', // Golden Yellow for name
       avatarBg: '#B061CE',
       iconHover: '#F3F4F6',
     },
-    
+
     // Avatar
     avatarSize: 101,
     avatarFallback: '/images/teacher-avatar.jpg',
@@ -161,11 +161,11 @@ export const PROFILE_HEADER_CONFIG = {
     
     // Theme
     colors: {
-      accent: '#3B82F6',
+      accent: '#FBBF24', // Golden Yellow for name
       avatarBg: '#3B82F6',
       iconHover: '#F3F4F6',
     },
-    
+
     // Avatar
     avatarSize: 101,
     avatarFallback: '/images/admin-avatar.jpg',
@@ -234,11 +234,11 @@ export const PROFILE_HEADER_CONFIG = {
     
     // Theme
     colors: {
-      accent: '#10B981',
+      accent: '#FBBF24', // Golden Yellow for name
       avatarBg: '#10B981',
       iconHover: '#F3F4F6',
     },
-    
+
     // Avatar
     avatarSize: 101,
     avatarFallback: '/images/student-avatar.jpg',
@@ -313,7 +313,7 @@ export const PROFILE_HEADER_CONFIG = {
 
     // Theme
     colors: {
-      accent: '#F59E0B',
+      accent: '#FBBF24', // Golden Yellow for name
       avatarBg: '#F59E0B',
       iconHover: '#F3F4F6',
     },

@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { sendMessageToRobot } from "../api";
+import { useResponsive } from "../hooks/useResponsive";
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+  TOUCH_TARGETS,
+} from "../utils/designConstants";
 
 const RobotChat = () => {
+  const { isMobile } = useResponsive();
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [isListening, setIsListening] = useState(false);
@@ -74,18 +85,24 @@ const RobotChat = () => {
     }
   };
 
+  // Get responsive styles
+  const styles = getStyles(isMobile);
+
   return (
     <div style={styles.container}>
-      <h2>🤖 Robot Assistant</h2>
-      
+      <h2 style={styles.title}>🤖 Robot Assistant</h2>
+
       <div style={styles.chatBox}>
         {chatHistory.map((msg, index) => (
           <div
             key={index}
             style={{
               ...styles.message,
-              backgroundColor: msg.sender === "user" ? "#d1e7dd" : "#f8d7da",
+              backgroundColor: msg.sender === "user"
+                ? "rgba(16, 185, 129, 0.2)"
+                : "rgba(248, 215, 218, 0.2)",
               alignSelf: msg.sender === "user" ? "flex-end" : "flex-start",
+              color: msg.sender === "user" ? COLORS.status.success : COLORS.text.white,
             }}
           >
             {msg.text}
@@ -98,68 +115,116 @@ const RobotChat = () => {
           type="text"
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
+          onKeyPress={(e) => e.key === "Enter" && handleSend()}
           placeholder="Type your message..."
           style={styles.input}
         />
-        <button onClick={handleSend} style={styles.sendButton}>Send</button>
+        <button onClick={handleSend} style={styles.sendButton}>
+          {isMobile ? "📤" : "Send"}
+        </button>
         <button onClick={startListening} style={styles.micButton}>
-          {isListening ? "🎙️ Listening..." : "🎤 Speak"}
+          {isListening ? "🎙️" : "🎤"} {!isMobile && (isListening ? "Listening..." : "Speak")}
         </button>
       </div>
     </div>
   );
 };
 
-// 🎨 Basic Styles
-const styles = {
+// Responsive Styles Generator
+const getStyles = (isMobile) => ({
   container: {
-    width: "400px",
-    margin: "50px auto",
-    border: "1px solid #ccc",
-    borderRadius: "10px",
-    padding: "20px",
-    backgroundColor: "#fff",
+    width: "100%",
+    maxWidth: isMobile ? "100%" : "450px",
+    margin: isMobile ? 0 : "50px auto",
+    ...MIXINS.glassmorphicCard,
+    borderRadius: isMobile ? 0 : BORDER_RADIUS.lg,
+    padding: isMobile ? SPACING.md : SPACING.lg,
+    minHeight: isMobile ? "100vh" : "auto",
+    display: "flex",
+    flexDirection: "column",
+  },
+  title: {
+    color: COLORS.text.white,
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES["2xl"],
+    textAlign: "center",
+    marginBottom: SPACING.md,
   },
   chatBox: {
-    height: "300px",
+    flex: 1,
+    minHeight: isMobile ? "calc(100vh - 200px)" : "300px",
+    maxHeight: isMobile ? "none" : "400px",
     overflowY: "auto",
-    border: "1px solid #ccc",
-    borderRadius: "5px",
-    padding: "10px",
-    marginBottom: "10px",
+    WebkitOverflowScrolling: "touch",
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+    marginBottom: SPACING.md,
+    display: "flex",
+    flexDirection: "column",
+    gap: SPACING.xs,
   },
   message: {
-    padding: "10px",
-    borderRadius: "8px",
-    marginBottom: "5px",
-    maxWidth: "70%",
+    padding: isMobile ? SPACING.sm : SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.xs,
+    maxWidth: isMobile ? "85%" : "70%",
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.md,
+    lineHeight: "1.5",
+    wordBreak: "break-word",
   },
   controls: {
     display: "flex",
-    gap: "5px",
+    gap: SPACING.sm,
+    flexWrap: isMobile ? "wrap" : "nowrap",
+    // Safe area padding for mobile
+    paddingBottom: isMobile ? `env(safe-area-inset-bottom, ${SPACING.sm})` : 0,
   },
   input: {
-    flex: 1,
-    padding: "10px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
+    flex: isMobile ? "1 1 100%" : 1,
+    order: isMobile ? 1 : 0,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    color: COLORS.text.white,
+    fontSize: "16px", // Prevents iOS zoom
+    minHeight: TOUCH_TARGETS.large,
+    transition: TRANSITIONS.fast,
   },
   sendButton: {
-    padding: "10px 15px",
-    backgroundColor: "#28a745",
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.status.success,
     color: "white",
     border: "none",
-    borderRadius: "5px",
+    borderRadius: BORDER_RADIUS.md,
     cursor: "pointer",
+    minWidth: isMobile ? TOUCH_TARGETS.large : "auto",
+    minHeight: TOUCH_TARGETS.large,
+    fontSize: isMobile ? FONT_SIZES.lg : FONT_SIZES.md,
+    fontWeight: "500",
+    transition: TRANSITIONS.fast,
+    order: isMobile ? 2 : 0,
+    flex: isMobile ? "1 1 45%" : "none",
   },
   micButton: {
-    padding: "10px 15px",
-    backgroundColor: "#007bff",
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.primary,
     color: "white",
     border: "none",
-    borderRadius: "5px",
+    borderRadius: BORDER_RADIUS.md,
     cursor: "pointer",
+    minWidth: isMobile ? TOUCH_TARGETS.large : "auto",
+    minHeight: TOUCH_TARGETS.large,
+    fontSize: isMobile ? FONT_SIZES.lg : FONT_SIZES.md,
+    fontWeight: "500",
+    transition: TRANSITIONS.fast,
+    order: isMobile ? 3 : 0,
+    flex: isMobile ? "1 1 45%" : "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING.xs,
   },
-};
+});
 
 export default RobotChat;

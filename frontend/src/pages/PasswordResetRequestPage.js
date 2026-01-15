@@ -1,12 +1,23 @@
 // ============================================
 // PASSWORD RESET REQUEST PAGE
-// NEW FILE: frontend/src/pages/PasswordResetRequestPage.js
-// Matches your LoginPage design exactly
 // ============================================
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { requestPasswordReset } from '../services/authService';
+
+// Design Constants
+import {
+    COLORS,
+    SPACING,
+    FONT_SIZES,
+    FONT_WEIGHTS,
+    BORDER_RADIUS,
+    TRANSITIONS,
+    MIXINS,
+    TOUCH_TARGETS,
+} from '../utils/designConstants';
+import { useResponsive } from '../hooks/useResponsive';
 
 function PasswordResetRequestPage() {
   const [email, setEmail] = useState('');
@@ -15,8 +26,8 @@ function PasswordResetRequestPage() {
   const [emailSent, setEmailSent] = useState(false);
   const navigate = useNavigate();
 
-  // Detect mobile for responsive adjustments
-  const isMobile = window.innerWidth <= 768;
+  // Use responsive hook for proper breakpoint detection
+  const { isMobile } = useResponsive();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,32 +58,35 @@ function PasswordResetRequestPage() {
     }
   };
 
-  // Styles matching your LoginPage
+  // Inline keyframes
+  const globalStyles = `
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  `;
+
+  // Styles using design constants with glassmorphism
   const rootStyles = {
     display: "flex",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     alignItems: "center",
     minHeight: "100vh",
-    backgroundImage: "url('/background.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    backgroundColor: "#F9FAFC",
+    background: COLORS.background.gradient,
     position: "relative",
     overflow: "hidden",
     fontFamily: "'Rubik', 'Poppins', sans-serif",
     flexDirection: isMobile ? "column" : "row",
-    justifyContent: isMobile ? "center" : "flex-start",
-    padding: isMobile ? "2rem" : "0",
+    padding: isMobile ? SPACING.lg : SPACING.xl,
   };
 
   const mockupStyles = {
     position: "relative",
     flexShrink: 0,
     width: isMobile ? "0" : "auto",
-    minWidth: isMobile ? "0" : "500px",
+    minWidth: isMobile ? "0" : "400px",
     height: isMobile ? "0" : "100vh",
-    marginRight: isMobile ? "0" : "2rem",
+    marginRight: isMobile ? "0" : SPACING.xl,
     transform: isMobile ? "none" : "rotate(-15deg) scale(0.8)",
     transformOrigin: "top left",
     backgroundImage: "url('/thematic-illustration.svg')",
@@ -82,16 +96,16 @@ function PasswordResetRequestPage() {
     pointerEvents: "none",
     opacity: isMobile ? 0 : 1,
     overflow: "hidden",
+    display: isMobile ? "none" : "block",
   };
 
   const formContainerStyles = {
-    maxWidth: "450px",
-    width: isMobile ? "100%" : "90%",
-    padding: "2rem",
+    maxWidth: isMobile ? "100%" : "450px",
+    width: "100%",
+    padding: isMobile ? SPACING.lg : SPACING.xl,
     textAlign: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: "16px",
-    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
     animation: "fadeIn 1s ease-in",
   };
 
@@ -99,24 +113,24 @@ function PasswordResetRequestPage() {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    gap: "16px",
+    gap: SPACING.md,
     width: "100%",
     maxWidth: "450px",
-    marginBottom: "1rem",
+    marginBottom: SPACING.md,
   };
 
   const labelStyles = {
     width: "100%",
     height: "25px",
-    fontWeight: 400,
-    fontSize: "16px",
+    fontWeight: FONT_WEIGHTS.normal,
+    fontSize: FONT_SIZES.md,
     fontFamily: "'Montserrat', sans-serif",
     lineHeight: "140%",
     letterSpacing: "0.2px",
-    color: "#424242",
-    backgroundColor: "rgba(110, 108, 223, 0.1)",
-    padding: "4px 8px",
-    borderRadius: "4px",
+    color: COLORS.text.white,
+    backgroundColor: COLORS.background.whiteSubtle,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.sm,
     textAlign: "left",
   };
 
@@ -125,24 +139,23 @@ function PasswordResetRequestPage() {
     display: "flex",
     flexDirection: "row",
     alignItems: "center",
-    padding: "16px 24px",
-    gap: "10px",
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    gap: SPACING.sm,
     width: "100%",
-    height: "54px",
-    background: "#FFFFFF",
-    border: "1px solid rgba(110, 108, 223, 0.8)",
-    borderRadius: "16px",
-    transition: "box-shadow 0.3s ease, border-color 0.3s ease",
+    minHeight: TOUCH_TARGETS.large,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.xl,
+    transition: TRANSITIONS.normal,
   };
 
   const inputStyles = {
     width: "100%",
-    height: "22px",
-    fontWeight: 400,
-    fontSize: "16px",
+    height: "auto",
+    fontWeight: FONT_WEIGHTS.normal,
+    fontSize: '16px', // Prevents iOS zoom
     lineHeight: "140%",
     letterSpacing: "0.2px",
-    color: "#757575",
+    color: COLORS.text.white,
     border: "none",
     background: "transparent",
   };
@@ -152,46 +165,39 @@ function PasswordResetRequestPage() {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    padding: "16px",
-    gap: "10px",
+    padding: SPACING.md,
+    gap: SPACING.sm,
     width: "100%",
-    height: "54px",
-    background: "linear-gradient(90deg, #6E6CDF 0%, #6E6CDF 100%)",
-    borderRadius: "16px",
-    fontWeight: 500,
-    fontSize: "16px",
+    minHeight: TOUCH_TARGETS.large,
+    background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+    borderRadius: BORDER_RADIUS.xl,
+    fontWeight: FONT_WEIGHTS.medium,
+    fontSize: isMobile ? '0.9375rem' : FONT_SIZES.md,
     lineHeight: "140%",
     letterSpacing: "0.2px",
-    color: "#FFFFFF",
+    color: COLORS.text.white,
     cursor: "pointer",
-    boxShadow: "0 2px 10px rgba(110, 108, 223, 0.3)",
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+    boxShadow: "0 4px 15px rgba(176, 97, 206, 0.4)",
+    transition: TRANSITIONS.normal,
     border: "none",
   };
 
   const successBoxStyles = {
-    backgroundColor: "#D1FAE5",
-    border: "1px solid #10B981",
-    borderRadius: "8px",
-    padding: "16px",
-    marginBottom: "1.5rem",
+    ...MIXINS.glassmorphicSubtle,
+    backgroundColor: "rgba(16, 185, 129, 0.2)",
+    border: `1px solid ${COLORS.status.success}`,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
   };
 
   const instructionsStyles = {
-    backgroundColor: "#F3F4F6",
-    borderRadius: "8px",
-    padding: "16px",
-    marginBottom: "1.5rem",
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
     textAlign: "left",
   };
-
-  // Inline keyframes
-  const globalStyles = `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  `;
 
   return (
     <>
@@ -199,21 +205,21 @@ function PasswordResetRequestPage() {
       <div style={rootStyles}>
         <div style={mockupStyles} />
         <div style={formContainerStyles}>
-          <h1 style={{ 
-            fontWeight: 600, 
-            fontSize: "32px", 
-            lineHeight: "130%", 
-            letterSpacing: "0.2px", 
-            color: "#424242", 
-            marginBottom: "1rem" 
+          <h1 style={{
+            fontWeight: FONT_WEIGHTS.semibold,
+            fontSize: FONT_SIZES['2xl'],
+            lineHeight: "130%",
+            letterSpacing: "0.2px",
+            color: COLORS.text.primary,
+            marginBottom: SPACING.md
           }}>
             Reset Password
           </h1>
-          
-          <p style={{ 
-            fontSize: "16px", 
-            color: "#757575", 
-            marginBottom: "2rem" 
+
+          <p style={{
+            fontSize: FONT_SIZES.md,
+            color: COLORS.text.secondary,
+            marginBottom: SPACING.xl
           }}>
             {emailSent 
               ? 'Check your email for reset instructions'
@@ -224,10 +230,10 @@ function PasswordResetRequestPage() {
           {!emailSent ? (
             <form onSubmit={handleSubmit}>
               {message && (
-                <p style={{ 
-                  marginBottom: "1rem", 
-                  color: message.includes('⚠️') ? '#DC2626' : '#10B981',
-                  fontSize: "14px"
+                <p style={{
+                  marginBottom: SPACING.md,
+                  color: message.includes('⚠️') ? COLORS.status.danger : COLORS.status.success,
+                  fontSize: FONT_SIZES.sm
                 }}>
                   {message}
                 </p>
@@ -276,27 +282,31 @@ function PasswordResetRequestPage() {
                 {isLoading ? "Sending..." : "📧 Send Reset Link"}
               </button>
 
-              <div style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: "16px", 
-                margin: "1.5rem auto",
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: SPACING.md,
+                margin: `${SPACING.lg} auto`,
                 width: "150px"
               }}>
-                <div style={{ flex: 1, height: "1px", background: "#E0E0E0" }} />
-                <span style={{ color: "#E0E0E0", fontSize: "16px" }}>OR</span>
-                <div style={{ flex: 1, height: "1px", background: "#E0E0E0" }} />
+                <div style={{ flex: 1, height: "1px", background: COLORS.border.default }} />
+                <span style={{ color: COLORS.border.default, fontSize: FONT_SIZES.md }}>OR</span>
+                <div style={{ flex: 1, height: "1px", background: COLORS.border.default }} />
               </div>
 
-              <a 
-                href="/login" 
-                style={{ 
-                  display: "block", 
-                  color: "#6E6CDF", 
-                  fontSize: "16px", 
-                  fontWeight: 600,
+              <a
+                href="/login"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#6E6CDF",
+                  fontSize: FONT_SIZES.md,
+                  fontWeight: FONT_WEIGHTS.semibold,
                   textDecoration: "none",
-                  marginTop: "1rem"
+                  marginTop: SPACING.md,
+                  minHeight: TOUCH_TARGETS.minimum,
+                  padding: `${SPACING.sm} ${SPACING.md}`,
                 }}
               >
                 ← Back to Login
@@ -305,43 +315,43 @@ function PasswordResetRequestPage() {
           ) : (
             <div>
               <div style={successBoxStyles}>
-                <p style={{ 
-                  margin: 0, 
-                  color: "#065F46", 
-                  fontSize: "16px",
-                  fontWeight: 500
+                <p style={{
+                  margin: 0,
+                  color: "#065F46",
+                  fontSize: FONT_SIZES.md,
+                  fontWeight: FONT_WEIGHTS.medium
                 }}>
                   ✅ Email Sent Successfully
                 </p>
               </div>
 
-              <p style={{ fontSize: "14px", color: "#424242", marginBottom: "1rem" }}>
+              <p style={{ fontSize: FONT_SIZES.sm, color: COLORS.text.primary, marginBottom: SPACING.md }}>
                 We've sent a password reset link to:
               </p>
-              <p style={{ 
-                fontSize: "16px", 
-                fontWeight: 600, 
-                color: "#6E6CDF", 
-                marginBottom: "1.5rem",
+              <p style={{
+                fontSize: FONT_SIZES.md,
+                fontWeight: FONT_WEIGHTS.semibold,
+                color: "#6E6CDF",
+                marginBottom: SPACING.lg,
                 wordBreak: "break-all"
               }}>
                 {email}
               </p>
 
               <div style={instructionsStyles}>
-                <p style={{ 
-                  fontSize: "14px", 
-                  fontWeight: 600, 
-                  color: "#424242",
-                  marginBottom: "8px"
+                <p style={{
+                  fontSize: FONT_SIZES.sm,
+                  fontWeight: FONT_WEIGHTS.semibold,
+                  color: COLORS.text.primary,
+                  marginBottom: SPACING.sm
                 }}>
                   📋 Next Steps:
                 </p>
-                <ol style={{ 
-                  margin: 0, 
-                  paddingLeft: "20px", 
-                  color: "#757575", 
-                  fontSize: "14px",
+                <ol style={{
+                  margin: 0,
+                  paddingLeft: "20px",
+                  color: COLORS.text.secondary,
+                  fontSize: FONT_SIZES.sm,
                   lineHeight: "1.8"
                 }}>
                   <li>Check your email inbox (and spam folder)</li>
@@ -351,13 +361,13 @@ function PasswordResetRequestPage() {
                 </ol>
               </div>
 
-              <p style={{ 
-                fontSize: "13px", 
-                color: "#F59E0B", 
+              <p style={{
+                fontSize: FONT_SIZES.xs,
+                color: COLORS.status.warning,
                 backgroundColor: "#FEF3C7",
-                padding: "12px",
-                borderRadius: "8px",
-                marginBottom: "1.5rem"
+                padding: SPACING.md,
+                borderRadius: BORDER_RADIUS.md,
+                marginBottom: SPACING.lg
               }}>
                 ⏰ The reset link will expire in 1 hour for security.
               </p>
@@ -370,30 +380,34 @@ function PasswordResetRequestPage() {
                 }}
                 style={{
                   ...buttonStyles,
-                  background: "#F3F4F6",
-                  color: "#424242",
-                  marginBottom: "0.75rem"
+                  background: COLORS.background.light,
+                  color: COLORS.text.primary,
+                  marginBottom: SPACING.sm
                 }}
-                onMouseEnter={(e) => { 
-                  e.currentTarget.style.transform = "scale(1.05)"; 
-                  e.currentTarget.style.background = "#E5E7EB"; 
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.background = COLORS.border.default;
                 }}
-                onMouseLeave={(e) => { 
-                  e.currentTarget.style.transform = "scale(1)"; 
-                  e.currentTarget.style.background = "#F3F4F6"; 
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.background = COLORS.background.light;
                 }}
               >
                 📧 Send Another Email
               </button>
 
-              <a 
-                href="/login" 
-                style={{ 
-                  display: "block", 
-                  color: "#6E6CDF", 
-                  fontSize: "16px", 
-                  fontWeight: 600,
-                  textDecoration: "none"
+              <a
+                href="/login"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#6E6CDF",
+                  fontSize: FONT_SIZES.md,
+                  fontWeight: FONT_WEIGHTS.semibold,
+                  textDecoration: "none",
+                  minHeight: TOUCH_TARGETS.minimum,
+                  padding: `${SPACING.sm} ${SPACING.md}`,
                 }}
               >
                 Back to Login

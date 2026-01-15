@@ -1,5 +1,5 @@
 // ============================================
-// INVENTORY FILTERS - With RBAC Support
+// INVENTORY FILTERS - Glassmorphism Design
 // ============================================
 // Location: src/components/inventory/InventoryFilters.js
 //
@@ -11,45 +11,64 @@ import React from 'react';
 import { CollapsibleSection } from '../common/cards/CollapsibleSection';
 import { STATUS_OPTIONS } from '../../hooks/useInventory';
 
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from '../../utils/designConstants';
+
 // ============================================
-// STYLES
+// STYLES - Glassmorphism Design
 // ============================================
 
 const filterContainerStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-  gap: '1rem',
+  gap: SPACING.lg,
   alignItems: 'end',
 };
 
 const labelStyle = {
   display: 'block',
-  marginBottom: '0.375rem',
-  fontWeight: '500',
-  color: '#374151',
-  fontSize: '0.8125rem',
+  marginBottom: SPACING.sm,
+  fontWeight: FONT_WEIGHTS.semibold,
+  color: COLORS.text.white,
+  fontSize: FONT_SIZES.sm,
 };
 
 const inputStyle = {
   width: '100%',
-  padding: '0.5rem 0.75rem',
-  border: '1px solid #D1D5DB',
-  borderRadius: '0.5rem',
-  fontSize: '0.875rem',
-  backgroundColor: '#FFFFFF',
-  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+  padding: SPACING.md,
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+  borderRadius: BORDER_RADIUS.md,
+  fontSize: FONT_SIZES.sm,
+  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  color: COLORS.text.white,
+  transition: `all ${TRANSITIONS.normal}`,
   boxSizing: 'border-box',
+  outline: 'none',
 };
 
 const selectStyle = {
   ...inputStyle,
   cursor: 'pointer',
   appearance: 'none',
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFFFFF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
   backgroundRepeat: 'no-repeat',
   backgroundPosition: 'right 0.5rem center',
   backgroundSize: '1.25rem',
   paddingRight: '2.5rem',
+};
+
+// Style for dropdown options (readable on native dropdown)
+const optionStyle = {
+  backgroundColor: '#1e293b',
+  color: COLORS.text.white,
+  padding: SPACING.sm,
 };
 
 // ============================================
@@ -103,7 +122,7 @@ export const InventoryFilters = ({
             style={selectStyle}
           >
             {locationOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>
+              <option key={opt.value} value={opt.value} style={optionStyle}>
                 {opt.label}
               </option>
             ))}
@@ -123,17 +142,17 @@ export const InventoryFilters = ({
               cursor: schoolDropdownEnabled ? 'pointer' : 'not-allowed',
             }}
           >
-            <option value="">
+            <option value="" style={optionStyle}>
               {isAdmin ? 'All Schools' : 'All My Schools'}
             </option>
             {schools.map(school => (
-              <option key={school.id} value={school.id}>
+              <option key={school.id} value={school.id} style={optionStyle}>
                 {school.name}
               </option>
             ))}
           </select>
           {!isAdmin && schools.length === 0 && (
-            <p style={{ fontSize: '0.75rem', color: '#EF4444', margin: '0.25rem 0 0' }}>
+            <p style={{ fontSize: FONT_SIZES.xs, color: '#FCA5A5', margin: `${SPACING.xs} 0 0` }}>
               No schools assigned
             </p>
           )}
@@ -147,9 +166,9 @@ export const InventoryFilters = ({
             onChange={(e) => updateFilter('categoryId', e.target.value)}
             style={selectStyle}
           >
-            <option value="">All Categories</option>
+            <option value="" style={optionStyle}>All Categories</option>
             {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>
+              <option key={cat.id} value={cat.id} style={optionStyle}>
                 {cat.name}
               </option>
             ))}
@@ -165,7 +184,7 @@ export const InventoryFilters = ({
             style={selectStyle}
           >
             {STATUS_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>
+              <option key={opt.value} value={opt.value} style={optionStyle}>
                 {opt.label}
               </option>
             ))}
@@ -179,15 +198,15 @@ export const InventoryFilters = ({
             disabled={!hasActiveFilters}
             style={{
               width: '100%',
-              padding: '0.5rem 1rem',
-              backgroundColor: hasActiveFilters ? '#EF4444' : '#E5E7EB',
-              color: hasActiveFilters ? 'white' : '#9CA3AF',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              fontWeight: '500',
+              padding: SPACING.md,
+              backgroundColor: hasActiveFilters ? COLORS.status.error : 'rgba(255, 255, 255, 0.1)',
+              color: hasActiveFilters ? COLORS.text.white : COLORS.text.whiteSubtle,
+              border: hasActiveFilters ? 'none' : `1px solid ${COLORS.border.whiteTransparent}`,
+              borderRadius: BORDER_RADIUS.md,
+              fontSize: FONT_SIZES.sm,
+              fontWeight: FONT_WEIGHTS.medium,
               cursor: hasActiveFilters ? 'pointer' : 'not-allowed',
-              transition: 'all 0.15s ease',
+              transition: `all ${TRANSITIONS.normal}`,
             }}
           >
             🔄 Reset
@@ -198,19 +217,20 @@ export const InventoryFilters = ({
       {/* Active Filters Summary */}
       {hasActiveFilters && (
         <div style={{
-          marginTop: '1rem',
-          padding: '0.75rem 1rem',
-          backgroundColor: '#EFF6FF',
-          borderRadius: '0.5rem',
+          marginTop: SPACING.lg,
+          padding: SPACING.md,
+          backgroundColor: 'rgba(59, 130, 246, 0.15)',
+          borderRadius: BORDER_RADIUS.md,
+          border: '1px solid rgba(59, 130, 246, 0.3)',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
+          gap: SPACING.sm,
           flexWrap: 'wrap',
         }}>
-          <span style={{ fontSize: '0.8125rem', color: '#1E40AF', fontWeight: '500' }}>
+          <span style={{ fontSize: FONT_SIZES.sm, color: '#93C5FD', fontWeight: FONT_WEIGHTS.medium }}>
             Active Filters:
           </span>
-          
+
           {filters.search && (
             <FilterBadge label={`Search: "${filters.search}"`} />
           )}
@@ -218,13 +238,13 @@ export const InventoryFilters = ({
             <FilterBadge label={`Location: ${filters.location}`} />
           )}
           {filters.schoolId && (
-            <FilterBadge 
-              label={`School: ${schools.find(s => s.id == filters.schoolId)?.name || filters.schoolId}`} 
+            <FilterBadge
+              label={`School: ${schools.find(s => s.id == filters.schoolId)?.name || filters.schoolId}`}
             />
           )}
           {filters.categoryId && (
-            <FilterBadge 
-              label={`Category: ${categories.find(c => c.id == filters.categoryId)?.name || filters.categoryId}`} 
+            <FilterBadge
+              label={`Category: ${categories.find(c => c.id == filters.categoryId)?.name || filters.categoryId}`}
             />
           )}
           {filters.status && (
@@ -236,16 +256,17 @@ export const InventoryFilters = ({
       {/* Role indicator for teachers */}
       {!isAdmin && (
         <div style={{
-          marginTop: '0.75rem',
-          padding: '0.5rem 0.75rem',
-          backgroundColor: '#FEF3C7',
-          borderRadius: '0.375rem',
+          marginTop: SPACING.md,
+          padding: SPACING.md,
+          backgroundColor: 'rgba(251, 191, 36, 0.15)',
+          borderRadius: BORDER_RADIUS.md,
+          border: '1px solid rgba(251, 191, 36, 0.3)',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
+          gap: SPACING.sm,
         }}>
           <span style={{ fontSize: '1rem' }}>ℹ️</span>
-          <span style={{ fontSize: '0.8125rem', color: '#92400E' }}>
+          <span style={{ fontSize: FONT_SIZES.sm, color: '#FDE68A' }}>
             You are viewing inventory from your {schools.length} assigned school{schools.length !== 1 ? 's' : ''} only.
           </span>
         </div>
@@ -260,12 +281,13 @@ export const InventoryFilters = ({
 
 const FilterBadge = ({ label }) => (
   <span style={{
-    padding: '0.25rem 0.625rem',
-    backgroundColor: '#DBEAFE',
-    color: '#1E40AF',
-    borderRadius: '9999px',
-    fontSize: '0.75rem',
-    fontWeight: '500',
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    backgroundColor: 'rgba(59, 130, 246, 0.25)',
+    color: '#BFDBFE',
+    borderRadius: BORDER_RADIUS.full,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    border: '1px solid rgba(59, 130, 246, 0.3)',
   }}>
     {label}
   </span>

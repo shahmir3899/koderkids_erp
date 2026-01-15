@@ -1,5 +1,5 @@
 // ============================================
-// DATE RANGE FILTER - Start/End Date Picker
+// DATE RANGE FILTER - Start/End Date Picker (Glassmorphism)
 // ============================================
 // Location: src/components/common/filters/DateRangeFilter.js
 
@@ -11,6 +11,7 @@ import {
   FONT_WEIGHTS,
   BORDER_RADIUS,
   TRANSITIONS,
+  MIXINS,
 } from '../../../utils/designConstants';
 
 /**
@@ -51,28 +52,27 @@ export const DateRangeFilter = ({
   const labelStyle = {
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
   };
 
   const inputStyle = {
     width: '100%',
-    padding: `${SPACING.xs} ${SPACING.sm}`,
-    border: `1px solid ${COLORS.border.light}`,
+    padding: SPACING.sm,
+    ...MIXINS.glassmorphicSubtle,
     borderRadius: BORDER_RADIUS.sm,
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.primary,
-    backgroundColor: COLORS.background.white,
+    color: COLORS.text.white,
     transition: `border-color ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
     outline: 'none',
   };
 
   const handleFocus = (e) => {
-    e.target.style.borderColor = COLORS.status.info;
-    e.target.style.boxShadow = `0 0 0 3px rgba(59, 130, 246, 0.1)`;
+    e.target.style.borderColor = COLORS.primary;
+    e.target.style.boxShadow = '0 0 0 3px rgba(176, 97, 206, 0.3)';
   };
 
   const handleBlur = (e) => {
-    e.target.style.borderColor = COLORS.border.light;
+    e.target.style.borderColor = COLORS.border.whiteTransparent;
     e.target.style.boxShadow = 'none';
   };
 

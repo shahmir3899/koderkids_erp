@@ -1,10 +1,21 @@
 // ============================================
-// TRANSACTION DETAILS MODAL COMPONENT
+// TRANSACTION DETAILS MODAL COMPONENT - Glassmorphism Design
 // ============================================
 // Location: src/components/transactions/TransactionDetailsModal.js
 
 import React from 'react';
 import { Button } from '../common/ui/Button';
+
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+} from '../../utils/designConstants';
 
 export const TransactionDetailsModal = ({ transaction, onClose }) => {
   const getTransactionTypeColor = (type) => {
@@ -16,75 +27,36 @@ export const TransactionDetailsModal = ({ transaction, onClose }) => {
       case 'transfer':
         return '#3B82F6';
       default:
-        return '#6B7280';
+        return COLORS.text.whiteSubtle;
     }
   };
+
+  const typeColor = getTransactionTypeColor(transaction.transaction_type);
 
   return (
     <>
       {/* Modal Overlay */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000,
-          padding: '1rem',
-        }}
-      >
+      <div onClick={onClose} style={styles.overlay}>
         {/* Modal Content */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '2rem',
-            maxWidth: '600px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          }}
-        >
+        <div onClick={(e) => e.stopPropagation()} style={styles.modalContent}>
           {/* Header */}
-          <div style={{ marginBottom: '1.5rem', borderBottom: '2px solid #E5E7EB', paddingBottom: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1F2937', margin: 0 }}>
-              📄 Transaction Details
-            </h2>
+          <div style={styles.header}>
+            <h2 style={styles.headerTitle}>Transaction Details</h2>
           </div>
 
           {/* Transaction Type Badge */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '0.5rem 1rem',
-                borderRadius: '12px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                backgroundColor: `${getTransactionTypeColor(transaction.transaction_type)}20`,
-                color: getTransactionTypeColor(transaction.transaction_type),
-              }}
-            >
+          <div style={styles.badgeContainer}>
+            <span style={styles.typeBadge(typeColor)}>
               {transaction.transaction_type}
             </span>
           </div>
 
           {/* Details Grid */}
-          <div style={{ display: 'grid', gap: '1rem' }}>
+          <div style={styles.detailsGrid}>
             {/* Date */}
-            <div>
-              <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                Date
-              </p>
-              <p style={{ fontSize: '1rem', color: '#1F2937', margin: 0 }}>
+            <div style={styles.detailCard}>
+              <p style={styles.fieldLabel}>Date</p>
+              <p style={styles.fieldValue}>
                 {new Date(transaction.date).toLocaleDateString('en-US', {
                   weekday: 'long',
                   year: 'numeric',
@@ -95,107 +67,64 @@ export const TransactionDetailsModal = ({ transaction, onClose }) => {
             </div>
 
             {/* Amount */}
-            <div>
-              <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                Amount
-              </p>
-              <p
-                style={{
-                  fontSize: '1.5rem',
-                  color: getTransactionTypeColor(transaction.transaction_type),
-                  margin: 0,
-                  fontWeight: 'bold',
-                }}
-              >
+            <div style={styles.detailCard}>
+              <p style={styles.fieldLabel}>Amount</p>
+              <p style={styles.amountValue(typeColor)}>
                 PKR {parseFloat(transaction.amount).toLocaleString()}
               </p>
             </div>
 
             {/* Category */}
-            <div>
-              <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                Category
-              </p>
-              <p style={{ fontSize: '1rem', color: '#1F2937', margin: 0 }}>{transaction.category}</p>
+            <div style={styles.detailCard}>
+              <p style={styles.fieldLabel}>Category</p>
+              <p style={styles.fieldValue}>{transaction.category}</p>
             </div>
 
             {/* Account Information */}
             {transaction.transaction_type === 'Income' && (
-              <div>
-                <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                  To Account
-                </p>
-                <p style={{ fontSize: '1rem', color: '#1F2937', margin: 0 }}>
-                  {transaction.to_account_name || 'N/A'}
-                </p>
+              <div style={styles.detailCard}>
+                <p style={styles.fieldLabel}>To Account</p>
+                <p style={styles.fieldValue}>{transaction.to_account_name || 'N/A'}</p>
               </div>
             )}
 
             {transaction.transaction_type === 'Expense' && (
-              <div>
-                <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                  From Account
-                </p>
-                <p style={{ fontSize: '1rem', color: '#1F2937', margin: 0 }}>
-                  {transaction.from_account_name || 'N/A'}
-                </p>
+              <div style={styles.detailCard}>
+                <p style={styles.fieldLabel}>From Account</p>
+                <p style={styles.fieldValue}>{transaction.from_account_name || 'N/A'}</p>
               </div>
             )}
 
             {transaction.transaction_type === 'Transfer' && (
               <>
-                <div>
-                  <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                    From Account
-                  </p>
-                  <p style={{ fontSize: '1rem', color: '#1F2937', margin: 0 }}>
-                    {transaction.from_account_name || 'N/A'}
-                  </p>
+                <div style={styles.detailCard}>
+                  <p style={styles.fieldLabel}>From Account</p>
+                  <p style={styles.fieldValue}>{transaction.from_account_name || 'N/A'}</p>
                 </div>
-                <div>
-                  <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                    To Account
-                  </p>
-                  <p style={{ fontSize: '1rem', color: '#1F2937', margin: 0 }}>
-                    {transaction.to_account_name || 'N/A'}
-                  </p>
+                <div style={styles.detailCard}>
+                  <p style={styles.fieldLabel}>To Account</p>
+                  <p style={styles.fieldValue}>{transaction.to_account_name || 'N/A'}</p>
                 </div>
               </>
             )}
 
             {/* School */}
-            <div>
-              <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                School
-              </p>
-              <p style={{ fontSize: '1rem', color: '#1F2937', margin: 0 }}>{transaction.school_name || 'No School'}</p>
+            <div style={styles.detailCard}>
+              <p style={styles.fieldLabel}>School</p>
+              <p style={styles.fieldValue}>{transaction.school_name || 'No School'}</p>
             </div>
 
             {/* Notes */}
             {transaction.notes && (
-              <div>
-                <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.25rem', fontWeight: '600' }}>
-                  Notes
-                </p>
-                <p
-                  style={{
-                    fontSize: '1rem',
-                    color: '#1F2937',
-                    margin: 0,
-                    padding: '0.75rem',
-                    backgroundColor: '#F9FAFB',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
-                  }}
-                >
-                  {transaction.notes}
-                </p>
+              <div style={styles.notesCard}>
+                <p style={styles.fieldLabel}>Notes</p>
+                <p style={styles.notesValue}>{transaction.notes}</p>
               </div>
             )}
           </div>
 
           {/* Close Button */}
-          <div style={{ marginTop: '2rem', textAlign: 'right' }}>
+          <div style={styles.footer}>
             <Button onClick={onClose} variant="secondary">
               Close
             </Button>
@@ -204,4 +133,106 @@ export const TransactionDetailsModal = ({ transaction, onClose }) => {
       </div>
     </>
   );
+};
+
+// ============================================
+// STYLES - Glassmorphism Design
+// ============================================
+const styles = {
+  overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    padding: SPACING.lg,
+  },
+  modalContent: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING['2xl'],
+    maxWidth: '600px',
+    width: '100%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+  },
+  header: {
+    marginBottom: SPACING.xl,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+    paddingBottom: SPACING.lg,
+  },
+  headerTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    margin: 0,
+  },
+  badgeContainer: {
+    marginBottom: SPACING.xl,
+  },
+  typeBadge: (color) => ({
+    display: 'inline-block',
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
+    backgroundColor: `${color}30`,
+    color: color,
+    border: `1px solid ${color}50`,
+  }),
+  detailsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: SPACING.lg,
+  },
+  detailCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  fieldLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    marginBottom: SPACING.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  fieldValue: {
+    fontSize: FONT_SIZES.base,
+    color: COLORS.text.white,
+    margin: 0,
+  },
+  amountValue: (color) => ({
+    fontSize: FONT_SIZES.xl,
+    color: color,
+    margin: 0,
+    fontWeight: FONT_WEIGHTS.bold,
+  }),
+  notesCard: {
+    gridColumn: '1 / -1',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  notesValue: {
+    fontSize: FONT_SIZES.base,
+    color: COLORS.text.white,
+    margin: 0,
+    padding: SPACING.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  footer: {
+    marginTop: SPACING['2xl'],
+    textAlign: 'right',
+  },
 };

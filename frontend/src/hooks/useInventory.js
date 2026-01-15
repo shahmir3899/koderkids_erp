@@ -77,6 +77,7 @@ export const useInventory = () => {
   // ============================================
   // DATA STATE
   // ============================================
+  // Initialize as empty array to prevent .filter errors
   const [inventoryItems, setInventoryItems] = useState([]);
   const [summary, setSummary] = useState({
     total: 0,
@@ -197,8 +198,9 @@ export const useInventory = () => {
     });
     
     if (!isMounted.current) return; // ✅ CHECK
-    
-    setInventoryItems(data);
+
+    // Ensure data is always an array to prevent .filter errors
+    setInventoryItems(Array.isArray(data) ? data : []);
   } catch (error) {
     if (!isMounted.current) return; // ✅ CHECK
     
@@ -372,10 +374,12 @@ useEffect(() => {
   }, []);
 
   const toggleSelectAll = useCallback(() => {
-    if (selectedItemIds.length === inventoryItems.length) {
+    // Safeguard: ensure inventoryItems is an array
+    const items = Array.isArray(inventoryItems) ? inventoryItems : [];
+    if (selectedItemIds.length === items.length) {
       setSelectedItemIds([]);
     } else {
-      setSelectedItemIds(inventoryItems.map(item => item.id));
+      setSelectedItemIds(items.map(item => item.id));
     }
   }, [selectedItemIds.length, inventoryItems]);
 
@@ -385,7 +389,9 @@ useEffect(() => {
 
   // Get full item objects for selected IDs
   const selectedItems = useMemo(() => {
-    return inventoryItems.filter(item => selectedItemIds.includes(item.id));
+    // Safeguard: ensure inventoryItems is an array
+    const items = Array.isArray(inventoryItems) ? inventoryItems : [];
+    return items.filter(item => selectedItemIds.includes(item.id));
   }, [inventoryItems, selectedItemIds]);
 
   // ============================================
@@ -582,7 +588,9 @@ useEffect(() => {
   // ============================================
 
   const totalValue = useMemo(() => {
-    return inventoryItems.reduce((sum, item) => sum + Number(item.purchase_value || 0), 0);
+    // Safeguard: ensure inventoryItems is an array
+    const items = Array.isArray(inventoryItems) ? inventoryItems : [];
+    return items.reduce((sum, item) => sum + Number(item.purchase_value || 0), 0);
   }, [inventoryItems]);
 
   const getStatusCount = useCallback((statusName) => {

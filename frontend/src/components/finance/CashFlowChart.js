@@ -1,5 +1,5 @@
 // ============================================
-// CASH FLOW CHART COMPONENT
+// CASH FLOW CHART COMPONENT - Glassmorphism Design
 // ============================================
 // Location: src/components/finance/CashFlowChart.js
 
@@ -17,16 +17,37 @@ import {
 } from 'recharts';
 import { financeDashboardService } from '../../services/financeDashboardService';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+} from '../../utils/designConstants';
 
-export const CashFlowChart = ({ schools }) => {
+export const CashFlowChart = ({ schools, isVisible = true }) => {
   const [data, setData] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [months, setMonths] = useState(6);
   const [selectedSchool, setSelectedSchool] = useState('');
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
+  // Only fetch data when component becomes visible (lazy loading)
   useEffect(() => {
-    fetchData();
+    if (isVisible && !hasLoadedOnce) {
+      fetchData();
+      setHasLoadedOnce(true);
+    }
+  }, [isVisible, hasLoadedOnce]);
+
+  // Refetch when filters change (only if already loaded once)
+  useEffect(() => {
+    if (hasLoadedOnce) {
+      fetchData();
+    }
   }, [months, selectedSchool]);
 
   const fetchData = async () => {
@@ -51,31 +72,21 @@ export const CashFlowChart = ({ schools }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div
-          style={{
-            backgroundColor: 'white',
-            padding: '1rem',
-            border: '1px solid #D1D5DB',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          }}
-        >
-          <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: '#374151' }}>
-            {data.month_label}
-          </p>
-          <p style={{ margin: '0 0 0.25rem 0', color: '#6B7280', fontSize: '0.875rem' }}>
+        <div style={styles.tooltip}>
+          <p style={styles.tooltipTitle}>{data.month_label}</p>
+          <p style={styles.tooltipLine}>
             Opening: PKR {data.opening_balance.toLocaleString()}
           </p>
-          <p style={{ margin: '0 0 0.25rem 0', color: '#10B981', fontSize: '0.875rem' }}>
+          <p style={styles.tooltipInflow}>
             Inflow: +PKR {data.inflow.toLocaleString()}
           </p>
-          <p style={{ margin: '0 0 0.25rem 0', color: '#EF4444', fontSize: '0.875rem' }}>
+          <p style={styles.tooltipOutflow}>
             Outflow: -PKR {data.outflow.toLocaleString()}
           </p>
-          <p style={{ margin: '0 0 0.25rem 0', color: '#3B82F6', fontWeight: '600' }}>
+          <p style={styles.tooltipNet}>
             Net Flow: PKR {data.net_flow.toLocaleString()}
           </p>
-          <p style={{ margin: 0, color: '#1F2937', fontWeight: '600', paddingTop: '0.25rem', borderTop: '1px solid #E5E7EB' }}>
+          <p style={styles.tooltipClosing}>
             Closing: PKR {data.closing_balance.toLocaleString()}
           </p>
         </div>
@@ -87,30 +98,14 @@ export const CashFlowChart = ({ schools }) => {
   return (
     <div>
       {/* Controls */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1.5rem',
-          flexWrap: 'wrap',
-          gap: '1rem',
-        }}
-      >
+      <div style={styles.controlsContainer}>
         {/* Months Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <label style={{ fontWeight: '600', color: '#374151', fontSize: '0.875rem' }}>
-            Months:
-          </label>
+        <div style={styles.monthsSelector}>
+          <label style={styles.monthsLabel}>Months:</label>
           <select
             value={months}
             onChange={(e) => setMonths(parseInt(e.target.value))}
-            style={{
-              padding: '0.5rem',
-              border: '1px solid #D1D5DB',
-              borderRadius: '6px',
-              fontSize: '0.875rem',
-            }}
+            style={styles.select}
           >
             <option value={3}>3 Months</option>
             <option value={6}>6 Months</option>
@@ -120,17 +115,11 @@ export const CashFlowChart = ({ schools }) => {
 
         {/* School Filter */}
         {schools && schools.length > 0 && (
-          <div style={{ minWidth: '200px' }}>
+          <div style={styles.selectContainer}>
             <select
               value={selectedSchool}
               onChange={(e) => setSelectedSchool(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid #D1D5DB',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-              }}
+              style={styles.select}
             >
               <option value="">All Schools</option>
               {schools.map((school) => (
@@ -145,90 +134,38 @@ export const CashFlowChart = ({ schools }) => {
 
       {/* Summary Stats */}
       {summary && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '1rem',
-            marginBottom: '1.5rem',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#ECFDF5',
-              padding: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #A7F3D0',
-            }}
-          >
-            <p style={{ fontSize: '0.75rem', color: '#059669', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-              TOTAL INFLOW
-            </p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#059669', margin: 0 }}>
+        <div style={styles.summaryGrid}>
+          <div style={styles.summaryCardGreen}>
+            <p style={styles.summaryLabelGreen}>TOTAL INFLOW</p>
+            <p style={styles.summaryValueGreen}>
               PKR {summary.total_inflow.toLocaleString()}
             </p>
           </div>
 
-          <div
-            style={{
-              backgroundColor: '#FEF2F2',
-              padding: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #FECACA',
-            }}
-          >
-            <p style={{ fontSize: '0.75rem', color: '#DC2626', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-              TOTAL OUTFLOW
-            </p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#DC2626', margin: 0 }}>
+          <div style={styles.summaryCardRed}>
+            <p style={styles.summaryLabelRed}>TOTAL OUTFLOW</p>
+            <p style={styles.summaryValueRed}>
               PKR {summary.total_outflow.toLocaleString()}
             </p>
           </div>
 
-          <div
-            style={{
-              backgroundColor: '#EFF6FF',
-              padding: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #BFDBFE',
-            }}
-          >
-            <p style={{ fontSize: '0.75rem', color: '#1E40AF', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-              NET CASH FLOW
-            </p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1E40AF', margin: 0 }}>
+          <div style={styles.summaryCardBlue}>
+            <p style={styles.summaryLabelBlue}>NET CASH FLOW</p>
+            <p style={styles.summaryValueBlue}>
               PKR {summary.net_cash_flow.toLocaleString()}
             </p>
           </div>
 
-          <div
-            style={{
-              backgroundColor: '#F5F3FF',
-              padding: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #DDD6FE',
-            }}
-          >
-            <p style={{ fontSize: '0.75rem', color: '#7C3AED', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-              BURN RATE
-            </p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7C3AED', margin: 0 }}>
+          <div style={styles.summaryCardPurple}>
+            <p style={styles.summaryLabelPurple}>BURN RATE</p>
+            <p style={styles.summaryValuePurple}>
               PKR {summary.burn_rate.toLocaleString()}/mo
             </p>
           </div>
 
-          <div
-            style={{
-              backgroundColor: '#FEF3C7',
-              padding: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #FCD34D',
-            }}
-          >
-            <p style={{ fontSize: '0.75rem', color: '#92400E', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-              CASH POSITION
-            </p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#92400E', margin: 0 }}>
+          <div style={styles.summaryCardYellow}>
+            <p style={styles.summaryLabelYellow}>CASH POSITION</p>
+            <p style={styles.summaryValueYellow}>
               PKR {summary.current_cash_position.toLocaleString()}
             </p>
           </div>
@@ -237,23 +174,15 @@ export const CashFlowChart = ({ schools }) => {
 
       {/* Chart */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
+        <div style={styles.loadingContainer}>
           <LoadingSpinner message="Loading cash flow..." />
         </div>
       ) : data.length === 0 ? (
-        <div
-          style={{
-            padding: '3rem',
-            textAlign: 'center',
-            backgroundColor: '#F9FAFB',
-            borderRadius: '8px',
-            border: '1px solid #E5E7EB',
-          }}
-        >
-          <p style={{ color: '#6B7280', margin: 0, fontSize: '1rem' }}>No cash flow data available</p>
+        <div style={styles.emptyState}>
+          <p style={styles.emptyText}>No cash flow data available</p>
         </div>
       ) : (
-        <div style={{ height: '400px' }}>
+        <div style={styles.chartContainer}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               <defs>
@@ -262,11 +191,14 @@ export const CashFlowChart = ({ schools }) => {
                   <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="month_label" stroke="#6B7280" tick={{ fontSize: 12 }} />
-              <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+              <XAxis dataKey="month_label" stroke={COLORS.text.whiteSubtle} tick={{ fontSize: 12 }} />
+              <YAxis stroke={COLORS.text.whiteSubtle} tick={{ fontSize: 12 }} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ paddingTop: '1rem' }} />
+              <Legend
+                wrapperStyle={{ paddingTop: '1rem' }}
+                formatter={(value) => <span style={{ color: COLORS.text.whiteMedium }}>{value}</span>}
+              />
               <Area
                 type="monotone"
                 dataKey="closing_balance"
@@ -282,20 +214,218 @@ export const CashFlowChart = ({ schools }) => {
 
       {/* Info */}
       {data.length > 0 && (
-        <div
-          style={{
-            marginTop: '1rem',
-            padding: '0.75rem',
-            backgroundColor: '#EFF6FF',
-            borderRadius: '8px',
-            border: '1px solid #BFDBFE',
-          }}
-        >
-          <p style={{ fontSize: '0.875rem', color: '#1E40AF', margin: 0 }}>
-            💡 <strong>Cash Position:</strong> Shows cumulative balance over time. Closing balance each month becomes opening balance for next month.
+        <div style={styles.infoBanner}>
+          <p style={styles.infoText}>
+            <strong>Cash Position:</strong> Shows cumulative balance over time. Closing balance each month becomes opening balance for next month.
           </p>
         </div>
       )}
     </div>
   );
+};
+
+// ============================================
+// STYLES - Glassmorphism Design
+// ============================================
+const styles = {
+  controlsContainer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+  },
+  monthsSelector: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  monthsLabel: {
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+  },
+  selectContainer: {
+    minWidth: '200px',
+  },
+  select: {
+    padding: SPACING.sm,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    outline: 'none',
+  },
+  summaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: SPACING.md,
+    marginBottom: SPACING.xl,
+  },
+  summaryCardGreen: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelGreen: {
+    fontSize: FONT_SIZES.xs,
+    color: '#34D399',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValueGreen: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#10B981',
+    margin: 0,
+  },
+  summaryCardRed: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelRed: {
+    fontSize: FONT_SIZES.xs,
+    color: '#F87171',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValueRed: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#EF4444',
+    margin: 0,
+  },
+  summaryCardBlue: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelBlue: {
+    fontSize: FONT_SIZES.xs,
+    color: '#60A5FA',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValueBlue: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#3B82F6',
+    margin: 0,
+  },
+  summaryCardPurple: {
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(139, 92, 246, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelPurple: {
+    fontSize: FONT_SIZES.xs,
+    color: '#A78BFA',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValuePurple: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#8B5CF6',
+    margin: 0,
+  },
+  summaryCardYellow: {
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(251, 191, 36, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelYellow: {
+    fontSize: FONT_SIZES.xs,
+    color: '#FCD34D',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValueYellow: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#F59E0B',
+    margin: 0,
+  },
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: `${SPACING['3xl']} 0`,
+  },
+  emptyState: {
+    padding: SPACING['3xl'],
+    textAlign: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  emptyText: {
+    color: COLORS.text.whiteSubtle,
+    margin: 0,
+    fontSize: FONT_SIZES.base,
+  },
+  chartContainer: {
+    height: '400px',
+  },
+  tooltip: {
+    ...MIXINS.glassmorphicCard,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  tooltipTitle: {
+    margin: `0 0 ${SPACING.sm} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+  },
+  tooltipLine: {
+    margin: `0 0 ${SPACING.xs} 0`,
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+  },
+  tooltipInflow: {
+    margin: `0 0 ${SPACING.xs} 0`,
+    color: '#10B981',
+    fontSize: FONT_SIZES.sm,
+  },
+  tooltipOutflow: {
+    margin: `0 0 ${SPACING.xs} 0`,
+    color: '#EF4444',
+    fontSize: FONT_SIZES.sm,
+  },
+  tooltipNet: {
+    margin: `0 0 ${SPACING.xs} 0`,
+    color: '#3B82F6',
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  tooltipClosing: {
+    margin: 0,
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.semibold,
+    paddingTop: SPACING.xs,
+    borderTop: '1px solid rgba(255, 255, 255, 0.2)',
+  },
+  infoBanner: {
+    marginTop: SPACING.lg,
+    padding: SPACING.md,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+  },
+  infoText: {
+    fontSize: FONT_SIZES.sm,
+    color: '#93C5FD',
+    margin: 0,
+  },
 };

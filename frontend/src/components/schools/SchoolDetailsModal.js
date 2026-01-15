@@ -6,10 +6,21 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { updateSchool, fetchSchoolStats } from '../../api/services/schoolService';
+import { uploadSchoolLogo } from '../../utils/supabaseUpload';
 import { Button } from '../common/ui/Button';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 import { LogoUploader } from './LogoUploader';
 import { LocationPicker } from './LocationPicker';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+  Z_INDEX,
+} from '../../utils/designConstants';
 
 /**
  * SchoolDetailsModal Component
@@ -47,6 +58,23 @@ export const SchoolDetailsModal = ({
       loadStats();
     }
   }, [isOpen, school?.id]);
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isOpen, onClose]);
 
   // Initialize form data
   useEffect(() => {
@@ -170,28 +198,39 @@ export const SchoolDetailsModal = ({
         is_active: formData.is_active,
         // 💰 Payment Configuration
         payment_mode: formData.payment_mode,
-        monthly_subscription_amount: formData.payment_mode === 'monthly_subscription' 
+        monthly_subscription_amount: formData.payment_mode === 'monthly_subscription'
           ? parseFloat(formData.monthly_subscription_amount)
           : null,
       };
 
-      // TODO: Upload logo if changed
+      // Upload logo if a new file was selected (not a URL string)
       if (formData.logo && typeof formData.logo !== 'string') {
-        // schoolData.logo = await uploadSchoolLogo(formData.logo, formData.name);
-        console.log('Logo upload pending implementation');
+        try {
+          toast.info('Uploading logo...');
+          const logoUrl = await uploadSchoolLogo(formData.logo, formData.name);
+          if (logoUrl) {
+            schoolData.logo = logoUrl;
+          }
+        } catch (logoError) {
+          console.error('Logo upload failed:', logoError);
+          toast.warning('Logo upload failed, but school details will still be saved.');
+        }
+      } else if (formData.logo === null) {
+        // Logo was removed
+        schoolData.logo = null;
       }
 
       await updateSchool(school.id, schoolData);
-      
-      toast.success('✅ School updated successfully!');
-      
+
+      toast.success('School updated successfully!');
+
       if (onSave) {
         onSave();
       }
     } catch (error) {
       console.error('Error updating school:', error);
       const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to update school';
-      toast.error(`❌ ${errorMsg}`);
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -199,111 +238,134 @@ export const SchoolDetailsModal = ({
 
   if (!isOpen || !school) return null;
 
-  // Styles
+  // Glassmorphic Styles
   const overlayStyle = {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    background: COLORS.background.gradient,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
-    padding: '1rem',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.lg,
   };
 
   const modalStyle = {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '12px',
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
     maxWidth: '900px',
     width: '100%',
     maxHeight: '90vh',
     overflowY: 'auto',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
   };
 
   const headerStyle = {
-    padding: '1.5rem',
-    borderBottom: '1px solid #E5E7EB',
-    backgroundColor: '#F9FAFB',
+    padding: SPACING.xl,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    position: 'relative',
+  };
+
+  const closeButtonStyle = {
+    position: 'absolute',
+    top: SPACING.lg,
+    right: SPACING.lg,
+    width: '32px',
+    height: '32px',
+    borderRadius: BORDER_RADIUS.full,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.lg,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: `all ${TRANSITIONS.normal} ease`,
+    padding: 0,
   };
 
   const titleStyle = {
-    fontSize: '1.5rem',
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: '0.25rem',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.xs,
   };
 
   const subtitleStyle = {
-    fontSize: '0.875rem',
-    color: '#6B7280',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
   };
 
   const contentStyle = {
-    padding: '1.5rem',
+    padding: SPACING.xl,
   };
 
   const statsGridStyle = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '1rem',
-    marginBottom: '1.5rem',
-    padding: '1rem',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '8px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
+    padding: SPACING.lg,
+    background: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: `1px solid ${COLORS.border.whiteSubtle}`,
   };
 
   const statItemStyle = {
     textAlign: 'center',
+    padding: SPACING.md,
   };
 
   const statLabelStyle = {
-    fontSize: '0.75rem',
-    color: '#6B7280',
-    fontWeight: '500',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    fontWeight: FONT_WEIGHTS.medium,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-    marginBottom: '0.5rem',
+    marginBottom: SPACING.sm,
   };
 
   const statValueStyle = {
-    fontSize: '1.5rem',
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
   };
 
   const sectionTitleStyle = {
-    fontSize: '1.125rem',
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: '1rem',
-    marginTop: '1.5rem',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.lg,
+    marginTop: SPACING.xl,
   };
 
   const fieldStyle = {
-    marginBottom: '1.25rem',
+    marginBottom: SPACING.lg,
   };
 
   const labelStyle = {
     display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: '0.5rem',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.whiteMedium,
+    marginBottom: SPACING.sm,
   };
 
   const inputStyle = {
     width: '100%',
-    padding: '0.625rem 0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    color: '#374151',
-    backgroundColor: '#FFFFFF',
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    transition: `all ${TRANSITIONS.normal} ease`,
+    outline: 'none',
   };
 
   const selectStyle = {
@@ -318,42 +380,43 @@ export const SchoolDetailsModal = ({
   };
 
   const valueStyle = {
-    padding: '0.625rem 0.75rem',
-    fontSize: '0.875rem',
-    color: '#1F2937',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '0.5rem',
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: BORDER_RADIUS.md,
+    border: `1px solid ${COLORS.border.whiteSubtle}`,
   };
 
   const errorStyle = {
-    color: '#DC2626',
-    fontSize: '0.75rem',
-    marginTop: '0.25rem',
+    color: COLORS.status.error,
+    fontSize: FONT_SIZES.xs,
+    marginTop: SPACING.xs,
   };
 
   const checkboxContainerStyle = {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: SPACING.sm,
   };
 
   const footerStyle = {
-    padding: '1.5rem',
-    borderTop: '1px solid #E5E7EB',
+    padding: SPACING.xl,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
     display: 'flex',
     justifyContent: 'space-between',
-    gap: '0.75rem',
-    backgroundColor: '#F9FAFB',
+    gap: SPACING.md,
+    background: 'rgba(255, 255, 255, 0.05)',
   };
 
   const infoBoxStyle = {
-    backgroundColor: '#EFF6FF',
-    border: '1px solid #BFDBFE',
-    borderRadius: '0.5rem',
-    padding: '1rem',
-    marginTop: '1rem',
-    fontSize: '0.875rem',
-    color: '#1E40AF',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    border: `1px solid rgba(59, 130, 246, 0.3)`,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
+    marginTop: SPACING.lg,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
   };
 
   return (
@@ -361,6 +424,22 @@ export const SchoolDetailsModal = ({
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={headerStyle}>
+          <button
+            type="button"
+            style={closeButtonStyle}
+            onClick={onClose}
+            onMouseEnter={(e) => {
+              e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+              e.target.style.borderColor = COLORS.border.whiteMedium;
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+              e.target.style.borderColor = COLORS.border.whiteTransparent;
+            }}
+            title="Close (Esc)"
+          >
+            ✕
+          </button>
           <h2 style={titleStyle}>
             {isEditing ? '✏️ Edit School' : '🏫 School Details'}
           </h2>
@@ -401,23 +480,25 @@ export const SchoolDetailsModal = ({
 
               {/* Class Breakdown (if available) */}
               {stats?.class_breakdown && stats.class_breakdown.length > 0 && (
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
+                <div style={{ marginBottom: SPACING.xl }}>
+                  <div style={{ fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.text.white, marginBottom: SPACING.sm }}>
                     📊 Class Breakdown
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACING.sm }}>
                     {stats.class_breakdown.map((cls, idx) => (
                       <div
                         key={idx}
                         style={{
-                          padding: '0.5rem 0.75rem',
-                          backgroundColor: '#F3F4F6',
-                          borderRadius: '0.375rem',
-                          fontSize: '0.75rem',
+                          padding: `${SPACING.sm} ${SPACING.md}`,
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          borderRadius: BORDER_RADIUS.sm,
+                          fontSize: FONT_SIZES.xs,
+                          border: `1px solid ${COLORS.border.whiteSubtle}`,
+                          color: COLORS.text.white,
                         }}
                       >
                         <strong>{cls.class_name}:</strong>{' '}
-                        <span style={{ color: '#6B7280' }}>
+                        <span style={{ color: COLORS.text.whiteSubtle }}>
                           {cls.students} students • PKR {cls.monthly_revenue.toLocaleString()}
                         </span>
                       </div>
@@ -429,7 +510,7 @@ export const SchoolDetailsModal = ({
           )}
 
           {isLoadingStats && (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>
+            <div style={{ textAlign: 'center', padding: SPACING['2xl'] }}>
               <LoadingSpinner />
             </div>
           )}
@@ -456,12 +537,12 @@ export const SchoolDetailsModal = ({
                   onChange={handleChange}
                   style={inputStyle}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#3B82F6';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                    e.target.style.borderColor = COLORS.border.whiteMedium;
+                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#D1D5DB';
-                    e.target.style.boxShadow = 'none';
+                    e.target.style.borderColor = COLORS.border.whiteTransparent;
+                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                   }}
                 />
                 {errors.name && <div style={errorStyle}>{errors.name}</div>}
@@ -481,12 +562,12 @@ export const SchoolDetailsModal = ({
                   onChange={handleChange}
                   style={textareaStyle}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#3B82F6';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                    e.target.style.borderColor = COLORS.border.whiteMedium;
+                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#D1D5DB';
-                    e.target.style.boxShadow = 'none';
+                    e.target.style.borderColor = COLORS.border.whiteTransparent;
+                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                   }}
                 />
                 {errors.address && <div style={errorStyle}>{errors.address}</div>}
@@ -523,12 +604,12 @@ export const SchoolDetailsModal = ({
                 onChange={handleChange}
                 style={inputStyle}
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#3B82F6';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                  e.target.style.borderColor = COLORS.border.whiteMedium;
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = '#D1D5DB';
-                  e.target.style.boxShadow = 'none';
+                  e.target.style.borderColor = COLORS.border.whiteTransparent;
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                 }}
               />
             ) : (
@@ -546,12 +627,12 @@ export const SchoolDetailsModal = ({
                 onChange={handleChange}
                 style={inputStyle}
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#3B82F6';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                  e.target.style.borderColor = COLORS.border.whiteMedium;
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = '#D1D5DB';
-                  e.target.style.boxShadow = 'none';
+                  e.target.style.borderColor = COLORS.border.whiteTransparent;
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                 }}
               />
             ) : (
@@ -570,12 +651,12 @@ export const SchoolDetailsModal = ({
                 onChange={handleChange}
                 style={inputStyle}
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#3B82F6';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                  e.target.style.borderColor = COLORS.border.whiteMedium;
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = '#D1D5DB';
-                  e.target.style.boxShadow = 'none';
+                  e.target.style.borderColor = COLORS.border.whiteTransparent;
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                 }}
               />
             ) : (
@@ -595,12 +676,12 @@ export const SchoolDetailsModal = ({
                   min="1"
                   style={inputStyle}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#3B82F6';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                    e.target.style.borderColor = COLORS.border.whiteMedium;
+                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#D1D5DB';
-                    e.target.style.boxShadow = 'none';
+                    e.target.style.borderColor = COLORS.border.whiteTransparent;
+                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                   }}
                 />
                 {errors.total_capacity && <div style={errorStyle}>{errors.total_capacity}</div>}
@@ -611,10 +692,10 @@ export const SchoolDetailsModal = ({
           </div>
 
           {/* 💰 PAYMENT CONFIGURATION SECTION */}
-          <div style={{ 
-            borderTop: '2px solid #E5E7EB', 
-            paddingTop: '1.5rem',
-            marginTop: '1.5rem' 
+          <div style={{
+            borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+            paddingTop: SPACING.xl,
+            marginTop: SPACING.xl,
           }}>
             <h3 style={sectionTitleStyle}>💰 Payment Configuration</h3>
           </div>
@@ -630,12 +711,12 @@ export const SchoolDetailsModal = ({
                 required
                 style={selectStyle}
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#3B82F6';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                  e.target.style.borderColor = COLORS.border.whiteMedium;
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = '#D1D5DB';
-                  e.target.style.boxShadow = 'none';
+                  e.target.style.borderColor = COLORS.border.whiteTransparent;
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                 }}
               >
                 <option value="per_student">Per Student (Individual Fees)</option>
@@ -669,15 +750,15 @@ export const SchoolDetailsModal = ({
                     placeholder="Enter total monthly subscription"
                     style={{
                       ...inputStyle,
-                      borderColor: errors.monthly_subscription_amount ? '#DC2626' : '#D1D5DB',
+                      borderColor: errors.monthly_subscription_amount ? COLORS.status.error : COLORS.border.whiteTransparent,
                     }}
                     onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                      e.target.style.borderColor = COLORS.border.whiteMedium;
+                      e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                     }}
                     onBlur={(e) => {
-                      e.target.style.borderColor = errors.monthly_subscription_amount ? '#DC2626' : '#D1D5DB';
-                      e.target.style.boxShadow = 'none';
+                      e.target.style.borderColor = errors.monthly_subscription_amount ? COLORS.status.error : COLORS.border.whiteTransparent;
+                      e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                     }}
                   />
                   {errors.monthly_subscription_amount && (
@@ -695,15 +776,15 @@ export const SchoolDetailsModal = ({
           {/* Info Box - Show calculation if in subscription mode (view mode only) */}
           {!isEditing && school?.payment_mode === 'monthly_subscription' && school?.monthly_subscription_amount && (
             <div style={infoBoxStyle}>
-              <div style={{ marginBottom: '0.5rem', fontWeight: '600' }}>
+              <div style={{ marginBottom: SPACING.sm, fontWeight: FONT_WEIGHTS.semibold }}>
                 📊 Fee Calculation Info:
               </div>
               <div>
-                The subscription amount of <strong>PKR {school.monthly_subscription_amount.toLocaleString()}</strong> will 
+                The subscription amount of <strong>PKR {school.monthly_subscription_amount.toLocaleString()}</strong> will
                 be divided equally among all active students when creating monthly fee records.
               </div>
               {(stats?.total_students || school.total_students) > 0 && (
-                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #BFDBFE' }}>
+                <div style={{ marginTop: SPACING.md, paddingTop: SPACING.md, borderTop: '1px solid rgba(59, 130, 246, 0.3)' }}>
                   <div>
                     <strong>Current Active Students:</strong> {stats?.total_students || school.total_students}
                   </div>
@@ -726,11 +807,11 @@ export const SchoolDetailsModal = ({
 
           {isEditing && formData.payment_mode === 'monthly_subscription' && formData.monthly_subscription_amount && (
             <div style={infoBoxStyle}>
-              <strong>Monthly Subscription Mode:</strong> The total subscription amount will be divided equally 
+              <strong>Monthly Subscription Mode:</strong> The total subscription amount will be divided equally
               among all active students when creating fee records.
               {(stats?.total_students || school.total_students) > 0 && (
-                <div style={{ marginTop: '0.5rem' }}>
-                  Based on current <strong>{stats?.total_students || school.total_students} active students</strong>, 
+                <div style={{ marginTop: SPACING.sm }}>
+                  Based on current <strong>{stats?.total_students || school.total_students} active students</strong>,
                   each student will pay: <strong>PKR {(parseFloat(formData.monthly_subscription_amount) / (stats?.total_students || school.total_students)).toFixed(2)}</strong>
                 </div>
               )}
@@ -746,10 +827,10 @@ export const SchoolDetailsModal = ({
                   name="is_active"
                   checked={formData.is_active}
                   onChange={handleChange}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: COLORS.status.success }}
                 />
-                <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
-                  ✓ School is Active
+                <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer', color: COLORS.text.white }}>
+                  School is Active
                 </label>
               </div>
             </div>

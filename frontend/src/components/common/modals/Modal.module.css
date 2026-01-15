@@ -1,3 +1,7 @@
+/* ============================================
+   MODAL - Glassmorphism Design System
+   ============================================ */
+
 /* Overlay for modal backdrop */
 .overlay {
   position: fixed;
@@ -5,7 +9,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,11 +24,14 @@
   to { opacity: 1; }
 }
 
-/* Modal container */
+/* Modal container - Glassmorphism */
 .modal {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  background: rgba(30, 30, 46, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   max-width: 90vw;
   max-height: 90vh;
   overflow-y: auto;
@@ -55,42 +64,60 @@
   }
 }
 
-/* Header */
+/* Header - Glassmorphism */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 24px;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .title {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1F2937;
+  color: #FFFFFF;
 }
 
 .closeButton {
-  background: none;
-  border: none;
-  font-size: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 20px;
   cursor: pointer;
-  color: #6B7280;
+  color: rgba(255, 255, 255, 0.7);
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 8px;
   transition: all 0.2s;
+  /* Touch-friendly: prevent accidental taps */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .closeButton:hover {
-  background: #F3F4F6;
-  color: #1F2937;
+  background: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  transform: scale(1.05);
+}
+
+/* Mobile: larger touch area */
+@media (max-width: 768px) {
+  .closeButton {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    font-size: 22px;
+  }
 }
 
 /* Body */
@@ -100,64 +127,162 @@
   flex: 1;
 }
 
-/* Footer */
+/* Footer - Glassmorphism */
 .footer {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
   padding: 24px;
-  border-top: 1px solid #E5E7EB;
-  background: #F9FAFB;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
   flex-shrink: 0;
 }
 
-/* Buttons */
+/* Buttons - Glassmorphism */
 .button, .buttonSecondary {
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 10px 20px;
+  border-radius: 10px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  /* Touch-friendly */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile: full-width stacked buttons */
+@media (max-width: 768px) {
+  .button, .buttonSecondary {
+    min-height: 48px;
+    padding: 12px 20px;
+    font-size: 16px;
+    flex: 1;
+  }
 }
 
 .button {
-  background: #3B82F6;
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
   color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .button:hover:not(:disabled) {
-  background: #2563EB;
+  background: linear-gradient(135deg, #2563EB, #1D4ED8);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
 
 .button:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+}
+
+.button-primary {
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.button-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563EB, #1D4ED8);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
 
 .button-danger {
-  background: #EF4444;
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 .button-danger:hover:not(:disabled) {
-  background: #DC2626;
+  background: linear-gradient(135deg, #DC2626, #B91C1C);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
 }
 
 .button-success {
-  background: #10B981;
+  background: linear-gradient(135deg, #10B981, #059669);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .button-success:hover:not(:disabled) {
-  background: #059669;
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
 .buttonSecondary {
-  background: white;
-  color: #374151;
-  border: 1px solid #D1D5DB;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .buttonSecondary:hover:not(:disabled) {
-  background: #F3F4F6;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Form Elements - Glassmorphism */
+.body select,
+.body input,
+.body textarea {
+  background: #1e1e2e !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 10px;
+  min-height: 44px;
+}
+
+.body select option {
+  background-color: #1e1e2e;
+  color: #ffffff;
+  padding: 12px;
+}
+
+.body select:focus,
+.body input:focus,
+.body textarea:focus {
+  border-color: #B061CE !important;
+  box-shadow: 0 0 0 3px rgba(176, 97, 206, 0.3);
+  outline: none;
+}
+
+/* Placeholder text */
+.body input::placeholder,
+.body textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Mobile form elements - iOS zoom prevention (16px font) */
+@media (max-width: 768px) {
+  .body select,
+  .body input,
+  .body textarea {
+    min-height: 48px;
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+    padding: 12px;
+  }
+
+  .header {
+    padding: 16px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+
+  .body {
+    padding: 16px;
+  }
+
+  .footer {
+    padding: 16px;
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .footer .button,
+  .footer .buttonSecondary {
+    width: 100%;
+  }
 }

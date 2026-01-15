@@ -22,6 +22,23 @@ import {
   Cell,
 } from 'recharts';
 
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+  LAYOUT,
+  MIXINS,
+  TOUCH_TARGETS,
+} from '../../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../../hooks/useResponsive';
+
 // Common Components
 import { UnifiedProfileHeader } from '../../components/common/UnifiedProfileHeader';
 import { CollapsibleSection } from '../../components/common/cards/CollapsibleSection';
@@ -78,7 +95,156 @@ class CacheManager {
 const cache = new CacheManager();
 
 // Chart Colors
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+// ============================================
+// STAT CARD COMPONENT WITH HOVER
+// ============================================
+const StatCard = ({ title, value, subtitle, color = 'blue', isMobile = false }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const colorScheme = STAT_CARD_COLORS[color] || STAT_CARD_COLORS.blue;
+
+  return (
+    <div
+      style={{
+        padding: isMobile ? SPACING.md : SPACING.xl,
+        ...MIXINS.glassmorphicCard,
+        borderRadius: BORDER_RADIUS.xl,
+        borderLeft: `4px solid ${colorScheme.border}`,
+        textAlign: 'center',
+        transition: `all ${TRANSITIONS.normal}`,
+        transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+        boxShadow: isHovered ? '0 12px 40px rgba(0, 0, 0, 0.25)' : '0 4px 24px rgba(0, 0, 0, 0.12)',
+        background: isHovered ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.12)',
+        cursor: 'default',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div style={{
+        width: isMobile ? '36px' : '48px',
+        height: isMobile ? '36px' : '48px',
+        borderRadius: BORDER_RADIUS.full,
+        backgroundColor: `${colorScheme.border}20`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto',
+        marginBottom: isMobile ? SPACING.sm : SPACING.md,
+        transition: `all ${TRANSITIONS.normal}`,
+        transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+      }}>
+        <span style={{ fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.xl, color: colorScheme.border }}>
+          {color === 'blue' ? '📊' : color === 'green' ? '🆕' : color === 'purple' ? '✅' : '📈'}
+        </span>
+      </div>
+      <p style={{
+        fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+        fontWeight: FONT_WEIGHTS.bold,
+        color: COLORS.text.white,
+        margin: `0 0 ${SPACING.xs} 0`,
+      }}>{value}</p>
+      <h3 style={{
+        fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+        fontWeight: FONT_WEIGHTS.semibold,
+        color: COLORS.text.whiteMedium,
+        margin: `0 0 ${SPACING.xs} 0`,
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+      }}>{title}</h3>
+      {subtitle && (
+        <p style={{
+          fontSize: FONT_SIZES.xs,
+          color: COLORS.text.whiteSubtle,
+          margin: 0,
+        }}>{subtitle}</p>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// ACTIVITY CARD COMPONENT WITH HOVER
+// ============================================
+const ActivityCard = ({ activity, onClick, isMobile = false }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'Call': return { bg: 'rgba(59, 130, 246, 0.2)', text: '#60A5FA', border: 'rgba(59, 130, 246, 0.3)' };
+      case 'Meeting': return { bg: 'rgba(139, 92, 246, 0.2)', text: '#A78BFA', border: 'rgba(139, 92, 246, 0.3)' };
+      default: return { bg: 'rgba(255, 255, 255, 0.1)', text: COLORS.text.whiteMedium, border: 'rgba(255, 255, 255, 0.2)' };
+    }
+  };
+
+  const typeColor = getTypeColor(activity.activity_type);
+
+  return (
+    <div
+      style={{
+        padding: isMobile ? SPACING.md : SPACING.lg,
+        ...MIXINS.glassmorphicSubtle,
+        borderRadius: BORDER_RADIUS.lg,
+        cursor: 'pointer',
+        transition: `all ${TRANSITIONS.normal}`,
+        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
+        boxShadow: isHovered ? '0 8px 24px rgba(0, 0, 0, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
+        background: isHovered ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.08)',
+        borderLeft: `3px solid ${typeColor.border}`,
+        minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={onClick}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row' }}>
+        <div style={{ flex: 1, width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm, flexWrap: 'wrap' }}>
+            <span style={{
+              padding: `${SPACING.xs} ${SPACING.sm}`,
+              borderRadius: BORDER_RADIUS.md,
+              fontSize: FONT_SIZES.xs,
+              fontWeight: FONT_WEIGHTS.semibold,
+              backgroundColor: typeColor.bg,
+              color: typeColor.text,
+              border: `1px solid ${typeColor.border}`,
+            }}>
+              {activity.activity_type}
+            </span>
+            <span style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle }}>
+              {new Date(activity.scheduled_date).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
+          </div>
+          <h4 style={{
+            fontWeight: FONT_WEIGHTS.semibold,
+            color: COLORS.text.white,
+            marginBottom: SPACING.xs,
+            margin: `0 0 ${SPACING.xs} 0`,
+            fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.base,
+          }}>{activity.subject}</h4>
+          <p style={{
+            fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+            color: COLORS.text.whiteMedium,
+            margin: 0,
+          }}>Lead: {activity.lead_name}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// STAT CARD COLORS (moved before component)
+// ============================================
+const STAT_CARD_COLORS = {
+  blue: { bg: 'rgba(59, 130, 246, 0.15)', border: '#3B82F6', text: '#60A5FA' },
+  green: { bg: 'rgba(16, 185, 129, 0.15)', border: '#10B981', text: '#34D399' },
+  purple: { bg: 'rgba(139, 92, 246, 0.15)', border: '#8B5CF6', text: '#A78BFA' },
+  yellow: { bg: 'rgba(245, 158, 11, 0.15)', border: '#F59E0B', text: '#FBBF24' },
+};
 
 // ============================================
 // MAIN COMPONENT
@@ -86,6 +252,71 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'
 function BDMDashboard() {
   const isMounted = useRef(true);
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useResponsive();
+
+  // ============================================
+  // RESPONSIVE STYLES HELPER
+  // ============================================
+  const getResponsiveStyles = useCallback(() => ({
+    pageContainer: {
+      padding: isMobile ? SPACING.md : SPACING.xl,
+      maxWidth: LAYOUT.maxWidth.lg,
+      margin: '0 auto',
+      minHeight: '100vh',
+      background: COLORS.background.gradient,
+    },
+    pageTitle: {
+      fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+      fontWeight: FONT_WEIGHTS.bold,
+      color: COLORS.text.white,
+      marginBottom: SPACING.sm,
+    },
+    quickActions: {
+      display: 'flex',
+      gap: isMobile ? SPACING.sm : SPACING.md,
+      marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+      flexWrap: 'wrap',
+    },
+    statsGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile
+        ? 'repeat(2, 1fr)'
+        : 'repeat(auto-fit, minmax(220px, 1fr))',
+      gap: isMobile ? SPACING.sm : SPACING.lg,
+      marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    },
+    chartsGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(400px, 1fr))',
+      gap: isMobile ? SPACING.lg : SPACING.xl,
+      marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    },
+    activitiesGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
+      gap: isMobile ? SPACING.md : SPACING.xl,
+    },
+    targetsGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))',
+      gap: isMobile ? SPACING.md : SPACING.xl,
+    },
+    targetCard: {
+      padding: isMobile ? SPACING.md : SPACING.xl,
+      ...MIXINS.glassmorphicCard,
+      borderRadius: BORDER_RADIUS.lg,
+    },
+    targetHeader: {
+      display: 'flex',
+      alignItems: isMobile ? 'flex-start' : 'center',
+      justifyContent: 'space-between',
+      marginBottom: SPACING.sm,
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: isMobile ? SPACING.xs : 0,
+    },
+  }), [isMobile]);
+
+  const responsiveStyles = getResponsiveStyles();
 
   // ============================================
   // STATE
@@ -263,115 +494,82 @@ function BDMDashboard() {
   // RENDER HELPERS
   // ============================================
 
-  const renderStatCard = (title, value, subtitle, color = 'blue') => {
-    const colorClasses = {
-      blue: 'bg-blue-50 border-blue-200',
-      green: 'bg-green-50 border-green-200',
-      yellow: 'bg-yellow-50 border-yellow-200',
-      purple: 'bg-purple-50 border-purple-200',
-    };
-
-    return (
-      <div className={`p-6 rounded-lg border-2 ${colorClasses[color]}`}>
-        <h3 className="text-sm font-medium text-gray-600 mb-2">{title}</h3>
-        <p className="text-3xl font-bold text-gray-900">{value}</p>
-        {subtitle && <p className="text-sm text-gray-500 mt-2">{subtitle}</p>}
-      </div>
-    );
-  };
-
   const renderActivityCard = (activity) => (
-    <div
+    <ActivityCard
       key={activity.id}
-      className="p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+      activity={activity}
       onClick={() => navigate(`/crm/activities`)}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`px-2 py-1 rounded text-xs font-semibold ${
-              activity.activity_type === 'Call' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-            }`}>
-              {activity.activity_type}
-            </span>
-            <span className="text-xs text-gray-500">
-              {new Date(activity.scheduled_date).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </span>
-          </div>
-          <h4 className="font-semibold text-gray-900 mb-1">{activity.subject}</h4>
-          <p className="text-sm text-gray-600">Lead: {activity.lead_name}</p>
-        </div>
-      </div>
-    </div>
+      isMobile={isMobile}
+    />
   );
 
   const renderTargetProgress = (target) => {
     const getProgressColor = (percentage) => {
-      if (percentage >= 80) return 'bg-green-500';
-      if (percentage >= 50) return 'bg-yellow-500';
-      return 'bg-red-500';
+      if (percentage >= 80) return COLORS.status.success;
+      if (percentage >= 50) return COLORS.status.warning;
+      return COLORS.status.error;
     };
 
     return (
-      <div key={target.id} className="p-6 bg-white rounded-lg border border-gray-200">
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="font-semibold text-gray-900">{target.period_type} Target</h4>
-            <span className="text-sm text-gray-500">
+      <div key={target.id} style={responsiveStyles.targetCard}>
+        <div style={{ marginBottom: isMobile ? SPACING.md : SPACING.lg }}>
+          <div style={responsiveStyles.targetHeader}>
+            <h4 style={{
+              ...styles.targetTitle,
+              fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.base,
+            }}>{target.period_type} Target</h4>
+            <span style={{
+              ...styles.targetDate,
+              fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+            }}>
               {new Date(target.start_date).toLocaleDateString()} - {new Date(target.end_date).toLocaleDateString()}
             </span>
           </div>
-          <p className="text-sm text-gray-600">BDM: {target.bdm_name}</p>
+          <p style={styles.targetBdm}>BDM: {target.bdm_name}</p>
         </div>
 
         {/* Leads Progress */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700">Leads</span>
-            <span className="text-sm text-gray-600">{target.leads_achieved} / {target.leads_target}</span>
+        <div style={{ marginBottom: SPACING.lg }}>
+          <div style={styles.progressHeader}>
+            <span style={styles.progressLabel}>Leads</span>
+            <span style={styles.progressValue}>{target.leads_achieved} / {target.leads_target}</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div style={styles.progressTrack}>
             <div
-              className={`h-2 rounded-full ${getProgressColor(target.leads_progress)}`}
-              style={{ width: `${Math.min(target.leads_progress, 100)}%` }}
+              style={styles.progressBar(target.leads_progress, getProgressColor(target.leads_progress))}
             />
           </div>
-          <span className="text-xs text-gray-500">{target.leads_progress}%</span>
+          <span style={styles.progressPercent}>{target.leads_progress}%</span>
         </div>
 
         {/* Conversions Progress */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700">Conversions</span>
-            <span className="text-sm text-gray-600">{target.conversions_achieved} / {target.conversions_target}</span>
+        <div style={{ marginBottom: SPACING.lg }}>
+          <div style={styles.progressHeader}>
+            <span style={styles.progressLabel}>Conversions</span>
+            <span style={styles.progressValue}>{target.conversions_achieved} / {target.conversions_target}</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div style={styles.progressTrack}>
             <div
-              className={`h-2 rounded-full ${getProgressColor(target.conversions_progress)}`}
-              style={{ width: `${Math.min(target.conversions_progress, 100)}%` }}
+              style={styles.progressBar(target.conversions_progress, getProgressColor(target.conversions_progress))}
             />
           </div>
-          <span className="text-xs text-gray-500">{target.conversions_progress}%</span>
+          <span style={styles.progressPercent}>{target.conversions_progress}%</span>
         </div>
 
         {/* Revenue Progress */}
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700">Revenue</span>
-            <span className="text-sm text-gray-600">
+          <div style={styles.progressHeader}>
+            <span style={styles.progressLabel}>Revenue</span>
+            <span style={styles.progressValue}>
               PKR {parseFloat(target.revenue_achieved).toLocaleString()} / PKR {parseFloat(target.revenue_target).toLocaleString()}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div style={styles.progressTrack}>
             <div
-              className={`h-2 rounded-full ${getProgressColor(target.revenue_progress)}`}
-              style={{ width: `${Math.min(target.revenue_progress, 100)}%` }}
+              style={styles.progressBar(target.revenue_progress, getProgressColor(target.revenue_progress))}
             />
           </div>
-          <span className="text-xs text-gray-500">{target.revenue_progress}%</span>
+          <span style={styles.progressPercent}>{target.revenue_progress}%</span>
         </div>
       </div>
     );
@@ -386,7 +584,7 @@ function BDMDashboard() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div style={responsiveStyles.pageContainer}>
       {/* Profile Header */}
       <UnifiedProfileHeader
         role="BDM"
@@ -396,21 +594,41 @@ function BDMDashboard() {
       />
 
       {/* Header */}
-      <div className="mb-6 mt-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">CRM Dashboard</h1>
-        <p className="text-gray-600">Track leads, activities, and performance metrics</p>
+      <div style={styles.headerSection}>
+        <h1 style={responsiveStyles.pageTitle}>CRM Dashboard</h1>
+        <p style={styles.pageSubtitle}>Track leads, activities, and performance metrics</p>
       </div>
 
       {/* Quick Actions */}
-      <div className="flex gap-3 mb-6">
-        <Button onClick={() => navigate('/crm/leads')}>
-          View All Leads
+      <div style={responsiveStyles.quickActions}>
+        <Button
+          onClick={() => navigate('/crm/leads')}
+          style={{
+            minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+            flex: isMobile ? '1 1 auto' : 'none',
+          }}
+        >
+          {isMobile ? 'Leads' : 'View All Leads'}
         </Button>
-        <Button onClick={() => navigate('/crm/activities')} variant="secondary">
-          View Activities
+        <Button
+          onClick={() => navigate('/crm/activities')}
+          variant="secondary"
+          style={{
+            minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+            flex: isMobile ? '1 1 auto' : 'none',
+          }}
+        >
+          {isMobile ? 'Activities' : 'View Activities'}
         </Button>
-        <Button onClick={() => cache.clear()} variant="outline">
-          Refresh Data
+        <Button
+          onClick={() => cache.clear()}
+          variant="outline"
+          style={{
+            minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+            flex: isMobile ? '1 1 auto' : 'none',
+          }}
+        >
+          Refresh
         </Button>
       </div>
 
@@ -420,23 +638,23 @@ function BDMDashboard() {
       ) : error ? (
         <ErrorDisplay message={error} onRetry={loadDashboardStats} />
       ) : stats ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {renderStatCard('Total Leads', stats.total_leads || 0, `${stats.leads_this_month || 0} this month`, 'blue')}
-          {renderStatCard('New Leads', stats.new_leads || 0, 'Awaiting contact', 'green')}
-          {renderStatCard('Converted', stats.converted_leads || 0, `${stats.conversions_this_month || 0} this month`, 'purple')}
-          {renderStatCard('Conversion Rate', `${stats.conversion_rate || 0}%`, 'Overall performance', 'yellow')}
+        <div style={responsiveStyles.statsGrid}>
+          <StatCard title="Total Leads" value={stats.total_leads || 0} subtitle={`${stats.leads_this_month || 0} this month`} color="blue" isMobile={isMobile} />
+          <StatCard title="New Leads" value={stats.new_leads || 0} subtitle="Awaiting contact" color="green" isMobile={isMobile} />
+          <StatCard title="Converted" value={stats.converted_leads || 0} subtitle={`${stats.conversions_this_month || 0} this month`} color="purple" isMobile={isMobile} />
+          <StatCard title="Conversion Rate" value={`${stats.conversion_rate || 0}%`} subtitle="Overall performance" color="yellow" isMobile={isMobile} />
         </div>
       ) : (
-        <div className="bg-white p-8 rounded-lg border border-gray-200 mb-6">
-          <p className="text-center text-gray-500">No dashboard stats available</p>
+        <div style={styles.emptyState}>
+          <p style={styles.emptyStateText}>No dashboard stats available</p>
         </div>
       )}
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div style={responsiveStyles.chartsGrid}>
         {/* Lead Sources Chart */}
         <CollapsibleSection
-          title="Lead Sources Breakdown"
+          title={isMobile ? "Lead Sources" : "Lead Sources Breakdown"}
           onToggle={(isOpen) => {
             if (isOpen && leadSources.length === 0) {
               loadLeadSources();
@@ -447,7 +665,7 @@ function BDMDashboard() {
           {loading.leadSources ? (
             <LoadingSpinner />
           ) : leadSources.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
               <PieChart>
                 <Pie
                   data={leadSources}
@@ -455,11 +673,11 @@ function BDMDashboard() {
                   nameKey="lead_source"
                   cx="50%"
                   cy="50%"
-                  outerRadius={100}
-                  label={(entry) => `${entry.lead_source}: ${entry.count}`}
+                  outerRadius={isMobile ? 70 : 100}
+                  label={isMobile ? false : (entry) => `${entry.lead_source}: ${entry.count}`}
                 >
                   {leadSources.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -467,13 +685,13 @@ function BDMDashboard() {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-center text-gray-500 py-8">No lead source data available</p>
+            <p style={styles.chartEmptyText}>No lead source data available</p>
           )}
         </CollapsibleSection>
 
         {/* Conversion Metrics Chart */}
         <CollapsibleSection
-          title="Conversion Trends (Last 6 Months)"
+          title={isMobile ? "Conversion Trends" : "Conversion Trends (Last 6 Months)"}
           onToggle={(isOpen) => {
             if (isOpen && conversionMetrics.length === 0) {
               loadConversionMetrics();
@@ -484,27 +702,35 @@ function BDMDashboard() {
           {loading.conversionMetrics ? (
             <LoadingSpinner />
           ) : conversionMetrics.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
               <LineChart data={conversionMetrics}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: isMobile ? 10 : 12 }}
+                  angle={isMobile ? -45 : 0}
+                  textAnchor={isMobile ? 'end' : 'middle'}
+                  height={isMobile ? 60 : 30}
+                />
+                <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} />
                 <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="leads" stroke="#3B82F6" name="Leads" />
-                <Line type="monotone" dataKey="conversions" stroke="#10B981" name="Conversions" />
-                <Line type="monotone" dataKey="conversion_rate" stroke="#F59E0B" name="Rate (%)" />
+                <Legend wrapperStyle={{ fontSize: isMobile ? 10 : 12 }} />
+                <Line type="monotone" dataKey="leads" stroke={CHART_COLORS[0]} name="Leads" />
+                <Line type="monotone" dataKey="conversions" stroke={CHART_COLORS[1]} name="Conversions" />
+                <Line type="monotone" dataKey="conversion_rate" stroke={CHART_COLORS[2]} name="Rate (%)" />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-center text-gray-500 py-8">No conversion data available</p>
+            <p style={styles.chartEmptyText}>No conversion data available</p>
           )}
         </CollapsibleSection>
       </div>
 
       {/* Upcoming Activities */}
       <CollapsibleSection
-        title={`Upcoming Activities (${stats?.upcoming_activities || 0} scheduled, ${stats?.overdue_activities || 0} overdue)`}
+        title={isMobile
+          ? `Activities (${stats?.upcoming_activities || 0}/${stats?.overdue_activities || 0})`
+          : `Upcoming Activities (${stats?.upcoming_activities || 0} scheduled, ${stats?.overdue_activities || 0} overdue)`}
         onToggle={(isOpen) => {
           if (isOpen && upcomingActivities.today.length === 0 && upcomingActivities.tomorrow.length === 0) {
             loadUpcomingActivities();
@@ -515,16 +741,19 @@ function BDMDashboard() {
         {loading.activities ? (
           <LoadingSpinner />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div style={responsiveStyles.activitiesGrid}>
             {/* Today */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Today</h3>
+              <h3 style={{
+                ...styles.activitiesDayTitle,
+                fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg,
+              }}>Today</h3>
               {upcomingActivities.today.length > 0 ? (
-                <div className="space-y-3">
+                <div style={styles.activityList}>
                   {upcomingActivities.today.map(renderActivityCard)}
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-8 bg-gray-50 rounded-lg">
+                <p style={styles.noActivitiesText}>
                   No activities scheduled for today
                 </p>
               )}
@@ -532,13 +761,16 @@ function BDMDashboard() {
 
             {/* Tomorrow */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Tomorrow</h3>
+              <h3 style={{
+                ...styles.activitiesDayTitle,
+                fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg,
+              }}>Tomorrow</h3>
               {upcomingActivities.tomorrow.length > 0 ? (
-                <div className="space-y-3">
+                <div style={styles.activityList}>
                   {upcomingActivities.tomorrow.map(renderActivityCard)}
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-8 bg-gray-50 rounded-lg">
+                <p style={styles.noActivitiesText}>
                   No activities scheduled for tomorrow
                 </p>
               )}
@@ -549,7 +781,7 @@ function BDMDashboard() {
 
       {/* Target Progress */}
       <CollapsibleSection
-        title="Current Target Progress"
+        title={isMobile ? "Target Progress" : "Current Target Progress"}
         onToggle={(isOpen) => {
           if (isOpen && targets.length === 0) {
             loadTargetProgress();
@@ -560,15 +792,173 @@ function BDMDashboard() {
         {loading.targets ? (
           <LoadingSpinner />
         ) : targets.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div style={responsiveStyles.targetsGrid}>
             {targets.map(renderTargetProgress)}
           </div>
         ) : (
-          <p className="text-center text-gray-500 py-8">No active targets</p>
+          <p style={styles.chartEmptyText}>No active targets</p>
         )}
       </CollapsibleSection>
     </div>
   );
 }
+
+// ============================================
+// STYLES
+// ============================================
+const styles = {
+  // Page Layout
+  pageContainer: {
+    padding: SPACING.xl,
+    maxWidth: LAYOUT.maxWidth.lg,
+    margin: '0 auto',
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+  },
+  headerSection: {
+    marginBottom: SPACING.xl,
+    marginTop: SPACING.xl,
+  },
+  pageTitle: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.sm,
+  },
+  pageSubtitle: {
+    fontSize: FONT_SIZES.base,
+    color: COLORS.text.whiteMedium,
+  },
+
+  // Quick Actions
+  quickActions: {
+    display: 'flex',
+    gap: SPACING.md,
+    marginBottom: SPACING.xl,
+  },
+
+  // Stats Grid
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+
+  // Empty State
+  emptyState: {
+    ...MIXINS.glassmorphicCard,
+    padding: SPACING['2xl'],
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.xl,
+  },
+  emptyStateText: {
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+  },
+
+  // Charts Grid
+  chartsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+    gap: SPACING.xl,
+    marginBottom: SPACING.xl,
+  },
+  chartEmptyText: {
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+    padding: `${SPACING['2xl']} 0`,
+  },
+
+  // Activities Section
+  activitiesGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: SPACING.xl,
+  },
+  activitiesDayTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.lg,
+  },
+  activityList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.md,
+  },
+  noActivitiesText: {
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+    padding: `${SPACING['2xl']} 0`,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+
+  // Targets Grid
+  targetsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+    gap: SPACING.xl,
+  },
+  targetCard: {
+    padding: SPACING.xl,
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  targetHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  targetTitle: {
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+  },
+  targetDate: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+  },
+  targetBdm: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
+  },
+
+  // Progress Bars
+  progressHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xs,
+  },
+  progressLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.whiteMedium,
+  },
+  progressValue: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
+  },
+  progressTrack: {
+    width: '100%',
+    height: '8px',
+    backgroundColor: COLORS.border.whiteTransparent,
+    borderRadius: BORDER_RADIUS.full,
+    overflow: 'hidden',
+  },
+  progressBar: (percentage, color) => ({
+    height: '8px',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: color,
+    width: `${Math.min(percentage, 100)}%`,
+    transition: TRANSITIONS.normal,
+  }),
+  progressPercent: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
+};
 
 export default BDMDashboard;

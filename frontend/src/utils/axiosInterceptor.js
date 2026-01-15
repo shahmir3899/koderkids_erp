@@ -28,6 +28,21 @@ let interceptorsSet = false;
 let activeRequests = 0;
 let debounceTimeout = null;
 
+// ============================================
+// REQUEST DEDUPLICATION - Prevents duplicate API calls
+// ============================================
+// Stores pending requests to prevent duplicate simultaneous calls
+const pendingRequests = new Map();
+
+/**
+ * Generate a unique key for each request based on method, URL, and params
+ */
+const generateRequestKey = (config) => {
+  const params = config.params ? JSON.stringify(config.params) : '';
+  const data = config.data ? JSON.stringify(config.data) : '';
+  return `${config.method}:${config.url}:${params}:${data}`;
+};
+
 // Configuration
 const DEBOUNCE_DELAY = 200; // milliseconds - delay before hiding loader
 const DEBUG = process.env.NODE_ENV === 'development'; // Enable debug logs in dev
@@ -64,6 +79,37 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
   // ============================================
   axios.interceptors.request.use(
     (config) => {
+      // ============================================
+      // REQUEST DEDUPLICATION (DISABLED)
+      // ============================================
+      // NOTE: Simple deduplication by cancelling duplicates causes issues
+      // because the cancelled request doesn't receive the original's response.
+      // Proper deduplication requires promise sharing (implemented in React Query).
+      // Re-enable in Phase 2 when migrating to React Query.
+      //
+      // For now, we only track requests for debugging purposes.
+      if (config.method?.toLowerCase() === 'get') {
+        const requestKey = generateRequestKey(config);
+
+        // Log duplicate requests for debugging (but don't cancel them)
+        if (pendingRequests.has(requestKey)) {
+          logDebug('⚠️ Duplicate request detected (allowing both)', {
+            url: config.url,
+            key: requestKey,
+          });
+        }
+
+        // Track this request
+        pendingRequests.set(requestKey, (pendingRequests.get(requestKey) || 0) + 1);
+        config._requestKey = requestKey;
+
+        logDebug('📝 Request tracked', {
+          url: config.url,
+          key: requestKey,
+          count: pendingRequests.get(requestKey),
+        });
+      }
+
       // Increment active request counter
       activeRequests++;
 
@@ -113,6 +159,20 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
   axios.interceptors.response.use(
     // SUCCESS HANDLER
     (response) => {
+      // Clean up deduplication tracking
+      if (response.config._requestKey) {
+        const count = pendingRequests.get(response.config._requestKey) || 1;
+        if (count <= 1) {
+          pendingRequests.delete(response.config._requestKey);
+        } else {
+          pendingRequests.set(response.config._requestKey, count - 1);
+        }
+        logDebug('🧹 Request completed', {
+          key: response.config._requestKey,
+          remainingCount: pendingRequests.get(response.config._requestKey) || 0,
+        });
+      }
+
       // Decrement active request counter (with protection against negative)
       activeRequests = Math.max(0, activeRequests - 1);
 
@@ -141,6 +201,26 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
 
     // ERROR HANDLER
     (error) => {
+      // Clean up deduplication tracking (even on error)
+      if (error.config?._requestKey) {
+        const count = pendingRequests.get(error.config._requestKey) || 1;
+        if (count <= 1) {
+          pendingRequests.delete(error.config._requestKey);
+        } else {
+          pendingRequests.set(error.config._requestKey, count - 1);
+        }
+        logDebug('🧹 Request failed', {
+          key: error.config._requestKey,
+          remainingCount: pendingRequests.get(error.config._requestKey) || 0,
+        });
+      }
+
+      // Handle cancelled requests gracefully
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        logDebug('⏭️ Request was cancelled');
+        return Promise.reject(error);
+      }
+
       // Decrement active request counter (with protection against negative)
       activeRequests = Math.max(0, activeRequests - 1);
 
@@ -181,6 +261,7 @@ export const resetInterceptorState = () => {
     clearTimeout(debounceTimeout);
     debounceTimeout = null;
   }
+  pendingRequests.clear();
   logDebug('🔄 Interceptor state reset');
 };
 
@@ -192,4 +273,5 @@ export const getInterceptorState = () => ({
   activeRequests,
   hasDebounceTimeout: debounceTimeout !== null,
   interceptorsSet,
+  pendingRequestsCount: pendingRequests.size,
 });

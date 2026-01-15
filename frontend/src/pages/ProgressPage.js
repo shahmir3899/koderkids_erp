@@ -1,24 +1,27 @@
 // ============================================
-// PROGRESS PAGE - Refactored Version v2
+// PROGRESS PAGE - Glassmorphism Design Version
 // ============================================
-// Location: src/pages/ProgressPage.js
-//
-// FEATURES:
-// - Uses FilterBar with showDate (single school fetch, no duplicate)
-// - Uses DataTable for student list with custom renders
-// - Uses AttendanceButton for status toggle
-// - Uses CompactRichTextEditor for achieved lessons
-// - Uses ImageUploadModal for image uploads
-// - Uses ProgressIndicator for completion status
-// - Uses Pagination component
-// - Bulk "Mark All Present" action
-// - Clean, compact hybrid UI
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { getAuthHeaders } from '../api';
 import { useAuth } from '../auth';
+
+// Design System
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  MIXINS,
+  LAYOUT,
+  TRANSITIONS,
+} from '../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../hooks/useResponsive';
 
 // Common Components
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
@@ -29,14 +32,179 @@ import { AttendanceButton } from '../components/common/ui/AttendanceButton';
 import { ProgressIndicator } from '../components/common/ui/ProgressIndicator';
 import { CompactRichTextEditor } from '../components/common/ui/CompactRichTextEditor';
 import { ImageUploadModal } from '../components/common/modals/ImageUploadModal';
+import { PageHeader } from '../components/common/PageHeader';
 
 // ============================================
 // CONSTANTS
 // ============================================
 
 const API_URL = process.env.REACT_APP_API_URL;
-
 const STUDENTS_PER_PAGE = 5;
+
+// Responsive Styles Generator
+const getResponsiveStyles = (isMobile, isTablet) => ({
+  pageContainer: {
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+    padding: isMobile ? SPACING.md : isTablet ? SPACING.lg : SPACING.xl,
+  },
+  contentWrapper: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    width: '100%',
+  },
+  pageTitle: {
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    textAlign: 'center',
+  },
+  plannedTopicCard: {
+    padding: isMobile ? SPACING.md : SPACING.lg,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    borderLeft: `4px solid ${COLORS.accent.purple}`,
+    marginBottom: SPACING.lg,
+  },
+  plannedTopicLabel: {
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.base,
+  },
+  plannedTopicText: {
+    color: COLORS.text.whiteMedium,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.base,
+  },
+  actionBar: {
+    display: 'flex',
+    flexDirection: isMobile ? 'column' : 'row',
+    justifyContent: 'space-between',
+    alignItems: isMobile ? 'stretch' : 'center',
+    flexWrap: 'wrap',
+    gap: isMobile ? SPACING.md : SPACING.lg,
+    marginBottom: SPACING.lg,
+    padding: isMobile ? SPACING.md : SPACING.lg,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  markAllButton: {
+    padding: isMobile ? `${SPACING.md} ${SPACING.lg}` : `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.status.success,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    transition: TRANSITIONS.normal,
+    minHeight: '44px', // Touch-friendly
+    width: isMobile ? '100%' : 'auto',
+  },
+  submitContainer: {
+    display: 'flex',
+    justifyContent: isMobile ? 'stretch' : 'flex-end',
+    marginTop: isMobile ? SPACING.lg : SPACING.xl,
+  },
+  submitButton: (isSubmitting) => ({
+    padding: isMobile ? `${SPACING.md} ${SPACING.lg}` : `${SPACING.md} ${SPACING['2xl']}`,
+    backgroundColor: isSubmitting ? '#9CA3AF' : COLORS.status.success,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
+    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    transition: TRANSITIONS.normal,
+    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
+    minHeight: '44px', // Touch-friendly
+    width: isMobile ? '100%' : 'auto',
+  }),
+  emptyState: {
+    padding: isMobile ? SPACING.xl : SPACING['2xl'],
+    textAlign: 'center',
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  emptyStateTitle: {
+    fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg,
+    color: COLORS.text.white,
+    marginBottom: SPACING.sm,
+  },
+  emptyStateText: {
+    fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+  },
+  imageButton: {
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.md}`,
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.xs,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    minHeight: '44px', // Touch-friendly
+    minWidth: isMobile ? '80px' : 'auto',
+    justifyContent: 'center',
+  },
+  deleteImageButton: {
+    padding: isMobile ? SPACING.sm : SPACING.xs,
+    backgroundColor: COLORS.status.error,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.xs,
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    lineHeight: 1,
+    minWidth: '44px', // Touch-friendly
+    minHeight: '44px', // Touch-friendly
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+// Static Styles (non-responsive)
+const styles = {
+  bulkActionContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  loadingContainer: {
+    padding: SPACING['2xl'],
+    textAlign: 'center',
+  },
+  imageActionContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  imageThumbnail: {
+    width: '32px',
+    height: '32px',
+    borderRadius: BORDER_RADIUS.xs,
+    objectFit: 'cover',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  studentName: {
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+};
 
 // ============================================
 // MAIN COMPONENT
@@ -45,44 +213,38 @@ const STUDENTS_PER_PAGE = 5;
 const ProgressPage = () => {
   const { user } = useAuth();
 
+  // Responsive hook
+  const { isMobile, isTablet } = useResponsive();
+  const responsiveStyles = getResponsiveStyles(isMobile, isTablet);
+
   // ============================================
   // STATE
   // ============================================
 
-  // Filter state (received from FilterBar)
   const [filters, setFilters] = useState({
     date: '',
     schoolId: '',
     className: '',
   });
 
-  // Data state
   const [students, setStudents] = useState([]);
   const [attendanceData, setAttendanceData] = useState({});
   const [achievedLessons, setAchievedLessons] = useState({});
   const [uploadedImages, setUploadedImages] = useState({});
   const [plannedTopic, setPlannedTopic] = useState('');
 
-  // UI state
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Modal state
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedStudentForImage, setSelectedStudentForImage] = useState(null);
 
-
-
-  // ✅ ADD THESE LINES:
-  // Cleanup ref
   const isMounted = useRef(true);
 
-  // Cleanup effect
   useEffect(() => {
     isMounted.current = true;
-    
     return () => {
       isMounted.current = false;
     };
@@ -92,13 +254,11 @@ const ProgressPage = () => {
   // DERIVED VALUES
   // ============================================
 
-  // Paginated students
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * STUDENTS_PER_PAGE;
     return students.slice(startIndex, startIndex + STUDENTS_PER_PAGE);
   }, [students, currentPage]);
 
-  // Progress calculation
   const progressStats = useMemo(() => {
     const total = students.length;
     const completed = students.filter((s) => {
@@ -113,88 +273,77 @@ const ProgressPage = () => {
   // HANDLERS
   // ============================================
 
-  // Handle filter submission from FilterBar
   const handleFilter = useCallback(async (filterValues) => {
-  const { date, schoolId, className } = filterValues;
+    const { date, schoolId, className } = filterValues;
 
-  if (!date || !schoolId || !className) {
-    toast.error('Please select date, school, and class.');
-    return;
-  }
-
-  // ✅ NEW: Check if mounted
-  if (!isMounted.current) return;
-
-  setFilters({ date, schoolId, className });
-  setIsSearching(true);
-  setHasSearched(true);
-  setCurrentPage(1);
-
-  // Clear previous data
-  setStudents([]);
-  setAttendanceData({});
-  setAchievedLessons({});
-  setUploadedImages({});
-  setPlannedTopic('');
-
-  try {
-    // Format date for API (MM/DD/YYYY)
-    const [year, month, day] = date.split('-');
-    const formattedDate = `${month}/${day}/${year}`;
-
-    // Fetch students
-    const response = await axios.get(`${API_URL}/api/reports/students-progress/`, {
-      params: {
-        school_id: schoolId,
-        class_id: className,
-        session_date: formattedDate,
-      },
-      headers: getAuthHeaders(),
-    });
-
-    // ✅ NEW: Check before state updates
-    if (!isMounted.current) return;
-
-    const fetchedStudents = response.data.students || [];
-    setStudents(fetchedStudents);
-
-    // Process attendance and achieved lessons
-    const newAttendanceData = {};
-    const newAchievedLessons = {};
-
-    fetchedStudents.forEach((student) => {
-      if (student.status && student.status !== 'N/A') {
-        newAttendanceData[student.id] = { status: student.status };
-      }
-      if (student.achieved_topic) {
-        newAchievedLessons[student.id] = student.achieved_topic;
-      }
-    });
-
-    setAttendanceData(newAttendanceData);
-    setAchievedLessons(newAchievedLessons);
-
-    // Get planned topic
-    const plannedTopicText = response.data.planned_topic || '';
-    setPlannedTopic(plannedTopicText);
-
-    toast.success(`Loaded ${fetchedStudents.length} students`);
-  } catch (error) {
-    // ✅ NEW: Check before showing error
-    if (!isMounted.current) return;
-    
-    console.error('Error fetching data:', error);
-    toast.error('Failed to load data. Please try again.');
-    setStudents([]);
-  } finally {
-    // ✅ NEW: Check before clearing loading
-    if (isMounted.current) {
-      setIsSearching(false);
+    if (!date || !schoolId || !className) {
+      toast.error('Please select date, school, and class.');
+      return;
     }
-  }
-}, []);
 
-  // Attendance change handler
+    if (!isMounted.current) return;
+
+    setFilters({ date, schoolId, className });
+    setIsSearching(true);
+    setHasSearched(true);
+    setCurrentPage(1);
+
+    setStudents([]);
+    setAttendanceData({});
+    setAchievedLessons({});
+    setUploadedImages({});
+    setPlannedTopic('');
+
+    try {
+      const [year, month, day] = date.split('-');
+      const formattedDate = `${month}/${day}/${year}`;
+
+      const response = await axios.get(`${API_URL}/api/reports/students-progress/`, {
+        params: {
+          school_id: schoolId,
+          class_id: className,
+          session_date: formattedDate,
+        },
+        headers: getAuthHeaders(),
+      });
+
+      if (!isMounted.current) return;
+
+      const fetchedStudents = response.data.students || [];
+      setStudents(fetchedStudents);
+
+      const newAttendanceData = {};
+      const newAchievedLessons = {};
+
+      fetchedStudents.forEach((student) => {
+        if (student.status && student.status !== 'N/A') {
+          newAttendanceData[student.id] = { status: student.status };
+        }
+        if (student.achieved_topic) {
+          newAchievedLessons[student.id] = student.achieved_topic;
+        }
+      });
+
+      setAttendanceData(newAttendanceData);
+      setAchievedLessons(newAchievedLessons);
+
+      const plannedTopicText = response.data.planned_topic || '';
+      setPlannedTopic(plannedTopicText);
+
+      toast.success(`Loaded ${fetchedStudents.length} students`);
+    } catch (error) {
+      if (!isMounted.current) return;
+
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data. Please try again.');
+      setStudents([]);
+    } finally {
+      if (isMounted.current) {
+        setIsSearching(false);
+      }
+    }
+  }, []);
+
   const handleAttendanceChange = useCallback((studentId, status) => {
     setAttendanceData((prev) => ({
       ...prev,
@@ -202,7 +351,6 @@ const ProgressPage = () => {
     }));
   }, []);
 
-  // Mark all present
   const handleMarkAllPresent = useCallback(() => {
     const newAttendanceData = { ...attendanceData };
     students.forEach((student) => {
@@ -212,7 +360,6 @@ const ProgressPage = () => {
     toast.success('All students marked as Present.');
   }, [students, attendanceData]);
 
-  // Achieved lesson change handler
   const handleAchievedChange = useCallback((studentId, text) => {
     setAchievedLessons((prev) => ({
       ...prev,
@@ -220,19 +367,16 @@ const ProgressPage = () => {
     }));
   }, []);
 
-  // Open image upload modal
   const openImageModal = useCallback((student) => {
     setSelectedStudentForImage(student);
     setImageModalOpen(true);
   }, []);
 
-  // Close image upload modal
   const closeImageModal = useCallback(() => {
     setImageModalOpen(false);
     setSelectedStudentForImage(null);
   }, []);
 
-  // Image upload handler (passed to modal)
   const handleImageUpload = useCallback(async (studentId, file, sessionDate) => {
     const formData = new FormData();
     formData.append('image', file);
@@ -246,7 +390,6 @@ const ProgressPage = () => {
     return response.data.image_url;
   }, []);
 
-  // Update uploaded image after successful upload
   const handleImageUploadComplete = useCallback((imageUrl) => {
     if (selectedStudentForImage) {
       setUploadedImages((prev) => ({
@@ -256,7 +399,6 @@ const ProgressPage = () => {
     }
   }, [selectedStudentForImage]);
 
-  // Delete image
   const handleDeleteImage = useCallback((studentId) => {
     setUploadedImages((prev) => {
       const updated = { ...prev };
@@ -266,96 +408,83 @@ const ProgressPage = () => {
     toast.success('Image removed.');
   }, []);
 
-  // Submit handler
-  // ============================================
-// PROGRESSPAGE.JS - CORRECTED handleSubmit
-// ============================================
-// Location: Lines 270-343
-// Replace your current handleSubmit with this:
+  const handleSubmit = useCallback(async () => {
+    if (!isMounted.current) return;
 
-const handleSubmit = useCallback(async () => {
-  // ✅ CHECK 1: Initial check
-  if (!isMounted.current) return;
+    if (!filters.date || !filters.schoolId || !filters.className) {
+      toast.error('Please search for students first.');
+      return;
+    }
 
-  if (!filters.date || !filters.schoolId || !filters.className) {
-    toast.error('Please search for students first.');
-    return;
-  }
+    if (students.length === 0) {
+      toast.error('No students to submit.');
+      return;
+    }
 
-  if (students.length === 0) {
-    toast.error('No students to submit.');
-    return;
-  }
+    setIsSubmitting(true);
 
-  setIsSubmitting(true);
+    try {
+      const newAttendanceRecords = [];
 
-  try {
-    const newAttendanceRecords = [];
+      const attendanceUpdates = students.map((student) => {
+        const attendanceId = student.attendance_id || null;
+        const status = attendanceData[student.id]?.status || 'N/A';
+        const achievedTopic = achievedLessons[student.id] || '';
+        const lessonPlanId = student.lesson_plan_id || null;
 
-    const attendanceUpdates = students.map((student) => {
-      const attendanceId = student.attendance_id || null;
-      const status = attendanceData[student.id]?.status || 'N/A';
-      const achievedTopic = achievedLessons[student.id] || '';
-      const lessonPlanId = student.lesson_plan_id || null;
+        if (!attendanceId) {
+          newAttendanceRecords.push({
+            student_id: student.id,
+            session_date: filters.date,
+            status: status,
+            achieved_topic: achievedTopic,
+            lesson_plan_id: lessonPlanId,
+          });
+        }
 
-      if (!attendanceId) {
-        newAttendanceRecords.push({
-          student_id: student.id,
-          session_date: filters.date,
-          status: status,
+        return {
+          attendance_id: attendanceId,
+          status,
           achieved_topic: achievedTopic,
           lesson_plan_id: lessonPlanId,
-        });
+        };
+      });
+
+      if (newAttendanceRecords.length > 0) {
+        await axios.post(
+          `${API_URL}/api/attendance/mark/`,
+          {
+            session_date: filters.date,
+            attendance: newAttendanceRecords,
+          },
+          { headers: getAuthHeaders() }
+        );
       }
 
-      return {
-        attendance_id: attendanceId,
-        status,
-        achieved_topic: achievedTopic,
-        lesson_plan_id: lessonPlanId,
-      };
-    });
+      for (const update of attendanceUpdates) {
+        if (!update.attendance_id) continue;
 
-    // Create new attendance records
-    if (newAttendanceRecords.length > 0) {
-      await axios.post(
-        `${API_URL}/api/attendance/mark/`,
-        {
-          session_date: filters.date,
-          attendance: newAttendanceRecords,
-        },
-        { headers: getAuthHeaders() }
-      );
+        await axios.put(
+          `${API_URL}/api/attendance/${update.attendance_id}/update/`,
+          update,
+          { headers: getAuthHeaders() }
+        );
+      }
+
+      if (!isMounted.current) return;
+
+      toast.success('Progress saved successfully!');
+    } catch (err) {
+      if (!isMounted.current) return;
+
+      console.error('Error saving progress:', err);
+      toast.error(`Failed to save: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      if (isMounted.current) {
+        setIsSubmitting(false);
+      }
     }
-
-    // Update existing attendance records
-    for (const update of attendanceUpdates) {
-      if (!update.attendance_id) continue;
-
-      await axios.put(
-        `${API_URL}/api/attendance/${update.attendance_id}/update/`,
-        update,
-        { headers: getAuthHeaders() }
-      );
-    }
-    
-    // ✅ CHECK 2: Before state updates/toast
-    if (!isMounted.current) return;
-
-    toast.success('Progress saved successfully!');
-  } catch (err) {
-    // ✅ CHECK 3: Before showing error (MISSING IN YOUR CODE)
-    if (!isMounted.current) return;
-    
-    console.error('Error saving progress:', err);
-    toast.error(`Failed to save: ${err.response?.data?.detail || err.message}`);
-  } finally {
-    // ✅ CHECK 4: Before clearing loading (MISSING IN YOUR CODE)
-    if (isMounted.current) {
-      setIsSubmitting(false);
-    }
-  }
-}, [filters, students, attendanceData, achievedLessons]);
+  }, [filters, students, attendanceData, achievedLessons]);
 
   // ============================================
   // TABLE COLUMNS
@@ -368,7 +497,7 @@ const handleSubmit = useCallback(async () => {
       sortable: true,
       width: '200px',
       render: (value) => (
-        <span style={{ fontWeight: '500', color: '#1F2937' }}>{value}</span>
+        <span style={styles.studentName}>{value}</span>
       ),
     },
     {
@@ -408,25 +537,12 @@ const handleSubmit = useCallback(async () => {
         const imageUrl = typeof image === 'object' ? image?.signedURL : image;
 
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+          <div style={styles.imageActionContainer}>
             <button
               onClick={() => openImageModal(row)}
-              style={{
-                padding: '0.375rem 0.625rem',
-                backgroundColor: '#3B82F6',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '0.375rem',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563EB')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3B82F6')}
+              style={responsiveStyles.imageButton}
             >
-              📷 {imageUrl ? 'Change' : 'Upload'}
+              {imageUrl ? 'Change' : 'Upload'}
             </button>
 
             {imageUrl && (
@@ -434,29 +550,12 @@ const handleSubmit = useCallback(async () => {
                 <img
                   src={imageUrl}
                   alt="Uploaded"
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '0.25rem',
-                    objectFit: 'cover',
-                    border: '1px solid #E5E7EB',
-                  }}
+                  style={styles.imageThumbnail}
                   onError={(e) => (e.target.style.display = 'none')}
                 />
                 <button
                   onClick={() => handleDeleteImage(row.id)}
-                  style={{
-                    padding: '0.25rem',
-                    backgroundColor: '#EF4444',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '0.25rem',
-                    fontSize: '0.7rem',
-                    cursor: 'pointer',
-                    lineHeight: 1,
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#DC2626')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#EF4444')}
+                  style={responsiveStyles.deleteImageButton}
                   title="Remove image"
                 >
                   ✕
@@ -470,230 +569,143 @@ const handleSubmit = useCallback(async () => {
   ], [attendanceData, achievedLessons, uploadedImages, handleAttendanceChange, handleAchievedChange, openImageModal, handleDeleteImage]);
 
   // ============================================
-  // STYLES
-  // ============================================
-
-  const pageContainerStyle = {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '1.5rem',
-  };
-
-  const headerStyle = {
-    fontSize: '1.75rem',
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: '1.5rem',
-    textAlign: 'center',
-  };
-
-  const plannedTopicStyle = {
-    padding: '1rem',
-    backgroundColor: '#EFF6FF',
-    borderRadius: '0.5rem',
-    borderLeft: '4px solid #3B82F6',
-    marginBottom: '1rem',
-  };
-
-  const actionBarStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '1rem',
-    marginBottom: '1rem',
-    padding: '1rem',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '0.5rem',
-  };
-
-  const bulkActionStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-  };
-
-  const submitContainerStyle = {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    marginTop: '1.5rem',
-  };
-
-  const submitButtonStyle = {
-    padding: '0.75rem 2rem',
-    backgroundColor: isSubmitting ? '#9CA3AF' : '#10B981',
-    color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '0.5rem',
-    fontSize: '1rem',
-    fontWeight: '600',
-    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-  };
-
-  const emptyStateStyle = {
-    padding: '3rem',
-    textAlign: 'center',
-    color: '#9CA3AF',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '0.5rem',
-  };
-
-  // ============================================
   // RENDER - Main Content
   // ============================================
 
   return (
-    <div style={pageContainerStyle}>
-      {/* Show content only if user is loaded */}
-      {!user ? null : (
-        <>
-      {/* Page Header */}
-      <h1 style={headerStyle}>📊 Session Progress</h1>
-
-      {/* Filter Bar */}
-      <FilterBar
-        showDate={true}
-        showSchool={true}
-        showClass={true}
-        showMonth={false}
-        preventFutureDates={true}
-        submitButtonText="🔍 Fetch Students"
-        showResetButton={true}
-        onFilter={handleFilter}
-      />
-
-      {/* Loading State */}
-      {isSearching && (
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <LoadingSpinner size="large" message="Fetching students..." />
-        </div>
-      )}
-
-      {/* Results Section */}
-      {!isSearching && hasSearched && students.length > 0 && (
-        <>
-          {/* Planned Topic */}
-          <div style={plannedTopicStyle}>
-            <strong style={{ color: '#1E40AF' }}>📚 Planned Lesson:</strong>{' '}
-            <span style={{ color: '#374151' }}>{plannedTopic}</span>
-          </div>
-
-          {/* Action Bar */}
-          <div style={actionBarStyle}>
-            <div style={bulkActionStyle}>
-              <button
-                onClick={handleMarkAllPresent}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#10B981',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.375rem',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10B981')}
-              >
-                ✓ Mark All Present
-              </button>
-            </div>
-
-            <ProgressIndicator
-              completed={progressStats.completed}
-              total={progressStats.total}
-              label="Progress:"
-              size="medium"
+    <div style={responsiveStyles.pageContainer}>
+      <div style={responsiveStyles.contentWrapper}>
+        {!user ? null : (
+          <>
+            {/* Page Header */}
+            <PageHeader
+              icon="📈"
+              title="Session Progress"
+              subtitle="Track daily student attendance and topics covered"
             />
-          </div>
 
-          {/* Data Table */}
-          <DataTable
-            data={paginatedStudents}
-            columns={columns}
-            loading={false}
-            emptyMessage="No students found"
-            striped={true}
-            hoverable={true}
-          />
+            {/* Filter Bar */}
+            <FilterBar
+              showDate={true}
+              showSchool={true}
+              showClass={true}
+              showMonth={false}
+              preventFutureDates={true}
+              submitButtonText="Fetch Students"
+              showResetButton={true}
+              onFilter={handleFilter}
+            />
 
-          {/* Pagination */}
-          <Pagination
-            currentPage={currentPage}
-            totalItems={students.length}
-            itemsPerPage={STUDENTS_PER_PAGE}
-            onPageChange={setCurrentPage}
-          />
+            {/* Loading State */}
+            {isSearching && (
+              <div style={styles.loadingContainer}>
+                <LoadingSpinner size="large" message="Fetching students..." />
+              </div>
+            )}
 
-          {/* Submit Button */}
-          <div style={submitContainerStyle}>
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              style={submitButtonStyle}
-              onMouseEnter={(e) => {
-                if (!isSubmitting) e.currentTarget.style.backgroundColor = '#059669';
-              }}
-              onMouseLeave={(e) => {
-                if (!isSubmitting) e.currentTarget.style.backgroundColor = '#10B981';
-              }}
-            >
-              {isSubmitting ? (
-                <>
-                  <LoadingSpinner size="tiny" />
-                  Saving...
-                </>
-              ) : (
-                <>✅ Save Progress</>
-              )}
-            </button>
-          </div>
-        </>
-      )}
+            {/* Results Section */}
+            {!isSearching && hasSearched && students.length > 0 && (
+              <>
+                {/* Planned Topic */}
+                <div style={responsiveStyles.plannedTopicCard}>
+                  <span style={responsiveStyles.plannedTopicLabel}>Planned Lesson: </span>
+                  <span style={responsiveStyles.plannedTopicText}>{plannedTopic}</span>
+                </div>
 
-      {/* Empty State */}
-      {!isSearching && hasSearched && students.length === 0 && (
-        <div style={emptyStateStyle}>
-          <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-            No students found for the selected criteria.
-          </p>
-          <p style={{ fontSize: '0.875rem' }}>
-            Try selecting a different date, school, or class.
-          </p>
-        </div>
-      )}
+                {/* Action Bar */}
+                <div style={responsiveStyles.actionBar}>
+                  <div style={styles.bulkActionContainer}>
+                    <button
+                      onClick={handleMarkAllPresent}
+                      style={responsiveStyles.markAllButton}
+                    >
+                      ✓ Mark All Present
+                    </button>
+                  </div>
 
-      {/* Initial State */}
-      {!hasSearched && !isSearching && (
-        <div style={emptyStateStyle}>
-          <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-            👆 Select date, school, and class above
-          </p>
-          <p style={{ fontSize: '0.875rem' }}>
-            Then click "Fetch Students" to load student data.
-          </p>
-        </div>
-      )}
+                  <ProgressIndicator
+                    completed={progressStats.completed}
+                    total={progressStats.total}
+                    label="Progress:"
+                    size={isMobile ? "small" : "medium"}
+                  />
+                </div>
 
-      {/* Image Upload Modal */}
-      <ImageUploadModal
-        isOpen={imageModalOpen}
-        onClose={closeImageModal}
-        studentName={selectedStudentForImage?.name || ''}
-        studentId={selectedStudentForImage?.id}
-        sessionDate={filters.date}
-        onUploadComplete={handleImageUploadComplete}
-        uploadHandler={handleImageUpload}
-      />
-      </>
-      )}
+                {/* Data Table */}
+                <DataTable
+                  data={paginatedStudents}
+                  columns={columns}
+                  loading={false}
+                  emptyMessage="No students found"
+                  striped={true}
+                  hoverable={true}
+                />
+
+                {/* Pagination */}
+                <Pagination
+                  currentPage={currentPage}
+                  totalItems={students.length}
+                  itemsPerPage={STUDENTS_PER_PAGE}
+                  onPageChange={setCurrentPage}
+                />
+
+                {/* Submit Button */}
+                <div style={responsiveStyles.submitContainer}>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    style={responsiveStyles.submitButton(isSubmitting)}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <LoadingSpinner size="tiny" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>Save Progress</>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Empty State */}
+            {!isSearching && hasSearched && students.length === 0 && (
+              <div style={responsiveStyles.emptyState}>
+                <p style={responsiveStyles.emptyStateTitle}>
+                  No students found for the selected criteria.
+                </p>
+                <p style={responsiveStyles.emptyStateText}>
+                  Try selecting a different date, school, or class.
+                </p>
+              </div>
+            )}
+
+            {/* Initial State */}
+            {!hasSearched && !isSearching && (
+              <div style={responsiveStyles.emptyState}>
+                <p style={responsiveStyles.emptyStateTitle}>
+                  Select date, school, and class above
+                </p>
+                <p style={responsiveStyles.emptyStateText}>
+                  Then click "Fetch Students" to load student data.
+                </p>
+              </div>
+            )}
+
+            {/* Image Upload Modal */}
+            <ImageUploadModal
+              isOpen={imageModalOpen}
+              onClose={closeImageModal}
+              studentName={selectedStudentForImage?.name || ''}
+              studentId={selectedStudentForImage?.id}
+              sessionDate={filters.date}
+              onUploadComplete={handleImageUploadComplete}
+              uploadHandler={handleImageUpload}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 };

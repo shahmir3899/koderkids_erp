@@ -63,6 +63,7 @@ export function useSalarySlip() {
   // Form state (consolidated)
   const isMounted = useRef(true);
   const prevTeacherIdRef = useRef(null);
+  const isLoadingHistoricalRef = useRef(false);
 
   // Cleanup effect
   useEffect(() => {
@@ -87,10 +88,16 @@ export function useSalarySlip() {
     teachers: false,
     profile: false,
     generating: false,
+    history: false,
+    saving: false,
   });
-  
+
   // Error state
   const [error, setError] = useState(null);
+
+  // Salary slip history state
+  const [salarySlipHistory, setSalarySlipHistory] = useState([]);
+  const [selectedHistorySlip, setSelectedHistorySlip] = useState(null);
 
   // ============================================
   // HELPERS
@@ -143,6 +150,12 @@ export function useSalarySlip() {
     setEarnings([]);
     setDeductions([]);
     prevTeacherIdRef.current = null;
+    return;
+  }
+
+  // Skip fetch if we're loading historical data (data already loaded from history)
+  if (isLoadingHistoricalRef.current) {
+    isLoadingHistoricalRef.current = false;
     return;
   }
 
@@ -318,10 +331,13 @@ export function useSalarySlip() {
       PDFGenerator.downloadPDF(pdfBlob, filename);
 
       toast.success('Salary slip generated successfully!');
+
+      // Auto-save slip after successful PDF generation
+      await saveSalarySlipToDb();
     } catch (error) {
       // ✅ CHECK: Don't show errors if unmounted
       if (!isMounted.current) return;
-      
+
       console.error('PDF generation error:', error);
       toast.error(`Failed to generate salary slip: ${error.message}`);
     } finally {
@@ -331,6 +347,176 @@ export function useSalarySlip() {
       }
     }
   }, [formData, earnings, deductions, calculations, validateForm]);
+
+  // ============================================
+  // SALARY SLIP HISTORY FUNCTIONS
+  // ============================================
+
+  /**
+   * Fetch salary slip history from API
+   * @param {Object} filters - Optional filters { teacher_id }
+   */
+  const fetchSalarySlipHistory = useCallback(async (filters = {}) => {
+    if (!isMounted.current) return;
+
+    setLoading(prev => ({ ...prev, history: true }));
+    try {
+      const data = await salaryService.fetchSalarySlips(filters);
+      if (!isMounted.current) return;
+      setSalarySlipHistory(data);
+    } catch (err) {
+      if (!isMounted.current) return;
+      console.error('Error fetching salary slip history:', err);
+      toast.error('Failed to load salary slip history');
+    } finally {
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, history: false }));
+      }
+    }
+  }, []);
+
+  /**
+   * Save current salary slip to database
+   */
+  const saveSalarySlipToDb = useCallback(async () => {
+    if (!isMounted.current || !selectedTeacherId) return;
+
+    setLoading(prev => ({ ...prev, saving: true }));
+    try {
+      // Find teacher to get employee_id
+      const teacher = teachers.find(t => String(t.id) === String(selectedTeacherId));
+
+      const slipData = {
+        teacher: parseInt(selectedTeacherId),
+        from_date: formData.fromDate,
+        till_date: formData.tillDate,
+        payment_date: formData.paymentDate,
+        company_name: formData.companyName,
+        employee_name: formData.name,
+        employee_id_snapshot: teacher?.employee_id || '',
+        title: formData.title,
+        schools: formData.schools,
+        date_of_joining: formData.dateOfJoining || null,
+        bank_name: formData.bankName,
+        account_number: formData.accountNumber,
+        basic_salary: parseFloat(formData.basicSalary) || 0,
+        no_of_days: calculations.noOfDays,
+        normalized_days: calculations.normalizedDays,
+        prorated_salary: calculations.proratedSalary,
+        total_earnings: calculations.totalEarning,
+        total_deductions: calculations.totalDeduction,
+        net_pay: calculations.netPay,
+        earnings_snapshot: earnings.map(e => ({ category: e.category, amount: parseFloat(e.amount) || 0 })),
+        deductions_snapshot: deductions.map(d => ({ category: d.category, amount: parseFloat(d.amount) || 0 })),
+        line_spacing: formData.lineSpacing,
+      };
+
+      await salaryService.saveSalarySlip(slipData);
+      if (!isMounted.current) return;
+      toast.success('Salary slip saved to history');
+
+      // Refresh history
+      fetchSalarySlipHistory();
+    } catch (err) {
+      if (!isMounted.current) return;
+      console.error('Error saving salary slip:', err);
+      // Don't show error toast - slip was generated successfully, just failed to save
+    } finally {
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, saving: false }));
+      }
+    }
+  }, [selectedTeacherId, formData, earnings, deductions, calculations, teachers, fetchSalarySlipHistory]);
+
+  /**
+   * Load a historical salary slip into the form
+   * @param {number} slipId - ID of the salary slip to load
+   */
+  const loadHistoricalSlip = useCallback(async (slipId) => {
+    if (!isMounted.current) return;
+
+    setLoading(prev => ({ ...prev, profile: true }));
+    try {
+      const slip = await salaryService.fetchSalarySlipById(slipId);
+      if (!isMounted.current) return;
+
+      setSelectedHistorySlip(slip);
+
+      // Update form with historical data
+      setFormData(prev => ({
+        ...prev,
+        companyName: slip.company_name,
+        name: slip.employee_name,
+        title: slip.title || '',
+        schools: slip.schools || '',
+        dateOfJoining: slip.date_of_joining || '',
+        basicSalary: parseFloat(slip.basic_salary) || 0,
+        bankName: slip.bank_name || '',
+        accountNumber: slip.account_number || '',
+        fromDate: slip.from_date,
+        tillDate: slip.till_date,
+        paymentDate: slip.payment_date,
+        lineSpacing: slip.line_spacing || '1.5',
+      }));
+
+      // Update earnings and deductions from snapshot
+      setEarnings(slip.earnings_snapshot || []);
+      setDeductions(slip.deductions_snapshot || []);
+
+      // Update selected teacher - set flags FIRST to prevent useEffect from re-fetching
+      isLoadingHistoricalRef.current = true;
+      prevTeacherIdRef.current = String(slip.teacher);
+      setSelectedTeacherId(String(slip.teacher));
+
+      toast.info(`Loaded slip from ${slip.period_display}`);
+    } catch (err) {
+      if (!isMounted.current) return;
+      console.error('Error loading historical slip:', err);
+      toast.error('Failed to load salary slip');
+    } finally {
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, profile: false }));
+      }
+    }
+  }, []);
+
+  /**
+   * Delete a salary slip from history
+   * @param {number} slipId - ID of the salary slip to delete
+   */
+  const deleteHistoricalSlip = useCallback(async (slipId) => {
+    if (!isMounted.current) return;
+
+    try {
+      await salaryService.deleteSalarySlip(slipId);
+      if (!isMounted.current) return;
+      toast.success('Salary slip deleted');
+
+      // Refresh history
+      fetchSalarySlipHistory();
+
+      // Clear selected if it was the deleted one
+      if (selectedHistorySlip?.id === slipId) {
+        setSelectedHistorySlip(null);
+      }
+    } catch (err) {
+      if (!isMounted.current) return;
+      console.error('Error deleting salary slip:', err);
+      toast.error('Failed to delete salary slip');
+    }
+  }, [fetchSalarySlipHistory, selectedHistorySlip]);
+
+  /**
+   * Clear loaded historical slip (start fresh)
+   */
+  const clearHistoricalSlip = useCallback(() => {
+    setSelectedHistorySlip(null);
+    setSelectedTeacherId('');
+    prevTeacherIdRef.current = null;
+    setFormData(INITIAL_FORM_STATE);
+    setEarnings([]);
+    setDeductions([]);
+  }, []);
 
   // ============================================
   // RETURN
@@ -346,7 +532,11 @@ export function useSalarySlip() {
     loading,
     error,
     calculations,
-    
+
+    // History State
+    salarySlipHistory,
+    selectedHistorySlip,
+
     // Actions
     updateFormField,
     setSelectedTeacherId,
@@ -354,6 +544,12 @@ export function useSalarySlip() {
     earningsActions,
     deductionsActions,
     validateForm,
-    downloadPDF,  // ✅ Now properly exported!
+    downloadPDF,
+
+    // History Actions
+    fetchSalarySlipHistory,
+    loadHistoricalSlip,
+    deleteHistoricalSlip,
+    clearHistoricalSlip,
   };
 }

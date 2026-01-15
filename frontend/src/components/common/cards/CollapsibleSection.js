@@ -91,7 +91,7 @@ export const CollapsibleSection = ({
   };
 
   const titleStyle = {
-    fontSize: FONT_SIZES['2xl'],
+    fontSize: FONT_SIZES.lg,  // 18px - appropriate for section headers
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.text.white,
     margin: 0,

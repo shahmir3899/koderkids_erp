@@ -2,14 +2,32 @@
 // ACTIVITIES PAGE - CRM Activity Management
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+  LAYOUT,
+  MIXINS,
+  TOUCH_TARGETS,
+} from '../../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../../hooks/useResponsive';
 
 // Common Components
 import { DataTable } from '../../components/common/tables/DataTable';
 import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { LoadingSpinner } from '../../components/common/ui/LoadingSpinner';
+import { PageHeader } from '../../components/common/PageHeader';
 
 // CRM Components
 import { CreateActivityModal } from '../../components/crm/CreateActivityModal';
@@ -18,8 +36,111 @@ import { EditActivityModal } from '../../components/crm/EditActivityModal';
 // CRM Services
 import { fetchActivities, deleteActivity, completeActivity } from '../../api/services/crmService';
 
+// ============================================
+// STAT CARD COMPONENT WITH HOVER
+// ============================================
+const StatCard = ({ label, value, valueColor = null, icon = null, isMobile = false }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div
+      style={{
+        ...MIXINS.glassmorphicCard,
+        padding: isMobile ? SPACING.md : SPACING.xl,
+        borderRadius: BORDER_RADIUS.xl,
+        textAlign: 'center',
+        transition: `all ${TRANSITIONS.normal}`,
+        transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+        boxShadow: isHovered ? '0 12px 40px rgba(0, 0, 0, 0.25)' : '0 4px 24px rgba(0, 0, 0, 0.12)',
+        background: isHovered ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.12)',
+        cursor: 'default',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Icon */}
+      {icon && (
+        <div style={{
+          fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+          marginBottom: SPACING.sm,
+          opacity: isHovered ? 1 : 0.85,
+          transition: `all ${TRANSITIONS.normal}`,
+          transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+        }}>
+          {icon}
+        </div>
+      )}
+      <p style={{
+        fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+        fontWeight: FONT_WEIGHTS.bold,
+        color: valueColor || COLORS.text.white,
+        margin: `0 0 ${SPACING.xs} 0`,
+        transition: `all ${TRANSITIONS.normal}`,
+        transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+      }}>{value}</p>
+      <p style={{
+        fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+        color: COLORS.text.whiteMedium,
+        margin: 0,
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        fontWeight: FONT_WEIGHTS.semibold,
+      }}>{label}</p>
+    </div>
+  );
+};
+
+// ============================================
+// ACTION BUTTON COMPONENT WITH HOVER
+// ============================================
+const ActionButton = ({ onClick, variant = 'primary', title, children, isMobile = false }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const getColors = () => {
+    switch (variant) {
+      case 'primary':
+        return { bg: 'rgba(59, 130, 246, 0.2)', hoverBg: 'rgba(59, 130, 246, 0.35)', text: '#60A5FA', shadow: 'rgba(59, 130, 246, 0.3)' };
+      case 'success':
+        return { bg: 'rgba(16, 185, 129, 0.2)', hoverBg: 'rgba(16, 185, 129, 0.35)', text: '#34D399', shadow: 'rgba(16, 185, 129, 0.3)' };
+      case 'danger':
+        return { bg: 'rgba(239, 68, 68, 0.2)', hoverBg: 'rgba(239, 68, 68, 0.35)', text: '#F87171', shadow: 'rgba(239, 68, 68, 0.3)' };
+      default:
+        return { bg: 'rgba(255, 255, 255, 0.1)', hoverBg: 'rgba(255, 255, 255, 0.2)', text: COLORS.text.white, shadow: 'rgba(255, 255, 255, 0.1)' };
+    }
+  };
+
+  const colors = getColors();
+
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.md}`,
+        fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.sm,
+        fontWeight: FONT_WEIGHTS.medium,
+        backgroundColor: isHovered ? colors.hoverBg : colors.bg,
+        color: colors.text,
+        borderRadius: BORDER_RADIUS.md,
+        border: 'none',
+        cursor: 'pointer',
+        transition: `all ${TRANSITIONS.normal}`,
+        transform: isHovered ? 'translateY(-1px)' : 'translateY(0)',
+        boxShadow: isHovered ? `0 4px 12px ${colors.shadow}` : 'none',
+        minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+        minWidth: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+      }}
+    >
+      {children}
+    </button>
+  );
+};
+
 function ActivitiesPage() {
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useResponsive();
 
   // State
   const [activities, setActivities] = useState([]);
@@ -33,6 +154,122 @@ function ActivitiesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
+
+  // ============================================
+  // RESPONSIVE STYLES HELPER
+  // ============================================
+  const getResponsiveStyles = useCallback(() => ({
+    pageContainer: {
+      padding: isMobile ? SPACING.md : SPACING.xl,
+      background: COLORS.background.gradient,
+      minHeight: '100vh',
+    },
+    headerSection: {
+      marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: isMobile ? 'flex-start' : 'center',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: isMobile ? SPACING.md : 0,
+    },
+    pageTitle: {
+      fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+      fontWeight: FONT_WEIGHTS.bold,
+      color: COLORS.text.white,
+      marginBottom: SPACING.sm,
+    },
+    primaryButton: {
+      padding: `${SPACING.sm} ${SPACING.lg}`,
+      background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+      color: COLORS.text.white,
+      borderRadius: BORDER_RADIUS.lg,
+      border: 'none',
+      fontSize: FONT_SIZES.base,
+      fontWeight: FONT_WEIGHTS.medium,
+      cursor: 'pointer',
+      transition: TRANSITIONS.normal,
+      boxShadow: '0 4px 15px rgba(176, 97, 206, 0.4)',
+      minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+      width: isMobile ? '100%' : 'auto',
+    },
+    statsGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile
+        ? 'repeat(2, 1fr)'
+        : 'repeat(auto-fit, minmax(180px, 1fr))',
+      gap: isMobile ? SPACING.sm : SPACING.lg,
+      marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    },
+    filtersContainer: {
+      ...MIXINS.glassmorphicCard,
+      padding: isMobile ? SPACING.md : SPACING.lg,
+      borderRadius: BORDER_RADIUS.lg,
+      marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    },
+    filtersRow: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: isMobile ? SPACING.md : SPACING.lg,
+      alignItems: 'flex-end',
+      flexDirection: isMobile ? 'column' : 'row',
+    },
+    filterField: {
+      flex: 1,
+      minWidth: isMobile ? '100%' : '200px',
+      width: isMobile ? '100%' : 'auto',
+    },
+    filterFieldSmall: {
+      minWidth: isMobile ? '100%' : '150px',
+      width: isMobile ? '100%' : 'auto',
+    },
+    input: {
+      width: '100%',
+      padding: `${SPACING.sm} ${SPACING.lg}`,
+      ...MIXINS.glassmorphicSubtle,
+      borderRadius: BORDER_RADIUS.lg,
+      fontSize: '16px', // Prevents iOS zoom
+      outline: 'none',
+      color: COLORS.text.white,
+      minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+    },
+    select: {
+      width: '100%',
+      padding: `${SPACING.sm} ${SPACING.lg}`,
+      ...MIXINS.glassmorphicSelect,
+      borderRadius: BORDER_RADIUS.lg,
+      fontSize: '16px', // Prevents iOS zoom
+      outline: 'none',
+      color: COLORS.text.white,
+      cursor: 'pointer',
+      minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+    },
+    option: {
+      ...MIXINS.selectOption,
+    },
+    tableContainer: {
+      ...MIXINS.glassmorphicCard,
+      borderRadius: BORDER_RADIUS.lg,
+      overflow: 'hidden',
+      overflowX: 'auto',
+      WebkitOverflowScrolling: 'touch', // iOS smooth scrolling
+    },
+    activeFilters: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: SPACING.sm,
+      fontSize: FONT_SIZES.sm,
+      color: COLORS.text.whiteMedium,
+      marginTop: SPACING.lg,
+      flexWrap: 'wrap',
+    },
+    actionsContainer: {
+      display: 'flex',
+      gap: isMobile ? SPACING.xs : SPACING.sm,
+      flexWrap: 'wrap',
+    },
+  }), [isMobile]);
+
+  const responsiveStyles = getResponsiveStyles();
 
   // Load activities
   const loadActivities = useCallback(async () => {
@@ -130,222 +367,240 @@ function ActivitiesPage() {
     }
   };
 
-  // Table columns
-  const tableColumns = [
-    {
-      key: 'activity_type',
-      label: 'Type',
-      render: (value, row) => (
-        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-          row?.activity_type === 'Call' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-        }`}>
-          {row?.activity_type || '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'subject',
-      label: 'Subject',
-      render: (value, row) => row?.subject || '—',
-    },
-    {
-      key: 'lead_name',
-      label: 'Lead',
-      render: (value, row) => row?.lead_name || '—',
-    },
-    {
+  // Table columns - responsive
+  const tableColumns = useMemo(() => {
+    const baseColumns = [
+      {
+        key: 'activity_type',
+        label: 'Type',
+        render: (value, row) => (
+          <div>
+            <span style={styles.activityTypeBadge(row?.activity_type)}>
+              {row?.activity_type || '—'}
+            </span>
+            {/* Show subject inline on mobile */}
+            {isMobile && row?.subject && (
+              <div style={{ marginTop: SPACING.xs, fontSize: FONT_SIZES.sm, color: COLORS.text.white }}>
+                {row.subject}
+              </div>
+            )}
+            {/* Show lead name on mobile */}
+            {isMobile && row?.lead_name && (
+              <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteMedium, marginTop: '2px' }}>
+                Lead: {row.lead_name}
+              </div>
+            )}
+          </div>
+        ),
+      },
+    ];
+
+    // Only show these columns on non-mobile
+    if (!isMobile) {
+      baseColumns.push(
+        {
+          key: 'subject',
+          label: 'Subject',
+          render: (value, row) => row?.subject || '—',
+        },
+        {
+          key: 'lead_name',
+          label: 'Lead',
+          render: (value, row) => row?.lead_name || '—',
+        }
+      );
+    }
+
+    baseColumns.push({
       key: 'scheduled_date',
-      label: 'Scheduled',
+      label: isMobile ? 'When' : 'Scheduled',
       render: (value, row) => row?.scheduled_date
-        ? new Date(row.scheduled_date).toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+        ? isMobile
+          ? new Date(row.scheduled_date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+            })
+          : new Date(row.scheduled_date).toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
         : '—',
-    },
-    {
+    });
+
+    baseColumns.push({
       key: 'status',
       label: 'Status',
-      render: (value, row) => {
-        const statusColors = {
-          'Scheduled': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-          'Completed': 'bg-green-100 text-green-800 border-green-200',
-          'Cancelled': 'bg-red-100 text-red-800 border-red-200',
-        };
-        return (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-            statusColors[row?.status] || 'bg-gray-100 text-gray-800 border-gray-200'
-          }`}>
-            {row?.status || '—'}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'assigned_to_name',
-      label: 'Assigned To',
-      render: (value, row) => row?.assigned_to_name || 'Unassigned',
-    },
-    {
+      render: (value, row) => (
+        <span style={styles.statusBadge(row?.status)}>
+          {row?.status || '—'}
+        </span>
+      ),
+    });
+
+    // Hide assigned to on mobile
+    if (!isMobile) {
+      baseColumns.push({
+        key: 'assigned_to_name',
+        label: 'Assigned To',
+        render: (value, row) => row?.assigned_to_name || 'Unassigned',
+      });
+    }
+
+    baseColumns.push({
       key: 'actions',
       label: 'Actions',
       render: (value, row) => (
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleEdit(row)}
-            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-            title="Edit activity"
-          >
-            Edit
-          </button>
+        <div style={responsiveStyles.actionsContainer}>
+          <ActionButton onClick={() => handleEdit(row)} variant="primary" title="Edit activity" isMobile={isMobile}>
+            {isMobile ? '✏️' : 'Edit'}
+          </ActionButton>
           {row.status === 'Scheduled' && (
-            <button
-              onClick={() => handleComplete(row.id)}
-              className="text-green-600 hover:text-green-800 font-medium text-sm"
-              title="Mark as completed"
-            >
-              Complete
-            </button>
+            <ActionButton onClick={() => handleComplete(row.id)} variant="success" title="Mark as completed" isMobile={isMobile}>
+              {isMobile ? '✅' : 'Complete'}
+            </ActionButton>
           )}
-          <button
-            onClick={() => handleDelete(row.id)}
-            className="text-red-600 hover:text-red-800 font-medium text-sm"
-            title="Delete activity"
-          >
-            Delete
-          </button>
+          <ActionButton onClick={() => handleDelete(row.id)} variant="danger" title="Delete activity" isMobile={isMobile}>
+            {isMobile ? '🗑️' : 'Delete'}
+          </ActionButton>
         </div>
       ),
-    },
-  ];
+    });
+
+    return baseColumns;
+  }, [isMobile, responsiveStyles]);
 
   // Render
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div style={responsiveStyles.pageContainer}>
       {/* Header */}
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Activities</h1>
-          <p className="text-gray-600">Manage calls and meetings with leads</p>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-        >
-          + Add Activity
-        </button>
-      </div>
+      <PageHeader
+        icon="📅"
+        title="Activities"
+        subtitle="Manage calls and meetings with leads"
+        actions={
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={responsiveStyles.primaryButton}
+          >
+            + Add Activity
+          </button>
+        }
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Total Activities</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Scheduled</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats.scheduled}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Completed</p>
-          <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Cancelled</p>
-          <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
-        </div>
+      <div style={responsiveStyles.statsGrid}>
+        <StatCard label="Total" value={stats.total} icon="📊" isMobile={isMobile} />
+        <StatCard label="Scheduled" value={stats.scheduled} icon="⏰" valueColor={COLORS.status.warning} isMobile={isMobile} />
+        <StatCard label="Completed" value={stats.completed} icon="✅" valueColor={COLORS.status.success} isMobile={isMobile} />
+        <StatCard label="Cancelled" value={stats.cancelled} icon="❌" valueColor={COLORS.status.error} isMobile={isMobile} />
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
-        <div className="flex flex-wrap gap-4 items-end">
+      <div style={responsiveStyles.filtersContainer}>
+        <div style={responsiveStyles.filtersRow}>
           {/* Search */}
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+          <div style={responsiveStyles.filterField}>
+            <label style={styles.filterLabel}>Search</label>
             <input
               type="text"
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
               placeholder="Search by subject or lead..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              style={responsiveStyles.input}
             />
           </div>
 
           {/* Type Filter */}
-          <div className="min-w-[150px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <div style={responsiveStyles.filterFieldSmall}>
+            <label style={styles.filterLabel}>Type</label>
             <select
               value={filters.type}
               onChange={(e) => handleFilterChange('type', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              style={responsiveStyles.select}
             >
-              <option value="">All Types</option>
-              <option value="Call">Call</option>
-              <option value="Meeting">Meeting</option>
+              <option value="" style={responsiveStyles.option}>All Types</option>
+              <option value="Call" style={responsiveStyles.option}>Call</option>
+              <option value="Meeting" style={responsiveStyles.option}>Meeting</option>
             </select>
           </div>
 
           {/* Status Filter */}
-          <div className="min-w-[150px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <div style={responsiveStyles.filterFieldSmall}>
+            <label style={styles.filterLabel}>Status</label>
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              style={responsiveStyles.select}
             >
-              <option value="">All Statuses</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
+              <option value="" style={responsiveStyles.option}>All Statuses</option>
+              <option value="Scheduled" style={responsiveStyles.option}>Scheduled</option>
+              <option value="Completed" style={responsiveStyles.option}>Completed</option>
+              <option value="Cancelled" style={responsiveStyles.option}>Cancelled</option>
             </select>
           </div>
         </div>
 
         {/* Active Filters Display */}
         {(filters.type || filters.status || filters.search) && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 mt-4">
-            <span>Active filters:</span>
+          <div style={responsiveStyles.activeFilters}>
+            <span>{isMobile ? 'Filters:' : 'Active filters:'}</span>
             {filters.type && (
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                Type: {filters.type}
+              <span style={styles.filterTag('blue')}>
+                {isMobile ? filters.type : `Type: ${filters.type}`}
                 <button
                   onClick={() => handleFilterChange('type', '')}
-                  className="ml-1 text-blue-600 hover:text-blue-800"
+                  style={{
+                    ...styles.filterTagClose,
+                    minWidth: isMobile ? '24px' : 'auto',
+                    minHeight: isMobile ? '24px' : 'auto',
+                  }}
                 >
-                  ×
+                  x
                 </button>
               </span>
             )}
             {filters.status && (
-              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded">
-                Status: {filters.status}
+              <span style={styles.filterTag('purple')}>
+                {isMobile ? filters.status : `Status: ${filters.status}`}
                 <button
                   onClick={() => handleFilterChange('status', '')}
-                  className="ml-1 text-purple-600 hover:text-purple-800"
+                  style={{
+                    ...styles.filterTagClose,
+                    minWidth: isMobile ? '24px' : 'auto',
+                    minHeight: isMobile ? '24px' : 'auto',
+                  }}
                 >
-                  ×
+                  x
                 </button>
               </span>
             )}
             {filters.search && (
-              <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded">
-                Search: "{filters.search}"
+              <span style={styles.filterTag('gray')}>
+                {isMobile ? `"${filters.search}"` : `Search: "${filters.search}"`}
                 <button
                   onClick={() => handleFilterChange('search', '')}
-                  className="ml-1 text-gray-600 hover:text-gray-800"
+                  style={{
+                    ...styles.filterTagClose,
+                    minWidth: isMobile ? '24px' : 'auto',
+                    minHeight: isMobile ? '24px' : 'auto',
+                  }}
                 >
-                  ×
+                  x
                 </button>
               </span>
             )}
             <button
               onClick={() => setFilters({ type: '', status: '', search: '' })}
-              className="ml-2 text-red-600 hover:text-red-800 font-medium"
+              style={{
+                ...styles.clearAllButton,
+                minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+                padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.sm}`,
+              }}
             >
-              Clear all
+              Clear
             </button>
           </div>
         )}
@@ -356,17 +611,16 @@ function ActivitiesPage() {
 
       {/* Data Table */}
       {loading.fetch ? (
-        <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+        <div style={styles.loadingContainer}>
           <LoadingSpinner message="Loading activities..." />
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div style={responsiveStyles.tableContainer}>
           <DataTable
             data={filteredActivities}
             columns={tableColumns}
             loading={loading.fetch}
             emptyMessage="No activities found"
-            className="rounded-lg"
           />
         </div>
       )}
@@ -393,5 +647,213 @@ function ActivitiesPage() {
     </div>
   );
 }
+
+// ============================================
+// STYLES
+// ============================================
+const ACTIVITY_TYPE_COLORS = {
+  Call: { bg: 'rgba(59, 130, 246, 0.35)', text: '#FFFFFF', border: 'rgba(59, 130, 246, 0.5)' },
+  Meeting: { bg: 'rgba(139, 92, 246, 0.35)', text: '#FFFFFF', border: 'rgba(139, 92, 246, 0.5)' },
+};
+
+const STATUS_COLORS = {
+  Scheduled: { bg: 'rgba(245, 158, 11, 0.2)', text: '#FBBF24', border: 'rgba(245, 158, 11, 0.3)' },
+  Completed: { bg: 'rgba(16, 185, 129, 0.2)', text: '#34D399', border: 'rgba(16, 185, 129, 0.3)' },
+  Cancelled: { bg: 'rgba(239, 68, 68, 0.2)', text: '#F87171', border: 'rgba(239, 68, 68, 0.3)' },
+  default: { bg: 'rgba(255, 255, 255, 0.1)', text: COLORS.text.whiteMedium, border: 'rgba(255, 255, 255, 0.2)' },
+};
+
+const styles = {
+  // Page Layout
+  pageContainer: {
+    padding: SPACING.xl,
+    background: COLORS.background.gradient,
+    minHeight: '100vh',
+  },
+  headerSection: {
+    marginBottom: SPACING.xl,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pageTitle: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.sm,
+  },
+  pageSubtitle: {
+    fontSize: FONT_SIZES.base,
+    color: COLORS.text.whiteMedium,
+  },
+  primaryButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+    color: COLORS.text.white,
+    borderRadius: BORDER_RADIUS.lg,
+    border: 'none',
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+    boxShadow: '0 4px 15px rgba(176, 97, 206, 0.4)',
+  },
+
+  // Stats Grid
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+
+  // Filters Section
+  filtersContainer: {
+    ...MIXINS.glassmorphicCard,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.xl,
+  },
+  filtersRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SPACING.lg,
+    alignItems: 'flex-end',
+  },
+  filterField: {
+    flex: 1,
+    minWidth: '200px',
+  },
+  filterFieldSmall: {
+    minWidth: '150px',
+  },
+  filterLabel: {
+    display: 'block',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.whiteMedium,
+    marginBottom: SPACING.xs,
+  },
+  input: {
+    width: '100%',
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.base,
+    outline: 'none',
+    color: COLORS.text.white,
+  },
+  select: {
+    width: '100%',
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    ...MIXINS.glassmorphicSelect,
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.base,
+    outline: 'none',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+  },
+  option: {
+    ...MIXINS.selectOption,
+  },
+
+  // Active Filters
+  activeFilters: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
+    marginTop: SPACING.lg,
+    flexWrap: 'wrap',
+  },
+  filterTag: (color) => {
+    const colorMap = {
+      blue: { bg: 'rgba(59, 130, 246, 0.2)', text: '#60A5FA', border: 'rgba(59, 130, 246, 0.3)' },
+      purple: { bg: 'rgba(139, 92, 246, 0.2)', text: '#A78BFA', border: 'rgba(139, 92, 246, 0.3)' },
+      gray: { bg: 'rgba(255, 255, 255, 0.1)', text: COLORS.text.white, border: 'rgba(255, 255, 255, 0.2)' },
+    };
+    const colorScheme = colorMap[color] || colorMap.gray;
+    return {
+      padding: `${SPACING.xs} ${SPACING.sm}`,
+      backgroundColor: colorScheme.bg,
+      color: colorScheme.text,
+      borderRadius: BORDER_RADIUS.md,
+      border: `1px solid ${colorScheme.border}`,
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: SPACING.xs,
+    };
+  },
+  filterTagClose: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    marginLeft: SPACING.xs,
+    fontSize: FONT_SIZES.sm,
+    color: 'inherit',
+    opacity: 0.8,
+    transition: TRANSITIONS.fast,
+  },
+  clearAllButton: {
+    marginLeft: SPACING.sm,
+    color: '#F87171',
+    fontWeight: FONT_WEIGHTS.medium,
+    background: 'rgba(239, 68, 68, 0.1)',
+    border: '1px solid rgba(239, 68, 68, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+    transition: TRANSITIONS.normal,
+  },
+
+  // Table
+  tableContainer: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+  },
+  loadingContainer: {
+    ...MIXINS.glassmorphicCard,
+    padding: SPACING['2xl'],
+    borderRadius: BORDER_RADIUS.lg,
+  },
+
+  // Table Cell Styles
+  activityTypeBadge: (type) => {
+    const colorScheme = ACTIVITY_TYPE_COLORS[type] || ACTIVITY_TYPE_COLORS.Call;
+    return {
+      padding: `${SPACING.xs} ${SPACING.sm}`,
+      borderRadius: BORDER_RADIUS.md,
+      fontSize: FONT_SIZES.xs,
+      fontWeight: FONT_WEIGHTS.semibold,
+      backgroundColor: colorScheme.bg,
+      color: colorScheme.text,
+      border: `1px solid ${colorScheme.border}`,
+    };
+  },
+  statusBadge: (status) => {
+    const colorScheme = STATUS_COLORS[status] || STATUS_COLORS.default;
+    return {
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: `${SPACING.xs} ${SPACING.sm}`,
+      borderRadius: BORDER_RADIUS.full,
+      fontSize: FONT_SIZES.xs,
+      fontWeight: FONT_WEIGHTS.semibold,
+      backgroundColor: colorScheme.bg,
+      color: colorScheme.text,
+      border: `1px solid ${colorScheme.border}`,
+    };
+  },
+
+  // Action Links
+  actionsContainer: {
+    display: 'flex',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+};
 
 export default ActivitiesPage;

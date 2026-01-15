@@ -10,10 +10,28 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+  TRANSITIONS,
+  LAYOUT,
+  MIXINS,
+  TOUCH_TARGETS,
+} from '../../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../../hooks/useResponsive';
+
 // Common Components
 import { DataTable } from '../../components/common/tables/DataTable';
 import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { ConfirmationModal } from '../../components/common/modals/ConfirmationModal';
+import { PageHeader } from '../../components/common/PageHeader';
 
 // CRM Components
 import { LeadStatusBadge } from '../../components/crm/LeadStatusBadge';
@@ -25,8 +43,201 @@ import { EditLeadModal } from '../../components/crm/EditLeadModal';
 import { fetchLeads, deleteLead } from '../../api/services/crmService';
 import { LEAD_STATUS, LEAD_SOURCES } from '../../utils/constants';
 
+// ============================================
+// STAT CARD COMPONENT WITH HOVER
+// ============================================
+const StatCard = ({ label, value, color = 'blue', isMobile = false }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const colorScheme = STAT_CARD_COLORS[color] || STAT_CARD_COLORS.blue;
+
+  return (
+    <div
+      style={{
+        padding: isMobile ? SPACING.md : SPACING.xl,
+        ...MIXINS.glassmorphicCard,
+        borderRadius: BORDER_RADIUS.xl,
+        borderLeft: `4px solid ${colorScheme.border}`,
+        textAlign: 'center',
+        transition: `all ${TRANSITIONS.normal}`,
+        transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+        boxShadow: isHovered ? '0 12px 40px rgba(0, 0, 0, 0.25)' : '0 4px 24px rgba(0, 0, 0, 0.12)',
+        background: isHovered ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.12)',
+        cursor: 'default',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div style={{
+        width: isMobile ? '36px' : '44px',
+        height: isMobile ? '36px' : '44px',
+        borderRadius: BORDER_RADIUS.full,
+        backgroundColor: `${colorScheme.border}20`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto',
+        marginBottom: isMobile ? SPACING.sm : SPACING.md,
+        transition: `all ${TRANSITIONS.normal}`,
+        transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+      }}>
+        <span style={{ fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg, color: colorScheme.border }}>
+          {color === 'blue' ? '📊' : color === 'green' ? '🆕' : color === 'yellow' ? '📞' : color === 'purple' ? '⭐' : '✅'}
+        </span>
+      </div>
+      <p style={{
+        fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+        fontWeight: FONT_WEIGHTS.bold,
+        color: COLORS.text.white,
+        margin: `0 0 ${SPACING.xs} 0`,
+      }}>{value}</p>
+      <h3 style={{
+        fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+        fontWeight: FONT_WEIGHTS.semibold,
+        color: COLORS.text.whiteMedium,
+        margin: 0,
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+      }}>{label}</h3>
+    </div>
+  );
+};
+
+// ============================================
+// STAT CARD COLORS
+// ============================================
+const STAT_CARD_COLORS = {
+  blue: { bg: 'rgba(59, 130, 246, 0.15)', border: '#3B82F6', text: '#60A5FA' },
+  green: { bg: 'rgba(16, 185, 129, 0.15)', border: '#10B981', text: '#34D399' },
+  yellow: { bg: 'rgba(245, 158, 11, 0.15)', border: '#F59E0B', text: '#FBBF24' },
+  purple: { bg: 'rgba(139, 92, 246, 0.15)', border: '#8B5CF6', text: '#A78BFA' },
+  indigo: { bg: 'rgba(99, 102, 241, 0.15)', border: '#6366F1', text: '#818CF8' },
+};
+
+// ============================================
+// ACTION BUTTON COLORS (solid for table actions)
+// ============================================
+const ACTION_BUTTON_COLORS = {
+  primary: { bg: '#3B82F6', hoverBg: '#2563EB', text: '#FFFFFF' },
+  secondary: { bg: '#6B7280', hoverBg: '#4B5563', text: '#FFFFFF' },
+  purple: { bg: '#8B5CF6', hoverBg: '#7C3AED', text: '#FFFFFF' },
+  danger: { bg: '#EF4444', hoverBg: '#DC2626', text: '#FFFFFF' },
+};
+
 function LeadsListPage() {
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useResponsive();
+
+  // ============================================
+  // RESPONSIVE STYLES HELPER
+  // ============================================
+  const getResponsiveStyles = useCallback(() => ({
+    pageContainer: {
+      padding: isMobile ? SPACING.md : SPACING.xl,
+      maxWidth: LAYOUT.maxWidth.lg,
+      margin: '0 auto',
+      minHeight: '100vh',
+      background: COLORS.background.gradient,
+    },
+    pageTitle: {
+      fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+      fontWeight: FONT_WEIGHTS.bold,
+      color: COLORS.text.white,
+      marginBottom: SPACING.sm,
+    },
+    statsGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile
+        ? 'repeat(2, 1fr)'
+        : isTablet
+          ? 'repeat(3, 1fr)'
+          : 'repeat(auto-fit, minmax(160px, 1fr))',
+      gap: isMobile ? SPACING.sm : SPACING.lg,
+      marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    },
+    filtersGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
+      gap: isMobile ? SPACING.md : SPACING.lg,
+      marginBottom: SPACING.lg,
+    },
+    input: {
+      padding: `${SPACING.sm} ${SPACING.lg}`,
+      ...MIXINS.glassmorphicSubtle,
+      borderRadius: BORDER_RADIUS.lg,
+      fontSize: '16px', // Prevents iOS zoom
+      outline: 'none',
+      width: '100%',
+      color: COLORS.text.white,
+      minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+    },
+    select: {
+      padding: `${SPACING.sm} ${SPACING.lg}`,
+      ...MIXINS.glassmorphicSelect,
+      borderRadius: BORDER_RADIUS.lg,
+      fontSize: '16px', // Prevents iOS zoom
+      outline: 'none',
+      width: '100%',
+      color: COLORS.text.white,
+      cursor: 'pointer',
+      minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+    },
+    option: {
+      ...MIXINS.selectOption,
+    },
+    primaryButton: {
+      padding: `${SPACING.sm} ${SPACING.lg}`,
+      background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+      color: COLORS.text.white,
+      borderRadius: BORDER_RADIUS.lg,
+      border: 'none',
+      fontSize: FONT_SIZES.base,
+      fontWeight: FONT_WEIGHTS.medium,
+      cursor: 'pointer',
+      transition: TRANSITIONS.normal,
+      boxShadow: '0 4px 15px rgba(176, 97, 206, 0.4)',
+      minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+      width: isMobile ? '100%' : 'auto',
+    },
+    activeFilters: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: SPACING.sm,
+      fontSize: FONT_SIZES.sm,
+      color: COLORS.text.whiteMedium,
+      flexWrap: 'wrap',
+    },
+    tableContainer: {
+      ...MIXINS.glassmorphicCard,
+      borderRadius: BORDER_RADIUS.lg,
+      overflow: 'hidden',
+      overflowX: 'auto',
+      WebkitOverflowScrolling: 'touch', // iOS smooth scrolling
+    },
+    actionsContainer: {
+      display: 'flex',
+      gap: isMobile ? SPACING.xs : SPACING.xs,
+      flexWrap: 'wrap',
+    },
+    actionButton: (variant) => {
+      const colorScheme = ACTION_BUTTON_COLORS[variant] || ACTION_BUTTON_COLORS.primary;
+      return {
+        padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.sm}`,
+        fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.xs,
+        fontWeight: FONT_WEIGHTS.medium,
+        backgroundColor: colorScheme.bg,
+        color: colorScheme.text,
+        borderRadius: BORDER_RADIUS.md,
+        border: 'none',
+        cursor: 'pointer',
+        transition: TRANSITIONS.normal,
+        whiteSpace: 'nowrap',
+        minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+        minWidth: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+      };
+    },
+  }), [isMobile, isTablet]);
+
+  const responsiveStyles = getResponsiveStyles();
 
   // ============================================
   // STATE MANAGEMENT
@@ -242,82 +453,121 @@ function LeadsListPage() {
   // TABLE CONFIGURATION
   // ============================================
 
-  const tableColumns = [
-    {
-      key: 'school_name',
-      label: 'School Name',
-      render: (value, row) => row?.school_name || '—',
-    },
-    {
-      key: 'contact_person',
-      label: 'Contact Person',
-      render: (value, row) => row?.contact_person || '—',
-    },
-    {
-      key: 'phone',
-      label: 'Phone',
-      render: (value, row) => row?.phone || '—',
-    },
-    {
-      key: 'email',
-      label: 'Email',
-      render: (value, row) => row?.email || '—',
-    },
-    {
-      key: 'lead_source',
-      label: 'Source',
-      render: (value, row) => row?.lead_source || '—',
-    },
-    {
+  const tableColumns = useMemo(() => {
+    const baseColumns = [
+      {
+        key: 'school_name',
+        label: 'School Name',
+        render: (value, row) => (
+          <div>
+            <div style={{ fontWeight: FONT_WEIGHTS.medium }}>{row?.school_name || '—'}</div>
+            {/* Show contact info inline on mobile */}
+            {isMobile && row?.contact_person && (
+              <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteMedium, marginTop: '2px' }}>
+                {row.contact_person}
+              </div>
+            )}
+            {isMobile && row?.phone && (
+              <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle, marginTop: '2px' }}>
+                {row.phone}
+              </div>
+            )}
+          </div>
+        ),
+      },
+    ];
+
+    // Only show these columns on non-mobile
+    if (!isMobile) {
+      baseColumns.push(
+        {
+          key: 'contact_person',
+          label: 'Contact Person',
+          render: (value, row) => row?.contact_person || '—',
+        },
+        {
+          key: 'phone',
+          label: 'Phone',
+          render: (value, row) => row?.phone || '—',
+        },
+        {
+          key: 'email',
+          label: 'Email',
+          render: (value, row) => row?.email || '—',
+        }
+      );
+    }
+
+    // Hide source on mobile
+    if (!isMobile) {
+      baseColumns.push({
+        key: 'lead_source',
+        label: 'Source',
+        render: (value, row) => row?.lead_source || '—',
+      });
+    }
+
+    baseColumns.push({
       key: 'status',
       label: 'Status',
       render: (value, row) => row?.status ? <LeadStatusBadge status={row.status} /> : '—',
-    },
-    {
-      key: 'assigned_to_name',
-      label: 'Assigned To',
-      render: (value, row) => row?.assigned_to_name || 'Unassigned',
-    },
-    {
-      key: 'created_at',
-      label: 'Created',
-      render: (value, row) => row?.created_at ? new Date(row.created_at).toLocaleDateString() : '—',
-    },
-    {
+    });
+
+    // Hide assigned to on mobile
+    if (!isMobile) {
+      baseColumns.push({
+        key: 'assigned_to_name',
+        label: 'Assigned To',
+        render: (value, row) => row?.assigned_to_name || 'Unassigned',
+      });
+    }
+
+    // Hide created date on mobile
+    if (!isMobile) {
+      baseColumns.push({
+        key: 'created_at',
+        label: 'Created',
+        render: (value, row) => row?.created_at ? new Date(row.created_at).toLocaleDateString() : '—',
+      });
+    }
+
+    baseColumns.push({
       key: 'actions',
       label: 'Actions',
       render: (value, row) => (
-        <div className="flex gap-2">
+        <div style={responsiveStyles.actionsContainer}>
           <button
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
             onClick={() => handleEditClick(row)}
+            style={responsiveStyles.actionButton('primary')}
           >
-            Edit
+            {isMobile ? '✏️' : 'Edit'}
           </button>
           <button
-            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
             onClick={() => handleViewDetails(row)}
+            style={responsiveStyles.actionButton('secondary')}
           >
-            View
+            {isMobile ? '👁️' : 'View'}
           </button>
           {row?.status !== LEAD_STATUS.CONVERTED && (
             <button
-              className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
               onClick={() => handleConvertClick(row)}
+              style={responsiveStyles.actionButton('purple')}
             >
-              Convert
+              {isMobile ? '✅' : 'Convert'}
             </button>
           )}
           <button
-            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
             onClick={() => handleDeleteClick(row)}
+            style={responsiveStyles.actionButton('danger')}
           >
-            Delete
+            {isMobile ? '🗑️' : 'Delete'}
           </button>
         </div>
       ),
-    },
-  ];
+    });
+
+    return baseColumns;
+  }, [isMobile, responsiveStyles]);
 
   // ============================================
   // RENDER
@@ -328,58 +578,47 @@ function LeadsListPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div style={responsiveStyles.pageContainer}>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Leads Management</h1>
-        <p className="text-gray-600">Manage and track potential school leads</p>
-      </div>
+      <PageHeader
+        icon="🎯"
+        title="Leads Management"
+        subtitle="Manage and track potential school leads"
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-1">Total Leads</h3>
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-        </div>
-        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-1">New</h3>
-          <p className="text-2xl font-bold text-gray-900">{stats.new}</p>
-        </div>
-        <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-1">Contacted</h3>
-          <p className="text-2xl font-bold text-gray-900">{stats.contacted}</p>
-        </div>
-        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-1">Interested</h3>
-          <p className="text-2xl font-bold text-gray-900">{stats.interested}</p>
-        </div>
-        <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-1">Converted</h3>
-          <p className="text-2xl font-bold text-gray-900">{stats.converted}</p>
-        </div>
+      <div style={responsiveStyles.statsGrid}>
+        <StatCard label="Total Leads" value={stats.total} color="blue" isMobile={isMobile} />
+        <StatCard label="New" value={stats.new} color="green" isMobile={isMobile} />
+        <StatCard label="Contacted" value={stats.contacted} color="yellow" isMobile={isMobile} />
+        <StatCard label="Interested" value={stats.interested} color="purple" isMobile={isMobile} />
+        <StatCard label="Converted" value={stats.converted} color="indigo" isMobile={isMobile} />
       </div>
 
       {/* Filters and Actions */}
-      <div className="mb-6 bg-white p-4 rounded-lg border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      <div style={{
+        ...styles.filtersContainer,
+        padding: isMobile ? SPACING.md : SPACING.lg,
+      }}>
+        <div style={responsiveStyles.filtersGrid}>
           {/* Search */}
           <input
             type="text"
             placeholder="Search by name, phone, email..."
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            style={responsiveStyles.input}
           />
 
           {/* Status Filter */}
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            style={responsiveStyles.select}
           >
-            <option value="">All Status</option>
+            <option value="" style={responsiveStyles.option}>All Status</option>
             {Object.values(LEAD_STATUS).map((status) => (
-              <option key={status} value={status}>
+              <option key={status} value={status} style={responsiveStyles.option}>
                 {status}
               </option>
             ))}
@@ -389,11 +628,11 @@ function LeadsListPage() {
           <select
             value={filters.source}
             onChange={(e) => setFilters({ ...filters, source: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            style={responsiveStyles.select}
           >
-            <option value="">All Sources</option>
+            <option value="" style={responsiveStyles.option}>All Sources</option>
             {Object.values(LEAD_SOURCES).map((source) => (
-              <option key={source} value={source}>
+              <option key={source} value={source} style={responsiveStyles.option}>
                 {source}
               </option>
             ))}
@@ -401,7 +640,7 @@ function LeadsListPage() {
 
           {/* Create Button */}
           <button
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={responsiveStyles.primaryButton}
             onClick={() => setIsCreateModalOpen(true)}
           >
             + New Lead
@@ -410,35 +649,39 @@ function LeadsListPage() {
 
         {/* Active Filters Display */}
         {(filters.status || filters.source || filters.search) && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span>Active filters:</span>
+          <div style={responsiveStyles.activeFilters}>
+            <span>{isMobile ? 'Filters:' : 'Active filters:'}</span>
             {filters.status && (
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                Status: {filters.status}
+              <span style={styles.filterTag}>
+                {isMobile ? filters.status : `Status: ${filters.status}`}
               </span>
             )}
             {filters.source && (
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                Source: {filters.source}
+              <span style={styles.filterTag}>
+                {isMobile ? filters.source : `Source: ${filters.source}`}
               </span>
             )}
             {filters.search && (
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                Search: {filters.search}
+              <span style={styles.filterTag}>
+                {isMobile ? `"${filters.search}"` : `Search: ${filters.search}`}
               </span>
             )}
             <button
               onClick={() => setFilters({ status: '', source: '', search: '' })}
-              className="text-blue-600 hover:text-blue-800 underline"
+              style={{
+                ...styles.clearFiltersButton,
+                minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+                padding: isMobile ? `${SPACING.xs} ${SPACING.md}` : undefined,
+              }}
             >
-              Clear all
+              Clear
             </button>
           </div>
         )}
       </div>
 
       {/* Leads Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div style={responsiveStyles.tableContainer}>
         <DataTable
           data={leads}
           columns={tableColumns}
@@ -448,7 +691,7 @@ function LeadsListPage() {
       </div>
 
       {/* Showing Count */}
-      <div className="mt-4 text-sm text-gray-600 text-center">
+      <div style={styles.showingCount}>
         Showing {leads.length} of {allLeads.length} leads
       </div>
 
@@ -495,5 +738,148 @@ function LeadsListPage() {
     </div>
   );
 }
+
+// ============================================
+// STYLES
+// ============================================
+const styles = {
+  // Page Layout
+  pageContainer: {
+    padding: SPACING.xl,
+    maxWidth: LAYOUT.maxWidth.lg,
+    margin: '0 auto',
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+  },
+  headerSection: {
+    marginBottom: SPACING.xl,
+  },
+  pageTitle: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.sm,
+  },
+  pageSubtitle: {
+    fontSize: FONT_SIZES.base,
+    color: COLORS.text.whiteMedium,
+  },
+
+  // Stats Grid
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+
+  // Filters Section
+  filtersContainer: {
+    marginBottom: SPACING.xl,
+    ...MIXINS.glassmorphicCard,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  filtersGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
+  input: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.base,
+    outline: 'none',
+    width: '100%',
+    color: COLORS.text.white,
+  },
+  select: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    ...MIXINS.glassmorphicSelect,
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.base,
+    outline: 'none',
+    width: '100%',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+  },
+  option: {
+    ...MIXINS.selectOption,
+  },
+  primaryButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+    color: COLORS.text.white,
+    borderRadius: BORDER_RADIUS.lg,
+    border: 'none',
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+    boxShadow: '0 4px 15px rgba(176, 97, 206, 0.4)',
+  },
+
+  // Active Filters
+  activeFilters: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
+  },
+  filterTag: {
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    backgroundColor: COLORS.background.whiteSubtle,
+    color: COLORS.text.white,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  clearFiltersButton: {
+    color: COLORS.text.white,
+    textDecoration: 'underline',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+  },
+
+  // Table
+  tableContainer: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+  },
+
+  // Action Buttons
+  actionsContainer: {
+    display: 'flex',
+    gap: SPACING.xs,
+    flexWrap: 'wrap',
+  },
+  actionButton: (variant) => {
+    const colorScheme = ACTION_BUTTON_COLORS[variant] || ACTION_BUTTON_COLORS.primary;
+    return {
+      padding: `${SPACING.xs} ${SPACING.sm}`,
+      fontSize: FONT_SIZES.xs,
+      fontWeight: FONT_WEIGHTS.medium,
+      backgroundColor: colorScheme.bg,
+      color: colorScheme.text,
+      borderRadius: BORDER_RADIUS.md,
+      border: 'none',
+      cursor: 'pointer',
+      transition: TRANSITIONS.normal,
+      whiteSpace: 'nowrap',
+    };
+  },
+
+  // Showing Count
+  showingCount: {
+    marginTop: SPACING.lg,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
+    textAlign: 'center',
+  },
+};
 
 export default LeadsListPage;

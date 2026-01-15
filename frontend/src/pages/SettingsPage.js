@@ -1,20 +1,33 @@
 // ============================================
 // SETTINGS PAGE - User Management (Admin Only)
-// Client-side filtering with data load on mount
+// Glassmorphism Design System
 // ============================================
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+} from '../utils/designConstants';
+
 // Hooks
 import { useUsers } from '../hooks/useUsers';
 import { useSchools } from '../hooks/useSchools';
+import { useResponsive } from '../hooks/useResponsive';
 
 // Common Components
 import { DataTable } from '../components/common/tables/DataTable';
 import { ErrorDisplay } from '../components/common/ui/ErrorDisplay';
 import { Button } from '../components/common/ui/Button';
 import { ConfirmationModal } from '../components/common/modals/ConfirmationModal';
+import { PageHeader } from '../components/common/PageHeader';
 
 // Page-Specific Components
 import { UserStatsCards } from '../components/settings/UserStatsCards';
@@ -25,6 +38,11 @@ import { AssignSchoolsModal } from '../components/settings/AssignSchoolsModal';
 import { ResetPasswordModal } from '../components/settings/ResetPasswordModal';
 
 function SettingsPage() {
+  // ============================================
+  // RESPONSIVE HOOK
+  // ============================================
+  const { isMobile } = useResponsive();
+
   // ============================================
   // STATE MANAGEMENT
   // ============================================
@@ -459,185 +477,141 @@ function SettingsPage() {
   // ============================================
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Page Title */}
-      <h1
-        style={{
-          fontSize: '2rem',
-          fontWeight: 'bold',
-          color: '#1F2937',
-          marginBottom: '1.5rem',
-          textAlign: 'center',
-        }}
-      >
-        User Management
-      </h1>
-
-      {/* Statistics Cards */}
-      <UserStatsCards
-        stats={stats}
-        filteredCount={filteredUsers.length}
-        hasSearched={hasSearched}
-        isLoading={loading.stats}
-      />
-
-      {/* Error Display */}
-      {error && (
-        <ErrorDisplay
-          error={error}
-          onRetry={() => fetchUsers(currentFilters)}
-          isRetrying={loading.users}
-          onDismiss={clearError}
+    <div style={pageStyles.pageContainer}>
+      <div style={pageStyles.contentWrapper}>
+        {/* Page Header */}
+        <PageHeader
+          icon="⚙️"
+          title="User Management"
+          subtitle="Manage users, roles, and permissions"
         />
-      )}
 
-      {/* Filter Bar */}
-      <UserFilterBar
-        onFilter={handleFilter}
-        roles={roles}
-        schools={schools}
-        additionalActions={
-          <Button onClick={handleCreate} variant="primary">
-            ➕ Add New User
-          </Button>
-        }
-      />
+        {/* Statistics Cards */}
+        <UserStatsCards
+          stats={stats}
+          filteredCount={filteredUsers.length}
+          hasSearched={hasSearched}
+          isLoading={loading.stats}
+        />
 
-      {/* Users Table */}
-      <DataTable
-        data={filteredUsers}
-        loading={loading.users}
-        columns={[
-          {
-            key: 'id',
-            label: 'ID',
-            sortable: true,
-            width: '80px',
-          },
-          {
-            key: 'username',
-            label: 'Username',
-            sortable: true,
-          },
-          {
-            key: 'name',
-            label: 'Name',
-            sortable: true,
-            render: (_, user) => `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A',
-          },
-          {
-            key: 'email',
-            label: 'Email',
-            sortable: true,
-            render: (value) => value || 'N/A',
-          },
-          {
-            key: 'role',
-            label: 'Role',
-            sortable: true,
-            align: 'center',
-            render: (value) => {
-              const colors = {
-                Admin: '#8B5CF6',
-                Teacher: '#F59E0B',
-                Student: '#3B82F6',
-              };
-              return (
+        {/* Error Display */}
+        {error && (
+          <ErrorDisplay
+            error={error}
+            onRetry={() => fetchUsers(currentFilters)}
+            isRetrying={loading.users}
+            onDismiss={clearError}
+          />
+        )}
+
+        {/* Filter Bar */}
+        <UserFilterBar
+          onFilter={handleFilter}
+          roles={roles}
+          schools={schools}
+          additionalActions={
+            <Button onClick={handleCreate} variant="primary">
+              ➕ Add New User
+            </Button>
+          }
+        />
+
+        {/* Users Table */}
+        <DataTable
+          data={filteredUsers}
+          loading={loading.users}
+          columns={[
+            {
+              key: 'id',
+              label: 'ID',
+              sortable: true,
+              width: '80px',
+            },
+            {
+              key: 'username',
+              label: 'Username',
+              sortable: true,
+            },
+            {
+              key: 'name',
+              label: 'Name',
+              sortable: true,
+              render: (_, user) => `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A',
+            },
+            {
+              key: 'email',
+              label: 'Email',
+              sortable: true,
+              render: (value) => value || 'N/A',
+            },
+            {
+              key: 'role',
+              label: 'Role',
+              sortable: true,
+              align: 'center',
+              render: (value) => {
+                const colors = {
+                  Admin: '#8B5CF6',
+                  Teacher: '#F59E0B',
+                  Student: '#3B82F6',
+                };
+                return (
+                  <span
+                    style={{
+                      backgroundColor: colors[value] || '#6B7280',
+                      color: 'white',
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '9999px',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                    }}
+                  >
+                    {value}
+                  </span>
+                );
+              },
+            },
+            {
+              key: 'assigned_schools_count',
+              label: 'Schools',
+              sortable: true,
+              align: 'center',
+              render: (value, user) => {
+                if (user.role !== 'Teacher') return '-';
+                return value || 0;
+              },
+            },
+            {
+              key: 'is_active',
+              label: 'Status',
+              sortable: true,
+              align: 'center',
+              render: (value) => (
                 <span
                   style={{
-                    backgroundColor: colors[value] || '#6B7280',
-                    color: 'white',
+                    backgroundColor: value ? '#ECFDF5' : '#FEF2F2',
+                    color: value ? '#10B981' : '#EF4444',
                     padding: '0.25rem 0.75rem',
                     borderRadius: '9999px',
                     fontSize: '0.75rem',
                     fontWeight: '600',
                   }}
                 >
-                  {value}
+                  {value ? 'Active' : 'Inactive'}
                 </span>
-              );
+              ),
             },
-          },
-          {
-            key: 'assigned_schools_count',
-            label: 'Schools',
-            sortable: true,
-            align: 'center',
-            render: (value, user) => {
-              if (user.role !== 'Teacher') return '-';
-              return value || 0;
-            },
-          },
-          {
-            key: 'is_active',
-            label: 'Status',
-            sortable: true,
-            align: 'center',
-            render: (value) => (
-              <span
-                style={{
-                  backgroundColor: value ? '#ECFDF5' : '#FEF2F2',
-                  color: value ? '#10B981' : '#EF4444',
-                  padding: '0.25rem 0.75rem',
-                  borderRadius: '9999px',
-                  fontSize: '0.75rem',
-                  fontWeight: '600',
-                }}
-              >
-                {value ? 'Active' : 'Inactive'}
-              </span>
-            ),
-          },
-          {
-            key: 'actions',
-            label: 'Actions',
-            sortable: false,
-            align: 'center',
-            render: (_, user) => (
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => handleViewDetails(user)}
-                  style={{
-                    backgroundColor: '#3B82F6',
-                    color: 'white',
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.target.style.backgroundColor = '#2563EB')}
-                  onMouseLeave={(e) => (e.target.style.backgroundColor = '#3B82F6')}
-                  title="View Details"
-                >
-                  👁️
-                </button>
-                <button
-                  onClick={() => handleEdit(user)}
-                  style={{
-                    backgroundColor: '#10B981',
-                    color: 'white',
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.target.style.backgroundColor = '#059669')}
-                  onMouseLeave={(e) => (e.target.style.backgroundColor = '#10B981')}
-                  title="Edit User"
-                >
-                  ✏️
-                </button>
-                {user.role === 'Teacher' && (
+            {
+              key: 'actions',
+              label: 'Actions',
+              sortable: false,
+              align: 'center',
+              render: (_, user) => (
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button
-                    onClick={() => handleAssignSchools(user)}
+                    onClick={() => handleViewDetails(user)}
                     style={{
-                      backgroundColor: '#F59E0B',
+                      backgroundColor: '#3B82F6',
                       color: 'white',
                       padding: '0.375rem 0.75rem',
                       borderRadius: '0.375rem',
@@ -647,166 +621,211 @@ function SettingsPage() {
                       fontWeight: '500',
                       transition: 'background-color 0.15s ease',
                     }}
-                    onMouseEnter={(e) => (e.target.style.backgroundColor = '#D97706')}
-                    onMouseLeave={(e) => (e.target.style.backgroundColor = '#F59E0B')}
-                    title="Assign Schools"
+                    onMouseEnter={(e) => (e.target.style.backgroundColor = '#2563EB')}
+                    onMouseLeave={(e) => (e.target.style.backgroundColor = '#3B82F6')}
+                    title="View Details"
                   >
-                    🏫
+                    👁️
                   </button>
-                )}
-                <button
-                  onClick={() => handleResetPassword(user)}
-                  style={{
-                    backgroundColor: '#8B5CF6',
-                    color: 'white',
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.target.style.backgroundColor = '#7C3AED')}
-                  onMouseLeave={(e) => (e.target.style.backgroundColor = '#8B5CF6')}
-                  title="Reset Password"
-                >
-                  🔑
-                </button>
-                {!user.is_super_admin && (
                   <button
-                    onClick={() => openDeleteConfirm(user)}
-                    disabled={loading.delete}
+                    onClick={() => handleEdit(user)}
                     style={{
-                      backgroundColor: loading.delete ? '#9CA3AF' : '#DC2626',
+                      backgroundColor: '#10B981',
                       color: 'white',
                       padding: '0.375rem 0.75rem',
                       borderRadius: '0.375rem',
                       border: 'none',
-                      cursor: loading.delete ? 'not-allowed' : 'pointer',
+                      cursor: 'pointer',
                       fontSize: '0.875rem',
                       fontWeight: '500',
                       transition: 'background-color 0.15s ease',
-                      opacity: loading.delete ? 0.6 : 1,
                     }}
-                    onMouseEnter={(e) => {
-                      if (!loading.delete) e.target.style.backgroundColor = '#B91C1C';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!loading.delete) e.target.style.backgroundColor = '#DC2626';
-                    }}
-                    title="Deactivate User"
+                    onMouseEnter={(e) => (e.target.style.backgroundColor = '#059669')}
+                    onMouseLeave={(e) => (e.target.style.backgroundColor = '#10B981')}
+                    title="Edit User"
                   >
-                    🗑️
+                    ✏️
                   </button>
-                )}
-              </div>
-            ),
-          },
-        ]}
-        emptyMessage={
-          hasSearched
-            ? 'No users found. Try adjusting your filters.'
-            : 'Select filters and click Search to view users.'
-        }
-        striped
-        hoverable
-      />
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={deleteConfirm.isOpen}
-        title="Deactivate User"
-        message="Are you sure you want to deactivate this user? This will log them out from all devices and prevent them from logging in."
-        itemName={deleteConfirm.userName}
-        confirmText="Deactivate User"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={loading.delete}
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-      />
-
-      {/* Create User Modal */}
-      {isCreating && (
-        <CreateUserModal
-          onClose={() => setIsCreating(false)}
-          onCreate={handleCreateUser}
-          schools={schools}
-          roles={roles}
-          isSubmitting={loading.submit}
+                  {user.role === 'Teacher' && (
+                    <button
+                      onClick={() => handleAssignSchools(user)}
+                      style={{
+                        backgroundColor: '#F59E0B',
+                        color: 'white',
+                        padding: '0.375rem 0.75rem',
+                        borderRadius: '0.375rem',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => (e.target.style.backgroundColor = '#D97706')}
+                      onMouseLeave={(e) => (e.target.style.backgroundColor = '#F59E0B')}
+                      title="Assign Schools"
+                    >
+                      🏫
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleResetPassword(user)}
+                    style={{
+                      backgroundColor: '#8B5CF6',
+                      color: 'white',
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: '0.375rem',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.target.style.backgroundColor = '#7C3AED')}
+                    onMouseLeave={(e) => (e.target.style.backgroundColor = '#8B5CF6')}
+                    title="Reset Password"
+                  >
+                    🔑
+                  </button>
+                  {!user.is_super_admin && (
+                    <button
+                      onClick={() => openDeleteConfirm(user)}
+                      disabled={loading.delete}
+                      style={{
+                        backgroundColor: loading.delete ? '#9CA3AF' : '#DC2626',
+                        color: 'white',
+                        padding: '0.375rem 0.75rem',
+                        borderRadius: '0.375rem',
+                        border: 'none',
+                        cursor: loading.delete ? 'not-allowed' : 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        transition: 'background-color 0.15s ease',
+                        opacity: loading.delete ? 0.6 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!loading.delete) e.target.style.backgroundColor = '#B91C1C';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!loading.delete) e.target.style.backgroundColor = '#DC2626';
+                      }}
+                      title="Deactivate User"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+          emptyMessage={
+            hasSearched
+              ? 'No users found. Try adjusting your filters.'
+              : 'Select filters and click Search to view users.'
+          }
+          striped
+          hoverable
         />
-      )}
 
-      {/* User Details Modal (View/Edit) */}
-      {isViewing && selectedUser && (
-        <UserDetailsModal
-          user={selectedUser}
-          isEditing={isEditing}
-          onClose={handleCloseDetails}
-          onSave={handleUpdateUser}
-          onEdit={() => handleEdit()}
-          onCancel={handleCancelEdit}
-          schools={schools}
-          roles={roles}
-          isSubmitting={loading.submit}
+        {/* Delete Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={deleteConfirm.isOpen}
+          title="Deactivate User"
+          message="Are you sure you want to deactivate this user? This will log them out from all devices and prevent them from logging in."
+          itemName={deleteConfirm.userName}
+          confirmText="Deactivate User"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={loading.delete}
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
         />
-      )}
 
-      {/* Create User Modal */}
-      {isCreating && (
-        <CreateUserModal
-          onClose={() => setIsCreating(false)}
-          onCreate={handleCreateUser}
-          schools={schools}
-          roles={roles}
-          isSubmitting={loading.submit}
-        />
-      )}
+        {/* Create User Modal */}
+        {isCreating && (
+          <CreateUserModal
+            onClose={() => setIsCreating(false)}
+            onCreate={handleCreateUser}
+            schools={schools}
+            roles={roles}
+            isSubmitting={loading.submit}
+          />
+        )}
 
-      {/* User Details Modal (View/Edit Combined) */}
-      {isViewing && selectedUser && (
-        <UserDetailsModal
-          user={selectedUser}
-          isEditing={isEditing}
-          onClose={handleCloseDetails}
-          onSave={handleUpdateUser}
-          onEdit={() => handleEdit()}
-          onCancel={handleCancelEdit}
-          schools={schools}
-          roles={roles}
-          isSubmitting={loading.submit}
-        />
-      )}
+        {/* User Details Modal (View/Edit) */}
+        {isViewing && selectedUser && (
+          <UserDetailsModal
+            user={selectedUser}
+            isEditing={isEditing}
+            onClose={handleCloseDetails}
+            onSave={handleUpdateUser}
+            onEdit={() => handleEdit()}
+            onCancel={handleCancelEdit}
+            schools={schools}
+            roles={roles}
+            isSubmitting={loading.submit}
+          />
+        )}
 
-      {/* Assign Schools Modal */}
-      {isAssigningSchools && selectedUser && (
-        <AssignSchoolsModal
-          user={selectedUser}
-          onClose={() => {
-            setIsAssigningSchools(false);
-            setSelectedUser(null);
-          }}
-          onAssign={handleAssignSchoolsSubmit}
-          schools={schools}
-          isSubmitting={loading.action}
-        />
-      )}
+        {/* Assign Schools Modal */}
+        {isAssigningSchools && selectedUser && (
+          <AssignSchoolsModal
+            user={selectedUser}
+            onClose={() => {
+              setIsAssigningSchools(false);
+              setSelectedUser(null);
+            }}
+            onAssign={handleAssignSchoolsSubmit}
+            schools={schools}
+            isSubmitting={loading.action}
+          />
+        )}
 
-      {/* Reset Password Modal */}
-      {isResettingPassword && selectedUser && (
-        <ResetPasswordModal
-          user={selectedUser}
-          onClose={() => {
-            setIsResettingPassword(false);
-            setSelectedUser(null);
-          }}
-          onReset={handleResetPasswordSubmit}
-          isSubmitting={loading.action}
-        />
-      )}
+        {/* Reset Password Modal */}
+        {isResettingPassword && selectedUser && (
+          <ResetPasswordModal
+            user={selectedUser}
+            onClose={() => {
+              setIsResettingPassword(false);
+              setSelectedUser(null);
+            }}
+            onReset={handleResetPasswordSubmit}
+            isSubmitting={loading.action}
+          />
+        )}
+      </div>
     </div>
   );
 }
+
+// ============================================
+// PAGE STYLES - Glassmorphism Design System
+// ============================================
+
+const pageStyles = {
+  pageContainer: {
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+    padding: SPACING.xl,
+  },
+  contentWrapper: {
+    maxWidth: '1400px',
+    margin: '0 auto',
+  },
+  pageHeader: {
+    marginBottom: SPACING['2xl'],
+    textAlign: 'center',
+  },
+  pageTitle: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.sm,
+  },
+  pageSubtitle: {
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.text.whiteSubtle,
+    margin: 0,
+  },
+};
 
 export default SettingsPage;

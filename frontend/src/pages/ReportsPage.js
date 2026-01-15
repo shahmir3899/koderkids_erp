@@ -1,23 +1,26 @@
 // ============================================
-// REPORTS PAGE - Refactored Version
+// REPORTS PAGE - Glassmorphism Design Version
 // ============================================
-// Location: src/pages/ReportsPage.js
-//
-// REFACTORED:
-// - Uses FilterBar for school/class selection
-// - Uses DataTable for student list
-// - Uses LoadingSpinner instead of inline SVGs
-// - Uses CollapsibleSection for organization
-// - Uses useSchools hook for school fetching
-// - Uses useReportGeneration hook for PDF generation
-// - Uses ToggleSwitch for background toggle
-// - Uses ModeSelector for month/range selection
-// - All original functionality preserved
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { getAuthHeaders, getClasses, API_URL } from '../api';
+
+// Design System
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  MIXINS,
+  LAYOUT,
+  TRANSITIONS,
+} from '../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../hooks/useResponsive';
 
 // Common Components
 import { DataTable } from '../components/common/tables/DataTable';
@@ -25,7 +28,7 @@ import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
 import { ToggleSwitch } from '../components/common/ui/ToggleSwitch';
 import { ModeSelector } from '../components/common/ui/ModeSelector';
-import { Button } from '../components/common/ui/Button';
+import { PageHeader } from '../components/common/PageHeader';
 
 // Page-specific Components
 import ImageManagementModal from './ImageManagementModal';
@@ -77,19 +80,217 @@ const getLastDayOfMonth = (yearMonth) => {
   return new Date(year, month, 0).getDate();
 };
 
+// Responsive Styles Generator
+const getResponsiveStyles = (isMobile, isTablet) => ({
+  pageContainer: {
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+    padding: isMobile ? SPACING.md : isTablet ? SPACING.lg : SPACING.xl,
+  },
+  contentWrapper: {
+    maxWidth: LAYOUT.maxWidth.md,
+    margin: '0 auto',
+    width: '100%',
+  },
+  pageTitle: {
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    textAlign: 'center',
+  },
+  filterGrid: {
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: isMobile ? SPACING.md : SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
+  label: {
+    display: 'block',
+    marginBottom: SPACING.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.sm,
+  },
+  input: {
+    width: '100%',
+    padding: isMobile ? SPACING.md : `${SPACING.md} ${SPACING.lg}`,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: '16px', // Prevent iOS zoom
+    color: COLORS.text.white,
+    outline: 'none',
+    transition: TRANSITIONS.normal,
+    minHeight: '44px', // Touch-friendly
+  },
+  select: {
+    width: '100%',
+    padding: isMobile ? SPACING.md : `${SPACING.md} ${SPACING.lg}`,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: '16px', // Prevent iOS zoom
+    color: COLORS.text.white,
+    backgroundColor: 'transparent',
+    cursor: 'pointer',
+    outline: 'none',
+    minHeight: '44px', // Touch-friendly
+  },
+  searchButton: (isSearching) => ({
+    width: '100%',
+    padding: isMobile ? SPACING.md : `${SPACING.md} ${SPACING.xl}`,
+    backgroundColor: isSearching ? '#9CA3AF' : COLORS.status.info,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: isSearching ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    transition: TRANSITIONS.normal,
+    minHeight: '44px', // Touch-friendly
+  }),
+  actionsContainer: {
+    display: 'flex',
+    alignItems: isMobile ? 'stretch' : 'center',
+    gap: SPACING.md,
+    flexWrap: 'wrap',
+    flexDirection: isMobile ? 'column' : 'row',
+  },
+  imageButton: (hasImages) => ({
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.md}`,
+    backgroundColor: hasImages ? COLORS.accent.purple : COLORS.status.info,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.xs,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    transition: TRANSITIONS.normal,
+    minHeight: '44px', // Touch-friendly
+    minWidth: isMobile ? '100px' : 'auto',
+  }),
+  generateButton: (isDisabled) => ({
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.md}`,
+    backgroundColor: isDisabled ? '#9CA3AF' : COLORS.status.success,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.xs,
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    transition: TRANSITIONS.normal,
+    minHeight: '44px', // Touch-friendly
+    minWidth: isMobile ? '100px' : 'auto',
+  }),
+  bulkButton: (isDisabled) => ({
+    padding: isMobile ? `${SPACING.md} ${SPACING.lg}` : `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: isDisabled ? '#9CA3AF' : COLORS.accent.purple,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    transition: TRANSITIONS.normal,
+    minHeight: '44px', // Touch-friendly
+    width: isMobile ? '100%' : 'auto',
+  }),
+  headerActions: {
+    display: 'flex',
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'center',
+    gap: SPACING.md,
+  },
+  statusText: {
+    fontSize: isMobile ? FONT_SIZES.xs : FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    textAlign: isMobile ? 'center' : 'left',
+  },
+  emptyState: {
+    padding: isMobile ? SPACING.xl : SPACING['2xl'],
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+  },
+});
+
+// Static Styles (non-responsive)
+const styles = {
+  errorMessage: {
+    padding: SPACING.lg,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.status.error,
+    marginBottom: SPACING.lg,
+    borderLeft: `4px solid ${COLORS.status.error}`,
+  },
+  inputDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
+  selectOption: {
+    backgroundColor: '#1e1e2e',
+    color: '#ffffff',
+  },
+  modeSelectorWrapper: {
+    marginBottom: SPACING.xl,
+  },
+  toggleContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    minHeight: '44px',
+  },
+  toggleLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
+  imageBadge: {
+    backgroundColor: COLORS.status.success,
+    color: COLORS.text.white,
+    fontSize: '0.625rem',
+    fontWeight: FONT_WEIGHTS.bold,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.full,
+    marginLeft: SPACING.xs,
+  },
+  spinner: {
+    width: '14px',
+    height: '14px',
+    border: '2px solid #fff',
+    borderTopColor: 'transparent',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+};
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
 const ReportsPage = () => {
-  // Hooks
   const { schools, loading: schoolsLoading } = useSchools();
+
+  // Responsive hook
+  const { isMobile, isTablet } = useResponsive();
+  const responsiveStyles = getResponsiveStyles(isMobile, isTablet);
 
   // ============================================
   // STATE
   // ============================================
 
-  // Filter state
   const [mode, setMode] = useState('month');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -97,20 +298,16 @@ const ReportsPage = () => {
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
 
-  // Data state
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
 
-  // Selection state
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [includeBackground, setIncludeBackground] = useState({});
   const [selectedImages, setSelectedImages] = useState({});
 
-  // UI state
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Modal state
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalStudentId, setModalStudentId] = useState(null);
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
@@ -118,12 +315,10 @@ const ReportsPage = () => {
   // ============================================
   // REPORT GENERATION HOOK
   // ============================================
-  
+
   const {
     generateReport,
-    generateBulkReports,
     isGenerating,
-    
     error: reportError,
     setError: setReportError,
   } = useReportGeneration({
@@ -143,7 +338,6 @@ const ReportsPage = () => {
   // EFFECTS
   // ============================================
 
-  // Fetch classes when school changes
   useEffect(() => {
     const fetchClassList = async () => {
       if (!selectedSchool) {
@@ -161,18 +355,16 @@ const ReportsPage = () => {
     fetchClassList();
   }, [selectedSchool]);
 
-  // Initialize background toggle for each student
   useEffect(() => {
     if (students.length > 0) {
       const initialToggleState = students.reduce((acc, student) => {
-        acc[student.id] = true; // Default to include background
+        acc[student.id] = true;
         return acc;
       }, {});
       setIncludeBackground(initialToggleState);
     }
   }, [students]);
 
-  // Sync report error with local error message
   useEffect(() => {
     if (reportError) {
       setErrorMessage(reportError);
@@ -183,14 +375,12 @@ const ReportsPage = () => {
   // HANDLERS
   // ============================================
 
-  // Fetch students based on filters
   const fetchStudents = async () => {
     setErrorMessage('');
     setIsSearching(true);
     setStudents([]);
     setSelectedStudentIds([]);
 
-    // Validation for month mode
     if (mode === 'month') {
       if (!selectedMonth || !isValidMonth(selectedMonth)) {
         setErrorMessage('Please select a valid month (YYYY-MM).');
@@ -204,7 +394,6 @@ const ReportsPage = () => {
       }
     }
 
-    // Validation for range mode
     if (mode === 'range') {
       if (!startDate || !endDate || !isValidDate(startDate) || !isValidDate(endDate)) {
         setErrorMessage('Please select valid start and end dates.');
@@ -285,7 +474,6 @@ const ReportsPage = () => {
     }
   };
 
-  // Toggle student selection
   const toggleStudentSelection = useCallback((studentId) => {
     setSelectedStudentIds((prev) =>
       prev.includes(studentId)
@@ -294,7 +482,6 @@ const ReportsPage = () => {
     );
   }, []);
 
-  // Select/deselect all students
   const toggleSelectAll = useCallback(() => {
     if (selectedStudentIds.length === students.length) {
       setSelectedStudentIds([]);
@@ -303,7 +490,6 @@ const ReportsPage = () => {
     }
   }, [selectedStudentIds.length, students]);
 
-  // Toggle background for a student
   const toggleBackground = useCallback((studentId) => {
     setIncludeBackground((prev) => ({
       ...prev,
@@ -311,13 +497,11 @@ const ReportsPage = () => {
     }));
   }, []);
 
-  // View images modal
   const handleViewImages = useCallback((studentId) => {
     setModalStudentId(studentId);
     setShowImageModal(true);
   }, []);
 
-  // Close image modal
   const handleCloseImageModal = useCallback(
     (selected) => {
       setShowImageModal(false);
@@ -329,7 +513,6 @@ const ReportsPage = () => {
     [modalStudentId]
   );
 
-  // Handle report generation
   const handleGenerateReport = useCallback(
     (studentId) => {
       generateReport(studentId);
@@ -337,7 +520,6 @@ const ReportsPage = () => {
     [generateReport]
   );
 
-  // Count selected students that have images
   const selectedStudentsWithImages = useMemo(() => {
     return selectedStudentIds.filter((id) => {
       const images = selectedImages[id] || [];
@@ -345,63 +527,61 @@ const ReportsPage = () => {
     });
   }, [selectedStudentIds, selectedImages]);
 
-  // Handle bulk report generation - only for all students 
-  // Inside ReportsPage.js – replace the whole function
-const handleGenerateBulkReports = useCallback(async () => {
-  if (selectedStudentIds.length === 0) {
-    toast.warning('Please select at least one student first.');
-    return;
-  }
+  const handleGenerateBulkReports = useCallback(async () => {
+    if (selectedStudentIds.length === 0) {
+      toast.warning('Please select at least one student first.');
+      return;
+    }
 
-  setIsGeneratingBulk(true); // ← disables button immediately
+    setIsGeneratingBulk(true);
 
-  try {
-    const response = await axios.post(
-      `${API_URL}/reports/api/generate-bulk-pdf-zip/`,
-      {
-        student_ids: selectedStudentIds,
-        mode,
-        month: selectedMonth,
-        start_date: startDate,
-        end_date: endDate,
-        school_id: selectedSchool,
-        student_class: selectedClass,
-        selectedImages: selectedImages,
-        includeBackground: includeBackground,
-      },
-      {
-        headers: getAuthHeaders(),
-        responseType: 'blob',
-        timeout: 120000, // 2-minute timeout for large classes
-      }
-    );
+    try {
+      const response = await axios.post(
+        `${API_URL}/reports/api/generate-bulk-pdf-zip/`,
+        {
+          student_ids: selectedStudentIds,
+          mode,
+          month: selectedMonth,
+          start_date: startDate,
+          end_date: endDate,
+          school_id: selectedSchool,
+          student_class: selectedClass,
+          selectedImages: selectedImages,
+          includeBackground: includeBackground,
+        },
+        {
+          headers: getAuthHeaders(),
+          responseType: 'blob',
+          timeout: 120000,
+        }
+      );
 
-    // Trigger download
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Student_Reports_${new Date().toISOString().slice(0, 10)}.zip`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Student_Reports_${new Date().toISOString().slice(0, 10)}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
 
-    toast.success(`ZIP with ${selectedStudentIds.length} reports downloaded!`);
-  } catch (error) {
-    console.error('Bulk ZIP error:', error);
-    toast.error('Failed to generate ZIP. Please try again.');
-  } finally {
-    setIsGeneratingBulk(false); // ← re-enable button only when finished
-  }
-}, [
-  selectedStudentIds,
-  mode,
-  selectedMonth,
-  startDate,
-  endDate,
-  selectedSchool,
-  selectedClass,
-  selectedImages,
-]);
+      toast.success(`ZIP with ${selectedStudentIds.length} reports downloaded!`);
+    } catch (error) {
+      console.error('Bulk ZIP error:', error);
+      toast.error('Failed to generate ZIP. Please try again.');
+    } finally {
+      setIsGeneratingBulk(false);
+    }
+  }, [
+    selectedStudentIds,
+    mode,
+    selectedMonth,
+    startDate,
+    endDate,
+    selectedSchool,
+    selectedClass,
+    selectedImages,
+    includeBackground,
+  ]);
 
   // ============================================
   // TABLE COLUMNS
@@ -445,12 +625,12 @@ const handleGenerateBulkReports = useCallback(async () => {
         render: (_, row) => {
           const studentImages = selectedImages[row.id] || [];
           const hasImages = studentImages.length > 0;
-          const isDisabled = isGenerating[row.id] ;
+          const isDisabled = isGenerating[row.id];
 
           return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={responsiveStyles.actionsContainer}>
               {/* Background Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={styles.toggleContainer}>
                 <ToggleSwitch
                   checked={includeBackground[row.id] || false}
                   onChange={() => toggleBackground(row.id)}
@@ -458,73 +638,38 @@ const handleGenerateBulkReports = useCallback(async () => {
                   size="small"
                   onColor="#2196F3"
                 />
-                <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>BG</span>
+                <span style={styles.toggleLabel}>BG</span>
               </div>
 
-              {/* View Images Button - Shows count badge when images selected */}
+              {/* View Images Button */}
               <button
                 onClick={() => handleViewImages(row.id)}
-                style={{
-                  padding: '0.375rem 0.75rem',
-                  backgroundColor: hasImages ? '#8B5CF6' : '#3B82F6',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  position: 'relative',
-                }}
-                onMouseEnter={(e) => (e.target.style.backgroundColor = hasImages ? '#7C3AED' : '#2563EB')}
-                onMouseLeave={(e) => (e.target.style.backgroundColor = hasImages ? '#8B5CF6' : '#3B82F6')}
+                style={responsiveStyles.imageButton(hasImages)}
                 aria-label={`View images for ${row.name}`}
               >
-                🖼️ Images
+                Images
                 {hasImages && (
-                  <span
-                    style={{
-                      backgroundColor: '#10B981',
-                      color: '#FFFFFF',
-                      fontSize: '0.625rem',
-                      fontWeight: 'bold',
-                      padding: '0.125rem 0.375rem',
-                      borderRadius: '9999px',
-                      marginLeft: '0.25rem',
-                    }}
-                  >
+                  <span style={styles.imageBadge}>
                     {studentImages.length}
                   </span>
                 )}
               </button>
 
-              {/* Generate Report Button - Disabled if no images selected */}
+              {/* Generate Report Button */}
               <button
-  onClick={() => handleGenerateReport(row.id)}
-  disabled={isDisabled}
-  title="Generate PDF report"
-  style={{
-    padding: '0.375rem 0.75rem',
-    backgroundColor: isDisabled ? '#9CA3AF' : '#10B981',
-    color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '0.375rem',
-    fontSize: '0.75rem',
-    cursor: isDisabled ? 'not-allowed' : 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.25rem',
-  }}
->
-  {isGenerating[row.id] ? (
-    <>
-      <span className="spinner" /> Generating...
-    </>
-  ) : (
-    <>Generate</>
-  )}
-</button>
+                onClick={() => handleGenerateReport(row.id)}
+                disabled={isDisabled}
+                title="Generate PDF report"
+                style={responsiveStyles.generateButton(isDisabled)}
+              >
+                {isGenerating[row.id] ? (
+                  <>
+                    <span style={styles.spinner} /> Generating...
+                  </>
+                ) : (
+                  <>Generate</>
+                )}
+              </button>
             </div>
           );
         },
@@ -545,335 +690,250 @@ const handleGenerateBulkReports = useCallback(async () => {
   );
 
   // ============================================
-  // STYLES
-  // ============================================
-
-  const filterContainerStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '1rem',
-    marginBottom: '1rem',
-  };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '0.625rem 0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    transition: 'border-color 0.15s ease',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    marginBottom: '0.5rem',
-    fontWeight: '600',
-    color: '#374151',
-    fontSize: '0.875rem',
-  };
-
-  const selectStyle = {
-    ...inputStyle,
-    backgroundColor: '#FFFFFF',
-    cursor: 'pointer',
-  };
-
-  // ============================================
   // RENDER
   // ============================================
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem' }}>
-      {/* Spinner animation CSS */}
-      <style>
-        {`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}
-      </style>
+    <div style={responsiveStyles.pageContainer}>
+      <div style={responsiveStyles.contentWrapper}>
+        {/* Spinner animation CSS */}
+        <style>
+          {`
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}
+        </style>
 
-      {/* Page Header */}
-      <h1
-        style={{
-          fontSize: '1.875rem',
-          fontWeight: 'bold',
-          color: '#1F2937',
-          marginBottom: '1.5rem',
-          textAlign: 'center',
-        }}
-      >
-        📊 Monthly Reports
-      </h1>
+        {/* Page Header */}
+        <PageHeader
+          icon="📋"
+          title="Monthly Reports"
+          subtitle="Generate and export monthly student reports"
+        />
 
-      {/* Error Message */}
-      {errorMessage && (
-        <div
-          style={{
-            padding: '1rem',
-            backgroundColor: '#FEE2E2',
-            color: '#DC2626',
-            borderRadius: '0.5rem',
-            marginBottom: '1rem',
-          }}
-          role="alert"
-        >
-          {errorMessage}
-        </div>
-      )}
+        {/* Error Message */}
+        {errorMessage && (
+          <div style={styles.errorMessage} role="alert">
+            {errorMessage}
+          </div>
+        )}
 
-      {/* Filters Section */}
-      <CollapsibleSection title="🔍 Filter Options" defaultOpen={true}>
-        {/* Mode Selector */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={labelStyle}>Report Mode</label>
-          <ModeSelector
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'month', label: 'Month', icon: '📅' },
-              { value: 'range', label: 'Date Range', icon: '📆' },
-            ]}
-          />
-        </div>
-
-        {/* Date Filters */}
-        <div style={filterContainerStyle}>
-          {/* Month Picker */}
-          <div>
-            <label style={labelStyle}>Month</label>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              disabled={mode === 'range'}
-              style={{
-                ...inputStyle,
-                opacity: mode === 'range' ? 0.5 : 1,
-                cursor: mode === 'range' ? 'not-allowed' : 'pointer',
-              }}
-              aria-label="Select month"
+        {/* Filters Section */}
+        <CollapsibleSection title="Filter Options" defaultOpen={true}>
+          {/* Mode Selector */}
+          <div style={styles.modeSelectorWrapper}>
+            <label style={styles.label}>Report Mode</label>
+            <ModeSelector
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'month', label: 'Month', icon: '' },
+                { value: 'range', label: 'Date Range', icon: '' },
+              ]}
             />
           </div>
 
-          {/* Start Date */}
-          <div>
-            <label style={labelStyle}>Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              disabled={mode === 'month'}
-              style={{
-                ...inputStyle,
-                opacity: mode === 'month' ? 0.5 : 1,
-                cursor: mode === 'month' ? 'not-allowed' : 'pointer',
-              }}
-              aria-label="Select start date"
-            />
-          </div>
-
-          {/* End Date */}
-          <div>
-            <label style={labelStyle}>End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              disabled={mode === 'month'}
-              min={startDate || undefined}
-              style={{
-                ...inputStyle,
-                opacity: mode === 'month' ? 0.5 : 1,
-                cursor: mode === 'month' ? 'not-allowed' : 'pointer',
-              }}
-              aria-label="Select end date"
-            />
-          </div>
-        </div>
-
-        {/* School & Class Filters */}
-        <div style={filterContainerStyle}>
-          {/* School */}
-          <div>
-            <label style={labelStyle}>School *</label>
-            {schoolsLoading ? (
-              <LoadingSpinner size="small" />
-            ) : (
-              <select
-                value={selectedSchool}
-                onChange={(e) => {
-                  setSelectedSchool(e.target.value);
-                  setSelectedClass('');
+          {/* Date Filters */}
+          <div style={responsiveStyles.filterGrid}>
+            {/* Month Picker */}
+            <div>
+              <label style={responsiveStyles.label}>Month</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                disabled={mode === 'range'}
+                style={{
+                  ...responsiveStyles.input,
+                  ...(mode === 'range' ? styles.inputDisabled : {}),
                 }}
-                style={selectStyle}
-                aria-label="Select school"
+                aria-label="Select month"
+              />
+            </div>
+
+            {/* Start Date */}
+            <div>
+              <label style={responsiveStyles.label}>Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                disabled={mode === 'month'}
+                style={{
+                  ...responsiveStyles.input,
+                  ...(mode === 'month' ? styles.inputDisabled : {}),
+                }}
+                aria-label="Select start date"
+              />
+            </div>
+
+            {/* End Date */}
+            <div>
+              <label style={responsiveStyles.label}>End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                disabled={mode === 'month'}
+                min={startDate || undefined}
+                style={{
+                  ...responsiveStyles.input,
+                  ...(mode === 'month' ? styles.inputDisabled : {}),
+                }}
+                aria-label="Select end date"
+              />
+            </div>
+          </div>
+
+          {/* School & Class Filters */}
+          <div style={responsiveStyles.filterGrid}>
+            {/* School */}
+            <div>
+              <label style={responsiveStyles.label}>School *</label>
+              {schoolsLoading ? (
+                <LoadingSpinner size="small" />
+              ) : (
+                <select
+                  value={selectedSchool}
+                  onChange={(e) => {
+                    setSelectedSchool(e.target.value);
+                    setSelectedClass('');
+                  }}
+                  style={responsiveStyles.select}
+                  aria-label="Select school"
+                >
+                  <option value="" style={styles.selectOption}>-- Select School --</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id} style={styles.selectOption}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Class */}
+            <div>
+              <label style={responsiveStyles.label}>Class *</label>
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                disabled={!selectedSchool}
+                style={{
+                  ...responsiveStyles.select,
+                  ...(!selectedSchool ? styles.inputDisabled : {}),
+                }}
+                aria-label="Select class"
               >
-                <option value="">-- Select School --</option>
-                {schools.map((school) => (
-                  <option key={school.id} value={school.id}>
-                    {school.name}
+                <option value="" style={styles.selectOption}>-- Select Class --</option>
+                {classes.map((className, index) => (
+                  <option key={index} value={className} style={styles.selectOption}>
+                    {className}
                   </option>
                 ))}
               </select>
-            )}
-          </div>
-
-          {/* Class */}
-          <div>
-            <label style={labelStyle}>Class *</label>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              disabled={!selectedSchool}
-              style={{
-                ...selectStyle,
-                opacity: !selectedSchool ? 0.5 : 1,
-                cursor: !selectedSchool ? 'not-allowed' : 'pointer',
-              }}
-              aria-label="Select class"
-            >
-              <option value="">-- Select Class --</option>
-              {classes.map((className, index) => (
-                <option key={index} value={className}>
-                  {className}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Search Button */}
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            <button
-              onClick={fetchStudents}
-              disabled={isSearching}
-              style={{
-                width: '100%',
-                padding: '0.625rem 1.5rem',
-                backgroundColor: isSearching ? '#9CA3AF' : '#3B82F6',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '0.5rem',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: isSearching ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-              }}
-              aria-label={isSearching ? 'Searching students' : 'Search students'}
-            >
-              {isSearching ? (
-                <>
-                  <LoadingSpinner size="tiny" />
-                  Searching...
-                </>
-              ) : (
-                <>🔍 Search</>
-              )}
-            </button>
-          </div>
-        </div>
-      </CollapsibleSection>
-
-      {/* Students List Section */}
-      <CollapsibleSection
-        title={`📋 Student List ${students.length > 0 ? `(${students.length} students)` : ''}`}
-        defaultOpen={true}
-        headerAction={
-          students.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              {/* Status indicator */}
-              <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-  {selectedStudentsWithImages.length} student{selectedStudentsWithImages.length !== 1 ? 's' : ''} with picture{selectedStudentsWithImages.length !== 1 ? 's' : ''} of {selectedStudentIds.length} selected
-</span>
-              
-              <button
-  onClick={handleGenerateBulkReports}
-  disabled={isGeneratingBulk || selectedStudentIds.length === 0}
-  title={
-    selectedStudentIds.length === 0
-      ? 'Select at least one student first'
-      : `Generate reports for ${selectedStudentIds.length} student${selectedStudentIds.length > 1 ? 's' : ''}`
-  }
-  style={{
-    padding: '0.5rem 1rem',
-    backgroundColor: isGeneratingBulk || selectedStudentIds.length === 0
-      ? '#9CA3AF'
-      : '#8B5CF6',
-    color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '0.5rem',
-    fontSize: '0.75rem',
-    fontWeight: '500',
-    cursor: isGeneratingBulk || selectedStudentIds.length === 0
-      ? 'not-allowed'
-      : 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-  }}
-  aria-label={`Generate reports for ${selectedStudentIds.length} selected students`}
->
-  {isGeneratingBulk ? (
-    <>
-      <span
-        style={{
-          width: '14px',
-          height: '14px',
-          border: '2px solid #fff',
-          borderTopColor: 'transparent',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-        }}
-      />
-      Generating...
-    </>
-  ) : (
-    <>Generate Selected ({selectedStudentIds.length})</>
-  )}
-</button>
             </div>
-          )
-        }
-      >
-        {isSearching ? (
-          <LoadingSpinner size="medium" message="Searching for students..." />
-        ) : students.length > 0 ? (
-          <DataTable
-            data={students}
-            columns={columns}
-            emptyMessage="No students found."
-            striped
-            hoverable
-            maxHeight="500px"
-          />
-        ) : (
-          <div
-            style={{
-              padding: '3rem',
-              textAlign: 'center',
-              color: '#9CA3AF',
-            }}
-          >
-            <p>No students found. Adjust filters and click Search.</p>
-          </div>
-        )}
-      </CollapsibleSection>
 
-      {/* Image Management Modal */}
-      {showImageModal && (
-        <ImageManagementModal
-          studentId={modalStudentId}
-          selectedMonth={selectedMonth}
-          startDate={startDate}
-          endDate={endDate}
-          mode={mode}
-          initialSelectedImages={selectedImages[modalStudentId] || []}
-          onClose={handleCloseImageModal}
-        />
-      )}
+            {/* Search Button */}
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                onClick={fetchStudents}
+                disabled={isSearching}
+                style={responsiveStyles.searchButton(isSearching)}
+                onMouseEnter={(e) => {
+                  if (!isSearching) {
+                    e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSearching) {
+                    e.currentTarget.style.backgroundColor = COLORS.status.info;
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+                aria-label={isSearching ? 'Searching students' : 'Search students'}
+              >
+                {isSearching ? (
+                  <>
+                    <LoadingSpinner size="tiny" />
+                    Searching...
+                  </>
+                ) : (
+                  <>Search</>
+                )}
+              </button>
+            </div>
+          </div>
+        </CollapsibleSection>
+
+        {/* Students List Section */}
+        <CollapsibleSection
+          title={`Student List ${students.length > 0 ? `(${students.length} students)` : ''}`}
+          defaultOpen={true}
+          headerAction={
+            students.length > 0 && (
+              <div style={responsiveStyles.headerActions}>
+                <span style={responsiveStyles.statusText}>
+                  {selectedStudentsWithImages.length} student{selectedStudentsWithImages.length !== 1 ? 's' : ''} with picture{selectedStudentsWithImages.length !== 1 ? 's' : ''} of {selectedStudentIds.length} selected
+                </span>
+
+                <button
+                  onClick={handleGenerateBulkReports}
+                  disabled={isGeneratingBulk || selectedStudentIds.length === 0}
+                  title={
+                    selectedStudentIds.length === 0
+                      ? 'Select at least one student first'
+                      : `Generate reports for ${selectedStudentIds.length} student${selectedStudentIds.length > 1 ? 's' : ''}`
+                  }
+                  style={responsiveStyles.bulkButton(isGeneratingBulk || selectedStudentIds.length === 0)}
+                  aria-label={`Generate reports for ${selectedStudentIds.length} selected students`}
+                >
+                  {isGeneratingBulk ? (
+                    <>
+                      <span style={styles.spinner} />
+                      Generating...
+                    </>
+                  ) : (
+                    <>Generate Selected ({selectedStudentIds.length})</>
+                  )}
+                </button>
+              </div>
+            )
+          }
+        >
+          {isSearching ? (
+            <LoadingSpinner size="medium" message="Searching for students..." />
+          ) : students.length > 0 ? (
+            <DataTable
+              data={students}
+              columns={columns}
+              emptyMessage="No students found."
+              striped
+              hoverable
+              maxHeight={isMobile ? "400px" : "500px"}
+            />
+          ) : (
+            <div style={responsiveStyles.emptyState}>
+              <p>No students found. Adjust filters and click Search.</p>
+            </div>
+          )}
+        </CollapsibleSection>
+
+        {/* Image Management Modal */}
+        {showImageModal && (
+          <ImageManagementModal
+            studentId={modalStudentId}
+            selectedMonth={selectedMonth}
+            startDate={startDate}
+            endDate={endDate}
+            mode={mode}
+            initialSelectedImages={selectedImages[modalStudentId] || []}
+            onClose={handleCloseImageModal}
+          />
+        )}
+      </div>
     </div>
   );
 };

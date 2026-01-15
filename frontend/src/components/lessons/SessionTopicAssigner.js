@@ -1,8 +1,16 @@
 import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTimes, faCalendar, faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faCalendar, faCheck, faBook, faEdit } from "@fortawesome/free-solid-svg-icons";
 import BookTreeSelect from "../BookTreeSelect";
 import { ClipLoader } from "react-spinners";
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+} from "../../utils/designConstants";
 
 // Helper: ordinal suffix
 const getOrdinalSuffix = (day) => {
@@ -40,41 +48,79 @@ const SessionTopicAssigner = ({
   const [showTopicModal, setShowTopicModal] = useState(false);
   const [editingDate, setEditingDate] = useState(null);
   const [tempSelectedTopics, setTempSelectedTopics] = useState([]);
+  const [tempCustomText, setTempCustomText] = useState('');
+  const [tempMode, setTempMode] = useState('book'); // 'book' or 'custom'
 
   const openTopicSelector = (dateStr) => {
     setEditingDate(dateStr);
-    setTempSelectedTopics(sessionTopics[dateStr]?.topicIds || []);
+    const existingData = sessionTopics[dateStr];
+    // Restore previous mode and data
+    if (existingData?.mode === 'custom') {
+      setTempMode('custom');
+      setTempCustomText(existingData.customText || '');
+      setTempSelectedTopics([]);
+    } else {
+      setTempMode('book');
+      setTempSelectedTopics(existingData?.topicIds || []);
+      setTempCustomText('');
+    }
     setShowTopicModal(true);
   };
 
   const confirmTopicSelection = () => {
     if (editingDate) {
-      onTopicsUpdate(editingDate, tempSelectedTopics);
+      if (tempMode === 'custom') {
+        // Custom mode: send text
+        onTopicsUpdate(editingDate, [], tempMode, tempCustomText);
+      } else {
+        // Book mode: send topic IDs
+        onTopicsUpdate(editingDate, tempSelectedTopics, tempMode, '');
+      }
     }
     setShowTopicModal(false);
     setEditingDate(null);
     setTempSelectedTopics([]);
+    setTempCustomText('');
+    setTempMode('book');
   };
 
   const cancelTopicSelection = () => {
     setShowTopicModal(false);
     setEditingDate(null);
     setTempSelectedTopics([]);
+    setTempCustomText('');
+    setTempMode('book');
   };
 
   const getTopicStatus = (dateStr) => {
-    const topics = sessionTopics[dateStr];
-    if (!topics || topics.topicIds.length === 0) {
+    const data = sessionTopics[dateStr];
+
+    // Check if custom mode with text
+    if (data?.mode === 'custom' && data.customText?.trim()) {
       return {
-        text: 'Not selected',
-        icon: null,
-        color: '#ef4444',
+        text: 'Custom topic set',
+        icon: faEdit,
+        color: COLORS.status.success,
+        mode: 'custom',
       };
     }
+
+    // Check if book mode with topics
+    if (data?.topicIds?.length > 0) {
+      return {
+        text: `${data.topicIds.length} topic(s) selected`,
+        icon: faBook,
+        color: COLORS.status.success,
+        mode: 'book',
+      };
+    }
+
+    // Not selected
     return {
-      text: `${topics.topicIds.length} topic(s) selected`,
-      icon: faCheck,
-      color: '#10b981',
+      text: 'Not selected',
+      icon: null,
+      color: COLORS.status.error,
+      mode: null,
     };
   };
 
@@ -113,12 +159,12 @@ const SessionTopicAssigner = ({
               <button
                 onClick={() => openTopicSelector(dateStr)}
                 style={
-                  sessionTopics[dateStr]?.topicIds.length > 0
+                  status.mode
                     ? styles.editButton
                     : styles.selectButton
                 }
               >
-                {sessionTopics[dateStr]?.topicIds.length > 0 ? 'Edit Topics' : 'Select Topics'}
+                {status.mode ? 'Edit Topic' : 'Set Topic'}
               </button>
             </div>
           );
@@ -140,28 +186,74 @@ const SessionTopicAssigner = ({
             </button>
 
             <h3 style={styles.modalTitle}>
-              Select Topics for {formatDate(editingDate)}
+              Set Topic for {formatDate(editingDate)}
             </h3>
 
-            <div style={styles.bookInfo}>
-              <strong>Book:</strong> {selectedBookData.title}
+            {/* Mode Toggle */}
+            <div style={styles.modeToggleContainer}>
+              <button
+                onClick={() => setTempMode('book')}
+                style={tempMode === 'book' ? styles.modeButtonActive : styles.modeButton}
+              >
+                <FontAwesomeIcon icon={faBook} style={{ marginRight: '8px' }} />
+                From Book
+              </button>
+              <button
+                onClick={() => setTempMode('custom')}
+                style={tempMode === 'custom' ? styles.modeButtonActive : styles.modeButton}
+              >
+                <FontAwesomeIcon icon={faEdit} style={{ marginRight: '8px' }} />
+                Custom Topic
+              </button>
             </div>
 
-            <div style={styles.treeContainer}>
-              <BookTreeSelect
-                books={[selectedBookData]}
-                selectedIds={tempSelectedTopics}
-                onSelect={(ids) => setTempSelectedTopics(ids)}
-              />
-            </div>
+            {/* Book Mode: Topic Tree */}
+            {tempMode === 'book' && (
+              <>
+                <div style={styles.bookInfo}>
+                  <strong>Book:</strong> {selectedBookData.title}
+                </div>
+                <div style={styles.treeContainer}>
+                  <BookTreeSelect
+                    books={[selectedBookData]}
+                    selectedIds={tempSelectedTopics}
+                    onSelect={(ids) => setTempSelectedTopics(ids)}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Custom Mode: Text Input */}
+            {tempMode === 'custom' && (
+              <div style={styles.customInputContainer}>
+                <label style={styles.customLabel}>Enter your custom topic:</label>
+                <textarea
+                  value={tempCustomText}
+                  onChange={(e) => setTempCustomText(e.target.value)}
+                  placeholder="Describe the topic you'll be teaching in this session..."
+                  style={styles.customTextarea}
+                  rows={5}
+                />
+                <p style={styles.customHint}>
+                  Use this option when teaching content not from the selected book.
+                </p>
+              </div>
+            )}
 
             <div style={styles.modalFooter}>
               <button
                 onClick={confirmTopicSelection}
                 style={styles.confirmButton}
-                disabled={tempSelectedTopics.length === 0}
+                disabled={
+                  tempMode === 'book'
+                    ? tempSelectedTopics.length === 0
+                    : !tempCustomText.trim()
+                }
               >
-                Confirm ({tempSelectedTopics.length} selected)
+                {tempMode === 'book'
+                  ? `Confirm (${tempSelectedTopics.length} selected)`
+                  : 'Confirm Custom Topic'
+                }
               </button>
 
               <button onClick={cancelTopicSelection} style={styles.cancelButton}>
@@ -181,13 +273,13 @@ const styles = {
   },
 
   info: {
-    padding: '12px 16px',
-    backgroundColor: '#eff6ff',
-    border: '1px solid #3b82f6',
-    borderRadius: '6px',
-    fontSize: '14px',
-    color: '#1e40af',
-    marginBottom: '20px',
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    border: `1px solid ${COLORS.status.info}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    marginBottom: SPACING.lg,
   },
 
   loadingContainer: {
@@ -196,97 +288,98 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '60px 20px',
-    gap: '16px',
+    gap: SPACING.md,
   },
 
   loadingText: {
-    fontSize: '14px',
-    color: '#6b7280',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
     margin: 0,
   },
 
   sessionsList: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: '16px',
+    gap: SPACING.md,
     maxHeight: '500px',
     overflowY: 'auto',
-    padding: '4px',
+    padding: SPACING.xs,
   },
 
   sessionCard: {
-    padding: '20px',
-    backgroundColor: '#fff',
-    border: '2px solid #e5e7eb',
-    borderRadius: '8px',
-    transition: 'all 0.2s',
+    padding: SPACING.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.lg,
+    transition: `all ${TRANSITIONS.normal}`,
   },
 
   sessionHeader: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    marginBottom: '12px',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
 
   calendarIcon: {
-    fontSize: '20px',
-    color: '#3b82f6',
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.status.info,
   },
 
   sessionDate: {
-    fontSize: '15px',
-    fontWeight: '600',
-    color: '#1f2937',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
   },
 
   sessionStatus: {
-    marginBottom: '16px',
+    marginBottom: SPACING.md,
     minHeight: '24px',
   },
 
   statusText: {
-    fontSize: '14px',
-    fontWeight: '500',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
   },
 
   selectButton: {
     width: '100%',
-    padding: '10px 16px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#fff',
-    backgroundColor: '#3b82f6',
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.status.info,
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
   },
 
   editButton: {
     width: '100%',
-    padding: '10px 16px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151',
-    backgroundColor: '#f3f4f6',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    transition: 'all 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
   },
 
   error: {
-    marginTop: '16px',
-    padding: '12px',
-    fontSize: '14px',
-    color: '#dc2626',
-    backgroundColor: '#fee2e2',
-    border: '1px solid #fecaca',
-    borderRadius: '6px',
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+    color: '#FCA5A5',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
   },
 
-  // Modal Styles
+  // Modal Styles - Glassmorphic
   modalOverlay: {
     position: 'fixed',
     top: 0,
@@ -294,6 +387,7 @@ const styles = {
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backdropFilter: 'blur(4px)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -301,86 +395,176 @@ const styles = {
   },
 
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
     width: '90%',
     maxWidth: '700px',
     maxHeight: '85vh',
     overflow: 'hidden',
-    boxShadow: '0 4px 30px rgba(0,0,0,0.2)',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
     display: 'flex',
     flexDirection: 'column',
     position: 'relative',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
   },
 
   closeButton: {
     position: 'absolute',
-    top: '16px',
-    right: '16px',
-    background: 'none',
-    border: 'none',
-    fontSize: '24px',
-    color: '#6b7280',
+    top: SPACING.md,
+    right: SPACING.md,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.text.white,
     cursor: 'pointer',
     zIndex: 1,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: `all ${TRANSITIONS.normal}`,
   },
 
   modalTitle: {
-    padding: '24px 24px 16px',
+    padding: `${SPACING.xl} ${SPACING.xl} ${SPACING.md}`,
     margin: 0,
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#1f2937',
-    borderBottom: '1px solid #e5e7eb',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+  },
+
+  // Mode Toggle Styles
+  modeToggleContainer: {
+    display: 'flex',
+    gap: SPACING.sm,
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.03)',
+  },
+
+  modeButton: {
+    flex: 1,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.whiteSubtle,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.normal}`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modeButtonActive: {
+    flex: 1,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.status.info,
+    border: `1px solid ${COLORS.status.info}`,
+    borderRadius: BORDER_RADIUS.md,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.normal}`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   bookInfo: {
-    padding: '12px 24px',
-    backgroundColor: '#f9fafb',
-    fontSize: '14px',
-    color: '#374151',
-    borderBottom: '1px solid #e5e7eb',
+    padding: `${SPACING.sm} ${SPACING.xl}`,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
   },
 
   treeContainer: {
     flex: 1,
     overflow: 'auto',
-    padding: '20px 24px',
+    padding: `${SPACING.lg} ${SPACING.xl}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
+
+  // Custom Input Styles
+  customInputContainer: {
+    padding: `${SPACING.lg} ${SPACING.xl}`,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.md,
+  },
+
+  customLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+
+  customTextarea: {
+    width: '100%',
+    padding: SPACING.md,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    resize: 'vertical',
+    minHeight: '120px',
+    fontFamily: 'inherit',
+    outline: 'none',
+    transition: `all ${TRANSITIONS.normal}`,
+  },
+
+  customHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    margin: 0,
+    fontStyle: 'italic',
   },
 
   modalFooter: {
-    padding: '16px 24px',
-    borderTop: '1px solid #e5e7eb',
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
     display: 'flex',
-    gap: '12px',
+    gap: SPACING.sm,
     justifyContent: 'space-between',
-    backgroundColor: '#f9fafb',
+    background: 'rgba(255, 255, 255, 0.05)',
   },
 
   confirmButton: {
     flex: 1,
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#fff',
-    backgroundColor: '#3b82f6',
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.status.info,
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
   },
 
   cancelButton: {
     flex: 1,
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151',
-    backgroundColor: '#fff',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    transition: 'all 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
   },
 };
 

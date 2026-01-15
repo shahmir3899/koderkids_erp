@@ -1,14 +1,23 @@
 // ============================================
-// USER FILTER BAR - Updated with Include Inactive Checkbox
+// USER FILTER BAR - Glassmorphism Design System
 // ============================================
 
-import React, { useState } from 'react';
-import { Button } from '../common/ui/Button';
+import React, { useState, useEffect, useRef } from 'react';
+import { useDebouncedCallback } from '../../hooks/useDebounce';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+} from '../../utils/designConstants';
 
 /**
  * UserFilterBar Component
- * Custom filter bar for user management page
- * 
+ * Glassmorphic filter bar for user management page
+ *
  * @param {Object} props
  * @param {Function} props.onFilter - Callback when filter button clicked
  * @param {Array} props.roles - Available roles from API
@@ -37,12 +46,30 @@ export const UserFilterBar = ({
   // HANDLERS
   // ============================================
 
+  // Debounced filter callback for search input (auto-search after typing stops)
+  const debouncedSearch = useDebouncedCallback((searchValue) => {
+    // Only auto-search if there's a search term
+    if (searchValue.length >= 2) {
+      console.log('Auto-searching after debounce:', searchValue);
+      onFilter({
+        ...filters,
+        search: searchValue,
+        is_active: includeInactive ? '' : 'true',
+      });
+    }
+  }, 400);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({
       ...prev,
       [name]: value,
     }));
+
+    // Trigger debounced search for search input
+    if (name === 'search') {
+      debouncedSearch(value);
+    }
   };
 
   const handleCheckboxChange = (e) => {
@@ -51,14 +78,14 @@ export const UserFilterBar = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Build filter object
     const filterData = {
       ...filters,
       is_active: includeInactive ? '' : 'true', // Active only by default
     };
-    
-    console.log('🔍 Submitting filters:', filterData);
+
+    console.log('Submitting filters:', filterData);
     onFilter(filterData);
   };
 
@@ -70,8 +97,8 @@ export const UserFilterBar = ({
     };
     setFilters(resetFilters);
     setIncludeInactive(false);
-    
-    console.log('🔄 Resetting filters');
+
+    console.log('Resetting filters');
     onFilter({
       ...resetFilters,
       is_active: 'true', // Reset to active only
@@ -83,29 +110,29 @@ export const UserFilterBar = ({
   // ============================================
 
   return (
-    <form onSubmit={handleSubmit} style={containerStyle}>
-      <div style={filtersRowStyle}>
+    <form onSubmit={handleSubmit} style={styles.container}>
+      <div style={styles.filtersRow}>
         {/* Search Input */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Search</label>
+        <div style={styles.field}>
+          <label style={styles.label}>Search</label>
           <input
             type="text"
             name="search"
             value={filters.search}
             onChange={handleChange}
             placeholder="Search by username, email, or name"
-            style={inputStyle}
+            style={styles.input}
           />
         </div>
 
         {/* Role Dropdown */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Role</label>
+        <div style={styles.field}>
+          <label style={styles.label}>Role</label>
           <select
             name="role"
             value={filters.role}
             onChange={handleChange}
-            style={selectStyle}
+            style={styles.select}
           >
             <option value="">All Roles</option>
             {roles.map((role) => (
@@ -117,13 +144,13 @@ export const UserFilterBar = ({
         </div>
 
         {/* School Dropdown */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>School</label>
+        <div style={styles.field}>
+          <label style={styles.label}>School</label>
           <select
             name="school"
             value={filters.school}
             onChange={handleChange}
-            style={selectStyle}
+            style={styles.select}
           >
             <option value="">All Schools</option>
             {schools.map((school) => (
@@ -135,33 +162,33 @@ export const UserFilterBar = ({
         </div>
 
         {/* Include Inactive Checkbox */}
-        <div style={checkboxFieldStyle}>
-          <label style={checkboxLabelStyle}>
+        <div style={styles.checkboxField}>
+          <label style={styles.checkboxLabel}>
             <input
               type="checkbox"
               checked={includeInactive}
               onChange={handleCheckboxChange}
-              style={checkboxStyle}
+              style={styles.checkbox}
             />
             <span>Include Inactive Users</span>
           </label>
-          <div style={checkboxHintStyle}>
+          <div style={styles.checkboxHint}>
             {includeInactive ? 'Showing all users' : 'Showing active users only'}
           </div>
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div style={actionsRowStyle}>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <Button type="submit" variant="primary">
+      <div style={styles.actionsRow}>
+        <div style={styles.buttonGroup}>
+          <button type="submit" style={styles.primaryButton}>
             🔍 Search
-          </Button>
-          <Button type="button" variant="secondary" onClick={handleReset}>
+          </button>
+          <button type="button" style={styles.secondaryButton} onClick={handleReset}>
             🔄 Reset
-          </Button>
+          </button>
         </div>
-        
+
         {additionalActions && (
           <div>{additionalActions}</div>
         )}
@@ -171,93 +198,136 @@ export const UserFilterBar = ({
 };
 
 // ============================================
-// STYLES
+// STYLES - Glassmorphism Design System
 // ============================================
 
-const containerStyle = {
-  backgroundColor: '#FFFFFF',
-  borderRadius: '12px',
-  padding: '1.5rem',
-  marginBottom: '1.5rem',
-  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-};
+const styles = {
+  container: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    marginBottom: SPACING['2xl'],
+  },
 
-const filtersRowStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-  gap: '1rem',
-  marginBottom: '1rem',
-};
+  filtersRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
 
-const actionsRowStyle = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: '1rem',
-  flexWrap: 'wrap',
-};
+  actionsRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SPACING.lg,
+    flexWrap: 'wrap',
+  },
 
-const fieldStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.5rem',
-};
+  buttonGroup: {
+    display: 'flex',
+    gap: SPACING.md,
+  },
 
-const labelStyle = {
-  fontSize: '0.875rem',
-  fontWeight: '600',
-  color: '#374151',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.25rem',
-};
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.sm,
+  },
 
-const inputStyle = {
-  padding: '0.625rem 0.75rem',
-  border: '1px solid #D1D5DB',
-  borderRadius: '0.5rem',
-  fontSize: '0.875rem',
-  color: '#374151',
-  outline: 'none',
-  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-};
+  label: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
 
-const selectStyle = {
-  ...inputStyle,
-  cursor: 'pointer',
-  backgroundColor: '#FFFFFF',
-};
+  input: {
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    outline: 'none',
+    transition: `all ${TRANSITIONS.normal}`,
+  },
 
-const checkboxFieldStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.5rem',
-  justifyContent: 'center',
-};
+  select: {
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    outline: 'none',
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.normal}`,
+  },
 
-const checkboxLabelStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-  fontSize: '0.875rem',
-  fontWeight: '500',
-  color: '#374151',
-  cursor: 'pointer',
-  userSelect: 'none',
-};
+  checkboxField: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.sm,
+    justifyContent: 'center',
+  },
 
-const checkboxStyle = {
-  width: '1.125rem',
-  height: '1.125rem',
-  cursor: 'pointer',
-  accentColor: '#3B82F6',
-};
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
 
-const checkboxHintStyle = {
-  fontSize: '0.75rem',
-  color: '#6B7280',
-  fontStyle: 'italic',
-  marginLeft: '1.625rem',
+  checkbox: {
+    width: '1.125rem',
+    height: '1.125rem',
+    cursor: 'pointer',
+    accentColor: COLORS.status.info,
+  },
+
+  checkboxHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    fontStyle: 'italic',
+    marginLeft: '1.625rem',
+  },
+
+  primaryButton: {
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.normal}`,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+
+  secondaryButton: {
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.normal}`,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
 };
 
 export default UserFilterBar;

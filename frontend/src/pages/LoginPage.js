@@ -3,6 +3,7 @@ import { redirectUser, getLoggedInUser } from "../api";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { MdLock, MdPerson } from "react-icons/md";
 import { useLoading } from "../contexts/LoadingContext";
+import { useResponsive } from "../hooks/useResponsive";
 
 function LoginPage() {
   const [formData, setFormData] = useState({ username: "", password: "" });
@@ -10,6 +11,7 @@ function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { setLoading } = useLoading();
+  const { isMobile } = useResponsive();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -68,7 +70,8 @@ function LoginPage() {
         background: 'linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 50%, #1a1f3a 100%)'
       }}
     >
-      {/* Futuristic Background Elements */}
+      {/* Futuristic Background Elements - Hidden on mobile for performance */}
+      {!isMobile && (
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Top-Left Geometric Network - White/Light Blue */}
         <svg className="absolute top-0 left-0 w-1/2 h-1/2" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -177,6 +180,7 @@ function LoginPage() {
           <line x1="120" y1="60" x2="140" y2="60" stroke="#7c3aed" strokeWidth="1" opacity="0.4" strokeDasharray="4 4" />
         </svg>
       </div>
+      )}
 
       {/* Left Panel - Promotional Section */}
       <div 
@@ -214,14 +218,28 @@ function LoginPage() {
       </div>
 
       {/* Right Panel - Login Form Section */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 bg-white/95 backdrop-blur-sm z-10">
-        <div className="w-full max-w-md">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 bg-white/95 backdrop-blur-sm z-10 min-h-screen lg:min-h-0">
+        <div className="w-full max-w-md px-2 sm:px-0">
+          {/* Mobile Logo - Only visible on mobile */}
+          {isMobile && (
+            <div className="mb-6 flex justify-center">
+              <img
+                src="/whiteLogo.png"
+                alt="KoderKids Logo"
+                className="h-16 w-auto"
+                style={{
+                  filter: 'brightness(0) saturate(100%) invert(29%) sepia(92%) saturate(1053%) hue-rotate(213deg) brightness(91%) contrast(87%)'
+                }}
+              />
+            </div>
+          )}
+
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-2">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-2">
               Hello Again!
             </h1>
-            <p className="text-lg text-gray-600 font-normal">
+            <p className="text-base sm:text-lg text-gray-600 font-normal">
               Welcome Back
             </p>
           </div>
@@ -317,12 +335,13 @@ function LoginPage() {
                   onChange={handleChange}
                 placeholder="Username"
                   required
-                className="w-full pl-12 pr-4 py-3.5 text-base text-gray-900 bg-white border border-gray-200 rounded-xl 
+                className="w-full pl-12 pr-4 py-3 sm:py-3.5 text-base text-gray-900 bg-white border border-gray-200 rounded-xl
                          transition-all duration-200 ease-in-out
                          placeholder:text-gray-400 placeholder:font-normal
                          focus:outline-none focus:border-gray-300
                          hover:border-gray-300
                          disabled:bg-gray-50 disabled:cursor-not-allowed"
+                style={{ fontSize: '16px', minHeight: '48px' }}
               />
             </div>
 
@@ -339,21 +358,23 @@ function LoginPage() {
                   onChange={handleChange}
                 placeholder="Password"
                   required
-                className="w-full pl-12 pr-12 py-3.5 text-base text-gray-900 bg-white border border-gray-200 rounded-xl 
+                className="w-full pl-12 pr-12 py-3 sm:py-3.5 text-base text-gray-900 bg-white border border-gray-200 rounded-xl
                          transition-all duration-200 ease-in-out
                          placeholder:text-gray-400 placeholder:font-normal
                          focus:outline-none focus:border-gray-300
                          hover:border-gray-300
                          disabled:bg-gray-50 disabled:cursor-not-allowed"
+                style={{ fontSize: '16px', minHeight: '48px' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 
-                         text-gray-400 hover:text-gray-600 
+                className="absolute right-4 top-1/2 -translate-y-1/2
+                         text-gray-400 hover:text-gray-600
                          transition-colors duration-200 ease-in-out
                          focus:outline-none rounded-lg
-                         p-1.5"
+                         p-2"
+                style={{ minWidth: '44px', minHeight: '44px' }}
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
@@ -368,7 +389,7 @@ function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 px-6 text-white text-base font-semibold rounded-xl
+              className="w-full py-3.5 sm:py-4 px-6 text-white text-base font-semibold rounded-xl
                        relative overflow-hidden
                        transition-all duration-300 ease-in-out
                        hover:scale-[1.02] hover:shadow-2xl
@@ -381,7 +402,8 @@ function LoginPage() {
                 background: 'linear-gradient(135deg, #b166cc 0%, #9a4fb8 100%)',
                 width: '100%',
                 boxSizing: 'border-box',
-                boxShadow: '0 4px 15px rgba(177, 102, 204, 0.3)'
+                boxShadow: '0 4px 15px rgba(177, 102, 204, 0.3)',
+                minHeight: '48px'
               }}
               onMouseEnter={(e) => {
                 if (!isLoading) {
@@ -438,9 +460,11 @@ function LoginPage() {
             <div className="flex justify-end">
               <a
                 href="/forgot-password"
-                className="text-sm text-gray-600 hover:text-gray-900 
+                className="text-sm sm:text-base text-gray-600 hover:text-gray-900
                          transition-colors duration-200 ease-in-out
-                         focus:outline-none rounded font-medium"
+                         focus:outline-none rounded font-medium
+                         py-2 px-1"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
               >
                 Forgot Password?
               </a>

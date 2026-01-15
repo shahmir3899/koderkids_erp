@@ -1,14 +1,29 @@
 // ============================================
-// STUDENTS PAGE - Refactored Version
+// STUDENTS PAGE - Refactored Version with React Query
 // Client-side filtering with data load on mount
 // Fixed: School filtering by NAME (not ID)
 // Enhanced: Delete Confirmation Modal & Stats Cards
 // ============================================
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-
-import { fetchStudents as fetchStudentsAPI, updateStudent, deleteStudent } from '../services/studentService';
 import { toast } from 'react-toastify';
+
+// React Query Hooks
+import { useActiveStudents, useUpdateStudent, useDeleteStudent } from '../hooks/queries';
+
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  LAYOUT,
+} from '../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../hooks/useResponsive';
 
 // Common Components
 import { DataTable } from '../components/common/tables/DataTable';
@@ -17,6 +32,7 @@ import { FilterBar } from '../components/common/filters/FilterBar';
 import { useSchools } from '../hooks/useSchools';
 import { Button } from '../components/common/ui/Button';
 import { ConfirmationModal } from '../components/common/modals/ConfirmationModal';
+import { PageHeader } from '../components/common/PageHeader';
 
 // Page-Specific Components
 import AddStudentPopup from './AddStudentPopup';
@@ -25,11 +41,27 @@ import { StudentStatsCards } from '../components/students/StudentStatsCards';
 
 function StudentsPage() {
   // ============================================
+  // RESPONSIVE HOOK
+  // ============================================
+  const { isMobile } = useResponsive();
+
+  // ============================================
   // STATE MANAGEMENT
   // ============================================
 
-  // Data States
-  const [students, setStudents] = useState([]);
+  // React Query - Fetch all active students
+  const {
+    data: students = [],
+    isLoading: isLoadingStudents,
+    error: studentsError,
+    refetch: refetchStudents,
+  } = useActiveStudents();
+
+  // React Query Mutations
+  const updateStudentMutation = useUpdateStudent();
+  const deleteStudentMutation = useDeleteStudent();
+
+  // Local UI States
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [classes, setClasses] = useState(['All Classes']);
 
@@ -37,7 +69,7 @@ function StudentsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  
+
   const [currentFilters, setCurrentFilters] = useState({
     schoolId: '',
     className: '',
@@ -50,15 +82,18 @@ function StudentsPage() {
     studentName: '',
   });
 
-  // Loading States (Consolidated)
-  const [loading, setLoading] = useState({
-    students: false,
-    submit: false,
-    delete: false,
-  });
+  // Hover State for Buttons
+  const [hoveredButton, setHoveredButton] = useState(null);
 
-  // Error State
-  const [error, setError] = useState(null);
+  // Derived loading states from React Query
+  const loading = {
+    students: isLoadingStudents,
+    submit: updateStudentMutation.isPending,
+    delete: deleteStudentMutation.isPending,
+  };
+
+  // Error state from React Query
+  const error = studentsError?.message || null;
 
   // Use Schools Hook
   const { schools } = useSchools();
@@ -73,63 +108,8 @@ function StudentsPage() {
   }, [schools]);
 
   // ============================================
-  // DATA FETCHING
-  // ============================================
-
-  // Fetch ALL students once (no filters - we filter client-side)
-  const fetchStudents = useCallback(async () => {
-    setLoading((prev) => ({ ...prev, students: true }));
-    setError(null);
-
-    try {
-      console.log('🔍 Fetching ALL students from server...');
-
-      const response = await fetchStudentsAPI({
-        schoolId: '',
-        studentClass: '',
-        status: 'Active'
-      });
-
-      if (!Array.isArray(response)) {
-        console.error('❌ Error: Expected an array but received:', response);
-        setError('Invalid data received from server');
-        setStudents([]);
-        return;
-      }
-
-      console.log('✅ Student Data Loaded:', response.length, 'students');
-      
-      // Debug: Log sample student structure
-      if (response.length > 0) {
-        console.log('📋 Sample student structure:', {
-          id: response[0].id,
-          name: response[0].name,
-          school: response[0].school,
-          schoolType: typeof response[0].school,
-          student_class: response[0].student_class,
-        });
-      }
-      
-      setStudents(response);
-
-    } catch (err) {
-      console.error('Error fetching students:', err);
-      setError('Failed to fetch students.');
-      toast.error('Failed to fetch students');
-    } finally {
-      setLoading((prev) => ({ ...prev, students: false }));
-    }
-  }, []);
-
-  // ============================================
   // EFFECTS
   // ============================================
-
-  // Fetch ALL students once on mount
-  useEffect(() => {
-    console.log('📦 Page Mount: Fetching all students...');
-    fetchStudents();
-  }, [fetchStudents]);
 
   // Extract classes when students load OR when school filter changes
   useEffect(() => {
@@ -221,46 +201,40 @@ function StudentsPage() {
       return;
     }
 
-    setLoading((prev) => ({ ...prev, submit: true }));
+    const studentData = {
+      reg_num: updatedStudent.reg_num,
+      name: updatedStudent.name,
+      school: Number(updatedStudent.school),
+      student_class: String(updatedStudent.student_class),
+      monthly_fee: updatedStudent.monthly_fee ? Number(updatedStudent.monthly_fee) : null,
+      phone: updatedStudent.phone || '',
+    };
 
-    try {
-      const studentData = {
-        reg_num: updatedStudent.reg_num,
-        name: updatedStudent.name,
-        school: Number(updatedStudent.school),
-        student_class: String(updatedStudent.student_class),
-        monthly_fee: updatedStudent.monthly_fee ? Number(updatedStudent.monthly_fee) : null,
-        phone: updatedStudent.phone || '',
-      };
+    console.log('📡 Sending update request with:', studentData);
 
-      console.log('📡 Sending update request with:', studentData);
-
-      const updated = await updateStudent(selectedStudent.id, studentData);
-      console.log('✅ Student updated successfully:', updated);
-
-      // Update local state
-      setStudents((prev) =>
-        prev.map((s) => (s.id === selectedStudent.id ? updated : s))
-      );
-      setSelectedStudent(updated);
-      setIsEditing(false);
-
-      toast.success('✅ Student updated successfully!');
-    } catch (error) {
-      console.error('❌ Error updating student:', error);
-
-      if (error.response) {
-        console.log('🚨 Backend Error Response:', error.response.data);
-        const errorMessage = typeof error.response.data === 'object'
-          ? JSON.stringify(error.response.data)
-          : error.response.data.error || 'Unknown Error';
-        toast.error(`⚠️ Update Failed: ${errorMessage}`);
-      } else {
-        toast.error('⚠️ Failed to update student.');
+    updateStudentMutation.mutate(
+      { studentId: selectedStudent.id, studentData },
+      {
+        onSuccess: (updated) => {
+          console.log('✅ Student updated successfully:', updated);
+          setSelectedStudent(updated);
+          setIsEditing(false);
+          toast.success('✅ Student updated successfully!');
+        },
+        onError: (error) => {
+          console.error('❌ Error updating student:', error);
+          if (error.response) {
+            console.log('🚨 Backend Error Response:', error.response.data);
+            const errorMessage = typeof error.response.data === 'object'
+              ? JSON.stringify(error.response.data)
+              : error.response.data.error || 'Unknown Error';
+            toast.error(`⚠️ Update Failed: ${errorMessage}`);
+          } else {
+            toast.error('⚠️ Failed to update student.');
+          }
+        },
       }
-    } finally {
-      setLoading((prev) => ({ ...prev, submit: false }));
-    }
+    );
   };
 
   // ============================================
@@ -279,26 +253,20 @@ function StudentsPage() {
   // Actual delete logic (called after confirmation)
   const confirmDelete = async () => {
     const studentId = deleteConfirm.studentId;
-    setLoading((prev) => ({ ...prev, delete: true }));
 
-    try {
-      await deleteStudent(studentId);
-      console.log('✅ Student deleted successfully');
-
-      // Remove from local state
-      setStudents((prev) => prev.filter((s) => s.id !== studentId));
-      setSelectedStudent(null);
-      
-      // Close the confirmation modal
-      setDeleteConfirm({ isOpen: false, studentId: null, studentName: '' });
-
-      toast.success('✅ Student deleted successfully!');
-    } catch (error) {
-      console.error('❌ Error deleting student:', error);
-      toast.error('⚠️ Failed to delete student.');
-    } finally {
-      setLoading((prev) => ({ ...prev, delete: false }));
-    }
+    deleteStudentMutation.mutate(studentId, {
+      onSuccess: () => {
+        console.log('✅ Student deleted successfully');
+        setSelectedStudent(null);
+        // Close the confirmation modal
+        setDeleteConfirm({ isOpen: false, studentId: null, studentName: '' });
+        toast.success('✅ Student deleted successfully!');
+      },
+      onError: (error) => {
+        console.error('❌ Error deleting student:', error);
+        toast.error('⚠️ Failed to delete student.');
+      },
+    });
   };
 
   // Cancel delete - close modal
@@ -388,19 +356,14 @@ function StudentsPage() {
   // ============================================
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Page Title */}
-      <h1
-        style={{
-          fontSize: '2rem',
-          fontWeight: 'bold',
-          color: '#1F2937',
-          marginBottom: '1.5rem',
-          textAlign: 'center',
-        }}
-      >
-        Student Management
-      </h1>
+    <div style={styles.pageContainer}>
+      <div style={styles.contentWrapper}>
+      {/* Page Header */}
+      <PageHeader
+        icon="👨‍🎓"
+        title="Student Management"
+        subtitle="View and manage all enrolled students"
+      />
 
       {/* Statistics Cards */}
       <StudentStatsCards
@@ -416,7 +379,7 @@ function StudentsPage() {
       {error && (
         <ErrorDisplay
           error={error}
-          onRetry={fetchStudents}
+          onRetry={refetchStudents}
           isRetrying={loading.students}
         />
       )}
@@ -486,46 +449,24 @@ function StudentsPage() {
             sortable: false,
             align: 'center',
             render: (_, student) => (
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+              <div style={styles.actionButtonsContainer}>
                 <button
                   onClick={() => handleViewDetails(student)}
-                  style={{
-                    backgroundColor: '#3B82F6',
-                    color: 'white',
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.target.style.backgroundColor = '#2563EB')}
-                  onMouseLeave={(e) => (e.target.style.backgroundColor = '#3B82F6')}
+                  style={styles.viewButton(hoveredButton === `view-${student.id}`)}
+                  onMouseEnter={() => setHoveredButton(`view-${student.id}`)}
+                  onMouseLeave={() => setHoveredButton(null)}
                 >
                   👁️ View
                 </button>
                 <button
                   onClick={() => openDeleteConfirm(student)}
                   disabled={loading.delete}
-                  style={{
-                    backgroundColor: loading.delete ? '#9CA3AF' : '#DC2626',
-                    color: 'white',
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: loading.delete ? 'not-allowed' : 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'background-color 0.15s ease',
-                    opacity: loading.delete ? 0.6 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!loading.delete) e.target.style.backgroundColor = '#B91C1C';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!loading.delete) e.target.style.backgroundColor = '#DC2626';
-                  }}
+                  style={styles.deleteButton(
+                    loading.delete,
+                    hoveredButton === `delete-${student.id}`
+                  )}
+                  onMouseEnter={() => !loading.delete && setHoveredButton(`delete-${student.id}`)}
+                  onMouseLeave={() => setHoveredButton(null)}
                 >
                   🗑️ Delete
                 </button>
@@ -565,7 +506,7 @@ function StudentsPage() {
           onClose={() => setIsAdding(false)}
           onStudentAdded={() => {
             setIsAdding(false);
-            fetchStudents();
+            refetchStudents();
           }}
         />
       )}
@@ -583,8 +524,61 @@ function StudentsPage() {
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
       />
+      </div>
     </div>
   );
 }
+
+// ============================================
+// STYLES - Centralized design constants
+// ============================================
+const styles = {
+  pageContainer: {
+    minHeight: '100vh',
+    background: COLORS.background.gradient,
+    padding: SPACING.xl,
+  },
+  contentWrapper: {
+    maxWidth: LAYOUT.maxWidth.md,
+    margin: '0 auto',
+  },
+  pageTitle: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.xl,
+    textAlign: 'center',
+  },
+  actionButtonsContainer: {
+    display: 'flex',
+    gap: SPACING.sm,
+    justifyContent: 'center',
+  },
+  viewButton: (isHovered) => ({
+    backgroundColor: isHovered ? COLORS.status.infoDark : COLORS.status.info,
+    color: COLORS.text.white,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    borderRadius: BORDER_RADIUS.sm,
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    transition: `background-color ${TRANSITIONS.fast} ease`,
+  }),
+  deleteButton: (isDisabled, isHovered) => ({
+    backgroundColor: isDisabled
+      ? COLORS.interactive.disabled
+      : (isHovered ? COLORS.status.errorDarker : COLORS.status.errorDark),
+    color: COLORS.text.white,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    borderRadius: BORDER_RADIUS.sm,
+    border: 'none',
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    transition: `background-color ${TRANSITIONS.fast} ease`,
+    opacity: isDisabled ? 0.6 : 1,
+  }),
+};
 
 export default StudentsPage;

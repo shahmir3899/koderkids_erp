@@ -83,6 +83,24 @@ export const COLORS = {
     purple: '#B061CE',
     blue: '#2362ab',
   },
+
+  // Transaction-specific colors
+  transaction: {
+    income: '#10B981',      // Green - matches status.success
+    expense: '#EF4444',     // Red - matches status.error
+    transfer: '#3B82F6',    // Blue - matches status.info
+    incomeBg: '#D1FAE5',    // Light green background
+    expenseBg: '#FEE2E2',   // Light red background
+    transferBg: '#DBEAFE',  // Light blue background
+  },
+
+  // Interactive states
+  interactive: {
+    primary: '#1E40AF',         // Deep blue for primary actions
+    primaryHover: '#1E3A8A',    // Darker blue for hover
+    primaryActive: '#1D4ED8',   // Active state
+    disabled: '#9CA3AF',        // Gray for disabled state
+  },
 };
 
 /**
@@ -107,6 +125,27 @@ export const FONT_SIZES = {
   '2xl': '1.875rem', // 30px
   '3xl': '2.25rem',  // 36px
   '4xl': '3rem',     // 48px
+
+  // Responsive font sizes (mobile, tablet, desktop)
+  responsive: {
+    h1: { mobile: '1.75rem', tablet: '2.25rem', desktop: '2.5rem' },
+    h2: { mobile: '1.5rem', tablet: '1.75rem', desktop: '2rem' },
+    h3: { mobile: '1.25rem', tablet: '1.375rem', desktop: '1.5rem' },
+    h4: { mobile: '1.125rem', tablet: '1.25rem', desktop: '1.25rem' },
+    body: { mobile: '0.875rem', tablet: '0.9375rem', desktop: '1rem' },
+    small: { mobile: '0.75rem', tablet: '0.8125rem', desktop: '0.875rem' },
+  },
+};
+
+/**
+ * Get responsive font size
+ * @param {string} type - Font type (h1, h2, h3, h4, body, small)
+ * @param {string} breakpoint - Current breakpoint
+ */
+export const getResponsiveFontSize = (type, breakpoint = 'desktop') => {
+  const fontType = FONT_SIZES.responsive[type];
+  if (!fontType) return FONT_SIZES.base;
+  return fontType[breakpoint] || fontType.desktop;
 };
 
 /**
@@ -130,11 +169,32 @@ export const SPACING = {
   lg: '1rem',     // 16px
   xl: '1.5rem',   // 24px
   '2xl': '2rem',  // 32px
+  '3xl': '3rem',  // 48px
+  '4xl': '4rem',  // 64px
 
   // Layout-specific
   sidebar: '257px',
   contentPadding: '2rem',
   sectionGap: '2rem',
+
+  // Responsive spacing (use with getResponsiveSpacing helper)
+  responsive: {
+    pagePadding: { mobile: '1rem', tablet: '1.5rem', desktop: '2rem' },
+    sectionGap: { mobile: '1rem', tablet: '1.5rem', desktop: '2rem' },
+    cardPadding: { mobile: '0.75rem', tablet: '1rem', desktop: '1.5rem' },
+    containerPadding: { mobile: '1rem', tablet: '1.5rem', desktop: '2rem' },
+  },
+};
+
+/**
+ * Responsive spacing values - returns CSS value based on breakpoint
+ * @param {string} type - Type of spacing (pagePadding, sectionGap, etc.)
+ * @param {string} breakpoint - Current breakpoint (mobile, tablet, desktop)
+ */
+export const getResponsiveSpacing = (type, breakpoint = 'desktop') => {
+  const spacingType = SPACING.responsive[type];
+  if (!spacingType) return SPACING.lg;
+  return spacingType[breakpoint] || spacingType.desktop;
 };
 
 /**
@@ -160,13 +220,42 @@ export const SHADOWS = {
 };
 
 /**
- * Breakpoints for responsive design
+ * Breakpoints for responsive design (pixel values)
+ */
+export const BREAKPOINT_VALUES = {
+  xs: 320,    // Small phones
+  sm: 480,    // Large phones
+  md: 768,    // Tablets
+  lg: 1024,   // Small desktops
+  xl: 1280,   // Large desktops
+  xxl: 1536,  // Extra large screens
+};
+
+/**
+ * Breakpoints for responsive design (string values)
  */
 export const BREAKPOINTS = {
+  xs: '320px',
+  sm: '480px',
+  md: '768px',
+  lg: '1024px',
+  xl: '1280px',
+  xxl: '1536px',
+  // Legacy aliases
   mobile: '480px',
   tablet: '768px',
   desktop: '1024px',
   wide: '1440px',
+};
+
+/**
+ * Media query strings for use in CSS-in-JS
+ */
+export const MEDIA_QUERIES = {
+  mobile: `@media (max-width: ${BREAKPOINT_VALUES.md - 1}px)`,
+  tablet: `@media (min-width: ${BREAKPOINT_VALUES.md}px) and (max-width: ${BREAKPOINT_VALUES.lg - 1}px)`,
+  desktop: `@media (min-width: ${BREAKPOINT_VALUES.lg}px)`,
+  touch: '@media (hover: none) and (pointer: coarse)',
 };
 
 /**
@@ -189,6 +278,17 @@ export const TRANSITIONS = {
   normal: '0.2s',
   slow: '0.3s',
   slower: '0.5s',
+};
+
+/**
+ * Touch target sizes (WCAG guidelines recommend 44px minimum)
+ */
+export const TOUCH_TARGETS = {
+  minimum: '44px',    // WCAG minimum
+  small: '36px',      // Small but still accessible
+  medium: '44px',     // Default recommended
+  large: '48px',      // Comfortable touch target
+  extraLarge: '56px', // Large touch target for important actions
 };
 
 /**
@@ -216,6 +316,24 @@ export const LAYOUT = {
     height: '568px',
     classLabelWidth: '125px',
     cellHeight: '92px',
+  },
+
+  // Page max widths for consistent layouts
+  maxWidth: {
+    sm: '1000px',   // StudentDashboard
+    md: '1400px',   // TransactionsPage, StudentsPage, FeePage
+    lg: '1600px',   // InventoryDashboard
+    full: '100%',   // Full width
+  },
+
+  // Responsive container max-widths
+  container: {
+    xs: '100%',
+    sm: '540px',
+    md: '720px',
+    lg: '960px',
+    xl: '1140px',
+    xxl: '1320px',
   },
 };
 
@@ -317,6 +435,189 @@ export const MIXINS = {
     WebkitBackdropFilter: 'blur(20px) saturate(180%)',
     border: '1px solid rgba(255, 255, 255, 0.18)',
   },
+
+  // Select/dropdown styling with solid background for proper option rendering
+  glassmorphicSelect: {
+    background: 'rgba(30, 30, 60, 0.95)',
+    backdropFilter: 'blur(20px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+  },
+
+  // Select option styling (for inline use on <option> elements)
+  selectOption: {
+    background: '#1e1e3c',
+    color: '#ffffff',
+  },
+
+  // Responsive mixins
+  responsiveContainer: {
+    width: '100%',
+    maxWidth: '100%',
+    marginLeft: 'auto',
+    marginRight: 'auto',
+    paddingLeft: '1rem',
+    paddingRight: '1rem',
+  },
+
+  // Touch-friendly button
+  touchButton: {
+    minHeight: TOUCH_TARGETS.minimum,
+    minWidth: TOUCH_TARGETS.minimum,
+    padding: '0.75rem 1rem',
+    fontSize: '1rem',
+    cursor: 'pointer',
+  },
+
+  // Responsive grid
+  responsiveGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '1rem',
+  },
+
+  // Stack on mobile, row on desktop
+  responsiveFlex: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+  },
+
+  // Responsive table wrapper
+  tableResponsive: {
+    display: 'block',
+    width: '100%',
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
+  },
+
+  // Safe width (for modals, dropdowns)
+  safeWidth: {
+    width: 'min(90vw, 400px)',
+  },
+};
+
+/**
+ * Action Button Styles
+ * Consistent button styles for action buttons across the app
+ * Use with hover handlers for full effect
+ */
+export const BUTTON_STYLES = {
+  // Base action button style (compact, for table rows and cards)
+  actionBase: {
+    padding: '0.375rem 0.75rem',
+    borderRadius: '0.375rem',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    transition: 'all 0.15s ease',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.25rem',
+  },
+
+  // Primary action (View, Submit, Confirm)
+  primary: {
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+  },
+  primaryHover: {
+    backgroundColor: COLORS.status.infoDark,
+  },
+
+  // Success action (Edit, Save, Approve)
+  success: {
+    backgroundColor: COLORS.status.success,
+    color: COLORS.text.white,
+  },
+  successHover: {
+    backgroundColor: COLORS.status.successDark,
+  },
+
+  // Warning action (Assign, Transfer, Move)
+  warning: {
+    backgroundColor: COLORS.status.warning,
+    color: COLORS.text.white,
+  },
+  warningHover: {
+    backgroundColor: COLORS.status.warningDark,
+  },
+
+  // Danger action (Delete, Remove, Deactivate)
+  danger: {
+    backgroundColor: COLORS.status.errorDark,
+    color: COLORS.text.white,
+  },
+  dangerHover: {
+    backgroundColor: COLORS.status.errorDarker,
+  },
+
+  // Purple action (Special actions like Reset Password)
+  purple: {
+    backgroundColor: '#8B5CF6',
+    color: COLORS.text.white,
+  },
+  purpleHover: {
+    backgroundColor: '#7C3AED',
+  },
+
+  // Secondary/Ghost action (Cancel, Close)
+  secondary: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  secondaryHover: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  // Disabled state
+  disabled: {
+    backgroundColor: '#9CA3AF',
+    color: COLORS.text.white,
+    cursor: 'not-allowed',
+    opacity: 0.6,
+  },
+
+  // Full-width button variant (for modals, forms)
+  fullWidth: {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    fontSize: '1rem',
+    fontWeight: '600',
+    borderRadius: '0.5rem',
+  },
+
+  // Icon-only button (for compact table actions)
+  iconOnly: {
+    padding: '0.375rem',
+    minWidth: '2rem',
+    minHeight: '2rem',
+  },
+};
+
+/**
+ * Helper function to get button style with hover
+ * Usage: getButtonStyle('primary', isHovered)
+ */
+export const getButtonStyle = (variant, isHovered = false, isDisabled = false) => {
+  if (isDisabled) {
+    return {
+      ...BUTTON_STYLES.actionBase,
+      ...BUTTON_STYLES.disabled,
+    };
+  }
+
+  const baseVariant = BUTTON_STYLES[variant] || BUTTON_STYLES.primary;
+  const hoverVariant = BUTTON_STYLES[`${variant}Hover`] || BUTTON_STYLES.primaryHover;
+
+  return {
+    ...BUTTON_STYLES.actionBase,
+    ...baseVariant,
+    ...(isHovered ? hoverVariant : {}),
+  };
 };
 
 export default {
@@ -328,11 +629,18 @@ export default {
   BORDER_RADIUS,
   SHADOWS,
   BREAKPOINTS,
+  BREAKPOINT_VALUES,
+  MEDIA_QUERIES,
   Z_INDEX,
   TRANSITIONS,
+  TOUCH_TARGETS,
   LAYOUT,
   SIDEBAR,
   MIXINS,
+  BUTTON_STYLES,
   getClassColor,
   getCompletionRateColor,
+  getButtonStyle,
+  getResponsiveSpacing,
+  getResponsiveFontSize,
 };

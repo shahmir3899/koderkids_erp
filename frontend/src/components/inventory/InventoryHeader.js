@@ -36,7 +36,7 @@ export const InventoryHeader = ({
         <h1 style={{
           fontSize: '1.75rem',
           fontWeight: '700',
-          color: '#1F2937',
+          color: '#FFFFFF',
           margin: 0,
           display: 'flex',
           alignItems: 'center',
@@ -46,10 +46,10 @@ export const InventoryHeader = ({
         </h1>
         <p style={{
           fontSize: '0.875rem',
-          color: '#6B7280',
+          color: 'rgba(255, 255, 255, 0.7)',
           margin: '0.25rem 0 0',
         }}>
-          {isAdmin 
+          {isAdmin
             ? 'Track and manage assets across all locations'
             : `Manage inventory at your assigned schools • ${userName}`
           }

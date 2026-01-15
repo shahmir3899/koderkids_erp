@@ -12,6 +12,7 @@ import {
   FONT_WEIGHTS,
   BORDER_RADIUS,
   TRANSITIONS,
+  MIXINS,
 } from '../../../utils/designConstants';
 
 /**
@@ -46,19 +47,26 @@ export const SchoolFilter = ({
   const selectStyle = {
     width: '100%',
     padding: SPACING.sm,
-    border: `1px solid ${COLORS.border.light}`,
+    ...MIXINS.glassmorphicSubtle,
     borderRadius: BORDER_RADIUS.sm,
-    fontSize: FONT_SIZES.lg,
-    backgroundColor: disabled ? COLORS.background.offWhite : COLORS.background.white,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
     cursor: disabled ? 'not-allowed' : 'pointer',
     transition: `border-color ${TRANSITIONS.normal} ease`,
+    opacity: disabled ? 0.6 : 1,
+  };
+
+  const optionStyle = {
+    backgroundColor: '#1e1e2e',
+    color: '#ffffff',
+    padding: SPACING.sm,
   };
 
   const labelStyle = {
     display: 'block',
     marginBottom: SPACING.xs,
     fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
   };
 
   if (loading) {
@@ -100,14 +108,14 @@ export const SchoolFilter = ({
         onChange={handleChange}
         disabled={disabled}
         style={selectStyle}
-        onFocus={(e) => { e.target.style.borderColor = COLORS.status.info; }}
-        onBlur={(e) => { e.target.style.borderColor = COLORS.border.light; }}
+        onFocus={(e) => { e.target.style.borderColor = COLORS.primary; e.target.style.boxShadow = '0 0 0 3px rgba(176, 97, 206, 0.3)'; }}
+        onBlur={(e) => { e.target.style.borderColor = COLORS.border.whiteTransparent; e.target.style.boxShadow = 'none'; }}
         required={required}
       >
-        <option value="">{placeholder}</option>
-        {showAllOption && <option value="all">All Schools</option>}
+        <option value="" style={optionStyle}>{placeholder}</option>
+        {showAllOption && <option value="all" style={optionStyle}>All Schools</option>}
         {schools.map((school) => (
-          <option key={school.id} value={school.id}>
+          <option key={school.id} value={school.id} style={optionStyle}>
             {school.name}
           </option>
         ))}

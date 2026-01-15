@@ -1,12 +1,41 @@
-import React, { useState, useRef, useEffect } from "react";
+// ============================================
+// CUSTOM REPORT PAGE - Glassmorphism Design
+// ============================================
+// Location: src/pages/CustomReport.js
+
+import React, { useRef, useState, useEffect } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { toast } from "react-toastify";
 
-// Fetch array buffer for background image with timeout
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  LAYOUT,
+  MIXINS,
+} from '../utils/designConstants';
+
+// Responsive Hook
+import { useResponsive } from '../hooks/useResponsive';
+
+// Custom Report Hook
+import { useCustomReport } from '../hooks/useCustomReport';
+
+// Common Components
+import { PageHeader } from '../components/common/PageHeader';
+
+// ============================================
+// PDF GENERATION UTILITIES
+// ============================================
+
 async function fetchArrayBuffer(url) {
   try {
     const controller = new AbortController();
-    setTimeout(() => controller.abort(), 5000); // 5s timeout
+    setTimeout(() => controller.abort(), 5000);
     const response = await fetch(url, { mode: "cors", signal: controller.signal });
     if (!response.ok) throw new Error(`Failed to fetch ${url}`);
     return await response.arrayBuffer();
@@ -16,7 +45,6 @@ async function fetchArrayBuffer(url) {
   }
 }
 
-// Validate image format (PNG or JPEG)
 async function validateImageFormat(arrayBuffer) {
   const firstBytes = new Uint8Array(arrayBuffer.slice(0, 4));
   const isJpeg = firstBytes[0] === 0xFF && firstBytes[1] === 0xD8;
@@ -25,7 +53,6 @@ async function validateImageFormat(arrayBuffer) {
   return isJpeg;
 }
 
-// Function to parse text into styled runs
 function parseTextToRuns(text, fontRegular, fontBold, fontItalic, fontMono) {
   const parts = text.split(/(\*[^*]+\*|_[^_]+_|~[^~]+~|```[^`]+```)/g).filter(part => part);
   const runs = [];
@@ -45,7 +72,6 @@ function parseTextToRuns(text, fontRegular, fontBold, fontItalic, fontMono) {
   return runs;
 }
 
-// Function to draw wrapped text with styles, handling multipage
 async function drawWrappedText(pdfDoc, page, xStart, yStart, runs, options) {
   let currentPage = page;
   let currentX = xStart;
@@ -53,21 +79,18 @@ async function drawWrappedText(pdfDoc, page, xStart, yStart, runs, options) {
   const { maxWidth, fontSize, lineHeight, color, pageWidth, pageHeight, margin, footerSpace, fontRegular, drawBackground, drawFooter, bodyTopMargin } = options;
 
   for (const run of runs) {
-    const words = run.text.split(/(\s+)/).filter(word => word); // Split by spaces, keep spaces as separate
+    const words = run.text.split(/(\s+)/).filter(word => word);
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
       const wordWidth = run.font.widthOfTextAtSize(word, fontSize);
 
       if (currentX + wordWidth > xStart + maxWidth) {
-        // Move to new line
         currentY -= lineHeight;
         if (currentY < margin + footerSpace) {
-          // Draw footer on current page
           drawFooter(currentPage, fontRegular, pageWidth, margin);
-          // Add new page
           currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
           await drawBackground(currentPage, pageWidth, pageHeight);
-          currentY = pageHeight - bodyTopMargin; // Use bodyTopMargin from options
+          currentY = pageHeight - bodyTopMargin;
         }
         currentX = xStart;
       }
@@ -80,7 +103,6 @@ async function drawWrappedText(pdfDoc, page, xStart, yStart, runs, options) {
         color,
       });
 
-      // If strikethrough, draw line over the text
       if (run.strike) {
         currentPage.drawLine({
           start: { x: currentX, y: currentY + fontSize / 2 },
@@ -94,33 +116,29 @@ async function drawWrappedText(pdfDoc, page, xStart, yStart, runs, options) {
     }
   }
 
-  // Return the updated y position for the next content and the current page
   return { newY: currentY - lineHeight, newPage: currentPage };
 }
 
-// Generate PDF with multipage support, wrapping, bold/italic/strike/mono/numbering/bullets, header on first, footer on all
 async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adminName) {
   try {
     const pdfDoc = await PDFDocument.create();
-    let page = pdfDoc.addPage([595, 842]); // A4 size
+    let page = pdfDoc.addPage([595, 842]);
     const { width: pageWidth, height: pageHeight } = page.getSize();
     const margin = 50;
-    const topSpace = 144; // 2 inches
-    const bodyTopMargin = topSpace + 60; // Define bodyTopMargin for consistent top padding
+    const topSpace = 144;
+    const bodyTopMargin = topSpace + 60;
     const fontSize = 12;
-    let lineHeight = fontSize + 5; // Default single
+    let lineHeight = fontSize + 5;
     if (lineSpacing === '1.5') lineHeight = fontSize + 8;
     if (lineSpacing === 'double') lineHeight = fontSize + 12;
     const footerSpace = 50;
-    const listIndent = 30; // Fixed indent for list text
+    const listIndent = 30;
 
-    // Embed fonts
     const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
     const fontMono = await pdfDoc.embedFont(StandardFonts.Courier);
 
-    // Draw background function
     const drawBackgroundFunc = async (currentPage, pw, ph) => {
       try {
         const imageArrayBuffer = await fetchArrayBuffer("/bg.png");
@@ -131,11 +149,10 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
         currentPage.drawImage(backgroundImage, { x: 0, y: 0, width: pw, height: ph });
       } catch (error) {
         console.warn("Using fallback background:", error.message);
-        currentPage.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: rgb(1, 1, 1) }); // White fallback
+        currentPage.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: rgb(1, 1, 1) });
       }
     };
 
-    // Draw footer function
     const drawFooterFunc = (currentPage, fr, pw, m) => {
       const footerText = `---This document is generated by Admin: ${adminName}------`;
       const footerX = (pw - fr.widthOfTextAtSize(footerText, 10)) / 2;
@@ -148,10 +165,8 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
       });
     };
 
-    // Draw background on first page
     await drawBackgroundFunc(page, pageWidth, pageHeight);
 
-    // Compact headers on top-right (first page only)
     const headers = [
       "Address: Office # 8, First Floor, Khyber III",
       "G-15 Markaz Islamabad, Pakistan",
@@ -171,7 +186,6 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
       });
     });
 
-    // "To" and "Subject" fields (first page only)
     page.drawText(`To: ${to}`, {
       x: margin,
       y: pageHeight - topSpace - 20,
@@ -196,17 +210,15 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
       color: rgb(0, 0, 0),
     });
 
-    // Start body position
     let yPosition = pageHeight - bodyTopMargin;
 
-    // Body text with formatting, wrapping, and multipage, handling empty lines
     const lines = bodyText.split("\n");
     for (const line of lines) {
       if (yPosition < margin + footerSpace) {
         drawFooterFunc(page, fontRegular, pageWidth, margin);
         page = pdfDoc.addPage([pageWidth, pageHeight]);
         await drawBackgroundFunc(page, pageWidth, pageHeight);
-        yPosition = pageHeight - bodyTopMargin; // Use bodyTopMargin for new pages
+        yPosition = pageHeight - bodyTopMargin;
       }
 
       if (line.trim() === '') {
@@ -218,8 +230,8 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
       let number = null;
       let bullet = false;
       let itemText = line.trim();
-      const numMatch = line.match(/^\s*(\d+)\.\s+(.*)$/); // Updated regex
-      const bulletMatch = line.match(/^\s*[-*]\s+(.*)$/); // Updated regex
+      const numMatch = line.match(/^\s*(\d+)\.\s+(.*)$/);
+      const bulletMatch = line.match(/^\s*[-*]\s+(.*)$/);
       if (numMatch) {
         isListItem = true;
         number = numMatch[1];
@@ -237,7 +249,6 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
       if (isListItem) {
         if (number) {
           const numberText = `${number}. `;
-          const numberWidth = fontRegular.widthOfTextAtSize(numberText, fontSize);
           page.drawText(numberText, {
             x: margin,
             y: yPosition,
@@ -310,12 +321,11 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
       }
     }
 
-    // Regards with space, bold "Regards,", and "Koder Kids" on next line
     if (yPosition < margin + footerSpace + lineHeight * 2) {
       drawFooterFunc(page, fontRegular, pageWidth, margin);
       page = pdfDoc.addPage([pageWidth, pageHeight]);
       await drawBackgroundFunc(page, pageWidth, pageHeight);
-      yPosition = pageHeight - bodyTopMargin; // Use bodyTopMargin for new pages
+      yPosition = pageHeight - bodyTopMargin;
     }
     yPosition -= 30;
     page.drawText("Regards,", {
@@ -335,7 +345,6 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
     });
     yPosition -= lineHeight;
 
-    // Draw footer on the last page
     drawFooterFunc(page, fontRegular, pageWidth, margin);
 
     const pdfBytes = await pdfDoc.save();
@@ -347,36 +356,333 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
   }
 }
 
-// Function to parse text to HTML for preview
 function parseToHTML(text) {
   let html = text
-    .replace(/\*(.*?)\*/g, "<strong>$1</strong>") // Bold
-    .replace(/~(.*?)~/g, "<s>$1</s>") // Strikethrough
-    .replace(/_(.*?)_/g, "<em>$1</em>") // Italic
-    .replace(/```(.*?)```/g, "<code>$1</code>") // Monospace
-    .replace(/^\s*-\s+(.*)$/gm, "<li>$1</li>") // Bulleted list
-    .replace(/^\s*(\d+)\.\s+(.*)$/gm, "<li value='$1'>$2</li>") // Numbered list (retain number)
-    .replace(/\n/g, "<br>"); // New lines
+    .replace(/\*(.*?)\*/g, "<strong>$1</strong>")
+    .replace(/~(.*?)~/g, "<s>$1</s>")
+    .replace(/_(.*?)_/g, "<em>$1</em>")
+    .replace(/```(.*?)```/g, "<code>$1</code>")
+    .replace(/^\s*-\s+(.*)$/gm, "<li>$1</li>")
+    .replace(/^\s*(\d+)\.\s+(.*)$/gm, "<li value='$1'>$2</li>")
+    .replace(/\n/g, "<br>");
 
-  // Wrap lists in <ul> or <ol>
   html = html.replace(/<li>(.*?)<\/li>/g, match => {
-    if (match.startsWith("<li value=")) return `<ol>${match}</ol>`; // Numbered
-    return `<ul>${match}</ul>`; // Bulleted
+    if (match.startsWith("<li value=")) return `<ol>${match}</ol>`;
+    return `<ul>${match}</ul>`;
   });
 
   return html;
 }
 
+// ============================================
+// RESPONSIVE STYLES GENERATOR
+// ============================================
+const getResponsiveStyles = (isMobile, isTablet) => ({
+  pageContainer: {
+    padding: isMobile ? SPACING.md : isTablet ? SPACING.lg : SPACING.xl,
+    background: COLORS.background.gradient,
+    minHeight: '100vh',
+  },
+  contentWrapper: {
+    maxWidth: LAYOUT.maxWidth.lg,
+    margin: '0 auto',
+    width: '100%',
+  },
+  pageTitle: {
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+    textAlign: 'center',
+  },
+  formContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: isMobile ? SPACING.md : SPACING.lg,
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
+  },
+  input: {
+    padding: isMobile ? SPACING.md : SPACING.md,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: '16px',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    outline: 'none',
+    transition: `all ${TRANSITIONS.normal}`,
+    minHeight: '44px',
+  },
+  editorContainer: {
+    display: isMobile ? 'flex' : 'grid',
+    flexDirection: isMobile ? 'column' : undefined,
+    gridTemplateColumns: isMobile ? undefined : isTablet ? '1fr' : '1fr 1fr',
+    gap: isMobile ? SPACING.lg : SPACING.xl,
+  },
+  toolbar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: isMobile ? SPACING.xs : SPACING.sm,
+    marginBottom: SPACING.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: isMobile ? SPACING.sm : SPACING.md,
+    borderRadius: `${BORDER_RADIUS.lg} ${BORDER_RADIUS.lg} 0 0`,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderBottom: 'none',
+  },
+  toolbarButton: {
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.sm}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.normal}`,
+    fontSize: FONT_SIZES.sm,
+    minHeight: '44px',
+    minWidth: '44px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolbarSelect: {
+    padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.sm}`,
+    backgroundColor: 'rgba(30, 30, 50, 0.95)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    fontSize: '16px',
+    minHeight: '44px',
+  },
+  heightSliderContainer: {
+    display: isMobile ? 'none' : 'flex',
+    alignItems: 'center',
+  },
+  textarea: {
+    padding: isMobile ? SPACING.md : SPACING.lg,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: `0 0 ${BORDER_RADIUS.lg} ${BORDER_RADIUS.lg}`,
+    fontSize: '16px',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    outline: 'none',
+    transition: `all ${TRANSITIONS.normal}`,
+    resize: 'none',
+    minHeight: isMobile ? '200px' : '256px',
+  },
+  previewContainer: {
+    ...MIXINS.glassmorphicCard,
+    padding: isMobile ? SPACING.md : SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    overflowY: 'auto',
+    fontSize: FONT_SIZES.sm,
+    lineHeight: 1.6,
+    color: COLORS.text.white,
+    minHeight: isMobile ? '150px' : '256px',
+  },
+  generateButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    padding: isMobile ? `${SPACING.md} ${SPACING.lg}` : `${SPACING.md} ${SPACING.xl}`,
+    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.lg,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
+    transition: `all ${TRANSITIONS.normal}`,
+    minHeight: '48px',
+    width: isMobile ? '100%' : 'auto',
+  },
+  // History section styles
+  historySection: {
+    ...MIXINS.glassmorphicCard,
+    padding: isMobile ? SPACING.md : SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    marginTop: isMobile ? SPACING.lg : SPACING.xl,
+  },
+  historyHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  historyTitle: {
+    fontSize: isMobile ? FONT_SIZES.lg : FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+  },
+  historyTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+  },
+  historyTh: {
+    textAlign: 'left',
+    padding: SPACING.sm,
+    color: '#FBBF24',
+    fontWeight: FONT_WEIGHTS.bold,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+    fontSize: FONT_SIZES.sm,
+  },
+  historyTd: {
+    padding: SPACING.sm,
+    color: COLORS.text.white,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    fontSize: FONT_SIZES.sm,
+  },
+  actionButton: {
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.md,
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    transition: `all ${TRANSITIONS.normal}`,
+    marginRight: SPACING.xs,
+  },
+});
+
+// ============================================
+// STATIC STYLES
+// ============================================
+const styles = {
+  errorBanner: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    color: '#FCA5A5',
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(239, 68, 68, 0.4)',
+  },
+  fieldGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  label: {
+    fontWeight: FONT_WEIGHTS.semibold,
+    marginBottom: SPACING.sm,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+  },
+  editorSection: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  heightSliderLabel: {
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    marginRight: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+  },
+  heightSlider: {
+    width: '6rem',
+  },
+  heightValue: {
+    color: COLORS.text.whiteSubtle,
+    marginLeft: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+  },
+  previewSection: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  previewTitle: {
+    fontWeight: FONT_WEIGHTS.semibold,
+    marginBottom: SPACING.sm,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+  },
+  generateButtonDisabled: {
+    opacity: 0.75,
+    cursor: 'not-allowed',
+  },
+  spinner: {
+    animation: 'spin 1s linear infinite',
+  },
+  templateSelectRow: {
+    display: 'flex',
+    gap: SPACING.md,
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+  },
+  templateSelectGroup: {
+    flex: '1 1 200px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  buttonRow: {
+    display: 'flex',
+    gap: SPACING.md,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  historyBadge: {
+    display: 'inline-block',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    color: '#4ADE80',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  templateBadge: {
+    display: 'inline-block',
+    padding: `2px ${SPACING.xs}`,
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    color: '#A78BFA',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  noHistory: {
+    textAlign: 'center',
+    padding: SPACING.xl,
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+  },
+};
+
+// ============================================
+// COMPONENT
+// ============================================
 const CustomReport = () => {
-  const [to, setTo] = useState("");
-  const [subject, setSubject] = useState("");
-  const [bodyText, setBodyText] = useState("");
-  const [lineSpacing, setLineSpacing] = useState("single");
+  const { isMobile, isTablet } = useResponsive();
+  const responsiveStyles = getResponsiveStyles(isMobile, isTablet);
+  const textareaRef = useRef(null);
+
+  // Use custom hook for state management
+  const {
+    to, setTo,
+    subject, setSubject,
+    bodyText, setBodyText,
+    lineSpacing, setLineSpacing,
+    templateType,
+    reportHistory,
+    selectedHistoryReport,
+    templateOptions,
+    applyTemplate,
+    saveReportToDb,
+    loadHistoricalReport,
+    deleteHistoricalReport,
+    clearHistoricalReport,
+    clearForm,
+    loading,
+    error,
+    setError,
+    isFormValid,
+  } = useCustomReport();
+
   const [adminName, setAdminName] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const textareaRef = useRef(null);
-  const [textAreaHeight, setTextAreaHeight] = useState(256); // Initial height in pixels (h-64)
+  const [textAreaHeight, setTextAreaHeight] = useState(256);
+  const [hoveredButton, setHoveredButton] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => {
     const storedFullName = localStorage.getItem('fullName') || 'Unknown';
@@ -455,17 +761,17 @@ const CustomReport = () => {
 
   const handleGenerateReport = async () => {
     if (!to || !subject || !bodyText.trim()) {
-      setErrorMessage("Please enter To, Subject, and Body text.");
+      setError("Please enter To, Subject, and Body text.");
       toast.warning("All fields are required.");
       return;
     }
     if (to.length > 100 || subject.length > 100) {
-      setErrorMessage("To and Subject must be under 100 characters.");
+      setError("To and Subject must be under 100 characters.");
       toast.warning("Input too long.");
       return;
     }
 
-    setErrorMessage("");
+    setError("");
     setIsGenerating(true);
 
     try {
@@ -479,201 +785,441 @@ const CustomReport = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       toast.success("Report generated successfully!");
-    } catch (error) {
-      setErrorMessage(`Failed to generate report: ${error.message}`);
+
+      // Auto-save to history after successful generation
+      await saveReportToDb();
+
+      // Clear the form after successful generation and save
+      clearForm();
+    } catch (err) {
+      setError(`Failed to generate report: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const handleDeleteReport = async (reportId) => {
+    if (deleteConfirm === reportId) {
+      await deleteHistoricalReport(reportId);
+      setDeleteConfirm(null);
+    } else {
+      setDeleteConfirm(reportId);
+      setTimeout(() => setDeleteConfirm(null), 3000);
+    }
+  };
+
+  const getToolbarButtonStyle = (buttonId) => {
+    const isHovered = hoveredButton === buttonId;
+    return {
+      ...responsiveStyles.toolbarButton,
+      backgroundColor: isHovered ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+      transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
+    };
+  };
+
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('en-PK', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-2xl font-bold text-gray-700 mb-6">📝 Custom Report</h2>
+    <div style={responsiveStyles.pageContainer}>
+      <div style={responsiveStyles.contentWrapper}>
+        <PageHeader
+          icon="📄"
+          title="Custom Report Generator"
+          subtitle="Create custom PDF reports with your content"
+        />
 
-      {errorMessage && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">{errorMessage}</div>
-      )}
+        {/* Historical Report Badge */}
+        {selectedHistoryReport && (
+          <div style={{ marginBottom: SPACING.md, display: 'flex', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' }}>
+            <span style={styles.historyBadge}>
+              Viewing Historical Report from {formatDate(selectedHistoryReport.created_at)}
+            </span>
+            <button
+              onClick={() => {
+                clearForm();
+              }}
+              style={{
+                ...responsiveStyles.actionButton,
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                color: 'white',
+              }}
+            >
+              New Report
+            </button>
+          </div>
+        )}
 
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-col">
-          <label className="font-bold mb-1 text-gray-700" htmlFor="to">
-            To:
-          </label>
-          <input
-            id="to"
-            type="text"
-            className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="Enter recipient (e.g., Mr. Babar)"
-            maxLength={100}
-            aria-required="true"
-          />
-        </div>
+        {(error || '') && (
+          <div style={styles.errorBanner}>{error}</div>
+        )}
 
-        <div className="flex flex-col">
-          <label className="font-bold mb-1 text-gray-700" htmlFor="subject">
-            Subject:
-          </label>
-          <input
-            id="subject"
-            type="text"
-            className="p-2 border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Enter report subject"
-            maxLength={100}
-            aria-required="true"
-          />
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-6">
-          <div className="flex-1 flex flex-col">
-            <label className="font-bold mb-1 text-gray-700" htmlFor="bodyText">
-              Body Text (use *bold* for bold, _italic_ for italic, ~strike~ for strikethrough, ```mono``` for monospace, - for bullets, 1. for numbering):
-            </label>
-            <div className="flex flex-wrap items-center gap-2 mb-2 bg-white p-2 rounded-t-lg border border-b-0">
-              <button
-                onClick={() => formatText("bold")}
-                className="px-2 py-1 hover:bg-gray-100 rounded"
-                title="Bold"
-              >
-                <strong>B</strong>
-              </button>
-              <button
-                onClick={() => formatText("italic")}
-                className="px-2 py-1 hover:bg-gray-100 rounded"
-                title="Italic"
-              >
-                <em>I</em>
-              </button>
-              <button
-                onClick={() => formatText("strike")}
-                className="px-2 py-1 hover:bg-gray-100 rounded"
-                title="Strikethrough"
-              >
-                <s>S</s>
-              </button>
-              <button
-                onClick={() => formatText("mono")}
-                className="px-2 py-1 hover:bg-gray-100 rounded"
-                title="Monospace"
-              >
-                <code>M</code>
-              </button>
-              <button
-                onClick={() => formatText("bullet")}
-                className="px-2 py-1 hover:bg-gray-100 rounded"
-                title="Bulleted List"
-              >
-                •
-              </button>
-              <button
-                onClick={() => formatText("number")}
-                className="px-2 py-1 hover:bg-gray-100 rounded"
-                title="Numbered List"
-              >
-                1.
-              </button>
-              <button
-                onClick={() => formatText("newline")}
-                className="px-2 py-1 hover:bg-gray-100 rounded"
-                title="New Line"
-              >
-                ↵
-              </button>
-              <button
-                onClick={() => formatText("emptyline")}
-                className="px-2 py-1 hover:bg-gray-100 rounded"
-                title="Empty Line"
-              >
-                ⏎
-              </button>
+        <div style={responsiveStyles.formContainer}>
+          {/* Template Selection Row */}
+          <div style={styles.templateSelectRow}>
+            <div style={styles.templateSelectGroup}>
+              <label style={styles.label} htmlFor="template">Quick Draft Template:</label>
               <select
-                value={lineSpacing}
-                onChange={(e) => setLineSpacing(e.target.value)}
-                className="px-2 py-1 border rounded hover:bg-gray-100"
-                title="Line Spacing"
+                id="template"
+                style={{
+                  ...responsiveStyles.toolbarSelect,
+                  width: '100%',
+                }}
+                value={templateType}
+                onChange={(e) => applyTemplate(e.target.value)}
               >
-                <option value="single">Single</option>
-                <option value="1.5">1.5</option>
-                <option value="double">Double</option>
+                {templateOptions.map(opt => (
+                  <option key={opt.value} value={opt.value} style={{ backgroundColor: '#1e1e32', color: 'white' }}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
-              <label className="font-bold text-gray-700 mr-2" htmlFor="heightSlider">
-                Height:
-              </label>
-              <input
-                id="heightSlider"
-                type="range"
-                min="100"
-                max="600"
-                value={textAreaHeight}
-                onChange={(e) => setTextAreaHeight(parseInt(e.target.value))}
-                className="w-24"
-                title="Adjust Text Area Height"
-              />
-              <span className="text-gray-700 ml-2">{textAreaHeight}px</span>
             </div>
-            <textarea
-              id="bodyText"
-              ref={textareaRef}
-              className="p-4 border rounded-b-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              value={bodyText}
-              onChange={(e) => setBodyText(e.target.value)}
-              placeholder="Enter report content (e.g., *bold text*, _italic text_, ~strikethrough~, ```monospace```, new lines with Enter, - bulleted item, 1. numbered item)"
-              aria-required="true"
-              style={{ height: `${textAreaHeight}px` }} // Dynamic height
+          </div>
+
+          {/* To Field */}
+          <div style={styles.fieldGroup}>
+            <label style={styles.label} htmlFor="to">To:</label>
+            <input
+              id="to"
+              type="text"
+              style={responsiveStyles.input}
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="Enter recipient (e.g., Mr. Babar)"
+              maxLength={100}
             />
           </div>
 
-          <div className="flex-1 flex flex-col">
-            <h3 className="font-bold mb-1 text-gray-700">Preview:</h3>
-            <div
-              className="p-4 bg-white border rounded-lg overflow-y-auto font-sans text-sm leading-relaxed"
-              style={{ height: `${textAreaHeight}px` }} // Match body text height
-            >
-              <div dangerouslySetInnerHTML={{ __html: parseToHTML(bodyText) }} />
+          {/* Subject Field */}
+          <div style={styles.fieldGroup}>
+            <label style={styles.label} htmlFor="subject">Subject:</label>
+            <input
+              id="subject"
+              type="text"
+              style={responsiveStyles.input}
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Enter report subject"
+              maxLength={100}
+            />
+          </div>
+
+          {/* Editor and Preview */}
+          <div style={responsiveStyles.editorContainer}>
+            {/* Editor Section */}
+            <div style={styles.editorSection}>
+              <label style={styles.label} htmlFor="bodyText">
+                Body Text (use *bold*, _italic_, ~strike~, ```mono```, - bullets, 1. numbering):
+              </label>
+
+              {/* Toolbar */}
+              <div style={responsiveStyles.toolbar}>
+                <button
+                  onClick={() => formatText("bold")}
+                  onMouseEnter={() => setHoveredButton("bold")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  style={getToolbarButtonStyle("bold")}
+                  title="Bold"
+                  type="button"
+                >
+                  <strong>B</strong>
+                </button>
+                <button
+                  onClick={() => formatText("italic")}
+                  onMouseEnter={() => setHoveredButton("italic")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  style={getToolbarButtonStyle("italic")}
+                  title="Italic"
+                  type="button"
+                >
+                  <em>I</em>
+                </button>
+                <button
+                  onClick={() => formatText("strike")}
+                  onMouseEnter={() => setHoveredButton("strike")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  style={getToolbarButtonStyle("strike")}
+                  title="Strikethrough"
+                  type="button"
+                >
+                  <s>S</s>
+                </button>
+                <button
+                  onClick={() => formatText("mono")}
+                  onMouseEnter={() => setHoveredButton("mono")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  style={getToolbarButtonStyle("mono")}
+                  title="Monospace"
+                  type="button"
+                >
+                  <code>M</code>
+                </button>
+                <button
+                  onClick={() => formatText("bullet")}
+                  onMouseEnter={() => setHoveredButton("bullet")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  style={getToolbarButtonStyle("bullet")}
+                  title="Bulleted List"
+                  type="button"
+                >
+                  •
+                </button>
+                <button
+                  onClick={() => formatText("number")}
+                  onMouseEnter={() => setHoveredButton("number")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  style={getToolbarButtonStyle("number")}
+                  title="Numbered List"
+                  type="button"
+                >
+                  1.
+                </button>
+                <button
+                  onClick={() => formatText("newline")}
+                  onMouseEnter={() => setHoveredButton("newline")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  style={getToolbarButtonStyle("newline")}
+                  title="New Line"
+                  type="button"
+                >
+                  ↵
+                </button>
+                <button
+                  onClick={() => formatText("emptyline")}
+                  onMouseEnter={() => setHoveredButton("emptyline")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  style={getToolbarButtonStyle("emptyline")}
+                  title="Empty Line"
+                  type="button"
+                >
+                  ⏎
+                </button>
+                <select
+                  value={lineSpacing}
+                  onChange={(e) => setLineSpacing(e.target.value)}
+                  style={responsiveStyles.toolbarSelect}
+                  title="Line Spacing"
+                >
+                  <option value="single" style={{ backgroundColor: '#1e1e32', color: 'white' }}>Single</option>
+                  <option value="1.5" style={{ backgroundColor: '#1e1e32', color: 'white' }}>1.5</option>
+                  <option value="double" style={{ backgroundColor: '#1e1e32', color: 'white' }}>Double</option>
+                </select>
+                {/* Height slider - hidden on mobile */}
+                <div style={responsiveStyles.heightSliderContainer}>
+                  <span style={styles.heightSliderLabel}>Height:</span>
+                  <input
+                    id="heightSlider"
+                    type="range"
+                    min="100"
+                    max="600"
+                    value={textAreaHeight}
+                    onChange={(e) => setTextAreaHeight(parseInt(e.target.value))}
+                    style={styles.heightSlider}
+                    title="Adjust Text Area Height"
+                  />
+                  <span style={styles.heightValue}>{textAreaHeight}px</span>
+                </div>
+              </div>
+
+              {/* Textarea */}
+              <textarea
+                id="bodyText"
+                ref={textareaRef}
+                style={{ ...responsiveStyles.textarea, height: isMobile ? 'auto' : `${textAreaHeight}px` }}
+                value={bodyText}
+                onChange={(e) => setBodyText(e.target.value)}
+                placeholder="Enter report content..."
+              />
+            </div>
+
+            {/* Preview Section */}
+            <div style={styles.previewSection}>
+              <h3 style={styles.previewTitle}>Preview:</h3>
+              <div
+                style={{ ...responsiveStyles.previewContainer, height: isMobile ? 'auto' : `${textAreaHeight + 50}px` }}
+                dangerouslySetInnerHTML={{ __html: parseToHTML(bodyText) }}
+              />
             </div>
           </div>
         </div>
+
+        {/* Button Row */}
+        <div style={styles.buttonRow}>
+          {/* Generate Button */}
+          <button
+            onClick={handleGenerateReport}
+            style={{
+              ...responsiveStyles.generateButton,
+              ...(isGenerating ? styles.generateButtonDisabled : {}),
+            }}
+            disabled={isGenerating}
+            onMouseEnter={(e) => {
+              if (!isGenerating) {
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(59, 130, 246, 0.4)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.8)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            {isGenerating ? (
+              <>
+                <svg
+                  style={styles.spinner}
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
+                  <circle
+                    style={{ opacity: 0.25 }}
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    style={{ opacity: 0.75 }}
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Generating...
+              </>
+            ) : (
+              'Generate Report'
+            )}
+          </button>
+
+          {/* Clear Form Button */}
+          <button
+            onClick={clearForm}
+            style={{
+              ...responsiveStyles.generateButton,
+              backgroundColor: 'rgba(107, 114, 128, 0.8)',
+              width: isMobile ? '100%' : 'auto',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(107, 114, 128, 1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(107, 114, 128, 0.8)';
+            }}
+          >
+            Clear Form
+          </button>
+        </div>
+
+        {/* ============================================ */}
+        {/* REPORT HISTORY SECTION */}
+        {/* ============================================ */}
+        <div style={responsiveStyles.historySection}>
+          <div style={responsiveStyles.historyHeader}>
+            <h2 style={responsiveStyles.historyTitle}>Report History</h2>
+            {loading.history && (
+              <span style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.sm }}>
+                Loading...
+              </span>
+            )}
+          </div>
+
+          {reportHistory.length === 0 ? (
+            <div style={styles.noHistory}>
+              No reports generated yet. Generate a report to see it here.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={responsiveStyles.historyTable}>
+                <thead>
+                  <tr>
+                    <th style={responsiveStyles.historyTh}>Subject</th>
+                    <th style={responsiveStyles.historyTh}>Recipient</th>
+                    {!isMobile && <th style={responsiveStyles.historyTh}>Type</th>}
+                    <th style={responsiveStyles.historyTh}>Date</th>
+                    <th style={responsiveStyles.historyTh}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportHistory.map((report) => (
+                    <tr key={report.id}>
+                      <td style={responsiveStyles.historyTd}>
+                        <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {report.subject}
+                        </div>
+                      </td>
+                      <td style={responsiveStyles.historyTd}>
+                        <div style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {report.recipient}
+                        </div>
+                      </td>
+                      {!isMobile && (
+                        <td style={responsiveStyles.historyTd}>
+                          <span style={styles.templateBadge}>
+                            {report.template_display}
+                          </span>
+                        </td>
+                      )}
+                      <td style={responsiveStyles.historyTd}>
+                        {formatDate(report.created_at)}
+                      </td>
+                      <td style={responsiveStyles.historyTd}>
+                        <button
+                          onClick={() => loadHistoricalReport(report.id)}
+                          style={{
+                            ...responsiveStyles.actionButton,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                            color: 'white',
+                          }}
+                          disabled={loading.history}
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => handleDeleteReport(report.id)}
+                          style={{
+                            ...responsiveStyles.actionButton,
+                            backgroundColor: deleteConfirm === report.id
+                              ? 'rgba(239, 68, 68, 1)'
+                              : 'rgba(239, 68, 68, 0.6)',
+                            color: 'white',
+                          }}
+                          disabled={loading.deleting}
+                        >
+                          {deleteConfirm === report.id ? 'Confirm?' : 'Delete'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
-      <button
-        onClick={handleGenerateReport}
-        className={`bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 ${
-          isGenerating ? "opacity-75 cursor-not-allowed" : "hover:bg-blue-600"
-        }`}
-        disabled={isGenerating}
-        aria-label={isGenerating ? "Generating report" : "Generate report"}
-      >
-        {isGenerating ? (
-          <>
-            <svg
-              className="animate-spin h-5 w-5 mr-2 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            Generating...
-          </>
-        ) : (
-          <>📄 Generate Report</>
-        )}
-      </button>
+      {/* Keyframe animation for spinner */}
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 };

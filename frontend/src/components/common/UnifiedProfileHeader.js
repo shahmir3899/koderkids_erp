@@ -11,6 +11,7 @@ import { LoadingSpinner } from './ui/LoadingSpinner';
 import { NotificationPanel } from './ui/NotificationPanel';
 import { logout } from '../../utils/authHelpers';
 import { clearCacheOnLogout } from '../../utils/cacheUtils';
+import { useResponsive } from '../../hooks/useResponsive';
 import {
   COLORS,
   SPACING,
@@ -19,6 +20,7 @@ import {
   BORDER_RADIUS,
   SHADOWS,
   TRANSITIONS,
+  TOUCH_TARGETS,
 } from '../../utils/designConstants';
 
 // Role-specific modals
@@ -40,6 +42,7 @@ export const UnifiedProfileHeader = ({
 }) => {
   const navigate = useNavigate();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { isMobile, isTablet } = useResponsive();
 
   console.log('🎨 UnifiedProfileHeader render:', { role, loading, hasProfile: !!profile });
 
@@ -87,10 +90,13 @@ export const UnifiedProfileHeader = ({
   }
 
   // FIXED: Use new getProfileName helper with multiple fallbacks
-  const displayName = getProfileName(profile, config);
+  const fullName = getProfileName(profile, config);
+  // For mobile: use first name only, or truncate if still too long
+  const firstName = fullName.split(' ')[0];
+  const displayName = isMobile ? firstName : fullName;
   const idValue = profile[config.idField] || config.idFallback;
   const profilePhoto = profile?.profile_photo_url || config.avatarFallback;
-  const firstLetter = displayName.charAt(0).toUpperCase();
+  const firstLetter = fullName.charAt(0).toUpperCase();
 
   console.log('📊 Profile data:', {
     displayName,
@@ -130,96 +136,133 @@ export const UnifiedProfileHeader = ({
     }
   };
 
+  // Get responsive styles
+  const responsiveStyles = getResponsiveStyles(isMobile, isTablet);
+
   return (
     <>
-      <div style={styles.container}>
-        {/* Large Avatar - Left */}
-        <img
-          src={profilePhoto}
-          alt={displayName}
-          style={{
-            ...styles.avatar,
-            width: `${config.avatarSize}px`,
-            height: `${config.avatarSize}px`,
-          }}
-          onError={(e) => {
-            console.log('⚠️ Avatar load error, using fallback');
-            e.target.src = config.avatarFallback;
-          }}
-        />
+      <div style={responsiveStyles.container}>
+        {/* Large Avatar - Left (hidden on mobile) */}
+        {!isMobile && (
+          <img
+            src={profilePhoto}
+            alt={displayName}
+            style={{
+              ...styles.avatar,
+              width: isTablet ? '80px' : `${config.avatarSize}px`,
+              height: isTablet ? '80px' : `${config.avatarSize}px`,
+            }}
+            onError={(e) => {
+              console.log('⚠️ Avatar load error, using fallback');
+              e.target.src = config.avatarFallback;
+            }}
+          />
+        )}
 
         {/* Middle Section - ID, Welcome, Role, Details */}
-        <div style={styles.middleSection}>
+        <div style={responsiveStyles.middleSection}>
           {/* Top Row: ID and Welcome with Role */}
-          <div style={styles.topRow}>
+          <div style={responsiveStyles.topRow}>
             <div style={styles.leftColumn}>
-              {/* ID Display */}
-              <div style={styles.empId}>
-                {config.idPrefix} {idValue}
-              </div>
-              
-              {/* Welcome Text and Role on same line */}
-              <div style={styles.welcomeRow}>
-                <h1 style={{
-                  ...styles.welcomeText,
-                  color: config.colors.accent || '#FFFFFF',
-                }}>
-                  Welcome, {displayName}
-                </h1>
-                <span style={styles.roleText}>
-                  Role : {config.roleName}
-                </span>
-              </div>
+              {/* Mobile: Show small avatar inline with name */}
+              {isMobile && (
+                <div style={responsiveStyles.mobileAvatarRow}>
+                  <img
+                    src={profilePhoto}
+                    alt={displayName}
+                    style={responsiveStyles.mobileAvatar}
+                    onError={(e) => {
+                      e.target.src = config.avatarFallback;
+                    }}
+                  />
+                  <div style={responsiveStyles.mobileNameContainer}>
+                    <h1 style={{
+                      ...responsiveStyles.welcomeText,
+                      color: config.colors.accent || '#FFFFFF',
+                    }}>
+                      {displayName}
+                    </h1>
+                    <span style={responsiveStyles.roleText}>
+                      {config.roleName}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Desktop/Tablet: Original layout */}
+              {!isMobile && (
+                <>
+                  {/* ID Display */}
+                  <div style={responsiveStyles.empId}>
+                    {config.idPrefix} {idValue}
+                  </div>
+
+                  {/* Welcome Text and Role on same line */}
+                  <div style={responsiveStyles.welcomeRow}>
+                    <h1 style={{
+                      ...responsiveStyles.welcomeText,
+                      color: config.colors.accent || '#FFFFFF',
+                    }}>
+                      Welcome, {displayName}
+                    </h1>
+                    <span style={responsiveStyles.roleText}>
+                      Role : {config.roleName}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Bottom Row: Details with vertical separators */}
-          <div style={styles.detailsRow}>
-            {config.details.map((detail, index) => {
-              const value = getDetailValue(profile, detail);
-              
-              return (
-                <div 
-                  key={detail.key}
-                  style={{
-                    ...styles.detailBlock,
-                    borderRight: detail.noBorder ? 'none' : '1px solid #D2D2D2',
-                  }}
-                >
-                  <span style={styles.label}>{detail.label}</span>
-                  <span style={styles.verticalSeparator}></span>
-                  <span>{value}</span>
-                </div>
-              );
-            })}
-          </div>
+          {/* Bottom Row: Details with vertical separators (hidden on mobile) */}
+          {!isMobile && (
+            <div style={responsiveStyles.detailsRow}>
+              {config.details.slice(0, isTablet ? 2 : config.details.length).map((detail, index) => {
+                const value = getDetailValue(profile, detail);
+
+                return (
+                  <div
+                    key={detail.key}
+                    style={{
+                      ...styles.detailBlock,
+                      borderRight: detail.noBorder ? 'none' : '1px solid rgba(255, 255, 255, 0.3)',
+                    }}
+                  >
+                    <span style={styles.label}>{detail.label}</span>
+                    <span style={styles.verticalSeparator}></span>
+                    <span>{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right Icons Section */}
-        <div style={styles.iconContainer}>
+        <div style={responsiveStyles.iconContainer}>
           {/* Notifications (Teachers Only) */}
           {config.features.showNotifications && (
             <NotificationPanel onNotificationClick={onNotificationClick} />
           )}
-          
-          {/* Messages (Teachers Only) */}
-          {config.features.showMessages && (
-            <button 
-              style={styles.iconButton} 
+
+          {/* Messages (Teachers Only) - hidden on mobile */}
+          {config.features.showMessages && !isMobile && (
+            <button
+              style={responsiveStyles.iconButton}
               aria-label="Messages"
               title="Messages"
               className="profile-icon-button"
             >
-              <svg style={styles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg style={responsiveStyles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </button>
           )}
-          
+
           {/* Settings (All Roles) */}
           {config.features.showSettings && (
-            <button 
-              style={styles.iconButton} 
+            <button
+              style={responsiveStyles.iconButton}
               aria-label="Settings"
               title="Profile Settings"
               onClick={() => {
@@ -228,15 +271,15 @@ export const UnifiedProfileHeader = ({
               }}
               className="profile-icon-button"
             >
-              <svg style={styles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg style={responsiveStyles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </button>
           )}
 
-          {/* Small Avatar (All Roles) */}
-          {config.features.showSmallAvatar && (
+          {/* Small Avatar (All Roles) - hidden on mobile */}
+          {config.features.showSmallAvatar && !isMobile && (
             <img
               src={profilePhoto}
               alt={displayName}
@@ -249,22 +292,21 @@ export const UnifiedProfileHeader = ({
 
           {/* Logout (All Roles) */}
           {config.features.showLogout && (
-            <button 
-              style={styles.iconButton} 
+            <button
+              style={responsiveStyles.iconButton}
               aria-label="Logout"
               title="Logout"
               onClick={handleLogout}
               className="profile-icon-button"
             >
-              <svg style={styles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg style={responsiveStyles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
           )}
         </div>
 
-        {/* Bottom Border */}
-        <div style={styles.bottomBorder} />
+        {/* Bottom Border - removed for transparent blending */}
       </div>
 
       {/* Settings Modal - Role-specific */}
@@ -273,16 +315,146 @@ export const UnifiedProfileHeader = ({
   );
 };
 
+// Responsive styles generator
+const getResponsiveStyles = (isMobile, isTablet) => ({
+  container: {
+    position: 'relative',
+    display: 'flex',
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'flex-start',
+    gap: isMobile ? SPACING.sm : SPACING.xl,
+    background: 'transparent',
+    backdropFilter: 'none',
+    WebkitBackdropFilter: 'none',
+    border: 'none',
+    padding: isMobile ? SPACING.sm : isTablet ? SPACING.lg : `${SPACING.lg} 0`,
+    marginBottom: SPACING.lg,
+    borderRadius: 0,
+    boxShadow: 'none',
+    overflow: 'visible', // Prevent truncation
+  },
+  middleSection: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: isMobile ? SPACING.xs : SPACING.sm,
+    paddingTop: isMobile ? 0 : SPACING.xs,
+    minWidth: 0, // Allow flex item to shrink
+    overflow: 'visible',
+  },
+  topRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  empId: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: '#A5F3FC', // Light Cyan for Emp ID
+    fontFamily: 'Inter, sans-serif',
+    margin: 0,
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+  },
+  welcomeRow: {
+    display: 'flex',
+    flexDirection: isTablet ? 'column' : 'row',
+    alignItems: isTablet ? 'flex-start' : 'baseline',
+    gap: isTablet ? SPACING.xs : SPACING.xl,
+    flexWrap: 'wrap',
+  },
+  welcomeText: {
+    fontSize: isMobile ? FONT_SIZES.base : isTablet ? '22px' : '26px',
+    fontWeight: FONT_WEIGHTS.bold,
+    fontFamily: 'Montserrat, sans-serif',
+    margin: 0,
+    lineHeight: isMobile ? '1.2' : '26px',
+    textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    wordBreak: 'break-word',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: isMobile ? 'nowrap' : 'normal',
+  },
+  roleText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: '#67E8F9', // Light Cyan for Role
+    fontFamily: 'Inter, sans-serif',
+    margin: 0,
+    whiteSpace: 'nowrap',
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+  },
+  detailsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: SPACING.sm,
+    fontSize: FONT_SIZES.xs,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: 'Inter, sans-serif',
+    paddingTop: SPACING.xs,
+    flexWrap: 'wrap',
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+  },
+  iconContainer: {
+    display: 'flex',
+    flexDirection: 'row', // Always horizontal for icons
+    gap: isMobile ? SPACING.xs : SPACING.sm,
+    alignItems: 'center',
+    paddingTop: isMobile ? 0 : SPACING.sm,
+    flexShrink: 0,
+    position: isMobile ? 'absolute' : 'relative',
+    top: isMobile ? SPACING.sm : 'auto',
+    right: isMobile ? SPACING.sm : 'auto',
+  },
+  iconButton: {
+    padding: isMobile ? '6px' : SPACING.xs,
+    background: isMobile ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    cursor: 'pointer',
+    color: 'rgba(255, 255, 255, 0.9)',
+    transition: `all ${TRANSITIONS.normal} ease`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: isMobile ? '36px' : TOUCH_TARGETS.minimum,
+    minHeight: isMobile ? '36px' : TOUCH_TARGETS.minimum,
+  },
+  icon: {
+    width: isMobile ? '20px' : '32px',
+    height: isMobile ? '20px' : '32px',
+  },
+  // Mobile-specific styles
+  mobileAvatarRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingRight: '130px', // Space for horizontal icons row
+  },
+  mobileAvatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: BORDER_RADIUS.full,
+    objectFit: 'cover',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    flexShrink: 0,
+  },
+  mobileNameContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    minWidth: 0,
+    flex: 1,
+    overflow: 'hidden',
+  },
+});
+
 // Styles
 const styles = {
   loadingContainer: {
-    background: 'rgba(255, 255, 255, 0.12)',
-    backdropFilter: 'blur(30px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-    border: '1px solid rgba(255, 255, 255, 0.18)',
+    background: 'transparent',
     padding: SPACING['2xl'],
-    marginBottom: SPACING.xl,
-    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.lg,
   },
   errorContainer: {
     background: 'rgba(254, 226, 226, 0.9)',
@@ -313,14 +485,9 @@ const styles = {
     display: 'flex',
     alignItems: 'flex-start',
     gap: SPACING.xl,
-    background: 'rgba(255, 255, 255, 0.12)',
-    backdropFilter: 'blur(30px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-    border: '1px solid rgba(255, 255, 255, 0.18)',
-    padding: `${SPACING.xl} ${SPACING['2xl']}`,
-    marginBottom: '0',
-    borderRadius: BORDER_RADIUS.md,
-    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
+    background: 'transparent',
+    padding: `${SPACING.lg} 0`,
+    marginBottom: SPACING.lg,
   },
   avatar: {
     borderRadius: BORDER_RADIUS.full,
@@ -349,7 +516,7 @@ const styles = {
   empId: {
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#A5F3FC', // Light Cyan for Emp ID
     fontFamily: 'Inter, sans-serif',
     margin: 0,
     textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
@@ -370,7 +537,7 @@ const styles = {
   roleText: {
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#67E8F9', // Light Cyan for Role
     fontFamily: 'Inter, sans-serif',
     margin: 0,
     whiteSpace: 'nowrap',
@@ -398,6 +565,7 @@ const styles = {
   label: {
     fontWeight: FONT_WEIGHTS.bold,
     marginRight: SPACING.xs,
+    color: '#FDE68A', // Light Yellow for labels
   },
   verticalSeparator: {
     borderRight: '1px solid rgba(255, 255, 255, 0.3)',

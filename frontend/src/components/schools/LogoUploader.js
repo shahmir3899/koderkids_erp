@@ -2,7 +2,7 @@
 // LOGO UPLOADER - Image Upload with Preview
 // ============================================
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Compressor from 'compressorjs';
 
 /**
@@ -16,10 +16,18 @@ import Compressor from 'compressorjs';
  */
 export const LogoUploader = ({ currentLogo, onLogoChange, onLogoRemove }) => {
   const [preview, setPreview] = useState(currentLogo || null);
+  const [isNewUpload, setIsNewUpload] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Reset state when currentLogo prop changes (e.g., switching between schools)
+  useEffect(() => {
+    setPreview(currentLogo || null);
+    setIsNewUpload(false);
+    setError(null);
+  }, [currentLogo]);
 
   // Validate file
   const validateFile = (file) => {
@@ -51,8 +59,9 @@ export const LogoUploader = ({ currentLogo, onLogoChange, onLogoRemove }) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           setPreview(reader.result);
+          setIsNewUpload(true);
           setIsUploading(false);
-          
+
           // Pass the compressed file to parent
           if (onLogoChange) {
             onLogoChange(compressedFile);
@@ -120,6 +129,7 @@ export const LogoUploader = ({ currentLogo, onLogoChange, onLogoRemove }) => {
   // Handle remove
   const handleRemove = () => {
     setPreview(null);
+    setIsNewUpload(false);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -287,10 +297,23 @@ export const LogoUploader = ({ currentLogo, onLogoChange, onLogoRemove }) => {
           <div style={previewContainerStyle}>
             <img src={preview} alt="Logo preview" style={previewImageStyle} />
             <div style={previewInfoStyle}>
-              <div style={successTextStyle}>✓ Logo uploaded successfully</div>
-              <div style={hintTextStyle}>
-                Image will be displayed on school cards
-              </div>
+              {isNewUpload ? (
+                <>
+                  <div style={successTextStyle}>New logo selected</div>
+                  <div style={hintTextStyle}>
+                    Will be uploaded when you save
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ ...hintTextStyle, fontWeight: '500', color: '#374151' }}>
+                    Current logo
+                  </div>
+                  <div style={hintTextStyle}>
+                    Upload a new image to replace
+                  </div>
+                </>
+              )}
             </div>
             <button
               type="button"
@@ -299,7 +322,7 @@ export const LogoUploader = ({ currentLogo, onLogoChange, onLogoRemove }) => {
               onMouseEnter={(e) => (e.target.style.backgroundColor = '#DC2626')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = '#EF4444')}
             >
-              ❌ Remove
+              Remove
             </button>
           </div>
         </>

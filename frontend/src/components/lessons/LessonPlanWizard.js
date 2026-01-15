@@ -13,6 +13,18 @@ import SessionTopicAssigner from "./SessionTopicAssigner";
 import LessonReviewPanel from "./LessonReviewPanel";
 import "react-toastify/dist/ReactToastify.css";
 
+// Design Constants
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+  Z_INDEX,
+} from "../../utils/designConstants";
+
 const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
   // Use cached schools from context
   const { schools, loading: schoolsLoading, error: schoolsError } = useSchools();
@@ -48,7 +60,9 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
     // Step 4
     sessionTopics: {
       // '2025-01-03': {
-      //   topicIds: [1, 2, 3],
+      //   mode: 'book' | 'custom',
+      //   topicIds: [1, 2, 3],        // For book mode
+      //   customText: 'Topic text',    // For custom mode
       //   topicDisplay: 'Chapter 1 > Lesson 1, ...'
       // }
     },
@@ -145,11 +159,23 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
   const validateStep4 = () => {
     const newErrors = {};
 
-    // Check that all dates have topics assigned
-    const unassignedDates = wizardData.selectedDates.filter(
-      dateStr => !wizardData.sessionTopics[dateStr] ||
-                 wizardData.sessionTopics[dateStr].topicIds.length === 0
-    );
+    // Check that all dates have topics assigned (either book topics or custom text)
+    const unassignedDates = wizardData.selectedDates.filter(dateStr => {
+      const session = wizardData.sessionTopics[dateStr];
+      if (!session) return true;
+
+      // For book mode: check if topicIds are set
+      if (session.mode === 'book' || !session.mode) {
+        return !session.topicIds || session.topicIds.length === 0;
+      }
+
+      // For custom mode: check if customText is set
+      if (session.mode === 'custom') {
+        return !session.customText || !session.customText.trim();
+      }
+
+      return true;
+    });
 
     if (unassignedDates.length > 0) {
       newErrors.sessionTopics = `Please assign topics to all sessions (${unassignedDates.length} remaining)`;
@@ -198,10 +224,25 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
     return {
       school_id: data.selectedSchool,
       student_class: data.selectedClass,
-      lessons: data.selectedDates.map(dateStr => ({
-        session_date: dateStr,
-        planned_topic_ids: data.sessionTopics[dateStr]?.topicIds || []
-      }))
+      lessons: data.selectedDates.map(dateStr => {
+        const session = data.sessionTopics[dateStr];
+
+        // Custom mode: send planned_topic (text) with empty topic_ids
+        if (session?.mode === 'custom') {
+          return {
+            session_date: dateStr,
+            planned_topic_ids: [],
+            planned_topic: session.customText || ''
+          };
+        }
+
+        // Book mode: send topic_ids (FK) with empty planned_topic
+        return {
+          session_date: dateStr,
+          planned_topic_ids: session?.topicIds || [],
+          planned_topic: ''
+        };
+      })
     };
   };
 
@@ -286,6 +327,14 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
             onClick={onClose}
             style={styles.closeButton}
             aria-label="Close"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
           >
             <FontAwesomeIcon icon={faTimes} />
           </button>
@@ -296,7 +345,7 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
           <div style={styles.stepIndicator}>
             {[1, 2, 3, 4, 5].map((step, index) => (
               <React.Fragment key={step}>
-                <div style={styles.stepDot(currentStep === step)} />
+                <div style={styles.stepDot(currentStep === step, step < currentStep)} />
                 {index < 4 && <div style={styles.stepLine} />}
               </React.Fragment>
             ))}
@@ -331,11 +380,11 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                   }}
                   disabled={schoolsLoading}
                 >
-                  <option value="">
+                  <option value="" style={styles.selectOption}>
                     {schoolsLoading ? "Loading schools..." : schoolsError ? "Error loading schools" : "-- Select School --"}
                   </option>
                   {schools.map((s) => (
-                    <option key={s.id} value={s.id}>
+                    <option key={s.id} value={s.id} style={styles.selectOption}>
                       {s.name}
                     </option>
                   ))}
@@ -356,9 +405,9 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                       });
                     }}
                   >
-                    <option value="">-- Select Class --</option>
+                    <option value="" style={styles.selectOption}>-- Select Class --</option>
                     {classes.map((c) => (
-                      <option key={c} value={c}>
+                      <option key={c} value={c} style={styles.selectOption}>
                         {c}
                       </option>
                     ))}
@@ -428,14 +477,18 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                 selectedDates={wizardData.selectedDates}
                 selectedBookData={wizardData.selectedBookData}
                 sessionTopics={wizardData.sessionTopics}
-                onTopicsUpdate={(dateStr, topicIds) => {
+                onTopicsUpdate={(dateStr, topicIds, mode, customText) => {
                   setWizardData({
                     ...wizardData,
                     sessionTopics: {
                       ...wizardData.sessionTopics,
                       [dateStr]: {
+                        mode: mode || 'book',
                         topicIds,
-                        topicDisplay: `${topicIds.length} topic(s) selected`
+                        customText: customText || '',
+                        topicDisplay: mode === 'custom'
+                          ? 'Custom topic set'
+                          : `${topicIds.length} topic(s) selected`
                       }
                     }
                   });
@@ -470,6 +523,14 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
               onClick={handleBack}
               style={styles.buttonSecondary}
               disabled={isSubmitting}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
               Back
             </button>
@@ -479,6 +540,14 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
             onClick={onClose}
             style={styles.buttonDanger}
             disabled={isSubmitting}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = COLORS.status.errorDark;
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = COLORS.status.error;
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
           >
             Cancel
           </button>
@@ -488,6 +557,14 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
               onClick={handleNext}
               style={styles.buttonPrimary}
               disabled={isSubmitting}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = COLORS.status.info;
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
               Next
             </button>
@@ -497,6 +574,18 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                 onClick={() => handleSubmit(false)}
                 style={styles.buttonSuccess}
                 disabled={isSubmitting}
+                onMouseEnter={(e) => {
+                  if (!isSubmitting) {
+                    e.currentTarget.style.backgroundColor = COLORS.status.successDark;
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSubmitting) {
+                    e.currentTarget.style.backgroundColor = COLORS.status.success;
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
               >
                 {isSubmitting ? 'Saving...' : 'Save & Continue'}
               </button>
@@ -504,6 +593,18 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                 onClick={() => handleSubmit(true)}
                 style={styles.buttonPrimary}
                 disabled={isSubmitting}
+                onMouseEnter={(e) => {
+                  if (!isSubmitting) {
+                    e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSubmitting) {
+                    e.currentTarget.style.backgroundColor = COLORS.status.info;
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
               >
                 {isSubmitting ? 'Saving...' : 'Save & Close'}
               </button>
@@ -516,7 +617,7 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
 };
 
 // ============================================================
-// INLINE STYLES (Like AddSchoolModal)
+// INLINE STYLES - Glassmorphism Design
 // ============================================================
 
 const styles = {
@@ -526,92 +627,100 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    zIndex: Z_INDEX.modal,
+    backdropFilter: 'blur(4px)',
   },
 
   modal: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
     width: '90%',
     maxWidth: '800px',
     maxHeight: '90vh',
     overflow: 'hidden',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
     display: 'flex',
     flexDirection: 'column',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
   },
 
   header: {
-    padding: '24px',
-    borderBottom: '1px solid #e5e7eb',
+    padding: SPACING.xl,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    background: 'rgba(255, 255, 255, 0.05)',
   },
 
   title: {
     margin: 0,
-    fontSize: '24px',
-    fontWeight: '600',
-    color: '#1f2937',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
   },
 
   closeButton: {
-    background: 'none',
-    border: 'none',
-    fontSize: '24px',
-    color: '#6b7280',
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.text.white,
     cursor: 'pointer',
-    padding: '4px',
+    padding: SPACING.sm,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'color 0.2s',
+    borderRadius: BORDER_RADIUS.md,
+    transition: `all ${TRANSITIONS.normal}`,
+    width: '40px',
+    height: '40px',
   },
 
   stepIndicatorContainer: {
-    padding: '20px 24px',
-    borderBottom: '1px solid #e5e7eb',
+    padding: `${SPACING.lg} ${SPACING.xl}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '12px',
+    gap: SPACING.md,
+    background: 'rgba(255, 255, 255, 0.03)',
   },
 
   stepIndicator: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: SPACING.sm,
   },
 
-  stepDot: (isActive) => ({
-    width: '12px',
-    height: '12px',
-    borderRadius: '50%',
-    backgroundColor: isActive ? '#3b82f6' : '#d1d5db',
-    transition: 'background-color 0.3s',
+  stepDot: (isActive, isCompleted) => ({
+    width: '14px',
+    height: '14px',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: isActive ? COLORS.status.info : isCompleted ? COLORS.status.success : 'rgba(255, 255, 255, 0.3)',
+    transition: `all ${TRANSITIONS.normal}`,
+    boxShadow: isActive ? '0 0 10px rgba(59, 130, 246, 0.5)' : 'none',
   }),
 
   stepLine: {
     width: '40px',
     height: '2px',
-    backgroundColor: '#d1d5db',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
 
   stepLabel: {
-    fontSize: '14px',
-    color: '#6b7280',
-    fontWeight: '500',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+    fontWeight: FONT_WEIGHTS.medium,
   },
 
   content: {
     flex: 1,
     overflow: 'auto',
-    padding: '24px',
+    padding: SPACING.xl,
     position: 'relative',
   },
 
@@ -621,7 +730,8 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backdropFilter: 'blur(4px)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -633,109 +743,134 @@ const styles = {
   },
 
   stepTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: '24px',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.xl,
   },
 
   formGroup: {
-    marginBottom: '20px',
+    marginBottom: SPACING.lg,
   },
 
   label: {
     display: 'block',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: '8px',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    marginBottom: SPACING.sm,
   },
 
   select: {
     width: '100%',
-    padding: '10px 12px',
-    fontSize: '14px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    backgroundColor: '#fff',
-    color: '#1f2937',
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    fontSize: FONT_SIZES.sm,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
     outline: 'none',
-    transition: 'border-color 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
+    cursor: 'pointer',
+    appearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFFFFF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 0.75rem center',
+    backgroundSize: '1.25rem',
+    paddingRight: '2.5rem',
+  },
+
+  selectOption: {
+    backgroundColor: '#1e293b',
+    color: COLORS.text.white,
+    padding: SPACING.sm,
   },
 
   input: {
     width: '100%',
-    padding: '10px 12px',
-    fontSize: '14px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    backgroundColor: '#fff',
-    color: '#1f2937',
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    fontSize: FONT_SIZES.sm,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
     outline: 'none',
-    transition: 'border-color 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
   },
 
   error: {
-    marginTop: '6px',
-    fontSize: '13px',
-    color: '#dc2626',
+    marginTop: SPACING.sm,
+    fontSize: FONT_SIZES.xs,
+    color: '#FCA5A5',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: BORDER_RADIUS.sm,
+    border: '1px solid rgba(239, 68, 68, 0.3)',
   },
 
   footer: {
-    padding: '20px 24px',
-    borderTop: '1px solid #e5e7eb',
+    padding: `${SPACING.lg} ${SPACING.xl}`,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
     display: 'flex',
-    gap: '12px',
+    gap: SPACING.md,
     justifyContent: 'flex-end',
+    background: 'rgba(255, 255, 255, 0.05)',
   },
 
   buttonPrimary: {
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#fff',
-    backgroundColor: '#3b82f6',
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.status.info,
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
+    minWidth: '120px',
   },
 
   buttonSecondary: {
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151',
-    backgroundColor: '#f3f4f6',
-    border: 'none',
-    borderRadius: '6px',
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
+    minWidth: '100px',
   },
 
   buttonSuccess: {
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#fff',
-    backgroundColor: '#10b981',
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.status.success,
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
+    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+    minWidth: '140px',
   },
 
   buttonDanger: {
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#fff',
-    backgroundColor: '#ef4444',
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    backgroundColor: COLORS.status.error,
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    transition: `all ${TRANSITIONS.normal}`,
+    boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
     marginRight: 'auto',
+    minWidth: '100px',
   },
 };
 

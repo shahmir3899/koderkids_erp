@@ -6,12 +6,14 @@
 import React, { useMemo } from 'react';
 import moment from 'moment';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import { useResponsive } from '../../hooks/useResponsive';
 import {
   COLORS,
   SPACING,
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
+  MIXINS,
 } from '../../utils/designConstants';
 
 /**
@@ -24,15 +26,17 @@ import {
  * @param {string} props.selectedMonth - Selected month for display
  */
 export const LessonGrid = ({ lessons = [], loading = false, selectedMonth }) => {
-  // Debug: Log lessons data
-  //console.log('🎓 LessonGrid received lessons:', lessons);
-  
-  // Generate next 4 days
+  const { isMobile, isTablet } = useResponsive();
+
+  // Generate days based on screen size - fewer days on mobile
+  const numberOfDays = isMobile ? 2 : (isTablet ? 3 : 4);
+
+  // Generate next N days
   const dates = useMemo(() => {
-    return Array.from({ length: 4 }, (_, i) => 
+    return Array.from({ length: numberOfDays }, (_, i) =>
       moment().add(i, 'days')
     );
-  }, []);
+  }, [numberOfDays]);
 
   // DYNAMIC: Extract unique classes from lessons data
   const displayClasses = useMemo(() => {
@@ -112,10 +116,62 @@ export const LessonGrid = ({ lessons = [], loading = false, selectedMonth }) => 
     return schools;
   }, [lessons, dates]);
 
+  // Get responsive styles
+  const styles = getStyles(isMobile, isTablet);
+
   if (loading) {
     return <LoadingSpinner size="medium" message="Loading lesson schedule..." />;
   }
 
+  // Mobile card view - show lessons as cards instead of table
+  if (isMobile) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.mobileHeader}>
+          <span style={styles.mobileDateNav}>📅 Next {numberOfDays} Days</span>
+        </div>
+        {dates.map((date, dateIdx) => {
+          const dateKey = date.format('YYYY-MM-DD');
+          const schoolName = schoolsByDate[dateKey];
+
+          return (
+            <div key={dateIdx} style={styles.mobileDaySection}>
+              <div style={styles.mobileDayHeader}>
+                <div style={styles.mobileDayName}>{date.format('dddd')}</div>
+                <div style={styles.mobileDayDate}>{date.format('DD MMM')}</div>
+                {schoolName && <div style={styles.mobileSchoolName}>{schoolName}</div>}
+              </div>
+              <div style={styles.mobileClassList}>
+                {displayClasses.map((className) => {
+                  const lessonsForCell = lessonsByClassAndDate[className]?.[dateKey] || [];
+                  if (lessonsForCell.length === 0) return null;
+
+                  return (
+                    <div key={className} style={styles.mobileClassCard}>
+                      <div style={styles.mobileClassLabel}>{className}</div>
+                      {lessonsForCell.map((lesson, lessonIdx) => (
+                        <div key={lessonIdx} style={styles.mobileLessonText}>
+                          {lesson.topic}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {/* Show empty state if no lessons for this day */}
+                {displayClasses.every(className =>
+                  (lessonsByClassAndDate[className]?.[dateKey] || []).length === 0
+                ) && (
+                  <div style={styles.mobileEmptyDay}>No lessons scheduled</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Tablet/Desktop table view
   return (
     <div style={styles.container}>
       <table style={styles.table}>
@@ -125,7 +181,7 @@ export const LessonGrid = ({ lessons = [], loading = false, selectedMonth }) => 
             <th style={styles.emptyHeaderCell}></th>
             {dates.map((date, idx) => (
               <th key={`day-${idx}`} style={styles.dayHeader}>
-                {date.format('dddd')}
+                {isTablet ? date.format('ddd') : date.format('dddd')}
               </th>
             ))}
           </tr>
@@ -135,12 +191,17 @@ export const LessonGrid = ({ lessons = [], loading = false, selectedMonth }) => 
             {dates.map((date, idx) => {
               const dateKey = date.format('YYYY-MM-DD');
               const schoolName = schoolsByDate[dateKey];
-              
+
               return (
                 <th key={`date-${idx}`} style={styles.dateHeader}>
                   <div style={styles.dateText}>{date.format('DD-MMM')}</div>
                   {schoolName && (
-                    <div style={styles.schoolHeaderText}>{schoolName}</div>
+                    <div style={styles.schoolHeaderText}>
+                      {isTablet && schoolName.length > 15
+                        ? schoolName.substring(0, 15) + '...'
+                        : schoolName
+                      }
+                    </div>
                   )}
                 </th>
               );
@@ -154,15 +215,15 @@ export const LessonGrid = ({ lessons = [], loading = false, selectedMonth }) => 
               <td style={styles.classCell}>
                 <div style={styles.classLabel}>{className}</div>
               </td>
-              
+
               {/* Lesson Cells */}
               {dates.map((date, colIdx) => {
                 const dateKey = date.format('YYYY-MM-DD');
                 const lessonsForCell = lessonsByClassAndDate[className][dateKey] || [];
 
                 return (
-                  <td 
-                    key={`${className}-${colIdx}`} 
+                  <td
+                    key={`${className}-${colIdx}`}
                     style={styles.lessonCell}
                   >
                     {lessonsForCell.map((lesson, lessonIdx) => (
@@ -183,99 +244,180 @@ export const LessonGrid = ({ lessons = [], loading = false, selectedMonth }) => 
   );
 };
 
-// Styles
-const styles = {
+// Responsive Styles Generator
+const getStyles = (isMobile, isTablet) => ({
+  // Container
   container: {
     width: '100%',
-    backgroundColor: COLORS.background.white,
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
     overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
   },
   table: {
     width: '100%',
+    minWidth: isTablet ? '500px' : '700px', // Ensure table doesn't collapse too small
     borderCollapse: 'collapse',
-    backgroundColor: COLORS.background.white,
+    backgroundColor: 'transparent',
   },
-  // HEADER STYLES
+
+  // HEADER STYLES - Responsive widths
   emptyHeaderCell: {
-    width: '125px',
-    backgroundColor: COLORS.background.white,
+    width: isTablet ? '80px' : '100px',
+    minWidth: isTablet ? '80px' : '100px',
+    backgroundColor: 'transparent',
     border: 'none',
     padding: SPACING.xs,
   },
   dayHeader: {
-    width: '260px',
+    minWidth: isTablet ? '120px' : '180px',
     backgroundColor: 'transparent',
     border: 'none',
     padding: SPACING.xs,
     textAlign: 'center',
     fontWeight: FONT_WEIGHTS.semibold,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text.secondary,
+    fontSize: isTablet ? FONT_SIZES.xs : FONT_SIZES.sm,
+    color: COLORS.text.white,
     fontFamily: 'Inter, sans-serif',
   },
   dateHeader: {
-    width: '260px',
+    minWidth: isTablet ? '120px' : '180px',
     backgroundColor: 'transparent',
     border: 'none',
     padding: `${SPACING.xs} ${SPACING.xs} ${SPACING.sm}`,
     textAlign: 'center',
     fontWeight: FONT_WEIGHTS.semibold,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text.secondary,
+    fontSize: isTablet ? FONT_SIZES.xs : FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
     fontFamily: 'Inter, sans-serif',
   },
   dateText: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: isTablet ? FONT_SIZES.xs : FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.secondary,
+    color: COLORS.text.whiteMedium,
     marginBottom: SPACING.xs,
   },
   schoolHeaderText: {
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.primary,
+    color: COLORS.accent.cyan,
     marginTop: SPACING.xs,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
+
   // CLASS COLUMN (First Column)
   classCell: {
-    width: '125px',
-    backgroundColor: COLORS.background.white,
-    borderRight: `1px solid ${COLORS.border.default}`,
-    borderBottom: `1px solid ${COLORS.border.default}`,
-    padding: SPACING.sm,
+    width: isTablet ? '80px' : '100px',
+    minWidth: isTablet ? '80px' : '100px',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRight: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    padding: isTablet ? SPACING.xs : SPACING.sm,
     verticalAlign: 'top',
   },
   classLabel: {
     backgroundColor: 'transparent',
     borderRadius: BORDER_RADIUS.sm,
     padding: `${SPACING.xs} ${SPACING.sm}`,
-    fontSize: FONT_SIZES.sm,
+    fontSize: isTablet ? FONT_SIZES.xs : FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.black,
+    color: COLORS.text.white,
     textAlign: 'center',
     lineHeight: '1.4',
   },
+
   // LESSON CELLS (Day Columns)
   lessonCell: {
-    width: '260px',
-    backgroundColor: COLORS.background.lightGray,
-    borderRight: `1px solid ${COLORS.border.default}`,
-    borderBottom: `1px solid ${COLORS.border.default}`,
-    padding: `${SPACING.sm} ${SPACING.sm}`,
+    minWidth: isTablet ? '120px' : '180px',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRight: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    padding: isTablet ? SPACING.xs : SPACING.sm,
     verticalAlign: 'top',
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.secondary,
+    color: COLORS.text.whiteMedium,
     fontFamily: 'Inter, sans-serif',
   },
   lessonCard: {
     marginBottom: SPACING.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.xs,
   },
   lessonText: {
     fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.secondary,
+    color: COLORS.text.white,
     lineHeight: '1.5',
     fontSize: FONT_SIZES.xs,
   },
-};
+
+  // MOBILE CARD VIEW STYLES
+  mobileHeader: {
+    padding: SPACING.md,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    textAlign: 'center',
+  },
+  mobileDateNav: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+  },
+  mobileDaySection: {
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  mobileDayHeader: {
+    padding: SPACING.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  mobileDayName: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+  },
+  mobileDayDate: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
+  },
+  mobileSchoolName: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.accent.cyan,
+    width: '100%',
+  },
+  mobileClassList: {
+    padding: SPACING.sm,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.sm,
+  },
+  mobileClassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+  },
+  mobileClassLabel: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.accent.purple,
+    marginBottom: SPACING.xs,
+  },
+  mobileLessonText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    lineHeight: '1.5',
+  },
+  mobileEmptyDay: {
+    padding: SPACING.md,
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+  },
+});
 
 export default LessonGrid;

@@ -1,5 +1,5 @@
 // ============================================
-// MONTHLY TRENDS CHART COMPONENT
+// MONTHLY TRENDS CHART COMPONENT - Glassmorphism Design
 // ============================================
 // Location: src/components/finance/MonthlyTrendsChart.js
 
@@ -20,8 +20,17 @@ import {
 import { financeDashboardService } from '../../services/financeDashboardService';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 import { Button } from '../common/ui/Button';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+} from '../../utils/designConstants';
 
-export const MonthlyTrendsChart = ({ schools }) => {
+export const MonthlyTrendsChart = ({ schools, isVisible = true }) => {
   const [data, setData] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -32,9 +41,21 @@ export const MonthlyTrendsChart = ({ schools }) => {
     end: '',
   });
   const [showCustomModal, setShowCustomModal] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
+  // Only fetch data when component becomes visible (lazy loading)
   useEffect(() => {
-    fetchData();
+    if (isVisible && !hasLoadedOnce) {
+      fetchData();
+      setHasLoadedOnce(true);
+    }
+  }, [isVisible, hasLoadedOnce]);
+
+  // Refetch when filters change (only if already loaded once)
+  useEffect(() => {
+    if (hasLoadedOnce) {
+      fetchData();
+    }
   }, [period, selectedSchool]);
 
   const fetchData = async () => {
@@ -87,25 +108,17 @@ export const MonthlyTrendsChart = ({ schools }) => {
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
-        <div
-          style={{
-            backgroundColor: 'white',
-            padding: '1rem',
-            border: '1px solid #D1D5DB',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          }}
-        >
-          <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: '#374151' }}>
+        <div style={styles.tooltip}>
+          <p style={styles.tooltipTitle}>
             {payload[0].payload.month_label}
           </p>
-          <p style={{ margin: '0 0 0.25rem 0', color: '#10B981', fontWeight: '500' }}>
+          <p style={styles.tooltipIncome}>
             Income: PKR {payload[0].value.toLocaleString()}
           </p>
-          <p style={{ margin: '0 0 0.25rem 0', color: '#EF4444', fontWeight: '500' }}>
+          <p style={styles.tooltipExpense}>
             Expenses: PKR {payload[1].value.toLocaleString()}
           </p>
-          <p style={{ margin: 0, color: '#3B82F6', fontWeight: '600' }}>
+          <p style={styles.tooltipNet}>
             Net: PKR {payload[2].value.toLocaleString()}
           </p>
         </div>
@@ -117,18 +130,9 @@ export const MonthlyTrendsChart = ({ schools }) => {
   return (
     <div>
       {/* Controls */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1.5rem',
-          flexWrap: 'wrap',
-          gap: '1rem',
-        }}
-      >
+      <div style={styles.controlsContainer}>
         {/* Period Buttons */}
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={styles.buttonGroup}>
           <Button
             onClick={() => handlePeriodClick('3months')}
             variant={period === '3months' ? 'primary' : 'secondary'}
@@ -154,17 +158,11 @@ export const MonthlyTrendsChart = ({ schools }) => {
 
         {/* School Filter */}
         {schools && schools.length > 0 && (
-          <div style={{ minWidth: '200px' }}>
+          <div style={styles.selectContainer}>
             <select
               value={selectedSchool}
               onChange={(e) => setSelectedSchool(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid #D1D5DB',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-              }}
+              style={styles.select}
             >
               <option value="">All Schools</option>
               {schools.map((school) => (
@@ -179,78 +177,35 @@ export const MonthlyTrendsChart = ({ schools }) => {
 
       {/* Summary Stats */}
       {summary && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem',
-            marginBottom: '1.5rem',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#ECFDF5',
-              padding: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #A7F3D0',
-            }}
-          >
-            <p style={{ fontSize: '0.75rem', color: '#059669', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-              AVG MONTHLY INCOME
-            </p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669', margin: 0 }}>
+        <div style={styles.summaryGrid}>
+          <div style={styles.summaryCardGreen}>
+            <p style={styles.summaryLabelGreen}>AVG MONTHLY INCOME</p>
+            <p style={styles.summaryValueGreen}>
               PKR {summary.avg_monthly_income.toLocaleString()}
             </p>
           </div>
 
-          <div
-            style={{
-              backgroundColor: '#FEF2F2',
-              padding: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #FECACA',
-            }}
-          >
-            <p style={{ fontSize: '0.75rem', color: '#DC2626', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-              AVG MONTHLY EXPENSE
-            </p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#DC2626', margin: 0 }}>
+          <div style={styles.summaryCardRed}>
+            <p style={styles.summaryLabelRed}>AVG MONTHLY EXPENSE</p>
+            <p style={styles.summaryValueRed}>
               PKR {summary.avg_monthly_expense.toLocaleString()}
             </p>
           </div>
 
-          <div
-            style={{
-              backgroundColor: '#EFF6FF',
-              padding: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #BFDBFE',
-            }}
-          >
-            <p style={{ fontSize: '0.75rem', color: '#1E40AF', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-              TOTAL NET
-            </p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1E40AF', margin: 0 }}>
+          <div style={styles.summaryCardBlue}>
+            <p style={styles.summaryLabelBlue}>TOTAL NET</p>
+            <p style={styles.summaryValueBlue}>
               PKR {summary.total_net.toLocaleString()}
             </p>
           </div>
 
           {summary.best_month && (
-            <div
-              style={{
-                backgroundColor: '#F0FDF4',
-                padding: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #BBF7D0',
-              }}
-            >
-              <p style={{ fontSize: '0.75rem', color: '#15803D', margin: '0 0 0.25rem 0', fontWeight: '600' }}>
-                BEST MONTH
-              </p>
-              <p style={{ fontSize: '1rem', fontWeight: 'bold', color: '#15803D', margin: 0 }}>
+            <div style={styles.summaryCardPurple}>
+              <p style={styles.summaryLabelPurple}>BEST MONTH</p>
+              <p style={styles.summaryValuePurple}>
                 {summary.best_month.label}
               </p>
-              <p style={{ fontSize: '0.875rem', color: '#15803D', margin: 0 }}>
+              <p style={styles.summarySubPurple}>
                 PKR {summary.best_month.net.toLocaleString()}
               </p>
             </div>
@@ -260,30 +215,25 @@ export const MonthlyTrendsChart = ({ schools }) => {
 
       {/* Chart */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
+        <div style={styles.loadingContainer}>
           <LoadingSpinner message="Loading trends..." />
         </div>
       ) : data.length === 0 ? (
-        <div
-          style={{
-            padding: '3rem',
-            textAlign: 'center',
-            backgroundColor: '#F9FAFB',
-            borderRadius: '8px',
-            border: '1px solid #E5E7EB',
-          }}
-        >
-          <p style={{ color: '#6B7280', margin: 0, fontSize: '1rem' }}>No data available for selected period</p>
+        <div style={styles.emptyState}>
+          <p style={styles.emptyText}>No data available for selected period</p>
         </div>
       ) : (
-        <div style={{ height: '400px' }}>
+        <div style={styles.chartContainer}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="month_label" stroke="#6B7280" tick={{ fontSize: 12 }} />
-              <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+              <XAxis dataKey="month_label" stroke={COLORS.text.whiteSubtle} tick={{ fontSize: 12 }} />
+              <YAxis stroke={COLORS.text.whiteSubtle} tick={{ fontSize: 12 }} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ paddingTop: '1rem' }} />
+              <Legend
+                wrapperStyle={{ paddingTop: '1rem' }}
+                formatter={(value) => <span style={{ color: COLORS.text.whiteMedium }}>{value}</span>}
+              />
               <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} name="Income" />
               <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Expenses" />
               <Line type="monotone" dataKey="net" stroke="#3B82F6" strokeWidth={3} name="Net" />
@@ -294,88 +244,31 @@ export const MonthlyTrendsChart = ({ schools }) => {
 
       {/* Custom Date Modal */}
       {showCustomModal && (
-        <div
-          onClick={() => setShowCustomModal(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '2rem',
-              maxWidth: '400px',
-              width: '90%',
-            }}
-          >
-            <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem', fontWeight: 'bold', color: '#1F2937' }}>
-              Select Custom Date Range
-            </h3>
+        <div onClick={() => setShowCustomModal(false)} style={styles.modalOverlay}>
+          <div onClick={(e) => e.stopPropagation()} style={styles.modalContent}>
+            <h3 style={styles.modalTitle}>Select Custom Date Range</h3>
 
-            <div style={{ marginBottom: '1rem' }}>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                  color: '#374151',
-                  fontSize: '0.875rem',
-                }}
-              >
-                Start Date
-              </label>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Start Date</label>
               <input
                 type="date"
                 value={customDates.start}
                 onChange={(e) => setCustomDates({ ...customDates, start: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #D1D5DB',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                }}
+                style={styles.formInput}
               />
             </div>
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                  color: '#374151',
-                  fontSize: '0.875rem',
-                }}
-              >
-                End Date
-              </label>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>End Date</label>
               <input
                 type="date"
                 value={customDates.end}
                 onChange={(e) => setCustomDates({ ...customDates, end: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #D1D5DB',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                }}
+                style={styles.formInput}
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <div style={styles.modalButtons}>
               <Button onClick={() => setShowCustomModal(false)} variant="secondary">
                 Cancel
               </Button>
@@ -388,4 +281,219 @@ export const MonthlyTrendsChart = ({ schools }) => {
       )}
     </div>
   );
+};
+
+// ============================================
+// STYLES - Glassmorphism Design
+// ============================================
+const styles = {
+  controlsContainer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+  selectContainer: {
+    minWidth: '200px',
+  },
+  select: {
+    width: '100%',
+    padding: SPACING.sm,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    outline: 'none',
+  },
+  summaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: SPACING.md,
+    marginBottom: SPACING.xl,
+  },
+  summaryCardGreen: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelGreen: {
+    fontSize: FONT_SIZES.xs,
+    color: '#34D399',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValueGreen: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#10B981',
+    margin: 0,
+  },
+  summaryCardRed: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelRed: {
+    fontSize: FONT_SIZES.xs,
+    color: '#F87171',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValueRed: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#EF4444',
+    margin: 0,
+  },
+  summaryCardBlue: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelBlue: {
+    fontSize: FONT_SIZES.xs,
+    color: '#60A5FA',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValueBlue: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#3B82F6',
+    margin: 0,
+  },
+  summaryCardPurple: {
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(139, 92, 246, 0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  summaryLabelPurple: {
+    fontSize: FONT_SIZES.xs,
+    color: '#A78BFA',
+    margin: `0 0 ${SPACING.xs} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  summaryValuePurple: {
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#8B5CF6',
+    margin: 0,
+  },
+  summarySubPurple: {
+    fontSize: FONT_SIZES.sm,
+    color: '#A78BFA',
+    margin: 0,
+  },
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: `${SPACING['3xl']} 0`,
+  },
+  emptyState: {
+    padding: SPACING['3xl'],
+    textAlign: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  emptyText: {
+    color: COLORS.text.whiteSubtle,
+    margin: 0,
+    fontSize: FONT_SIZES.base,
+  },
+  chartContainer: {
+    height: '400px',
+  },
+  tooltip: {
+    ...MIXINS.glassmorphicCard,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  tooltipTitle: {
+    margin: `0 0 ${SPACING.sm} 0`,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+  },
+  tooltipIncome: {
+    margin: `0 0 ${SPACING.xs} 0`,
+    color: '#10B981',
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  tooltipExpense: {
+    margin: `0 0 ${SPACING.xs} 0`,
+    color: '#EF4444',
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  tooltipNet: {
+    margin: 0,
+    color: '#3B82F6',
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContent: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING['2xl'],
+    maxWidth: '400px',
+    width: '90%',
+  },
+  modalTitle: {
+    margin: `0 0 ${SPACING.xl} 0`,
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+  },
+  formGroup: {
+    marginBottom: SPACING.lg,
+  },
+  formLabel: {
+    display: 'block',
+    marginBottom: SPACING.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+  },
+  formInput: {
+    width: '100%',
+    padding: SPACING.md,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    outline: 'none',
+  },
+  modalButtons: {
+    display: 'flex',
+    gap: SPACING.sm,
+    justifyContent: 'flex-end',
+    marginTop: SPACING.xl,
+  },
 };

@@ -13,7 +13,9 @@ import {
   TRANSITIONS,
   Z_INDEX,
   SHADOWS,
+  TOUCH_TARGETS,
 } from '../../../utils/designConstants';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 /**
  * ConfirmationModal Component
@@ -44,6 +46,9 @@ export function ConfirmationModal({
   // ============================================
   // HOOKS MUST BE CALLED BEFORE ANY EARLY RETURN
   // ============================================
+
+  // Responsive hook for mobile styling
+  const { isMobile } = useResponsive();
 
   // Handle escape key
   useEffect(() => {
@@ -122,10 +127,11 @@ export function ConfirmationModal({
           backgroundColor: COLORS.background.white,
           borderRadius: BORDER_RADIUS.lg,
           boxShadow: SHADOWS.xl,
-          maxWidth: '400px',
+          maxWidth: isMobile ? '95vw' : '400px',
           width: '100%',
           overflow: 'hidden',
           animation: 'modalSlideIn 0.2s ease-out',
+          margin: isMobile ? SPACING.sm : 0,
         }}
       >
         {/* Modal Content */}
@@ -196,7 +202,8 @@ export function ConfirmationModal({
         <div
           style={{
             display: 'flex',
-            gap: '0.75rem',
+            flexDirection: isMobile ? 'column-reverse' : 'row',
+            gap: isMobile ? SPACING.sm : '0.75rem',
             padding: `${SPACING.sm} ${SPACING.md}`,
             backgroundColor: COLORS.background.lightGray,
             borderTop: `1px solid ${COLORS.border.light}`,
@@ -209,7 +216,7 @@ export function ConfirmationModal({
             style={{
               flex: 1,
               padding: `0.625rem ${SPACING.sm}`,
-              fontSize: FONT_SIZES.sm,
+              fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.sm,
               fontWeight: FONT_WEIGHTS.medium,
               color: COLORS.text.secondary,
               backgroundColor: COLORS.background.white,
@@ -218,6 +225,9 @@ export function ConfirmationModal({
               cursor: isLoading ? 'not-allowed' : 'pointer',
               transition: `all ${TRANSITIONS.fast} ease`,
               opacity: isLoading ? 0.6 : 1,
+              minHeight: isMobile ? TOUCH_TARGETS.large : TOUCH_TARGETS.minimum,
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
             }}
             onMouseEnter={(e) => {
               if (!isLoading) {
@@ -238,7 +248,7 @@ export function ConfirmationModal({
             style={{
               flex: 1,
               padding: `0.625rem ${SPACING.sm}`,
-              fontSize: FONT_SIZES.sm,
+              fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.sm,
               fontWeight: FONT_WEIGHTS.medium,
               color: COLORS.text.white,
               backgroundColor: isLoading ? COLORS.text.tertiary : currentVariant.confirmBg,
@@ -250,6 +260,9 @@ export function ConfirmationModal({
               alignItems: 'center',
               justifyContent: 'center',
               gap: SPACING.xs,
+              minHeight: isMobile ? TOUCH_TARGETS.large : TOUCH_TARGETS.minimum,
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
             }}
             onMouseEnter={(e) => {
               if (!isLoading) {

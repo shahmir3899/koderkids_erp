@@ -1,16 +1,21 @@
 // ============================================
-// INVENTORY CHARTS - Category & Status Charts
+// INVENTORY CHARTS - Glassmorphism Design System
+// Category & Status Charts with glass effect
 // ============================================
-// Location: src/components/inventory/InventoryCharts.js
-//
-// Displays:
-// - Pie chart for category distribution
-// - Bar chart for status distribution
 
-import React from 'react';
+import React, { useState } from 'react';
 import { CollapsibleSection } from '../common/cards/CollapsibleSection';
 import { PieChartWrapper } from '../common/charts/PieChartWrapper';
 import { BarChartWrapper } from '../common/charts/BarChartWrapper';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+} from '../../utils/designConstants';
 
 // ============================================
 // CHART COLORS
@@ -35,28 +40,54 @@ const STATUS_COLORS = [
 ];
 
 // ============================================
-// STYLES
+// CHART CARD COMPONENT
 // ============================================
-const containerStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-  gap: '1.5rem',
-};
+const ChartCard = ({ title, icon, children, id, hoveredCard, setHoveredCard }) => {
+  const isHovered = hoveredCard === id;
 
-const chartCardStyle = {
-  backgroundColor: 'white',
-  borderRadius: '12px',
-  padding: '1.5rem',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-  border: '1px solid #E5E7EB',
-};
+  const cardStyle = {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    transition: `all ${TRANSITIONS.normal}`,
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+    transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
+    boxShadow: isHovered
+      ? '0 12px 40px rgba(0, 0, 0, 0.25)'
+      : '0 4px 24px rgba(0, 0, 0, 0.12)',
+    background: isHovered
+      ? 'rgba(255, 255, 255, 0.16)'
+      : 'rgba(255, 255, 255, 0.1)',
+    borderColor: isHovered
+      ? 'rgba(255, 255, 255, 0.3)'
+      : 'rgba(255, 255, 255, 0.18)',
+  };
 
-const chartTitleStyle = {
-  fontSize: '1rem',
-  fontWeight: '600',
-  color: '#374151',
-  marginBottom: '1rem',
-  textAlign: 'center',
+  const titleStyle = {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.lg,
+    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  };
+
+  return (
+    <div
+      style={cardStyle}
+      onMouseEnter={() => setHoveredCard(id)}
+      onMouseLeave={() => setHoveredCard(null)}
+    >
+      <h3 style={titleStyle}>
+        <span>{icon}</span>
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
 };
 
 // ============================================
@@ -67,16 +98,45 @@ export const InventoryCharts = ({
   statusChartData = [],
   loading = false,
 }) => {
+  const [hoveredCard, setHoveredCard] = useState(null);
+
+  const containerStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+    gap: SPACING.xl,
+  };
+
+  const emptyStateStyle = {
+    height: 280,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+  };
+
   if (loading) {
     return (
       <CollapsibleSection title="📊 Analytics" defaultOpen={true}>
         <div style={containerStyle}>
-          <div style={{ ...chartCardStyle, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#9CA3AF' }}>Loading charts...</span>
-          </div>
-          <div style={{ ...chartCardStyle, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#9CA3AF' }}>Loading charts...</span>
-          </div>
+          <ChartCard
+            title="Items by Category"
+            icon="📁"
+            id="category"
+            hoveredCard={hoveredCard}
+            setHoveredCard={setHoveredCard}
+          >
+            <div style={emptyStateStyle}>Loading charts...</div>
+          </ChartCard>
+          <ChartCard
+            title="Items by Status"
+            icon="📊"
+            id="status"
+            hoveredCard={hoveredCard}
+            setHoveredCard={setHoveredCard}
+          >
+            <div style={emptyStateStyle}>Loading charts...</div>
+          </ChartCard>
         </div>
       </CollapsibleSection>
     );
@@ -88,11 +148,12 @@ export const InventoryCharts = ({
     return (
       <CollapsibleSection title="📊 Analytics" defaultOpen={true}>
         <div style={{
-          padding: '3rem',
+          padding: SPACING['2xl'],
           textAlign: 'center',
-          color: '#9CA3AF',
+          color: COLORS.text.whiteSubtle,
         }}>
-          <p>📈 No data available for charts. Add some inventory items to see analytics.</p>
+          <p style={{ fontSize: FONT_SIZES.lg, marginBottom: SPACING.sm }}>📈 No data available for charts</p>
+          <p style={{ fontSize: FONT_SIZES.sm, opacity: 0.8 }}>Add some inventory items to see analytics.</p>
         </div>
       </CollapsibleSection>
     );
@@ -102,8 +163,13 @@ export const InventoryCharts = ({
     <CollapsibleSection title="📊 Analytics" defaultOpen={true}>
       <div style={containerStyle}>
         {/* Category Distribution - Pie Chart */}
-        <div style={chartCardStyle}>
-          <h3 style={chartTitleStyle}>📁 Items by Category</h3>
+        <ChartCard
+          title="Items by Category"
+          icon="📁"
+          id="category"
+          hoveredCard={hoveredCard}
+          setHoveredCard={setHoveredCard}
+        >
           {categoryChartData.length > 0 ? (
             <PieChartWrapper
               data={categoryChartData}
@@ -117,15 +183,18 @@ export const InventoryCharts = ({
               outerRadius={90}
             />
           ) : (
-            <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>
-              No category data
-            </div>
+            <div style={emptyStateStyle}>No category data</div>
           )}
-        </div>
+        </ChartCard>
 
         {/* Status Distribution - Bar Chart */}
-        <div style={chartCardStyle}>
-          <h3 style={chartTitleStyle}>📊 Items by Status</h3>
+        <ChartCard
+          title="Items by Status"
+          icon="📊"
+          id="status"
+          hoveredCard={hoveredCard}
+          setHoveredCard={setHoveredCard}
+        >
           {statusChartData.length > 0 ? (
             <BarChartWrapper
               data={statusChartData}
@@ -137,11 +206,9 @@ export const InventoryCharts = ({
               showLabels
             />
           ) : (
-            <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>
-              No status data
-            </div>
+            <div style={emptyStateStyle}>No status data</div>
           )}
-        </div>
+        </ChartCard>
       </div>
     </CollapsibleSection>
   );

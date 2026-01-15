@@ -12,23 +12,34 @@ import React, { useMemo } from 'react';
 import { CollapsibleSection } from '../common/cards/CollapsibleSection';
 import { DataTable } from '../common/tables/DataTable';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import { useResponsive } from '../../hooks/useResponsive';
+import {
+  COLORS,
+  SPACING,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  TOUCH_TARGETS,
+} from '../../utils/designConstants';
 
 // ============================================
 // STYLES
 // ============================================
 
-const actionButtonStyle = (color, hoverColor) => ({
-  padding: '0.375rem 0.625rem',
+const getActionButtonStyle = (color, isMobile) => ({
+  padding: isMobile ? SPACING.sm : `${SPACING.xs} ${SPACING.sm}`,
   backgroundColor: color,
   color: 'white',
   border: 'none',
-  borderRadius: '0.375rem',
-  fontSize: '0.75rem',
+  borderRadius: BORDER_RADIUS.md,
+  fontSize: isMobile ? '1rem' : '0.75rem',
   cursor: 'pointer',
   display: 'inline-flex',
   alignItems: 'center',
-  gap: '0.25rem',
-  transition: 'background-color 0.15s ease',
+  justifyContent: 'center',
+  gap: SPACING.xs,
+  transition: TRANSITIONS.fast,
+  minWidth: isMobile ? TOUCH_TARGETS.minimum : 'auto',
+  minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
 });
 
 const statusColors = {
@@ -60,6 +71,7 @@ export const InventoryTable = ({
   certificateLoading = {},
 }) => {
   const { isAdmin, canDelete } = userContext;
+  const { isMobile, isTablet } = useResponsive();
 
   // ============================================
   // TABLE COLUMNS
@@ -75,39 +87,72 @@ export const InventoryTable = ({
             type="checkbox"
             checked={selectedItemIds.length === items.length && items.length > 0}
             onChange={toggleSelectAll}
-            style={{ cursor: 'pointer' }}
+            style={{
+              cursor: 'pointer',
+              width: isMobile ? '20px' : '16px',
+              height: isMobile ? '20px' : '16px',
+            }}
           />
         ),
         sortable: false,
-        width: '40px',
+        width: isMobile ? '36px' : '40px',
         render: (_, row) => (
           <input
             type="checkbox"
             checked={selectedItemIds.includes(row.id)}
             onChange={() => toggleItemSelection(row.id)}
-            style={{ cursor: 'pointer' }}
+            style={{
+              cursor: 'pointer',
+              width: isMobile ? '20px' : '16px',
+              height: isMobile ? '20px' : '16px',
+            }}
           />
         ),
       },
-      // Name with unique ID
+      // Name with unique ID - includes status and location on mobile
       {
         key: 'name',
         label: 'Item',
         sortable: true,
         render: (value, row) => (
           <div>
-            <div style={{ fontWeight: '500', color: '#1F2937' }}>{value}</div>
-            <div style={{ 
-              fontSize: '0.75rem', 
-              color: '#6B7280',
+            <div style={{ fontWeight: '500', color: COLORS.text.white }}>{value}</div>
+            <div style={{
+              fontSize: '0.75rem',
+              color: COLORS.text.whiteSubtle,
               fontFamily: 'monospace',
             }}>
               {row.unique_id}
             </div>
-            {row.description && (
-              <div style={{ 
-                fontSize: '0.75rem', 
-                color: '#9CA3AF',
+            {/* Show status inline on mobile */}
+            {isMobile && (
+              <div style={{ marginTop: SPACING.xs }}>
+                <span style={{
+                  padding: `${SPACING.xs} ${SPACING.sm}`,
+                  backgroundColor: (statusColors[row.status] || statusColors.Available).bg,
+                  color: (statusColors[row.status] || statusColors.Available).text,
+                  borderRadius: BORDER_RADIUS.sm,
+                  fontSize: '0.7rem',
+                  fontWeight: '500',
+                }}>
+                  {row.status}
+                </span>
+              </div>
+            )}
+            {/* Show location on mobile */}
+            {isMobile && row.location && (
+              <div style={{
+                fontSize: '0.7rem',
+                color: COLORS.text.whiteSubtle,
+                marginTop: SPACING.xs,
+              }}>
+                📍 {row.location}
+              </div>
+            )}
+            {!isMobile && row.description && (
+              <div style={{
+                fontSize: '0.75rem',
+                color: COLORS.text.whiteSubtle,
                 marginTop: '0.125rem',
                 maxWidth: '200px',
                 overflow: 'hidden',
@@ -120,38 +165,44 @@ export const InventoryTable = ({
           </div>
         ),
       },
-      // Category
-      {
+    ];
+
+    // Hide Category on mobile
+    if (!isMobile) {
+      cols.push({
         key: 'category_name',
         label: 'Category',
         sortable: true,
-        width: '120px',
+        width: isTablet ? '100px' : '120px',
         render: (value) => (
           <span style={{
-            padding: '0.25rem 0.5rem',
-            backgroundColor: '#F3F4F6',
-            borderRadius: '0.25rem',
+            padding: `${SPACING.xs} ${SPACING.sm}`,
+            backgroundColor: COLORS.background.whiteSubtle,
+            borderRadius: BORDER_RADIUS.sm,
             fontSize: '0.75rem',
-            color: '#4B5563',
+            color: COLORS.text.whiteMedium,
           }}>
             {value || 'Uncategorized'}
           </span>
         ),
-      },
-      // Status
-      {
+      });
+    }
+
+    // Hide Status column on mobile (shown inline in Item column)
+    if (!isMobile) {
+      cols.push({
         key: 'status',
         label: 'Status',
         sortable: true,
-        width: '100px',
+        width: isTablet ? '90px' : '100px',
         render: (value) => {
           const colors = statusColors[value] || statusColors.Available;
           return (
             <span style={{
-              padding: '0.25rem 0.5rem',
+              padding: `${SPACING.xs} ${SPACING.sm}`,
               backgroundColor: colors.bg,
               color: colors.text,
-              borderRadius: '0.25rem',
+              borderRadius: BORDER_RADIUS.sm,
               fontSize: '0.75rem',
               fontWeight: '500',
             }}>
@@ -159,120 +210,137 @@ export const InventoryTable = ({
             </span>
           );
         },
-      },
-      // Location
-      {
+      });
+    }
+
+    // Hide Location on mobile (shown inline in Item column)
+    if (!isMobile) {
+      cols.push({
         key: 'location',
         label: 'Location',
         sortable: true,
-        width: '150px',
+        width: isTablet ? '120px' : '150px',
         render: (value, row) => (
           <div>
-            <div style={{ fontSize: '0.875rem' }}>{value}</div>
+            <div style={{ fontSize: '0.875rem', color: COLORS.text.white }}>{value}</div>
             {row.school_name && (
-              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+              <div style={{ fontSize: '0.75rem', color: COLORS.text.whiteSubtle }}>
                 {row.school_name}
               </div>
             )}
           </div>
         ),
-      },
-      // Value
-      {
+      });
+    }
+
+    // Hide Value on mobile
+    if (!isMobile) {
+      cols.push({
         key: 'purchase_value',
         label: 'Value',
         sortable: true,
-        width: '100px',
+        width: isTablet ? '90px' : '100px',
         render: (value) => (
-          <span style={{ fontWeight: '500', color: '#059669' }}>
+          <span style={{ fontWeight: '500', color: COLORS.status.success }}>
             PKR {Number(value || 0).toLocaleString()}
           </span>
         ),
-      },
-      // Assigned To
-      {
+      });
+    }
+
+    // Hide Assigned To on mobile and tablet
+    if (!isMobile && !isTablet) {
+      cols.push({
         key: 'assigned_to_name',
         label: 'Assigned To',
         sortable: true,
         width: '120px',
         render: (value) => (
-          <span style={{ 
-            color: value ? '#1F2937' : '#9CA3AF',
+          <span style={{
+            color: value ? COLORS.text.white : COLORS.text.whiteSubtle,
             fontSize: '0.875rem',
           }}>
             {value || 'Unassigned'}
           </span>
         ),
-      },
-      // Actions
-      {
-        key: 'actions',
-        label: 'Actions',
-        sortable: false,
-        width: canDelete ? '200px' : '160px',
-        render: (_, row) => {
-          const isCertLoading = certificateLoading[row.id];
-          
-          return (
-            <div style={{ 
-              display: 'flex', 
-              gap: '0.375rem',
-              flexWrap: 'wrap',
-            }}>
-              {/* View Button */}
-              <button
-                onClick={() => onViewDetails(row)}
-                style={actionButtonStyle('#3B82F6')}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#2563EB'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#3B82F6'}
-                title="View Details"
-              >
-                👁️
-              </button>
+      });
+    }
 
-              {/* Edit Button */}
-              <button
-                onClick={() => onEdit(row)}
-                style={actionButtonStyle('#F59E0B')}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#D97706'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#F59E0B'}
-                title="Edit Item"
-              >
-                ✏️
-              </button>
+    // Actions column - always visible
+    cols.push({
+      key: 'actions',
+      label: 'Actions',
+      sortable: false,
+      width: isMobile ? 'auto' : (canDelete ? '180px' : '140px'),
+      render: (_, row) => {
+        const isCertLoading = certificateLoading[row.id];
 
-              {/* Print Certificate Button */}
+        return (
+          <div style={{
+            display: 'flex',
+            gap: isMobile ? SPACING.sm : SPACING.xs,
+            flexWrap: 'wrap',
+            justifyContent: isMobile ? 'flex-start' : 'flex-start',
+          }}>
+            {/* View Button */}
+            <button
+              onClick={() => onViewDetails(row)}
+              style={getActionButtonStyle('#3B82F6', isMobile)}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#2563EB'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#3B82F6'}
+              title="View Details"
+              aria-label="View item details"
+            >
+              👁️
+            </button>
+
+            {/* Edit Button */}
+            <button
+              onClick={() => onEdit(row)}
+              style={getActionButtonStyle('#F59E0B', isMobile)}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#D97706'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#F59E0B'}
+              title="Edit Item"
+              aria-label="Edit item"
+            >
+              ✏️
+            </button>
+
+            {/* Print Certificate Button - hide on mobile to save space */}
+            {!isMobile && (
               <button
                 onClick={() => onPrintCertificate(row.id)}
                 disabled={isCertLoading}
                 style={{
-                  ...actionButtonStyle(isCertLoading ? '#9CA3AF' : '#6366F1'),
+                  ...getActionButtonStyle(isCertLoading ? '#9CA3AF' : '#6366F1', isMobile),
                   cursor: isCertLoading ? 'not-allowed' : 'pointer',
                 }}
                 onMouseEnter={(e) => !isCertLoading && (e.target.style.backgroundColor = '#4F46E5')}
                 onMouseLeave={(e) => !isCertLoading && (e.target.style.backgroundColor = '#6366F1')}
                 title="Print Certificate"
+                aria-label="Print certificate"
               >
                 {isCertLoading ? '⏳' : '🖨️'}
               </button>
+            )}
 
-              {/* Delete Button - Admin Only */}
-              {canDelete && (
-                <button
-                  onClick={() => onDelete(row)}
-                  style={actionButtonStyle('#EF4444')}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#DC2626'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = '#EF4444'}
-                  title="Delete Item"
-                >
-                  🗑️
-                </button>
-              )}
-            </div>
-          );
-        },
+            {/* Delete Button - Admin Only */}
+            {canDelete && (
+              <button
+                onClick={() => onDelete(row)}
+                style={getActionButtonStyle('#EF4444', isMobile)}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#DC2626'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#EF4444'}
+                title="Delete Item"
+                aria-label="Delete item"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
+        );
       },
-    ];
+    });
 
     return cols;
   }, [
@@ -286,6 +354,8 @@ export const InventoryTable = ({
     onPrintCertificate,
     certificateLoading,
     canDelete,
+    isMobile,
+    isTablet,
   ]);
 
   // ============================================
@@ -298,53 +368,64 @@ export const InventoryTable = ({
     return (
       <div style={{
         display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '0.75rem 1rem',
+        alignItems: isMobile ? 'stretch' : 'center',
+        gap: isMobile ? SPACING.sm : 0,
+        padding: isMobile ? SPACING.sm : SPACING.md,
         backgroundColor: '#EFF6FF',
-        borderRadius: '0.5rem',
-        marginBottom: '1rem',
+        borderRadius: BORDER_RADIUS.md,
+        marginBottom: SPACING.md,
         border: '1px solid #BFDBFE',
       }}>
-        <span style={{ 
-          fontSize: '0.875rem', 
+        <span style={{
+          fontSize: '0.875rem',
           fontWeight: '500',
           color: '#1E40AF',
+          textAlign: isMobile ? 'center' : 'left',
         }}>
           {selectedItemIds.length} item{selectedItemIds.length !== 1 ? 's' : ''} selected
         </span>
-        
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+
+        <div style={{
+          display: 'flex',
+          gap: SPACING.sm,
+          justifyContent: isMobile ? 'center' : 'flex-end',
+        }}>
           <button
             onClick={onOpenTransfer}
             style={{
-              padding: '0.5rem 1rem',
+              padding: isMobile ? SPACING.sm : `${SPACING.sm} ${SPACING.md}`,
               backgroundColor: '#8B5CF6',
               color: 'white',
               border: 'none',
-              borderRadius: '0.375rem',
-              fontSize: '0.8125rem',
+              borderRadius: BORDER_RADIUS.md,
+              fontSize: isMobile ? '0.875rem' : '0.8125rem',
               fontWeight: '500',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.375rem',
+              justifyContent: 'center',
+              gap: SPACING.xs,
+              minHeight: TOUCH_TARGETS.minimum,
+              flex: isMobile ? 1 : 'none',
             }}
           >
-            📦 Transfer Selected
+            📦 {isMobile ? 'Transfer' : 'Transfer Selected'}
           </button>
-          
+
           <button
             onClick={clearSelection}
             style={{
-              padding: '0.5rem 1rem',
+              padding: isMobile ? SPACING.sm : `${SPACING.sm} ${SPACING.md}`,
               backgroundColor: 'white',
               color: '#374151',
               border: '1px solid #D1D5DB',
-              borderRadius: '0.375rem',
-              fontSize: '0.8125rem',
+              borderRadius: BORDER_RADIUS.md,
+              fontSize: isMobile ? '0.875rem' : '0.8125rem',
               fontWeight: '500',
               cursor: 'pointer',
+              minHeight: TOUCH_TARGETS.minimum,
             }}
           >
             Clear
@@ -362,20 +443,24 @@ export const InventoryTable = ({
     <button
       onClick={onOpenReport}
       style={{
-        padding: '0.5rem 1rem',
+        padding: isMobile ? SPACING.sm : `${SPACING.sm} ${SPACING.md}`,
         backgroundColor: '#059669',
         color: 'white',
         border: 'none',
-        borderRadius: '0.375rem',
-        fontSize: '0.8125rem',
+        borderRadius: BORDER_RADIUS.md,
+        fontSize: isMobile ? '0.875rem' : '0.8125rem',
         fontWeight: '500',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.375rem',
+        justifyContent: 'center',
+        gap: SPACING.xs,
+        minHeight: TOUCH_TARGETS.minimum,
+        transition: TRANSITIONS.fast,
       }}
+      aria-label="View Reports"
     >
-      📊 Reports
+      📊 {isMobile ? '' : 'Reports'}
     </button>
   );
 
@@ -406,18 +491,22 @@ export const InventoryTable = ({
         />
       ) : (
         <div style={{
-          padding: '3rem',
+          padding: isMobile ? SPACING.lg : SPACING.xl,
           textAlign: 'center',
-          color: '#6B7280',
-          backgroundColor: '#F9FAFB',
-          borderRadius: '0.5rem',
+          color: COLORS.text.whiteSubtle,
+          backgroundColor: COLORS.background.whiteSubtle,
+          borderRadius: BORDER_RADIUS.md,
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
-          <p style={{ margin: 0, fontSize: '1rem' }}>
+          <div style={{ fontSize: isMobile ? '2.5rem' : '3rem', marginBottom: SPACING.md }}>📦</div>
+          <p style={{ margin: 0, fontSize: isMobile ? '0.9375rem' : '1rem', color: COLORS.text.white }}>
             No inventory items found.
           </p>
-          <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem', color: '#9CA3AF' }}>
-            {isAdmin 
+          <p style={{
+            margin: `${SPACING.sm} 0 0`,
+            fontSize: isMobile ? '0.8125rem' : '0.875rem',
+            color: COLORS.text.whiteSubtle,
+          }}>
+            {isAdmin
               ? 'Add your first item or adjust the filters.'
               : 'No items at your assigned schools, or adjust filters.'
             }

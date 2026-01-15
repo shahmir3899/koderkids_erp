@@ -9,12 +9,13 @@
 // - Added maxDate prop to prevent future dates
 // - Date is returned in YYYY-MM-DD format
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SchoolFilter } from './SchoolFilter';
 import { ClassFilter } from './ClassFilter';
 import { MonthFilter } from './MonthFilter';
 import { Button } from '../ui/Button';
 import moment from 'moment';
+import { useDebounce } from '../../../hooks/useDebounce';
 import {
   COLORS,
   SPACING,
@@ -23,6 +24,7 @@ import {
   BORDER_RADIUS,
   TRANSITIONS,
   SHADOWS,
+  MIXINS,
 } from '../../../utils/designConstants';
 
 /**
@@ -79,13 +81,35 @@ export const FilterBar = ({
   // Today's date for max date validation
   const today = useMemo(() => moment().format('YYYY-MM-DD'), []);
 
-  // Auto-submit when filters change (excluding search term)
+  // Track if this is the initial mount (to prevent auto-submit on first render)
+  const isInitialMount = useRef(true);
+
+  // Create a filter state object for debouncing
+  const filterState = useMemo(() => ({
+    schoolId,
+    selectedClass,
+    selectedMonth,
+    selectedDate,
+    startDate,
+    endDate,
+  }), [schoolId, selectedClass, selectedMonth, selectedDate, startDate, endDate]);
+
+  // Debounce the filter state (300ms delay)
+  const debouncedFilters = useDebounce(filterState, 300);
+
+  // Auto-submit when debounced filters change (excluding search term)
   useEffect(() => {
+    // Skip initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     if (autoSubmit) {
       handleApplyFilters();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schoolId, selectedClass, selectedMonth, selectedDate, startDate, endDate, autoSubmit]);
+  }, [debouncedFilters, autoSubmit]);
 
   const handleApplyFilters = () => {
     if (onFilter) {
@@ -127,18 +151,16 @@ export const FilterBar = ({
     }
   };
 
-  // Styles
+  // Styles with glassmorphism
   const containerStyle = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: SPACING.md,
     padding: SPACING.lg,
-    backgroundColor: COLORS.background.white,
+    ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.lg,
-    boxShadow: SHADOWS.md,
     marginBottom: SPACING.lg,
     alignItems: 'end',
-    border: `1px solid ${COLORS.border.light}`,
   };
 
   const buttonContainerStyle = {
@@ -157,28 +179,27 @@ export const FilterBar = ({
   const labelStyle = {
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
   };
 
   const inputStyle = {
     width: '100%',
     padding: `${SPACING.xs} ${SPACING.sm}`,
-    border: `1px solid ${COLORS.border.light}`,
+    ...MIXINS.glassmorphicSubtle,
     borderRadius: BORDER_RADIUS.sm,
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.primary,
-    backgroundColor: COLORS.background.white,
+    color: COLORS.text.white,
     transition: `border-color ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
   };
 
   const handleInputFocus = (e) => {
-    e.target.style.borderColor = COLORS.status.info;
-    e.target.style.boxShadow = `0 0 0 3px ${COLORS.status.infoLight}`;
+    e.target.style.borderColor = COLORS.primary;
+    e.target.style.boxShadow = `0 0 0 3px rgba(176, 97, 206, 0.3)`;
     e.target.style.outline = 'none';
   };
 
   const handleInputBlur = (e) => {
-    e.target.style.borderColor = COLORS.border.light;
+    e.target.style.borderColor = COLORS.border.whiteTransparent;
     e.target.style.boxShadow = 'none';
   };
 
@@ -284,11 +305,19 @@ export const FilterBar = ({
       {/* Buttons */}
       {!autoSubmit && (
         <div style={buttonContainerStyle}>
-          <Button onClick={handleApplyFilters} variant="primary">
+          <Button
+            onClick={handleApplyFilters}
+            variant="primary"
+            style={{ minWidth: '120px' }}
+          >
             {submitButtonText}
           </Button>
           {showResetButton && (
-            <Button onClick={handleReset} variant="secondary">
+            <Button
+              onClick={handleReset}
+              variant="secondary"
+              style={{ minWidth: '120px' }}
+            >
               Reset
             </Button>
           )}

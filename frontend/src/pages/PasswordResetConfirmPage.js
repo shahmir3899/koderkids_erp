@@ -1,7 +1,5 @@
 // ============================================
 // PASSWORD RESET CONFIRM PAGE
-// NEW FILE: frontend/src/pages/PasswordResetConfirmPage.js
-// Matches your LoginPage design exactly
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -9,10 +7,23 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { confirmPasswordReset } from '../services/authService';
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
+// Design Constants
+import {
+    COLORS,
+    SPACING,
+    FONT_SIZES,
+    FONT_WEIGHTS,
+    BORDER_RADIUS,
+    TRANSITIONS,
+    MIXINS,
+    TOUCH_TARGETS,
+} from '../utils/designConstants';
+import { useResponsive } from '../hooks/useResponsive';
+
 function PasswordResetConfirmPage() {
   const navigate = useNavigate();
   const { uid, token } = useParams();
-  
+
   const [formData, setFormData] = useState({
     newPassword: '',
     confirmPassword: '',
@@ -27,8 +38,8 @@ function PasswordResetConfirmPage() {
     color: '',
   });
 
-  // Detect mobile
-  const isMobile = window.innerWidth <= 768;
+  // Use responsive hook for proper breakpoint detection
+  const { isMobile } = useResponsive();
 
   // Validate token parameters on mount
   useEffect(() => {
@@ -138,32 +149,35 @@ function PasswordResetConfirmPage() {
     }
   };
 
-  // Styles matching LoginPage
+  // Inline keyframes
+  const globalStyles = `
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  `;
+
+  // Styles using design constants with glassmorphism
   const rootStyles = {
     display: "flex",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     alignItems: "center",
     minHeight: "100vh",
-    backgroundImage: "url('/background.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    backgroundColor: "#F9FAFC",
+    background: COLORS.background.gradient,
     position: "relative",
     overflow: "hidden",
     fontFamily: "'Rubik', 'Poppins', sans-serif",
     flexDirection: isMobile ? "column" : "row",
-    justifyContent: isMobile ? "center" : "flex-start",
-    padding: isMobile ? "2rem" : "0",
+    padding: isMobile ? SPACING.lg : SPACING.xl,
   };
 
   const mockupStyles = {
     position: "relative",
     flexShrink: 0,
     width: isMobile ? "0" : "auto",
-    minWidth: isMobile ? "0" : "500px",
+    minWidth: isMobile ? "0" : "400px",
     height: isMobile ? "0" : "100vh",
-    marginRight: isMobile ? "0" : "2rem",
+    marginRight: isMobile ? "0" : SPACING.xl,
     transform: isMobile ? "none" : "rotate(-15deg) scale(0.8)",
     transformOrigin: "top left",
     backgroundImage: "url('/thematic-illustration.svg')",
@@ -173,16 +187,16 @@ function PasswordResetConfirmPage() {
     pointerEvents: "none",
     opacity: isMobile ? 0 : 1,
     overflow: "hidden",
+    display: isMobile ? "none" : "block",
   };
 
   const formContainerStyles = {
-    maxWidth: "500px",
-    width: isMobile ? "100%" : "90%",
-    padding: "2rem",
+    maxWidth: isMobile ? "100%" : "500px",
+    width: "100%",
+    padding: isMobile ? SPACING.lg : SPACING.xl,
     textAlign: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: "16px",
-    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
     animation: "fadeIn 1s ease-in",
   };
 
@@ -190,23 +204,23 @@ function PasswordResetConfirmPage() {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    gap: "16px",
+    gap: SPACING.md,
     width: "100%",
-    marginBottom: "1rem",
+    marginBottom: SPACING.md,
   };
 
   const labelStyles = {
     width: "100%",
     height: "25px",
-    fontWeight: 400,
-    fontSize: "16px",
+    fontWeight: FONT_WEIGHTS.normal,
+    fontSize: FONT_SIZES.md,
     fontFamily: "'Montserrat', sans-serif",
     lineHeight: "140%",
     letterSpacing: "0.2px",
-    color: "#424242",
-    backgroundColor: "rgba(110, 108, 223, 0.1)",
-    padding: "4px 8px",
-    borderRadius: "4px",
+    color: COLORS.text.white,
+    backgroundColor: COLORS.background.whiteSubtle,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.sm,
     textAlign: "left",
   };
 
@@ -215,25 +229,24 @@ function PasswordResetConfirmPage() {
     display: "flex",
     flexDirection: "row",
     alignItems: "center",
-    padding: "16px 24px",
-    gap: "10px",
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    gap: SPACING.sm,
     width: "100%",
-    height: "54px",
-    background: "#FFFFFF",
-    border: "1px solid #BDBDBD",
-    borderRadius: "16px",
+    minHeight: TOUCH_TARGETS.large,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.xl,
     position: "relative",
-    transition: "box-shadow 0.3s ease, border-color 0.3s ease",
+    transition: TRANSITIONS.normal,
   };
 
   const inputStyles = {
     width: "100%",
-    height: "22px",
-    fontWeight: 400,
-    fontSize: "16px",
+    height: "auto",
+    fontWeight: FONT_WEIGHTS.normal,
+    fontSize: '16px', // Prevents iOS zoom
     lineHeight: "140%",
     letterSpacing: "0.2px",
-    color: "#757575",
+    color: COLORS.text.white,
     border: "none",
     background: "transparent",
   };
@@ -243,46 +256,39 @@ function PasswordResetConfirmPage() {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    padding: "16px",
-    gap: "10px",
+    padding: SPACING.md,
+    gap: SPACING.sm,
     width: "100%",
-    height: "54px",
-    background: "linear-gradient(90deg, #6E6CDF 0%, #6E6CDF 100%)",
-    borderRadius: "16px",
-    fontWeight: 500,
-    fontSize: "16px",
+    minHeight: TOUCH_TARGETS.large,
+    background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+    borderRadius: BORDER_RADIUS.xl,
+    fontWeight: FONT_WEIGHTS.medium,
+    fontSize: isMobile ? '0.9375rem' : FONT_SIZES.md,
     lineHeight: "140%",
     letterSpacing: "0.2px",
-    color: "#FFFFFF",
+    color: COLORS.text.white,
     cursor: "pointer",
-    boxShadow: "0 2px 10px rgba(110, 108, 223, 0.3)",
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+    boxShadow: "0 4px 15px rgba(176, 97, 206, 0.4)",
+    transition: TRANSITIONS.normal,
     border: "none",
   };
 
   const strengthBarStyles = {
     height: "6px",
-    backgroundColor: "#E5E7EB",
-    borderRadius: "3px",
+    backgroundColor: COLORS.border.whiteTransparent,
+    borderRadius: BORDER_RADIUS.sm,
     overflow: "hidden",
-    marginTop: "8px",
+    marginTop: SPACING.sm,
     width: "100%",
   };
 
   const requirementsStyles = {
-    backgroundColor: "#F9FAFB",
-    borderRadius: "8px",
-    padding: "12px",
-    marginTop: "8px",
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginTop: SPACING.sm,
     textAlign: "left",
   };
-
-  const globalStyles = `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  `;
 
   return (
     <>
@@ -290,32 +296,32 @@ function PasswordResetConfirmPage() {
       <div style={rootStyles}>
         <div style={mockupStyles} />
         <div style={formContainerStyles}>
-          <h1 style={{ 
-            fontWeight: 600, 
-            fontSize: "32px", 
-            lineHeight: "130%", 
-            letterSpacing: "0.2px", 
-            color: "#424242", 
-            marginBottom: "1rem" 
+          <h1 style={{
+            fontWeight: FONT_WEIGHTS.semibold,
+            fontSize: FONT_SIZES['2xl'],
+            lineHeight: "130%",
+            letterSpacing: "0.2px",
+            color: COLORS.text.white,
+            marginBottom: SPACING.md
           }}>
             Create New Password
           </h1>
-          
-          <p style={{ 
-            fontSize: "16px", 
-            color: "#757575", 
-            marginBottom: "2rem" 
+
+          <p style={{
+            fontSize: FONT_SIZES.md,
+            color: COLORS.text.whiteMedium,
+            marginBottom: SPACING.xl
           }}>
             Enter a strong password for your account
           </p>
 
           <form onSubmit={handleSubmit}>
             {message && (
-              <p style={{ 
-                marginBottom: "1rem", 
-                color: message.includes('✅') ? '#10B981' : '#DC2626',
-                fontSize: "14px",
-                fontWeight: 500
+              <p style={{
+                marginBottom: SPACING.md,
+                color: message.includes('✅') ? COLORS.status.success : COLORS.status.error,
+                fontSize: FONT_SIZES.sm,
+                fontWeight: FONT_WEIGHTS.medium
               }}>
                 {message}
               </p>
@@ -326,13 +332,13 @@ function PasswordResetConfirmPage() {
               <label htmlFor="newPassword" style={labelStyles}>New Password</label>
               <div
                 style={passwordContainerStyles}
-                onMouseEnter={(e) => { 
-                  e.currentTarget.style.boxShadow = "0 0 10px rgba(110, 108, 223, 0.5)"; 
-                  e.currentTarget.style.borderColor = "#6E6CDF"; 
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = "0 0 10px rgba(176, 97, 206, 0.5)";
+                  e.currentTarget.style.borderColor = COLORS.primary;
                 }}
-                onMouseLeave={(e) => { 
-                  e.currentTarget.style.boxShadow = "none"; 
-                  e.currentTarget.style.borderColor = "#BDBDBD"; 
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.borderColor = COLORS.border.whiteTransparent;
                 }}
               >
                 <input
@@ -349,13 +355,19 @@ function PasswordResetConfirmPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  style={{ 
-                    position: "absolute", 
-                    right: "24px", 
-                    background: "none", 
-                    border: "none", 
+                  style={{
+                    position: "absolute",
+                    right: SPACING.sm,
+                    background: "none",
+                    border: "none",
                     cursor: "pointer",
-                    color: "#BDBDBD"
+                    color: COLORS.text.whiteSubtle,
+                    minWidth: TOUCH_TARGETS.minimum,
+                    minHeight: TOUCH_TARGETS.minimum,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: SPACING.sm,
                   }}
                 >
                   {showPassword ? <AiOutlineEyeInvisible style={{ fontSize: "20px" }} /> : <AiOutlineEye style={{ fontSize: "20px" }} />}
@@ -370,12 +382,12 @@ function PasswordResetConfirmPage() {
                       width: `${(passwordStrength.score / 6) * 100}%`,
                       height: "100%",
                       backgroundColor: passwordStrength.color,
-                      transition: "all 0.3s ease",
+                      transition: TRANSITIONS.default,
                     }} />
                   </div>
-                  <span style={{ 
-                    fontSize: "12px", 
-                    fontWeight: 600,
+                  <span style={{
+                    fontSize: FONT_SIZES.xs,
+                    fontWeight: FONT_WEIGHTS.semibold,
                     color: passwordStrength.color
                   }}>
                     {passwordStrength.label}
@@ -383,34 +395,34 @@ function PasswordResetConfirmPage() {
 
                   {/* Requirements */}
                   <div style={requirementsStyles}>
-                    <p style={{ 
-                      fontSize: "12px", 
-                      fontWeight: 600, 
-                      color: "#424242",
-                      margin: "0 0 8px 0"
+                    <p style={{
+                      fontSize: FONT_SIZES.xs,
+                      fontWeight: FONT_WEIGHTS.semibold,
+                      color: COLORS.text.white,
+                      margin: `0 0 ${SPACING.sm} 0`
                     }}>
                       Password must contain:
                     </p>
-                    <ul style={{ 
-                      margin: 0, 
-                      paddingLeft: "20px", 
+                    <ul style={{
+                      margin: 0,
+                      paddingLeft: "20px",
                       listStyle: "none",
-                      fontSize: "12px"
+                      fontSize: FONT_SIZES.xs
                     }}>
-                      <li style={{ 
-                        color: formData.newPassword.length >= 8 ? '#10B981' : '#9CA3AF',
-                        marginBottom: "4px"
+                      <li style={{
+                        color: formData.newPassword.length >= 8 ? COLORS.status.success : COLORS.text.whiteSubtle,
+                        marginBottom: SPACING.xs
                       }}>
                         {formData.newPassword.length >= 8 ? '✓' : '○'} At least 8 characters
                       </li>
-                      <li style={{ 
-                        color: /[a-zA-Z]/.test(formData.newPassword) && /[0-9]/.test(formData.newPassword) ? '#10B981' : '#9CA3AF',
-                        marginBottom: "4px"
+                      <li style={{
+                        color: /[a-zA-Z]/.test(formData.newPassword) && /[0-9]/.test(formData.newPassword) ? COLORS.status.success : COLORS.text.whiteSubtle,
+                        marginBottom: SPACING.xs
                       }}>
                         {/[a-zA-Z]/.test(formData.newPassword) && /[0-9]/.test(formData.newPassword) ? '✓' : '○'} Letters and numbers
                       </li>
-                      <li style={{ 
-                        color: /[A-Z]/.test(formData.newPassword) ? '#10B981' : '#9CA3AF'
+                      <li style={{
+                        color: /[A-Z]/.test(formData.newPassword) ? COLORS.status.success : COLORS.text.whiteSubtle
                       }}>
                         {/[A-Z]/.test(formData.newPassword) ? '✓' : '○'} Uppercase letter (recommended)
                       </li>
@@ -426,15 +438,15 @@ function PasswordResetConfirmPage() {
               <div
                 style={{
                   ...passwordContainerStyles,
-                  borderColor: formData.confirmPassword && formData.newPassword !== formData.confirmPassword ? '#DC2626' : '#BDBDBD'
+                  borderColor: formData.confirmPassword && formData.newPassword !== formData.confirmPassword ? COLORS.status.error : COLORS.border.whiteTransparent
                 }}
-                onMouseEnter={(e) => { 
-                  e.currentTarget.style.boxShadow = "0 0 10px rgba(110, 108, 223, 0.5)"; 
-                  e.currentTarget.style.borderColor = "#6E6CDF"; 
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = "0 0 10px rgba(176, 97, 206, 0.5)";
+                  e.currentTarget.style.borderColor = COLORS.primary;
                 }}
-                onMouseLeave={(e) => { 
-                  e.currentTarget.style.boxShadow = "none"; 
-                  e.currentTarget.style.borderColor = formData.confirmPassword && formData.newPassword !== formData.confirmPassword ? '#DC2626' : '#BDBDBD'; 
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.borderColor = formData.confirmPassword && formData.newPassword !== formData.confirmPassword ? COLORS.status.error : COLORS.border.whiteTransparent;
                 }}
               >
                 <input
@@ -451,13 +463,19 @@ function PasswordResetConfirmPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={{ 
-                    position: "absolute", 
-                    right: "24px", 
-                    background: "none", 
-                    border: "none", 
+                  style={{
+                    position: "absolute",
+                    right: SPACING.sm,
+                    background: "none",
+                    border: "none",
                     cursor: "pointer",
-                    color: "#BDBDBD"
+                    color: COLORS.text.whiteSubtle,
+                    minWidth: TOUCH_TARGETS.minimum,
+                    minHeight: TOUCH_TARGETS.minimum,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: SPACING.sm,
                   }}
                 >
                   {showConfirmPassword ? <AiOutlineEyeInvisible style={{ fontSize: "20px" }} /> : <AiOutlineEye style={{ fontSize: "20px" }} />}
@@ -467,10 +485,10 @@ function PasswordResetConfirmPage() {
               {/* Password Match */}
               {formData.confirmPassword && (
                 <p style={{
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  margin: "4px 0 0 0",
-                  color: formData.newPassword === formData.confirmPassword ? '#10B981' : '#DC2626'
+                  fontSize: FONT_SIZES.xs,
+                  fontWeight: FONT_WEIGHTS.medium,
+                  margin: `${SPACING.xs} 0 0 0`,
+                  color: formData.newPassword === formData.confirmPassword ? COLORS.status.success : COLORS.status.error
                 }}>
                   {formData.newPassword === formData.confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
                 </p>
@@ -481,38 +499,42 @@ function PasswordResetConfirmPage() {
               type="submit"
               style={buttonStyles}
               disabled={isLoading}
-              onMouseEnter={(e) => { 
-                e.currentTarget.style.transform = "scale(1.05)"; 
-                e.currentTarget.style.boxShadow = "0 4px 15px rgba(110, 108, 223, 0.5)"; 
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "scale(1.05)";
+                e.currentTarget.style.boxShadow = "0 4px 15px rgba(176, 97, 206, 0.5)";
               }}
-              onMouseLeave={(e) => { 
-                e.currentTarget.style.transform = "scale(1)"; 
-                e.currentTarget.style.boxShadow = "0 2px 10px rgba(110, 108, 223, 0.3)"; 
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+                e.currentTarget.style.boxShadow = "0 4px 15px rgba(176, 97, 206, 0.4)";
               }}
             >
               {isLoading ? "Resetting Password..." : "🔐 Reset Password"}
             </button>
 
-            <div style={{ 
-              display: "flex", 
-              alignItems: "center", 
-              gap: "16px", 
-              margin: "1.5rem auto",
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: SPACING.md,
+              margin: `${SPACING.lg} auto`,
               width: "150px"
             }}>
-              <div style={{ flex: 1, height: "1px", background: "#E0E0E0" }} />
-              <span style={{ color: "#E0E0E0", fontSize: "16px" }}>OR</span>
-              <div style={{ flex: 1, height: "1px", background: "#E0E0E0" }} />
+              <div style={{ flex: 1, height: "1px", background: COLORS.border.whiteTransparent }} />
+              <span style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.md }}>OR</span>
+              <div style={{ flex: 1, height: "1px", background: COLORS.border.whiteTransparent }} />
             </div>
 
-            <a 
-              href="/login" 
-              style={{ 
-                display: "block", 
-                color: "#6E6CDF", 
-                fontSize: "16px", 
-                fontWeight: 600,
-                textDecoration: "none"
+            <a
+              href="/login"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: COLORS.text.white,
+                fontSize: FONT_SIZES.md,
+                fontWeight: FONT_WEIGHTS.semibold,
+                textDecoration: "none",
+                minHeight: TOUCH_TARGETS.minimum,
+                padding: `${SPACING.sm} ${SPACING.md}`,
               }}
             >
               ← Back to Login

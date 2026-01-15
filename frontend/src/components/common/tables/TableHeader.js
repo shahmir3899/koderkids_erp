@@ -47,29 +47,31 @@ export const TableHeader = ({
   const headerStyle = {
     padding: SPACING.sm,
     textAlign: align,
-    fontWeight: FONT_WEIGHTS.semibold,
+    fontWeight: FONT_WEIGHTS.bold,
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.white,
-    backgroundColor: COLORS.background.whiteMedium,
+    color: '#FBBF24', // Golden Yellow for headers
+    backgroundColor: 'rgba(139, 92, 246, 0.3)', // Purple tint background
     cursor: sortable ? 'pointer' : 'default',
     userSelect: 'none',
     transition: `background-color ${TRANSITIONS.fast} ease`,
-    borderBottom: `2px solid ${COLORS.border.whiteMedium}`,
+    borderBottom: `2px solid rgba(251, 191, 36, 0.4)`, // Golden border
     width: width,
     whiteSpace: 'nowrap',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   };
 
   const getSortIcon = () => {
     if (!sortable) return null;
 
     if (!isSorted) {
-      return <FontAwesomeIcon icon={faSort} style={{ marginLeft: SPACING.xs, color: COLORS.text.whiteSubtle }} />;
+      return <FontAwesomeIcon icon={faSort} style={{ marginLeft: SPACING.xs, color: 'rgba(251, 191, 36, 0.5)' }} />;
     }
 
     return (
       <FontAwesomeIcon
         icon={direction === 'asc' ? faSortUp : faSortDown}
-        style={{ marginLeft: SPACING.xs, color: COLORS.text.white }}
+        style={{ marginLeft: SPACING.xs, color: '#FBBF24' }}
       />
     );
   };
@@ -80,11 +82,11 @@ export const TableHeader = ({
       onClick={handleClick}
       onMouseEnter={(e) => {
         if (sortable) {
-          e.currentTarget.style.backgroundColor = COLORS.background.whiteStrong;
+          e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.5)';
         }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = COLORS.background.whiteMedium;
+        e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
       }}
       className={className}
     >

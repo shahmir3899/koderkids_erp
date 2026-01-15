@@ -3,13 +3,12 @@
 // ============================================
 // Location: src/pages/TeacherDashboardFigma.js
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
 // Components
-//import { ProfileHeaderFigma } from '../components/teacher/ProfileHeaderFigma';
 import { UnifiedProfileHeader } from '../components/common/UnifiedProfileHeader';
 import { LessonGrid } from '../components/teacher/LessonGrid';
 import { CircularProgress } from '../components/teacher/CircularProgress';
@@ -24,14 +23,36 @@ import { TeacherInventoryWidget } from '../components/teacher/TeacherInventoryWi
 
 // Hooks
 import { useSchools } from '../hooks/useSchools';
+import { useResponsive } from '../hooks/useResponsive';
 
 // Services
 import { getTeacherProfile, getTeacherDashboardData } from '../services/teacherService';
 
 // Constants
-import { COLORS, SPACING, LAYOUT } from '../utils/designConstants';
+import { COLORS, SPACING, LAYOUT, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS, TRANSITIONS } from '../utils/designConstants';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://koderkids-erp.onrender.com';
+
+// Hover wrapper component for cards
+const HoverCard = ({ children, style = {} }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div
+      style={{
+        ...style,
+        transition: 'all 0.3s ease',
+        transform: isHovered ? 'translateY(-4px) scale(1.01)' : 'translateY(0) scale(1)',
+        boxShadow: isHovered ? '0 12px 40px rgba(0, 0, 0, 0.25)' : '0 4px 24px rgba(0, 0, 0, 0.12)',
+        background: isHovered ? 'rgba(255, 255, 255, 0.18)' : style.background || 'rgba(255, 255, 255, 0.12)',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {children}
+    </div>
+  );
+};
 
 const getAuthHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access')}`,
@@ -40,9 +61,14 @@ const getAuthHeaders = () => ({
 
 const TeacherDashboardFigma = () => {
   // ============================================
+  // RESPONSIVE HOOK
+  // ============================================
+  const { isMobile } = useResponsive();
+
+  // ============================================
   // STATE
   // ============================================
-  
+
   // Profile State
   const [profile, setProfile] = useState(null);
   
@@ -295,7 +321,7 @@ useEffect(() => {
 
         {/* Course Completion Charts */}
         {!loading.completion && completionData.length > 0 && (
-          <div style={styles.completionSection}>
+          <HoverCard style={styles.completionSection}>
             {completionData.slice(0, 2).map((school, idx) => (
               <CircularProgress
                 key={idx}
@@ -305,7 +331,7 @@ useEffect(() => {
                 strokeWidth={20}
               />
             ))}
-          </div>
+          </HoverCard>
         )}
 
         {/* Lesson Schedule Header */}
@@ -342,14 +368,14 @@ useEffect(() => {
     teacherName={teacherName}
   />
 </CollapsibleSection>
-         <div style={styles.monthSelectorWrapper}>
+         <HoverCard style={styles.monthSelectorWrapper}>
             <span style={styles.monthLabel}>Select Month</span>
             <MonthFilter
               value={selectedMonth}
               onChange={setSelectedMonth}
               defaultToCurrent
             />
-          </div>
+          </HoverCard>
         {/* Student Reports */}
         <CollapsibleSection title="👨‍🎓 Student Reports">
           <FilterBar
@@ -369,7 +395,7 @@ useEffect(() => {
           ) : studentAttendance.length > 0 ? (
             <>
               {/* Student Data Table */}
-              <div style={styles.tableContainer}>
+              <HoverCard style={styles.tableContainer}>
                 <DataTable
                   data={studentAttendance.map(attendance => {
                     const topic = studentTopics.find(t => t.student_id === attendance.student_id) || { topics_achieved: 0 };
@@ -394,7 +420,7 @@ useEffect(() => {
                   hoverable
                   maxHeight="400px"
                 />
-              </div>
+              </HoverCard>
 
               {/* Student Performance Chart */}
               <BarChartWrapper
@@ -408,13 +434,12 @@ useEffect(() => {
               />
             </>
           ) : (
-            <div style={styles.emptyState}>
+            <HoverCard style={styles.emptyState}>
               <svg style={styles.emptyIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
               <p>Select school and class to view student data</p>
-              
-            </div>
+            </HoverCard>
             
           )}
         </CollapsibleSection>
@@ -423,38 +448,40 @@ useEffect(() => {
   );
 };
 
-// Styles
+// Styles with glassmorphism
 const styles = {
   pageContainer: {
     display: 'flex',
     minHeight: '100vh',
-    backgroundColor: COLORS.background.white,
+    background: COLORS.background.gradient,
     fontFamily: 'Inter, -apple-system, sans-serif',
   },
   mainContent: {
     marginLeft: '0', // Original sidebar from App.js will provide margin
     flex: 1,
-    backgroundColor: COLORS.background.white,
     minHeight: '100vh',
+    padding: SPACING.xl,
   },
   completionSection: {
     display: 'flex',
-    justifyContent: 'space-between', // Equal spacing between charts
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '2rem 3rem',
-    backgroundColor: COLORS.background.white,
-    maxWidth: '900px', // Limit max width for better appearance
+    padding: SPACING.xl,
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    maxWidth: '900px',
+    marginBottom: SPACING.xl,
   },
   lessonScheduleHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '2rem 3rem 1rem',
+    padding: `${SPACING.xl} 0 ${SPACING.lg}`,
   },
   sectionTitle: {
-    fontSize: '26px',
-    fontWeight: '700',
-    color: COLORS.primary,
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
     fontFamily: 'Montserrat, -apple-system, sans-serif',
     margin: 0,
     lineHeight: '26px',
@@ -462,32 +489,38 @@ const styles = {
   monthSelectorWrapper: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem',
+    gap: SPACING.lg,
+    ...MIXINS.glassmorphicSubtle,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
   },
   monthLabel: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: COLORS.text.secondary,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.whiteMedium,
   },
   lessonScheduleSection: {
-    padding: '0 3rem 2rem',
+    padding: `0 0 ${SPACING.xl}`,
   },
   tableContainer: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.lg,
+    overflow: 'hidden',
   },
   emptyState: {
-    padding: '3rem',
+    padding: SPACING['2xl'],
     textAlign: 'center',
-    color: COLORS.text.tertiary,
-    backgroundColor: COLORS.background.lightGray,
-    borderRadius: '8px',
-    marginTop: '1rem',
+    color: COLORS.text.whiteSubtle,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.lg,
+    marginTop: SPACING.lg,
   },
   emptyIcon: {
     width: '3rem',
     height: '3rem',
     margin: '0 auto 1rem',
-    color: COLORS.text.light,
+    color: COLORS.text.whiteSubtle,
   },
 };
 
