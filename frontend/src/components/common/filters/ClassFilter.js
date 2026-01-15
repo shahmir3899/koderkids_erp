@@ -85,7 +85,7 @@ export const ClassFilter = ({
   const selectStyle = {
     width: '100%',
     padding: SPACING.sm,
-    ...MIXINS.glassmorphicSubtle,
+    ...MIXINS.glassmorphicSelect,
     borderRadius: BORDER_RADIUS.sm,
     fontSize: FONT_SIZES.sm,
     color: COLORS.text.white,
@@ -95,9 +95,7 @@ export const ClassFilter = ({
   };
 
   const optionStyle = {
-    backgroundColor: '#1e1e2e',
-    color: '#ffffff',
-    padding: SPACING.sm,
+    ...MIXINS.selectOption,
   };
 
   const labelStyle = {

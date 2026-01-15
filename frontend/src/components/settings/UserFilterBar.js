@@ -134,9 +134,9 @@ export const UserFilterBar = ({
             onChange={handleChange}
             style={styles.select}
           >
-            <option value="">All Roles</option>
+            <option value="" style={styles.option}>All Roles</option>
             {roles.map((role) => (
-              <option key={role.value} value={role.value}>
+              <option key={role.value} value={role.value} style={styles.option}>
                 {role.label}
               </option>
             ))}
@@ -152,9 +152,9 @@ export const UserFilterBar = ({
             onChange={handleChange}
             style={styles.select}
           >
-            <option value="">All Schools</option>
+            <option value="" style={styles.option}>All Schools</option>
             {schools.map((school) => (
-              <option key={school.id} value={school.id}>
+              <option key={school.id} value={school.id} style={styles.option}>
                 {school.name}
               </option>
             ))}
@@ -257,14 +257,17 @@ const styles = {
 
   select: {
     padding: `${SPACING.md} ${SPACING.lg}`,
-    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    ...MIXINS.glassmorphicSelect,
     borderRadius: BORDER_RADIUS.lg,
     fontSize: FONT_SIZES.sm,
     color: COLORS.text.white,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     outline: 'none',
     cursor: 'pointer',
     transition: `all ${TRANSITIONS.normal}`,
+  },
+
+  option: {
+    ...MIXINS.selectOption,
   },
 
   checkboxField: {

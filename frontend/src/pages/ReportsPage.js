@@ -38,6 +38,13 @@ import { useSchools } from '../hooks/useSchools';
 import { useReportGeneration } from '../hooks/useReportGeneration';
 
 // ============================================
+// CONSTANTS
+// ============================================
+
+// Stable empty array to prevent infinite re-renders when passed as prop
+const EMPTY_ARRAY = [];
+
+// ============================================
 // VALIDATION HELPERS
 // ============================================
 
@@ -929,7 +936,7 @@ const ReportsPage = () => {
             startDate={startDate}
             endDate={endDate}
             mode={mode}
-            initialSelectedImages={selectedImages[modalStudentId] || []}
+            initialSelectedImages={selectedImages[modalStudentId] || EMPTY_ARRAY}
             onClose={handleCloseImageModal}
           />
         )}

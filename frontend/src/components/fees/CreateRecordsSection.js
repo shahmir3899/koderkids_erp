@@ -42,6 +42,8 @@ const CreateRecordsSection = ({
       padding: isMobile ? SPACING.md : SPACING.lg,
       borderRadius: BORDER_RADIUS.xl,
       marginBottom: SPACING.lg,
+      position: 'relative',
+      zIndex: 10,
     },
     header: {
       display: 'flex',
@@ -191,7 +193,7 @@ const CreateRecordsSection = ({
             width: ${isMobile ? '100%' : 'auto'};
           }
           .react-datepicker-popper {
-            z-index: 9999 !important;
+            z-index: 99999 !important;
           }
           .react-datepicker {
             background: #1a1a2e !important;

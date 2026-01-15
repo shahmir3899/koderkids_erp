@@ -16,7 +16,6 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  SHADOWS,
   TRANSITIONS,
   Z_INDEX,
 } from '../../utils/designConstants';
@@ -156,6 +155,21 @@ export const TeacherSettingsModal = ({
 
   return (
     <div style={styles.overlay} onClick={onClose}>
+      <style>
+        {`
+          .teacher-settings-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+          .teacher-settings-input:focus {
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+          }
+          .teacher-settings-select option {
+            background: #1e293b;
+            color: #ffffff;
+          }
+        `}
+      </style>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={styles.header}>
@@ -283,11 +297,12 @@ export const TeacherSettingsModal = ({
                     value={formData.gender}
                     onChange={handleChange}
                     style={styles.select}
+                    className="teacher-settings-select"
                   >
-                    <option value="">Select gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                    <option value="" style={styles.selectOption}>Select gender</option>
+                    <option value="Male" style={styles.selectOption}>Male</option>
+                    <option value="Female" style={styles.selectOption}>Female</option>
+                    <option value="Other" style={styles.selectOption}>Other</option>
                   </select>
                 </div>
 
@@ -299,16 +314,17 @@ export const TeacherSettingsModal = ({
                     value={formData.blood_group}
                     onChange={handleChange}
                     style={styles.select}
+                    className="teacher-settings-select"
                   >
-                    <option value="">Select blood group</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
+                    <option value="" style={styles.selectOption}>Select blood group</option>
+                    <option value="A+" style={styles.selectOption}>A+</option>
+                    <option value="A-" style={styles.selectOption}>A-</option>
+                    <option value="B+" style={styles.selectOption}>B+</option>
+                    <option value="B-" style={styles.selectOption}>B-</option>
+                    <option value="AB+" style={styles.selectOption}>AB+</option>
+                    <option value="AB-" style={styles.selectOption}>AB-</option>
+                    <option value="O+" style={styles.selectOption}>O+</option>
+                    <option value="O-" style={styles.selectOption}>O-</option>
                   </select>
                 </div>
 
@@ -360,7 +376,7 @@ export const TeacherSettingsModal = ({
                   <input
                     type="text"
                     value={profile?.employee_id || 'Not assigned'}
-                    style={{ ...styles.input, backgroundColor: COLORS.background.offWhite }}
+                    style={{ ...styles.input, ...styles.inputDisabled }}
                     disabled
                   />
                   <small style={styles.helperText}>Auto-generated, cannot be changed</small>
@@ -372,7 +388,7 @@ export const TeacherSettingsModal = ({
                   <input
                     type="text"
                     value={profile?.basic_salary ? `PKR ${Number(profile.basic_salary).toLocaleString()}` : 'Not set'}
-                    style={{ ...styles.input, backgroundColor: COLORS.background.offWhite }}
+                    style={{ ...styles.input, ...styles.inputDisabled }}
                     disabled
                   />
                   <small style={styles.helperText}>Contact admin to update salary</small>
@@ -428,74 +444,85 @@ export const TeacherSettingsModal = ({
   );
 };
 
-// Styles
+// Styles - Gradient Design (matching LessonPlanWizard)
 const styles = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    backgroundColor: COLORS.background.overlay,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: Z_INDEX.modal,
     padding: SPACING.sm,
+    backdropFilter: 'blur(4px)',
   },
   modal: {
-    backgroundColor: COLORS.background.white,
-    borderRadius: BORDER_RADIUS.lg,
-    boxShadow: SHADOWS.xl,
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
     width: '100%',
     maxWidth: '600px',
     maxHeight: '90vh',
     overflow: 'auto',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
   },
   header: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: SPACING.lg,
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
   },
   title: {
     fontSize: FONT_SIZES.xl,
     fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
     margin: 0,
   },
   closeButton: {
-    padding: SPACING.xs,
-    background: 'transparent',
-    border: 'none',
-    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    color: COLORS.text.secondary,
+    color: COLORS.text.white,
     transition: `all ${TRANSITIONS.fast} ease`,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   photoSection: {
     padding: SPACING.lg,
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
     display: 'flex',
     justifyContent: 'center',
+    background: 'rgba(255, 255, 255, 0.03)',
   },
   tabs: {
     display: 'flex',
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
     padding: `0 ${SPACING.lg}`,
+    background: 'rgba(255, 255, 255, 0.03)',
   },
   tab: {
-    padding: `${SPACING.sm} ${SPACING.lg}`,
+    padding: `${SPACING.md} ${SPACING.lg}`,
     background: 'transparent',
     border: 'none',
     borderBottom: '2px solid transparent',
     cursor: 'pointer',
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.secondary,
+    color: COLORS.text.whiteSubtle,
     transition: `all ${TRANSITIONS.fast} ease`,
   },
   tabActive: {
-    color: COLORS.primary,
-    borderBottomColor: COLORS.primary,
+    color: COLORS.text.white,
+    borderBottomColor: COLORS.status.info,
+    background: 'rgba(255, 255, 255, 0.08)',
   },
   form: {
     padding: SPACING.lg,
@@ -503,7 +530,7 @@ const styles = {
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
   formGroup: {
     display: 'flex',
@@ -513,28 +540,47 @@ const styles = {
   label: {
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
   },
   input: {
-    padding: SPACING.sm,
-    border: `1px solid ${COLORS.border.light}`,
-    borderRadius: BORDER_RADIUS.sm,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
     transition: `all ${TRANSITIONS.fast} ease`,
     outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+  },
+  inputDisabled: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    color: COLORS.text.whiteSubtle,
+    cursor: 'not-allowed',
   },
   select: {
-    padding: SPACING.sm,
-    border: `1px solid ${COLORS.border.light}`,
-    borderRadius: BORDER_RADIUS.sm,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
-    backgroundColor: COLORS.background.white,
     cursor: 'pointer',
     outline: 'none',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    appearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFFFFF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 0.5rem center',
+    backgroundSize: '1rem',
+    paddingRight: '2rem',
+  },
+  selectOption: {
+    backgroundColor: '#1e293b',
+    color: COLORS.text.white,
   },
   helperText: {
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.tertiary,
+    color: COLORS.text.whiteSubtle,
   },
   actions: {
     display: 'flex',
@@ -542,14 +588,14 @@ const styles = {
     gap: SPACING.sm,
     marginTop: SPACING.lg,
     paddingTop: SPACING.lg,
-    borderTop: `1px solid ${COLORS.border.light}`,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
   },
   cancelButton: {
     padding: `${SPACING.sm} ${SPACING.lg}`,
-    backgroundColor: COLORS.background.offWhite,
-    color: COLORS.text.primary,
-    border: 'none',
-    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
@@ -557,14 +603,15 @@ const styles = {
   },
   submitButton: {
     padding: `${SPACING.sm} ${SPACING.lg}`,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.status.info,
     color: COLORS.text.white,
     border: 'none',
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
     transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
   },
 };
 

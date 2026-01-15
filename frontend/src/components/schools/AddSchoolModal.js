@@ -1,21 +1,28 @@
 // ============================================
 // ADD SCHOOL MODAL - Multi-Step Creation Wizard
-// Updated with Payment Mode Configuration
+// Gradient Design System
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { createSchool } from '../../api/services/schoolService';
 import { uploadSchoolLogo } from '../../utils/supabaseUpload';
-import { Button } from '../common/ui/Button';
-import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 import { LogoUploader } from './LogoUploader';
 import { LocationPicker } from './LocationPicker';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../utils/designConstants';
 
 /**
  * AddSchoolModal Component
  * Multi-step wizard for creating a new school
- * 
+ *
  * @param {Object} props
  * @param {boolean} props.isOpen - Whether modal is open
  * @param {Function} props.onClose - Close modal callback
@@ -24,7 +31,22 @@ import { LocationPicker } from './LocationPicker';
 export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [closeButtonHovered, setCloseButtonHovered] = useState(false);
+
+  // Handle ESC key to close modal
+  const handleEscKey = useCallback((e) => {
+    if (e.key === 'Escape' && !isSubmitting) {
+      onClose();
+    }
+  }, [onClose, isSubmitting]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [isOpen, handleEscKey]);
+
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -36,7 +58,6 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
     established_date: '',
     total_capacity: '',
     is_active: true,
-    // 💰 Payment Configuration
     payment_mode: 'per_student',
     monthly_subscription_amount: '',
   });
@@ -46,22 +67,20 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
   // Handle input change
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
+
     setFormData(prev => {
       const updated = {
         ...prev,
         [name]: type === 'checkbox' ? checked : value,
       };
-      
-      // 💰 Clear subscription amount when switching to per_student mode
+
       if (name === 'payment_mode' && value === 'per_student') {
         updated.monthly_subscription_amount = '';
       }
-      
+
       return updated;
     });
-    
-    // Clear error for this field
+
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
@@ -109,8 +128,7 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
       if (formData.total_capacity && formData.total_capacity < 1) {
         newErrors.total_capacity = 'Capacity must be at least 1';
       }
-      
-      // 💰 Validate payment mode
+
       if (formData.payment_mode === 'monthly_subscription') {
         if (!formData.monthly_subscription_amount || parseFloat(formData.monthly_subscription_amount) <= 0) {
           newErrors.monthly_subscription_amount = 'Subscription amount is required and must be greater than 0';
@@ -145,7 +163,6 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
     setIsSubmitting(true);
 
     try {
-      // Prepare data for API
       const schoolData = {
         name: formData.name.trim(),
         address: formData.address.trim(),
@@ -156,31 +173,26 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
         established_date: formData.established_date || null,
         total_capacity: formData.total_capacity ? parseInt(formData.total_capacity) : null,
         is_active: formData.is_active,
-        // 💰 Payment Configuration
         payment_mode: formData.payment_mode,
         monthly_subscription_amount: formData.payment_mode === 'monthly_subscription'
           ? parseFloat(formData.monthly_subscription_amount)
           : null,
       };
 
-      // Upload logo to Supabase if provided
       if (formData.logo) {
         try {
-          console.log('📤 Uploading logo to Supabase...');
           const logoUrl = await uploadSchoolLogo(formData.logo, formData.name);
           schoolData.logo = logoUrl;
-          console.log('✅ Logo uploaded:', logoUrl);
         } catch (logoError) {
-          console.error('❌ Logo upload failed:', logoError);
-          toast.warn('⚠️ School created but logo upload failed. You can add it later.');
+          console.error('Logo upload failed:', logoError);
+          toast.warn('School created but logo upload failed. You can add it later.');
         }
       }
 
       await createSchool(schoolData);
-      
-      toast.success('✅ School created successfully!');
-      
-      // Reset form
+
+      toast.success('School created successfully!');
+
       setFormData({
         name: '',
         address: '',
@@ -196,16 +208,16 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
         monthly_subscription_amount: '',
       });
       setCurrentStep(1);
-      
+
       if (onSuccess) {
         onSuccess();
       }
-      
+
       onClose();
     } catch (error) {
       console.error('Error creating school:', error);
       const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to create school';
-      toast.error(`❌ ${errorMsg}`);
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -213,199 +225,100 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
 
   if (!isOpen) return null;
 
-  // Styles
-  const overlayStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    padding: '1rem',
-  };
-
-  const modalStyle = {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '12px',
-    maxWidth: '700px',
-    width: '100%',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-  };
-
-  const headerStyle = {
-    padding: '1.5rem',
-    borderBottom: '1px solid #E5E7EB',
-    backgroundColor: '#F9FAFB',
-  };
-
-  const titleStyle = {
-    fontSize: '1.5rem',
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: '0.5rem',
-  };
-
-  const stepIndicatorStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-  };
-
-  const stepDotStyle = (active) => ({
-    width: active ? '32px' : '8px',
-    height: '8px',
-    borderRadius: '4px',
-    backgroundColor: active ? '#3B82F6' : '#D1D5DB',
-    transition: 'all 0.3s ease',
-  });
-
-  const stepLabelStyle = {
-    fontSize: '0.875rem',
-    color: '#6B7280',
-  };
-
-  const contentStyle = {
-    padding: '1.5rem',
-  };
-
-  const fieldStyle = {
-    marginBottom: '1.25rem',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: '0.5rem',
-  };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '0.625rem 0.75rem',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    color: '#374151',
-    backgroundColor: '#FFFFFF',
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-  };
-
-  const selectStyle = {
-    ...inputStyle,
-    cursor: 'pointer',
-  };
-
-  const textareaStyle = {
-    ...inputStyle,
-    minHeight: '80px',
-    resize: 'vertical',
-  };
-
-  const errorStyle = {
-    color: '#DC2626',
-    fontSize: '0.75rem',
-    marginTop: '0.25rem',
-  };
-
-  const checkboxContainerStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-  };
-
-  const footerStyle = {
-    padding: '1.5rem',
-    borderTop: '1px solid #E5E7EB',
-    display: 'flex',
-    justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-  };
-
-  const infoBoxStyle = {
-    backgroundColor: '#EFF6FF',
-    border: '1px solid #BFDBFE',
-    borderRadius: '0.5rem',
-    padding: '1rem',
-    marginTop: '1rem',
-    fontSize: '0.875rem',
-    color: '#1E40AF',
-  };
-
   return (
-    <div style={overlayStyle} onClick={onClose}>
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+    <div style={styles.overlay} onClick={onClose}>
+      <style>
+        {`
+          .add-school-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+          .add-school-input:focus {
+            border-color: rgba(59, 130, 246, 0.6) !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+          }
+          .add-school-select option {
+            background-color: #1e293b;
+            color: white;
+          }
+        `}
+      </style>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div style={headerStyle}>
-          <h2 style={titleStyle}>➕ Add New School</h2>
-          <div style={stepIndicatorStyle}>
-            <div style={stepDotStyle(currentStep === 1)} />
-            <div style={stepDotStyle(currentStep === 2)} />
-            <div style={stepDotStyle(currentStep === 3)} />
-            <span style={stepLabelStyle}>Step {currentStep} of 3</span>
+        <div style={styles.header}>
+          <div>
+            <h2 style={styles.title}>Add New School</h2>
+            <div style={styles.stepIndicator}>
+              <div style={styles.stepDot(currentStep >= 1)} />
+              <div style={styles.stepLine(currentStep >= 2)} />
+              <div style={styles.stepDot(currentStep >= 2)} />
+              <div style={styles.stepLine(currentStep >= 3)} />
+              <div style={styles.stepDot(currentStep >= 3)} />
+              <span style={styles.stepLabel}>Step {currentStep} of 3</span>
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            style={{
+              ...styles.closeButton,
+              ...(closeButtonHovered ? styles.closeButtonHover : {}),
+            }}
+            onMouseEnter={() => setCloseButtonHovered(true)}
+            onMouseLeave={() => setCloseButtonHovered(false)}
+            title="Close (Esc)"
+            aria-label="Close modal"
+          >
+            <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Content */}
         <form onSubmit={handleSubmit}>
-          <div style={contentStyle}>
+          <div style={styles.content}>
             {/* Step 1: Basic Information */}
             {currentStep === 1 && (
               <>
-                <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
-                  📋 Basic Information
-                </h3>
+                <h3 style={styles.sectionTitle}>Basic Information</h3>
 
-                <LogoUploader
-                  onLogoChange={handleLogoChange}
-                  onLogoRemove={handleLogoRemove}
-                />
-
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>School Name *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="Enter school name"
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
-                      e.target.style.boxShadow = 'none';
-                    }}
+                <div style={styles.logoSection}>
+                  <LogoUploader
+                    onLogoChange={handleLogoChange}
+                    onLogoRemove={handleLogoRemove}
                   />
-                  {errors.name && <div style={errorStyle}>{errors.name}</div>}
                 </div>
 
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Detailed Address *</label>
-                  <textarea
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    placeholder="Enter complete address with street, area, city"
-                    style={textareaStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                  {errors.address && <div style={errorStyle}>{errors.address}</div>}
+                <div style={styles.formGrid}>
+                  <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
+                    <label style={styles.label}>
+                      School Name <span style={styles.required}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      placeholder="Enter school name"
+                      style={styles.input}
+                      className="add-school-input"
+                    />
+                    {errors.name && <div style={styles.error}>{errors.name}</div>}
+                  </div>
+
+                  <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
+                    <label style={styles.label}>
+                      Detailed Address <span style={styles.required}>*</span>
+                    </label>
+                    <textarea
+                      name="address"
+                      value={formData.address}
+                      onChange={handleChange}
+                      placeholder="Enter complete address with street, area, city"
+                      style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }}
+                      className="add-school-input"
+                    />
+                    {errors.address && <div style={styles.error}>{errors.address}</div>}
+                  </div>
                 </div>
               </>
             )}
@@ -413,56 +326,44 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
             {/* Step 2: Location & Contact */}
             {currentStep === 2 && (
               <>
-                <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
-                  📍 Location & Contact
-                </h3>
+                <h3 style={styles.sectionTitle}>Location & Contact</h3>
 
-                <LocationPicker
-                  initialLat={formData.latitude}
-                  initialLng={formData.longitude}
-                  onLocationChange={handleLocationChange}
-                />
-
-                {errors.location && <div style={errorStyle}>{errors.location}</div>}
-
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>📧 Contact Email</label>
-                  <input
-                    type="email"
-                    name="contact_email"
-                    value={formData.contact_email}
-                    onChange={handleChange}
-                    placeholder="school@example.com"
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
-                      e.target.style.boxShadow = 'none';
-                    }}
+                <div style={styles.mapSection}>
+                  <LocationPicker
+                    initialLat={formData.latitude}
+                    initialLng={formData.longitude}
+                    onLocationChange={handleLocationChange}
                   />
                 </div>
 
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>📞 Contact Phone</label>
-                  <input
-                    type="tel"
-                    name="contact_phone"
-                    value={formData.contact_phone}
-                    onChange={handleChange}
-                    placeholder="051-1234567"
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
+                {errors.location && <div style={styles.error}>{errors.location}</div>}
+
+                <div style={styles.formGrid}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Contact Email</label>
+                    <input
+                      type="email"
+                      name="contact_email"
+                      value={formData.contact_email}
+                      onChange={handleChange}
+                      placeholder="school@example.com"
+                      style={styles.input}
+                      className="add-school-input"
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Contact Phone</label>
+                    <input
+                      type="tel"
+                      name="contact_phone"
+                      value={formData.contact_phone}
+                      onChange={handleChange}
+                      placeholder="051-1234567"
+                      style={styles.input}
+                      className="add-school-input"
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -470,197 +371,162 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
             {/* Step 3: Additional Details + Payment Configuration */}
             {currentStep === 3 && (
               <>
-                <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
-                  📝 Additional Details
-                </h3>
+                <h3 style={styles.sectionTitle}>Additional Details</h3>
 
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>📅 Established Date</label>
-                  <input
-                    type="date"
-                    name="established_date"
-                    value={formData.established_date}
-                    onChange={handleChange}
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                </div>
+                <div style={styles.formGrid}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Established Date</label>
+                    <input
+                      type="date"
+                      name="established_date"
+                      value={formData.established_date}
+                      onChange={handleChange}
+                      style={styles.input}
+                      className="add-school-input"
+                    />
+                  </div>
 
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>👥 Total Capacity</label>
-                  <input
-                    type="number"
-                    name="total_capacity"
-                    value={formData.total_capacity}
-                    onChange={handleChange}
-                    placeholder="500"
-                    min="1"
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                  {errors.total_capacity && <div style={errorStyle}>{errors.total_capacity}</div>}
-                </div>
-
-                {/* 💰 PAYMENT CONFIGURATION */}
-                <h3 style={{ 
-                  fontSize: '1.125rem', 
-                  fontWeight: '600', 
-                  marginBottom: '1rem',
-                  marginTop: '1.5rem',
-                  paddingTop: '1.5rem',
-                  borderTop: '2px solid #E5E7EB'
-                }}>
-                  💰 Payment Configuration
-                </h3>
-
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Payment Mode *</label>
-                  <select
-                    name="payment_mode"
-                    value={formData.payment_mode}
-                    onChange={handleChange}
-                    required
-                    style={selectStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3B82F6';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#D1D5DB';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  >
-                    <option value="per_student">Per Student (Individual Fees)</option>
-                    <option value="monthly_subscription">Monthly Subscription (Fixed Total)</option>
-                  </select>
-                </div>
-
-                {/* Show subscription amount field only if subscription mode is selected */}
-                {formData.payment_mode === 'monthly_subscription' && (
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>Monthly Subscription Amount (PKR) *</label>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Total Capacity</label>
                     <input
                       type="number"
-                      name="monthly_subscription_amount"
-                      value={formData.monthly_subscription_amount}
+                      name="total_capacity"
+                      value={formData.total_capacity}
+                      onChange={handleChange}
+                      placeholder="500"
+                      min="1"
+                      style={styles.input}
+                      className="add-school-input"
+                    />
+                    {errors.total_capacity && <div style={styles.error}>{errors.total_capacity}</div>}
+                  </div>
+                </div>
+
+                {/* Payment Configuration */}
+                <div style={styles.divider} />
+                <h3 style={styles.sectionTitle}>Payment Configuration</h3>
+
+                <div style={styles.formGrid}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>
+                      Payment Mode <span style={styles.required}>*</span>
+                    </label>
+                    <select
+                      name="payment_mode"
+                      value={formData.payment_mode}
                       onChange={handleChange}
                       required
-                      min="0"
-                      step="0.01"
-                      placeholder="Enter total monthly subscription (e.g., 50000)"
-                      style={{
-                        ...inputStyle,
-                        borderColor: errors.monthly_subscription_amount ? '#DC2626' : '#D1D5DB',
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = '#3B82F6';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = errors.monthly_subscription_amount ? '#DC2626' : '#D1D5DB';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                    />
-                    {errors.monthly_subscription_amount && (
-                      <div style={errorStyle}>{errors.monthly_subscription_amount}</div>
-                    )}
+                      style={styles.select}
+                      className="add-school-select"
+                    >
+                      <option value="per_student">Per Student (Individual Fees)</option>
+                      <option value="monthly_subscription">Monthly Subscription (Fixed Total)</option>
+                    </select>
                   </div>
-                )}
+
+                  {formData.payment_mode === 'monthly_subscription' && (
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>
+                        Monthly Subscription (PKR) <span style={styles.required}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="monthly_subscription_amount"
+                        value={formData.monthly_subscription_amount}
+                        onChange={handleChange}
+                        required
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g., 50000"
+                        style={styles.input}
+                        className="add-school-input"
+                      />
+                      {errors.monthly_subscription_amount && (
+                        <div style={styles.error}>{errors.monthly_subscription_amount}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* Info box explaining payment modes */}
-                {formData.payment_mode === 'per_student' ? (
-                  <div style={infoBoxStyle}>
-                    <strong>Per Student Mode:</strong> Each student's monthly fee will be taken from their 
-                    individual student record. You can set different fees for different students.
-                  </div>
-                ) : (
-                  <div style={infoBoxStyle}>
-                    <strong>Monthly Subscription Mode:</strong> The total subscription amount will be divided 
-                    equally among all active students when creating monthly fee records. This ensures your 
-                    total monthly revenue stays constant.
-                  </div>
-                )}
+                <div style={styles.infoBox}>
+                  {formData.payment_mode === 'per_student' ? (
+                    <>
+                      <strong>Per Student Mode:</strong> Each student's monthly fee will be taken from their
+                      individual student record. You can set different fees for different students.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Monthly Subscription Mode:</strong> The total subscription amount will be divided
+                      equally among all active students when creating monthly fee records.
+                    </>
+                  )}
+                </div>
 
-                <div style={fieldStyle}>
-                  <div style={checkboxContainerStyle}>
-                    <input
-                      type="checkbox"
-                      name="is_active"
-                      checked={formData.is_active}
-                      onChange={handleChange}
-                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                    />
-                    <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
-                      ✓ School is Active
-                    </label>
-                  </div>
+                <div style={styles.checkboxContainer}>
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    checked={formData.is_active}
+                    onChange={handleChange}
+                    style={styles.checkbox}
+                    id="is_active"
+                  />
+                  <label htmlFor="is_active" style={styles.checkboxLabel}>
+                    School is Active
+                  </label>
                 </div>
               </>
             )}
           </div>
 
           {/* Footer */}
-          <div style={footerStyle}>
+          <div style={styles.footer}>
             <div>
               {currentStep > 1 && (
-                <Button
+                <button
                   type="button"
-                  variant="secondary"
                   onClick={handlePrevious}
                   disabled={isSubmitting}
+                  style={styles.backButton}
                 >
-                  ← Back
-                </Button>
+                  <svg style={{ width: '16px', height: '16px', marginRight: '4px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back
+                </button>
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <Button
+            <div style={{ display: 'flex', gap: SPACING.sm }}>
+              <button
                 type="button"
-                variant="secondary"
                 onClick={onClose}
                 disabled={isSubmitting}
+                style={styles.cancelButton}
               >
                 Cancel
-              </Button>
+              </button>
 
               {currentStep < 3 ? (
-                <Button
+                <button
                   type="button"
-                  variant="primary"
                   onClick={handleNext}
+                  style={styles.nextButton}
                 >
-                  Next →
-                </Button>
+                  Next
+                  <svg style={{ width: '16px', height: '16px', marginLeft: '4px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               ) : (
-                <Button
+                <button
                   type="submit"
-                  variant="primary"
                   disabled={isSubmitting}
+                  style={styles.submitButton}
                 >
-                  {isSubmitting ? (
-                    <>
-                      <LoadingSpinner size="small" />
-                      <span style={{ marginLeft: '0.5rem' }}>Creating...</span>
-                    </>
-                  ) : (
-                    '🎉 Create School'
-                  )}
-                </Button>
+                  {isSubmitting ? 'Creating...' : 'Create School'}
+                </button>
               )}
             </div>
           </div>
@@ -668,6 +534,256 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
       </div>
     </div>
   );
+};
+
+// Styles - Gradient Design (matching other modals)
+const styles = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.sm,
+    backdropFilter: 'blur(4px)',
+  },
+  modal: {
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
+    width: '100%',
+    maxWidth: '700px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+  },
+  title: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    margin: 0,
+    marginBottom: SPACING.sm,
+  },
+  stepIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  stepDot: (active) => ({
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    backgroundColor: active ? COLORS.status.info : 'rgba(255, 255, 255, 0.3)',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  }),
+  stepLine: (active) => ({
+    width: '24px',
+    height: '2px',
+    backgroundColor: active ? COLORS.status.info : 'rgba(255, 255, 255, 0.3)',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  }),
+  stepLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+    marginLeft: SPACING.sm,
+  },
+  closeButton: {
+    padding: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: '50%',
+    cursor: 'pointer',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  closeButtonHover: {
+    background: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    transform: 'scale(1.05)',
+  },
+  content: {
+    padding: SPACING.lg,
+  },
+  sectionTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    marginBottom: SPACING.md,
+    marginTop: 0,
+  },
+  logoSection: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    background: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  mapSection: {
+    marginBottom: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: SPACING.md,
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.xs,
+  },
+  label: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+  required: {
+    color: '#f87171',
+  },
+  input: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+  },
+  select: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 12px center',
+    backgroundSize: '16px',
+    appearance: 'none',
+    paddingRight: '40px',
+  },
+  error: {
+    color: '#fca5a5',
+    fontSize: FONT_SIZES.xs,
+    marginTop: SPACING.xs,
+  },
+  divider: {
+    height: '1px',
+    background: COLORS.border.whiteTransparent,
+    margin: `${SPACING.lg} 0`,
+  },
+  infoBox: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+    fontSize: FONT_SIZES.sm,
+    color: '#93c5fd',
+    lineHeight: 1.5,
+  },
+  checkboxContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+  },
+  checkbox: {
+    width: '18px',
+    height: '18px',
+    cursor: 'pointer',
+    accentColor: COLORS.status.success,
+  },
+  checkboxLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    cursor: 'pointer',
+  },
+  footer: {
+    padding: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+    display: 'flex',
+    justifyContent: 'space-between',
+    background: 'rgba(255, 255, 255, 0.03)',
+    position: 'sticky',
+    bottom: 0,
+  },
+  backButton: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    display: 'flex',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  nextButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  submitButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.status.success,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+  },
 };
 
 export default AddSchoolModal;

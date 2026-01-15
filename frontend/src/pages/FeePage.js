@@ -32,6 +32,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import { useFees } from '../hooks/useFees';
 import { useFeePDF } from '../hooks/useFeePDF';
 import { useSchools } from '../hooks/useSchools';
+import { useClasses } from '../hooks/useClasses';
 
 // Components
 import CreateRecordsSection from '../components/fees/CreateRecordsSection';
@@ -107,23 +108,12 @@ function FeePage() {
 
   // Schools data
   const { schools, loading: schoolsLoading } = useSchools();
-  
-  // Extract unique classes from schools
-  const [classes, setClasses] = useState([]);
-  
-  useEffect(() => {
-    if (schools.length > 0) {
-      const allClasses = new Set();
-      schools.forEach((school) => {
-        if (school.classes) {
-          school.classes.forEach((cls) => allClasses.add(cls));
-        }
-      });
-      setClasses(Array.from(allClasses).sort());
-    }
-  }, [schools]);
 
-  // Fee management hook
+  // Classes data - fetched dynamically based on selected school
+  const { fetchClassesBySchool, getCachedClasses } = useClasses();
+  const [classes, setClasses] = useState([]);
+
+  // Fee management hook - declare first to access filters
   const {
     fees,
     groupedFees,
@@ -152,6 +142,26 @@ function FeePage() {
     deleteFeeRecords,
     updateLocalDateReceived,
   } = useFees();
+
+  // Load classes when school changes
+  useEffect(() => {
+    const loadClasses = async () => {
+      if (filters.schoolId) {
+        // Check cache first
+        const cached = getCachedClasses(filters.schoolId);
+        if (cached) {
+          setClasses(cached);
+        } else {
+          // Fetch from API
+          const fetchedClasses = await fetchClassesBySchool(filters.schoolId);
+          setClasses(fetchedClasses || []);
+        }
+      } else {
+        setClasses([]);
+      }
+    };
+    loadClasses();
+  }, [filters.schoolId, fetchClassesBySchool, getCachedClasses]);
 
   // PDF export hook
   const { exportToPDF } = useFeePDF();

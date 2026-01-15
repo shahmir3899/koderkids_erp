@@ -16,7 +16,6 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  SHADOWS,
   TRANSITIONS,
   Z_INDEX,
 } from '../../utils/designConstants';
@@ -146,6 +145,17 @@ export const StudentSettingsModal = ({
 
   return (
     <div style={styles.overlay} onClick={onClose}>
+      <style>
+        {`
+          .student-settings-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+          .student-settings-input:focus {
+            border-color: rgba(16, 185, 129, 0.6);
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+          }
+        `}
+      </style>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={styles.header}>
@@ -259,7 +269,7 @@ export const StudentSettingsModal = ({
                 <input
                   type="text"
                   value={profile?.school || ''}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
+                  style={{ ...styles.input, ...styles.inputDisabled }}
                   disabled
                 />
                 <small style={styles.helperText}>Assigned by admin</small>
@@ -271,7 +281,7 @@ export const StudentSettingsModal = ({
                 <input
                   type="text"
                   value={profile?.class || profile?.student_class || ''}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
+                  style={{ ...styles.input, ...styles.inputDisabled }}
                   disabled
                 />
                 <small style={styles.helperText}>Assigned by admin</small>
@@ -283,7 +293,7 @@ export const StudentSettingsModal = ({
                 <input
                   type="text"
                   value={profile?.reg_num || 'Not assigned'}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
+                  style={{ ...styles.input, ...styles.inputDisabled }}
                   disabled
                 />
                 <small style={styles.helperText}>Auto-generated ID</small>
@@ -295,7 +305,7 @@ export const StudentSettingsModal = ({
                 <input
                   type="text"
                   value={profile?.username || ''}
-                  style={{ ...styles.input, backgroundColor: '#F3F4F6' }}
+                  style={{ ...styles.input, ...styles.inputDisabled }}
                   disabled
                 />
                 <small style={styles.helperText}>Cannot be changed</small>
@@ -362,74 +372,85 @@ export const StudentSettingsModal = ({
   );
 };
 
-// Styles
+// Styles - Gradient Design (matching LessonPlanWizard)
 const styles = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    backgroundColor: COLORS.background.overlay,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: Z_INDEX.modal,
     padding: SPACING.sm,
+    backdropFilter: 'blur(4px)',
   },
   modal: {
-    backgroundColor: COLORS.background.white,
-    borderRadius: BORDER_RADIUS.lg,
-    boxShadow: SHADOWS.xl,
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
     width: '100%',
     maxWidth: '600px',
     maxHeight: '90vh',
     overflow: 'auto',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
   },
   header: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: SPACING.lg,
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
   },
   title: {
     fontSize: FONT_SIZES.xl,
     fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
     margin: 0,
   },
   closeButton: {
-    padding: SPACING.xs,
-    background: 'transparent',
-    border: 'none',
-    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     cursor: 'pointer',
-    color: COLORS.text.secondary,
+    color: COLORS.text.white,
     transition: `all ${TRANSITIONS.fast} ease`,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   photoSection: {
     padding: SPACING.lg,
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
     display: 'flex',
     justifyContent: 'center',
+    background: 'rgba(255, 255, 255, 0.03)',
   },
   tabs: {
     display: 'flex',
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
     padding: `0 ${SPACING.lg}`,
+    background: 'rgba(255, 255, 255, 0.03)',
   },
   tab: {
-    padding: `${SPACING.sm} ${SPACING.lg}`,
+    padding: `${SPACING.md} ${SPACING.lg}`,
     background: 'transparent',
     border: 'none',
     borderBottom: '2px solid transparent',
     cursor: 'pointer',
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.secondary,
+    color: COLORS.text.whiteSubtle,
     transition: `all ${TRANSITIONS.fast} ease`,
   },
   tabActive: {
-    color: COLORS.status.success,
+    color: COLORS.text.white,
     borderBottomColor: COLORS.status.success,
+    background: 'rgba(255, 255, 255, 0.08)',
   },
   form: {
     padding: SPACING.lg,
@@ -437,7 +458,7 @@ const styles = {
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
   formGroup: {
     display: 'flex',
@@ -447,19 +468,26 @@ const styles = {
   label: {
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
   },
   input: {
-    padding: SPACING.sm,
-    border: `1px solid ${COLORS.border.light}`,
-    borderRadius: BORDER_RADIUS.sm,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
     transition: `all ${TRANSITIONS.fast} ease`,
     outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+  },
+  inputDisabled: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    color: COLORS.text.whiteSubtle,
+    cursor: 'not-allowed',
   },
   helperText: {
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.tertiary,
+    color: COLORS.text.whiteSubtle,
   },
   actions: {
     display: 'flex',
@@ -467,14 +495,14 @@ const styles = {
     gap: SPACING.sm,
     marginTop: SPACING.lg,
     paddingTop: SPACING.lg,
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
   },
   cancelButton: {
     padding: `${SPACING.sm} ${SPACING.lg}`,
-    backgroundColor: COLORS.background.offWhite,
-    color: COLORS.text.primary,
-    border: 'none',
-    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
@@ -485,11 +513,12 @@ const styles = {
     backgroundColor: COLORS.status.success,
     color: COLORS.text.white,
     border: 'none',
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
     transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
   },
 };
 

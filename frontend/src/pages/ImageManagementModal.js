@@ -13,7 +13,7 @@
 // - Native lazy loading for images
 // - Cleaner code structure
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_URL, getAuthHeaders } from '../api';
@@ -395,6 +395,9 @@ const ImageManagementModal = ({
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState(null);
 
+  // Ref to track if initial sync has been done (prevents infinite loop)
+  const hasInitializedRef = useRef(false);
+
   // Fetch images on mount
   useEffect(() => {
     const fetchImages = async () => {
@@ -443,12 +446,14 @@ const ImageManagementModal = ({
 
         setImages(validImages);
 
-        // IMPORTANT: Sync initial selections with fresh URLs
+        // IMPORTANT: Sync initial selections with fresh URLs (only once on mount)
         // The initialSelectedImages may have old signed URLs, so we match by filename
-        if (initialSelectedImages.length > 0 && validImages.length > 0) {
+        // Using hasInitializedRef to prevent infinite loop from re-syncing
+        if (!hasInitializedRef.current && initialSelectedImages.length > 0 && validImages.length > 0) {
+          hasInitializedRef.current = true;
           const initialFilenames = initialSelectedImages.map(extractFilename);
           const matchedUrls = [];
-          
+
           // Preserve the original selection order
           initialFilenames.forEach((filename) => {
             const matchedImage = validImages.find(
@@ -458,7 +463,7 @@ const ImageManagementModal = ({
               matchedUrls.push(matchedImage.url);
             }
           });
-          
+
           if (matchedUrls.length > 0) {
             setSelectedImages(matchedUrls);
           }
@@ -477,7 +482,8 @@ const ImageManagementModal = ({
     };
 
     fetchImages();
-  }, [studentId, selectedMonth, startDate, endDate, mode, initialSelectedImages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, selectedMonth, startDate, endDate, mode]); // Removed initialSelectedImages to prevent infinite loop
 
   // Handlers
   const handleImageSelect = useCallback((image) => {

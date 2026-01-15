@@ -205,13 +205,13 @@ export const TransactionFilters = ({
             onChange={(e) => onFilterChange('school', e.target.value)}
             style={styles.select}
           >
-            <option value="">All Schools</option>
+            <option value="" style={styles.option}>All Schools</option>
             {schools.map((school) => (
-              <option key={school.id} value={school.id}>
+              <option key={school.id} value={school.id} style={styles.option}>
                 {school.name}
               </option>
             ))}
-            <option value="null">No School</option>
+            <option value="null" style={styles.option}>No School</option>
           </select>
         </div>
 
@@ -223,9 +223,9 @@ export const TransactionFilters = ({
             onChange={(e) => onFilterChange('category', e.target.value)}
             style={styles.select}
           >
-            <option value="">All Categories</option>
+            <option value="" style={styles.option}>All Categories</option>
             {categories.map((cat) => (
-              <option key={cat} value={cat}>
+              <option key={cat} value={cat} style={styles.option}>
                 {cat}
               </option>
             ))}
@@ -346,10 +346,10 @@ const styles = {
   reconciliationSelect: {
     width: '100%',
     padding: SPACING.md,
+    ...MIXINS.glassmorphicSelect,
     border: '1px solid rgba(251, 191, 36, 0.5)',
     borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     color: COLORS.text.white,
     transition: `all ${TRANSITIONS.normal}`,
   },
@@ -391,13 +391,16 @@ const styles = {
   select: {
     width: '100%',
     padding: SPACING.md,
-    border: '1px solid rgba(255, 255, 255, 0.2)',
+    ...MIXINS.glassmorphicSelect,
     borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     color: COLORS.text.white,
     transition: `all ${TRANSITIONS.normal}`,
     outline: 'none',
+    cursor: 'pointer',
+  },
+  option: {
+    ...MIXINS.selectOption,
   },
   warningBanner: {
     padding: SPACING.md,

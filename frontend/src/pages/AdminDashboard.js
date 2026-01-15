@@ -20,7 +20,7 @@ import { DataTable } from '../components/common/tables/DataTable';
 
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { useSchools } from '../hooks/useSchools';
-import { SendNotificationModal } from '../components/admin/sendNotificationModal';
+import { SendNotificationModal } from '../components/admin/SendNotificationModal';
 import { FinancialSummaryCard } from '../components/finance/FinancialSummaryCard';
 
 // React Query Hooks

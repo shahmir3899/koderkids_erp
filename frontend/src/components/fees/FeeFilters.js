@@ -51,6 +51,8 @@ const FeeFilters = ({
       padding: isMobile ? SPACING.md : SPACING.lg,
       borderRadius: BORDER_RADIUS.xl,
       marginBottom: SPACING.lg,
+      position: 'relative',
+      zIndex: 5,
     },
     formGrid: {
       display: 'flex',
@@ -79,15 +81,17 @@ const FeeFilters = ({
     },
     select: {
       padding: `${SPACING.sm} ${SPACING.md}`,
+      ...MIXINS.glassmorphicSelect,
       borderRadius: BORDER_RADIUS.lg,
-      border: `1px solid ${COLORS.border.whiteTransparent}`,
-      background: 'rgba(255, 255, 255, 0.1)',
       color: COLORS.text.white,
       fontSize: FONT_SIZES.base,
       outline: 'none',
       cursor: 'pointer',
       transition: `all ${TRANSITIONS.normal}`,
       width: '100%',
+    },
+    option: {
+      ...MIXINS.selectOption,
     },
     input: {
       padding: `${SPACING.sm} ${SPACING.md}`,
@@ -149,7 +153,7 @@ const FeeFilters = ({
             width: 100%;
           }
           .react-datepicker-popper {
-            z-index: 9999 !important;
+            z-index: 99999 !important;
           }
           .react-datepicker {
             background: #1a1a2e !important;
@@ -196,9 +200,9 @@ const FeeFilters = ({
             style={styles.select}
             className="fee-filter-select"
           >
-            <option value="">All Schools</option>
+            <option value="" style={styles.option}>All Schools</option>
             {schools.map((school) => (
-              <option key={school.id} value={school.id}>
+              <option key={school.id} value={school.id} style={styles.option}>
                 {school.name}
               </option>
             ))}
@@ -214,9 +218,9 @@ const FeeFilters = ({
             style={styles.select}
             className="fee-filter-select"
           >
-            <option value="">All Classes</option>
+            <option value="" style={styles.option}>All Classes</option>
             {classes.map((cls, index) => (
-              <option key={index} value={cls}>
+              <option key={index} value={cls} style={styles.option}>
                 {cls}
               </option>
             ))}

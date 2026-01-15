@@ -19,6 +19,7 @@ import {
   FONT_WEIGHTS,
   BORDER_RADIUS,
   TRANSITIONS,
+  MIXINS,
 } from '../../utils/designConstants';
 
 // ============================================
@@ -55,6 +56,7 @@ const inputStyle = {
 
 const selectStyle = {
   ...inputStyle,
+  ...MIXINS.glassmorphicSelect,
   cursor: 'pointer',
   appearance: 'none',
   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFFFFF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
@@ -66,9 +68,7 @@ const selectStyle = {
 
 // Style for dropdown options (readable on native dropdown)
 const optionStyle = {
-  backgroundColor: '#1e293b',
-  color: COLORS.text.white,
-  padding: SPACING.sm,
+  ...MIXINS.selectOption,
 };
 
 // ============================================

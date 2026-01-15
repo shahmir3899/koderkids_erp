@@ -438,15 +438,15 @@ export const MIXINS = {
 
   // Select/dropdown styling with solid background for proper option rendering
   glassmorphicSelect: {
-    background: 'rgba(30, 30, 60, 0.95)',
+    background: 'rgba(88, 60, 140, 0.95)',
     backdropFilter: 'blur(20px) saturate(180%)',
     WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-    border: '1px solid rgba(255, 255, 255, 0.18)',
+    border: '1px solid rgba(255, 255, 255, 0.25)',
   },
 
   // Select option styling (for inline use on <option> elements)
   selectOption: {
-    background: '#1e1e3c',
+    background: '#4a3570',
     color: '#ffffff',
   },
 

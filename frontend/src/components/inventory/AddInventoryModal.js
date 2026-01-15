@@ -1,105 +1,24 @@
 // ============================================
-// ADD INVENTORY MODAL - With RBAC Support
+// ADD INVENTORY MODAL - Gradient Design System
+// With RBAC Support
 // ============================================
-// Location: src/components/inventory/AddInventoryModal.js
-//
-// Add/Edit modal with role-based restrictions:
-// - Admin: All locations, all schools, all users
-// - Teacher: Only School location, only assigned schools, only themselves
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import {
   createInventoryItem,
   updateInventoryItem,
   bulkCreateItems,
 } from '../../services/inventoryService';
-
-// ============================================
-// STYLES
-// ============================================
-
-const modalOverlayStyle = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-  padding: '1rem',
-};
-
-const modalContentStyle = {
-  backgroundColor: 'white',
-  borderRadius: '16px',
-  width: '100%',
-  maxWidth: '700px',
-  maxHeight: '90vh',
-  overflow: 'auto',
-  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-};
-
-const headerStyle = {
-  padding: '1.25rem 1.5rem',
-  borderBottom: '1px solid #E5E7EB',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-};
-
-const bodyStyle = {
-  padding: '1.5rem',
-};
-
-const footerStyle = {
-  padding: '1rem 1.5rem',
-  borderTop: '1px solid #E5E7EB',
-  display: 'flex',
-  justifyContent: 'flex-end',
-  gap: '0.75rem',
-  backgroundColor: '#F9FAFB',
-};
-
-const labelStyle = {
-  display: 'block',
-  marginBottom: '0.375rem',
-  fontWeight: '500',
-  color: '#374151',
-  fontSize: '0.875rem',
-};
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.625rem 0.75rem',
-  border: '1px solid #D1D5DB',
-  borderRadius: '0.5rem',
-  fontSize: '0.875rem',
-  boxSizing: 'border-box',
-};
-
-const selectStyle = {
-  ...inputStyle,
-  cursor: 'pointer',
-  backgroundColor: '#FFFFFF',
-};
-
-const fieldGroupStyle = {
-  marginBottom: '1rem',
-};
-
-const gridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: '1rem',
-};
-
-// ============================================
-// COMPONENT
-// ============================================
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../utils/designConstants';
 
 const AddInventoryModal = ({
   isOpen,
@@ -114,15 +33,12 @@ const AddInventoryModal = ({
   const { isAdmin, userId } = userContext;
   const isEditMode = !!editItem;
 
-  // ============================================
-  // FORM STATE
-  // ============================================
-
+  const [closeButtonHovered, setCloseButtonHovered] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     category: '',
-    location: isAdmin ? '' : 'School', // Teachers default to School
+    location: isAdmin ? '' : 'School',
     school: '',
     status: 'Available',
     purchase_value: '',
@@ -135,95 +51,85 @@ const AddInventoryModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
-  // ============================================
-  // LOCATION OPTIONS (Role-based)
-  // ============================================
+  // Handle ESC key to close modal
+  const handleEscKey = useCallback((e) => {
+    if (e.key === 'Escape' && !isSubmitting) {
+      onClose();
+    }
+  }, [onClose, isSubmitting]);
 
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [isOpen, handleEscKey]);
+
+  // Location options (Role-based)
   const locationOptions = useMemo(() => {
     if (isAdmin) {
       return [
         { value: '', label: 'Select Location...' },
-        { value: 'School', label: '🏫 School' },
-        { value: 'Headquarters', label: '🏢 Headquarters' },
-        { value: 'Unassigned', label: '📦 Unassigned' },
+        { value: 'School', label: 'School' },
+        { value: 'Headquarters', label: 'Headquarters' },
+        { value: 'Unassigned', label: 'Unassigned' },
       ];
     }
-    // Teachers can only add to School
-    return [
-      { value: 'School', label: '🏫 School' },
-    ];
+    return [{ value: 'School', label: 'School' }];
   }, [isAdmin]);
 
-  // ============================================
-  // USER OPTIONS (Role-based)
-  // ============================================
-
+  // User options (Role-based)
   const userOptions = useMemo(() => {
     if (isAdmin) {
       return users;
     }
-    // Teachers can only assign to themselves
     return users.filter(u => u.id === userId);
   }, [isAdmin, users, userId]);
 
-  // ============================================
-  // INITIALIZE FORM
-  // ============================================
-
+  // Initialize form
   useEffect(() => {
-  if (editItem) {
-    console.log('Edit item data:', editItem); // Debug: check what's coming
-    setFormData({
-      name: editItem.name || '',
-      description: editItem.description || '',
-      // Convert to string for select element compatibility
-      category: String(editItem.category || editItem.category_id || ''),
-      location: editItem.location || 'School',
-      school: String(editItem.school || editItem.school_id || ''),
-      status: editItem.status || 'Available',
-      purchase_value: editItem.purchase_value || '',
-      purchase_date: editItem.purchase_date || '',
-      serial_number: editItem.serial_number || '',
-      assigned_to: String(editItem.assigned_to || editItem.assigned_to_id || ''),
-    });
-    setQuantity(1);
-  } else {
-    // Reset for new item
-    setFormData({
-      name: '',
-      description: '',
-      category: '',
-      location: isAdmin ? '' : 'School',
-      school: '',
-      status: 'Available',
-      purchase_value: '',
-      purchase_date: '',
-      serial_number: '',
-      assigned_to: '',
-    });
-    setQuantity(1);
-  }
-}, [editItem, isAdmin]);
-
-  // ============================================
-  // HANDLERS
-  // ============================================
+    if (editItem) {
+      setFormData({
+        name: editItem.name || '',
+        description: editItem.description || '',
+        category: String(editItem.category || editItem.category_id || ''),
+        location: editItem.location || 'School',
+        school: String(editItem.school || editItem.school_id || ''),
+        status: editItem.status || 'Available',
+        purchase_value: editItem.purchase_value || '',
+        purchase_date: editItem.purchase_date || '',
+        serial_number: editItem.serial_number || '',
+        assigned_to: String(editItem.assigned_to || editItem.assigned_to_id || ''),
+      });
+      setQuantity(1);
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        category: '',
+        location: isAdmin ? '' : 'School',
+        school: '',
+        status: 'Available',
+        purchase_value: '',
+        purchase_date: '',
+        serial_number: '',
+        assigned_to: '',
+      });
+      setQuantity(1);
+    }
+  }, [editItem, isAdmin]);
 
   const handleChange = (field, value) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
-      
-      // Clear school when location is not School
       if (field === 'location' && value !== 'School') {
         updated.school = '';
       }
-      
       return updated;
     });
   };
 
   const handleSubmit = async () => {
-    // Validation
     if (!formData.name.trim()) {
       toast.error('Please enter item name');
       return;
@@ -239,7 +145,6 @@ const AddInventoryModal = ({
       return;
     }
 
-    // For bulk creation, show confirmation
     if (!isEditMode && quantity > 1 && !showBulkConfirm) {
       setShowBulkConfirm(true);
       return;
@@ -249,15 +154,12 @@ const AddInventoryModal = ({
 
     try {
       if (isEditMode) {
-        // Update existing item
         await updateInventoryItem(editItem.id, formData);
         toast.success('Item updated successfully');
       } else if (quantity > 1) {
-        // Bulk create
         const result = await bulkCreateItems({ ...formData, quantity });
         toast.success(`${result.created_count} items created successfully`);
       } else {
-        // Single create
         await createInventoryItem(formData);
         toast.success('Item created successfully');
       }
@@ -266,7 +168,7 @@ const AddInventoryModal = ({
       onClose();
     } catch (error) {
       console.error('Save error:', error);
-      const errorMsg = error.response?.data?.detail || 
+      const errorMsg = error.response?.data?.detail ||
                        error.response?.data?.error ||
                        'Failed to save item';
       toast.error(errorMsg);
@@ -276,95 +178,94 @@ const AddInventoryModal = ({
     }
   };
 
-  // ============================================
-  // RENDER
-  // ============================================
-
   if (!isOpen) return null;
 
   const totalValue = quantity * Number(formData.purchase_value || 0);
 
   return (
-    <div style={modalOverlayStyle} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={modalContentStyle}>
+    <div style={styles.overlay} onClick={onClose}>
+      <style>
+        {`
+          .inventory-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+          .inventory-input:focus {
+            border-color: rgba(16, 185, 129, 0.6) !important;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+          }
+          .inventory-select option {
+            background-color: #1e293b;
+            color: white;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div style={headerStyle}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600' }}>
-            {isEditMode ? '✏️ Edit Item' : '➕ Add Inventory Item'}
+        <div style={styles.header}>
+          <h2 style={styles.title}>
+            {isEditMode ? 'Edit Item' : 'Add Inventory Item'}
           </h2>
           <button
             onClick={onClose}
             style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              color: '#9CA3AF',
+              ...styles.closeButton,
+              ...(closeButtonHovered ? styles.closeButtonHover : {}),
             }}
+            onMouseEnter={() => setCloseButtonHovered(true)}
+            onMouseLeave={() => setCloseButtonHovered(false)}
+            title="Close (Esc)"
+            aria-label="Close modal"
           >
-            ×
+            <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
         {/* Body */}
-        <div style={bodyStyle}>
+        <div style={styles.content}>
           {/* Role indicator for teachers */}
           {!isAdmin && (
-            <div style={{
-              padding: '0.75rem 1rem',
-              backgroundColor: '#FEF3C7',
-              borderRadius: '0.5rem',
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-            }}>
-              <span>ℹ️</span>
-              <span style={{ fontSize: '0.875rem', color: '#92400E' }}>
-                You can only add items to your assigned schools.
-              </span>
+            <div style={styles.warningBox}>
+              <span>You can only add items to your assigned schools.</span>
             </div>
           )}
 
           {/* Bulk creation info */}
           {!isEditMode && quantity > 1 && (
-            <div style={{
-              padding: '0.75rem 1rem',
-              backgroundColor: '#EFF6FF',
-              borderRadius: '0.5rem',
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-            }}>
-              <span>📦</span>
-              <span style={{ fontSize: '0.875rem', color: '#1E40AF' }}>
-                Creating {quantity} identical items • Total value: PKR {totalValue.toLocaleString()}
-              </span>
+            <div style={styles.infoBox}>
+              <span>Creating {quantity} identical items • Total value: PKR {totalValue.toLocaleString()}</span>
             </div>
           )}
 
           {/* Form Fields */}
-          <div style={gridStyle}>
+          <div style={styles.formGrid}>
             {/* Name */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Name *</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                Name <span style={styles.required}>*</span>
+              </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
                 placeholder="Item name"
-                style={inputStyle}
+                style={styles.input}
+                className="inventory-input"
               />
             </div>
 
             {/* Category */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Category</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Category</label>
               <select
                 value={formData.category}
                 onChange={(e) => handleChange('category', e.target.value)}
-                style={selectStyle}
+                style={styles.select}
+                className="inventory-select"
               >
                 <option value="">Select Category...</option>
                 {categories.map(cat => (
@@ -374,12 +275,18 @@ const AddInventoryModal = ({
             </div>
 
             {/* Location */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Location *</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                Location <span style={styles.required}>*</span>
+              </label>
               <select
                 value={formData.location}
                 onChange={(e) => handleChange('location', e.target.value)}
-                style={selectStyle}
+                style={{
+                  ...styles.select,
+                  ...((!isAdmin) ? styles.inputDisabled : {}),
+                }}
+                className="inventory-select"
                 disabled={!isAdmin}
               >
                 {locationOptions.map(opt => (
@@ -389,17 +296,18 @@ const AddInventoryModal = ({
             </div>
 
             {/* School */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>
-                School {formData.location === 'School' && '*'}
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                School {formData.location === 'School' && <span style={styles.required}>*</span>}
               </label>
               <select
                 value={formData.school}
                 onChange={(e) => handleChange('school', e.target.value)}
                 style={{
-                  ...selectStyle,
-                  opacity: formData.location === 'School' ? 1 : 0.5,
+                  ...styles.select,
+                  ...(formData.location !== 'School' ? styles.inputDisabled : {}),
                 }}
+                className="inventory-select"
                 disabled={formData.location !== 'School'}
               >
                 <option value="">Select School...</option>
@@ -410,12 +318,13 @@ const AddInventoryModal = ({
             </div>
 
             {/* Status */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Status</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Status</label>
               <select
                 value={formData.status}
                 onChange={(e) => handleChange('status', e.target.value)}
-                style={selectStyle}
+                style={styles.select}
+                className="inventory-select"
               >
                 <option value="Available">Available</option>
                 <option value="Assigned">Assigned</option>
@@ -426,12 +335,13 @@ const AddInventoryModal = ({
             </div>
 
             {/* Assigned To */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Assigned To</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Assigned To</label>
               <select
                 value={formData.assigned_to}
                 onChange={(e) => handleChange('assigned_to', e.target.value)}
-                style={selectStyle}
+                style={styles.select}
+                className="inventory-select"
               >
                 <option value="">Unassigned</option>
                 {userOptions.map(user => (
@@ -439,91 +349,87 @@ const AddInventoryModal = ({
                 ))}
               </select>
               {!isAdmin && userOptions.length === 1 && (
-                <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '0.25rem 0 0' }}>
-                  You can only assign items to yourself
-                </p>
+                <small style={styles.helperText}>You can only assign items to yourself</small>
               )}
             </div>
 
             {/* Purchase Value */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Purchase Value (PKR)</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Purchase Value (PKR)</label>
               <input
                 type="number"
                 min="0"
                 value={formData.purchase_value}
                 onChange={(e) => handleChange('purchase_value', e.target.value)}
                 placeholder="0"
-                style={inputStyle}
+                style={styles.input}
+                className="inventory-input"
               />
             </div>
 
             {/* Purchase Date */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Purchase Date</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Purchase Date</label>
               <input
                 type="date"
                 value={formData.purchase_date}
                 onChange={(e) => handleChange('purchase_date', e.target.value)}
-                style={inputStyle}
+                style={styles.input}
+                className="inventory-input"
               />
             </div>
 
             {/* Serial Number */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Serial Number</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Serial Number</label>
               <input
                 type="text"
                 value={formData.serial_number}
                 onChange={(e) => handleChange('serial_number', e.target.value)}
                 placeholder="Optional"
-                style={inputStyle}
+                style={styles.input}
+                className="inventory-input"
               />
             </div>
 
             {/* Quantity (only for new items) */}
             {!isEditMode && (
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Quantity</label>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Quantity</label>
                 <input
                   type="number"
                   min="1"
                   max="500"
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, Math.min(500, parseInt(e.target.value) || 1)))}
-                  style={inputStyle}
+                  style={styles.input}
+                  className="inventory-input"
                 />
-                <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '0.25rem 0 0' }}>
-                  1-500 items. Each gets a unique ID.
-                </p>
+                <small style={styles.helperText}>1-500 items. Each gets a unique ID.</small>
               </div>
             )}
           </div>
 
           {/* Description (full width) */}
-          <div style={fieldGroupStyle}>
-            <label style={labelStyle}>Description</label>
+          <div style={{ ...styles.formGroup, marginTop: SPACING.md }}>
+            <label style={styles.label}>Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
               placeholder="Optional description"
               rows={3}
-              style={{ ...inputStyle, resize: 'vertical' }}
+              style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }}
+              className="inventory-input"
             />
           </div>
 
           {/* Bulk Confirmation */}
           {showBulkConfirm && (
-            <div style={{
-              padding: '1rem',
-              backgroundColor: '#FEF3C7',
-              borderRadius: '0.5rem',
-              marginTop: '1rem',
-            }}>
-              <p style={{ margin: 0, fontWeight: '500', color: '#92400E' }}>
-                ⚠️ Confirm Bulk Creation
+            <div style={styles.confirmBox}>
+              <p style={{ margin: 0, fontWeight: FONT_WEIGHTS.semibold, color: '#fbbf24' }}>
+                Confirm Bulk Creation
               </p>
-              <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem', color: '#92400E' }}>
+              <p style={{ margin: `${SPACING.xs} 0 0`, fontSize: FONT_SIZES.sm, color: '#fcd34d' }}>
                 You are about to create {quantity} identical items with a total value of PKR {totalValue.toLocaleString()}.
                 Each item will get a unique ID automatically.
               </p>
@@ -532,51 +438,23 @@ const AddInventoryModal = ({
         </div>
 
         {/* Footer */}
-        <div style={footerStyle}>
+        <div style={styles.footer}>
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            style={{
-              padding: '0.625rem 1.25rem',
-              backgroundColor: 'white',
-              color: '#374151',
-              border: '1px solid #D1D5DB',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              cursor: 'pointer',
-            }}
+            style={styles.cancelButton}
           >
             Cancel
           </button>
-          
+
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            style={{
-              padding: '0.625rem 1.25rem',
-              backgroundColor: isSubmitting ? '#9CA3AF' : '#10B981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-            }}
+            style={styles.submitButton}
           >
             {isSubmitting ? (
               <>
-                <span style={{
-                  width: '14px',
-                  height: '14px',
-                  border: '2px solid #fff',
-                  borderTopColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                }} />
+                <span style={styles.spinner} />
                 {showBulkConfirm ? 'Creating...' : 'Saving...'}
               </>
             ) : showBulkConfirm ? (
@@ -591,16 +469,197 @@ const AddInventoryModal = ({
           </button>
         </div>
       </div>
-
-      <style>
-        {`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}
-      </style>
     </div>
   );
+};
+
+// Styles - Gradient Design (matching other modals)
+const styles = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.sm,
+    backdropFilter: 'blur(4px)',
+  },
+  modal: {
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
+    width: '100%',
+    maxWidth: '700px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+  },
+  title: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    margin: 0,
+  },
+  closeButton: {
+    padding: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: '50%',
+    cursor: 'pointer',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  closeButtonHover: {
+    background: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    transform: 'scale(1.05)',
+  },
+  content: {
+    padding: SPACING.lg,
+  },
+  warningBox: {
+    padding: SPACING.md,
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    border: '1px solid rgba(251, 191, 36, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.md,
+    fontSize: FONT_SIZES.sm,
+    color: '#fcd34d',
+  },
+  infoBox: {
+    padding: SPACING.md,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.md,
+    fontSize: FONT_SIZES.sm,
+    color: '#93c5fd',
+  },
+  confirmBox: {
+    padding: SPACING.md,
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    border: '1px solid rgba(251, 191, 36, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.md,
+  },
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: SPACING.md,
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.xs,
+  },
+  label: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+  required: {
+    color: '#f87171',
+  },
+  input: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+  },
+  inputDisabled: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    color: COLORS.text.whiteSubtle,
+    cursor: 'not-allowed',
+    opacity: 0.6,
+  },
+  select: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 12px center',
+    backgroundSize: '16px',
+    appearance: 'none',
+    paddingRight: '40px',
+  },
+  helperText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
+  footer: {
+    padding: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.03)',
+    position: 'sticky',
+    bottom: 0,
+  },
+  cancelButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  submitButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.status.success,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  spinner: {
+    width: '14px',
+    height: '14px',
+    border: '2px solid #fff',
+    borderTopColor: 'transparent',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
 };
 
 export default AddInventoryModal;

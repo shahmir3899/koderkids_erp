@@ -1,5 +1,5 @@
 /* ============================================
-   MODAL - Glassmorphism Design System
+   MODAL - Gradient Design System
    ============================================ */
 
 /* Overlay for modal backdrop */
@@ -16,6 +16,7 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  padding: 16px;
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -24,14 +25,12 @@
   to { opacity: 1; }
 }
 
-/* Modal container - Glassmorphism */
+/* Modal container - Gradient Design */
 .modal {
-  background: rgba(30, 30, 46, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
   max-width: 90vw;
   max-height: 90vh;
   overflow-y: auto;
@@ -51,10 +50,10 @@
   }
 }
 
-/* Modal sizes */
-.modal-sm { width: 400px; }
-.modal-md { width: 500px; }
-.modal-lg { width: 600px; }
+/* Modal sizes - camelCase for CSS modules */
+.modalSm { width: 400px; }
+.modalMd { width: 500px; }
+.modalLg { width: 600px; }
 
 /* Responsive sizing */
 @media (max-width: 768px) {
@@ -64,59 +63,73 @@
   }
 }
 
-/* Header - Glassmorphism */
+/* Header - Gradient Design */
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.headerContent {
+  flex: 1;
 }
 
 .title {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: #FFFFFF;
 }
 
+.subtitle {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Close Button - Circular Glassmorphic */
 .closeButton {
   background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.7);
+  color: #FFFFFF;
   padding: 0;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  transition: all 0.2s;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
   /* Touch-friendly: prevent accidental taps */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.closeButton:hover {
+.closeButton:hover,
+.closeButtonHovered {
   background: rgba(255, 255, 255, 0.2);
-  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.4);
   transform: scale(1.05);
 }
 
 /* Mobile: larger touch area */
 @media (max-width: 768px) {
   .closeButton {
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
-    min-height: 48px;
-    font-size: 22px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 
@@ -127,18 +140,20 @@
   flex: 1;
 }
 
-/* Footer - Glassmorphism */
+/* Footer - Gradient Design */
 .footer {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
   padding: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.05);
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
 }
 
-/* Buttons - Glassmorphism */
+/* Buttons - Gradient Design */
 .button, .buttonSecondary {
   padding: 10px 20px;
   border-radius: 10px;
@@ -146,7 +161,7 @@
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   min-height: 44px;
   /* Touch-friendly */
   touch-action: manipulation;
@@ -164,15 +179,15 @@
 }
 
 .button {
-  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  background: #3B82F6;
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
 .button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563EB, #1D4ED8);
+  background: #2563EB;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
 }
 
 .button:disabled {
@@ -181,52 +196,59 @@
   transform: none;
 }
 
-.button-primary {
-  background: linear-gradient(135deg, #3B82F6, #2563EB);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+/* Button variants - camelCase for CSS modules */
+.buttonPrimary {
+  background: #3B82F6;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
-.button-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563EB, #1D4ED8);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+.buttonPrimary:hover:not(:disabled) {
+  background: #2563EB;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
 }
 
-.button-danger {
-  background: linear-gradient(135deg, #EF4444, #DC2626);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+.buttonDanger {
+  background: #EF4444;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
 }
 
-.button-danger:hover:not(:disabled) {
-  background: linear-gradient(135deg, #DC2626, #B91C1C);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+.buttonDanger:hover:not(:disabled) {
+  background: #DC2626;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
 }
 
-.button-success {
-  background: linear-gradient(135deg, #10B981, #059669);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+.buttonSuccess {
+  background: #10B981;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
 }
 
-.button-success:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669, #047857);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+.buttonSuccess:hover:not(:disabled) {
+  background: #059669;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
 }
 
 .buttonSecondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .buttonSecondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   transform: translateY(-2px);
 }
 
-/* Form Elements - Glassmorphism */
+.buttonSecondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Form Elements - Gradient Design */
 .body select,
 .body input,
 .body textarea {
-  background: #1e1e2e !important;
+  background: rgba(255, 255, 255, 0.1) !important;
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   border-radius: 10px;
@@ -234,7 +256,7 @@
 }
 
 .body select option {
-  background-color: #1e1e2e;
+  background-color: #1e293b;
   color: #ffffff;
   padding: 12px;
 }
@@ -242,8 +264,8 @@
 .body select:focus,
 .body input:focus,
 .body textarea:focus {
-  border-color: #B061CE !important;
-  box-shadow: 0 0 0 3px rgba(176, 97, 206, 0.3);
+  border-color: rgba(59, 130, 246, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
   outline: none;
 }
 
@@ -251,6 +273,13 @@
 .body input::placeholder,
 .body textarea::placeholder {
   color: rgba(255, 255, 255, 0.5);
+}
+
+/* Date/Time input color scheme fix */
+.body input[type="date"],
+.body input[type="time"],
+.body input[type="datetime-local"] {
+  color-scheme: dark;
 }
 
 /* Mobile form elements - iOS zoom prevention (16px font) */
@@ -268,7 +297,7 @@
   }
 
   .title {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .body {

@@ -1,18 +1,29 @@
 // ============================================
 // CREATE ACTIVITY MODAL - Add New Activity
+// Gradient Design System
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { createActivity, fetchLeads, fetchBDMs } from '../../api/services/crmService';
 import { getUserData, getAuthHeaders } from '../../utils/authHelpers';
 import { API_URL } from '../../utils/constants';
 import { toast } from 'react-toastify';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../utils/designConstants';
 
 export const CreateActivityModal = ({ onClose, onSuccess }) => {
   const currentUser = getUserData();
   const isAdmin = currentUser.role === 'Admin';
 
+  const [closeButtonHovered, setCloseButtonHovered] = useState(false);
   const [formData, setFormData] = useState({
     activity_type: 'Call',
     lead: '',
@@ -29,6 +40,18 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
   const [bdms, setBdms] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  // Handle ESC key to close modal
+  const handleEscKey = useCallback((e) => {
+    if (e.key === 'Escape' && !loading) {
+      onClose();
+    }
+  }, [onClose, loading]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleEscKey);
+    return () => document.removeEventListener('keydown', handleEscKey);
+  }, [handleEscKey]);
 
   // Load current user ID and form data on mount
   useEffect(() => {
@@ -143,73 +166,103 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-        {/* Overlay */}
-        <div
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-          onClick={onClose}
-        />
-
-        {/* Modal */}
-        <div className="relative inline-block w-full max-w-2xl px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:p-6">
-          {/* Header */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-gray-900">Create New Activity</h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Schedule a call or meeting with a lead
-            </p>
+    <div style={styles.overlay} onClick={onClose}>
+      <style>
+        {`
+          .activity-modal-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+          .activity-modal-input:focus {
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+          }
+          .activity-modal-select option {
+            background: #1e293b;
+            color: #ffffff;
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div style={styles.header}>
+          <div>
+            <h2 style={styles.title}>Create New Activity</h2>
+            <p style={styles.subtitle}>Schedule a call or meeting with a lead</p>
           </div>
+          <button
+            onClick={onClose}
+            style={{
+              ...styles.closeButton,
+              ...(closeButtonHovered ? styles.closeButtonHover : {}),
+            }}
+            onMouseEnter={() => setCloseButtonHovered(true)}
+            onMouseLeave={() => setCloseButtonHovered(false)}
+            title="Close (Esc)"
+            aria-label="Close modal"
+          >
+            <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
+        {/* Content */}
+        <div style={styles.content}>
           {/* Loading State */}
           {loadingData ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div style={styles.loadingContainer}>
+              <div style={styles.spinner} />
+              <p style={styles.loadingText}>Loading form data...</p>
             </div>
           ) : (
             <>
               {/* General Error */}
               {errors.general && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-800">{errors.general}</p>
+                <div style={styles.errorBox}>
+                  <p style={styles.errorBoxText}>{errors.general}</p>
                 </div>
               )}
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Activity Type & Lead */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Activity Type *
-                    </label>
+              <form onSubmit={handleSubmit}>
+                <div style={styles.formGrid}>
+                  {/* Activity Type */}
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Activity Type *</label>
                     <select
                       name="activity_type"
                       value={formData.activity_type}
                       onChange={handleChange}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        errors.activity_type ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      style={{
+                        ...styles.select,
+                        ...(errors.activity_type ? styles.inputError : {}),
+                      }}
+                      className="activity-modal-select"
                     >
                       <option value="Call">Call</option>
                       <option value="Meeting">Meeting</option>
                     </select>
                     {errors.activity_type && (
-                      <p className="mt-1 text-sm text-red-600">{errors.activity_type}</p>
+                      <p style={styles.errorText}>{errors.activity_type}</p>
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Lead *
-                    </label>
+                  {/* Lead */}
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Lead *</label>
                     <select
                       name="lead"
                       value={formData.lead}
                       onChange={handleChange}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        errors.lead ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      style={{
+                        ...styles.select,
+                        ...(errors.lead ? styles.inputError : {}),
+                      }}
+                      className="activity-modal-select"
                     >
                       <option value="">Select a lead...</option>
                       {leads.map((lead) => (
@@ -219,63 +272,62 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
                       ))}
                     </select>
                     {errors.lead && (
-                      <p className="mt-1 text-sm text-red-600">{errors.lead}</p>
+                      <p style={styles.errorText}>{errors.lead}</p>
                     )}
                   </div>
-                </div>
 
-                {/* Subject */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Subject *
-                  </label>
-                  <input
-                    type="text"
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.subject ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder="Follow-up call regarding pricing"
-                  />
-                  {errors.subject && (
-                    <p className="mt-1 text-sm text-red-600">{errors.subject}</p>
-                  )}
-                </div>
+                  {/* Subject - Full Width */}
+                  <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
+                    <label style={styles.label}>Subject *</label>
+                    <input
+                      type="text"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      style={{
+                        ...styles.input,
+                        ...(errors.subject ? styles.inputError : {}),
+                      }}
+                      placeholder="Follow-up call regarding pricing"
+                      className="activity-modal-input"
+                    />
+                    {errors.subject && (
+                      <p style={styles.errorText}>{errors.subject}</p>
+                    )}
+                  </div>
 
-                {/* Scheduled Date & Assigned To */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Scheduled Date & Time *
-                    </label>
+                  {/* Scheduled Date */}
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Scheduled Date & Time *</label>
                     <input
                       type="datetime-local"
                       name="scheduled_date"
                       value={formData.scheduled_date}
                       onChange={handleChange}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        errors.scheduled_date ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      style={{
+                        ...styles.input,
+                        ...(errors.scheduled_date ? styles.inputError : {}),
+                      }}
+                      className="activity-modal-input"
                     />
                     {errors.scheduled_date && (
-                      <p className="mt-1 text-sm text-red-600">{errors.scheduled_date}</p>
+                      <p style={styles.errorText}>{errors.scheduled_date}</p>
                     )}
                   </div>
 
+                  {/* Assigned To (Admin only) */}
                   {isAdmin && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Assign To BDM *
-                      </label>
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Assign To BDM *</label>
                       <select
                         name="assigned_to"
                         value={formData.assigned_to}
                         onChange={handleChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          errors.assigned_to ? 'border-red-300' : 'border-gray-300'
-                        }`}
+                        style={{
+                          ...styles.select,
+                          ...(errors.assigned_to ? styles.inputError : {}),
+                        }}
+                        className="activity-modal-select"
                       >
                         <option value="">Select BDM...</option>
                         {bdms.map((bdm) => (
@@ -285,57 +337,58 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
                         ))}
                       </select>
                       {errors.assigned_to && (
-                        <p className="mt-1 text-sm text-red-600">{errors.assigned_to}</p>
+                        <p style={styles.errorText}>{errors.assigned_to}</p>
                       )}
                     </div>
                   )}
-                </div>
 
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes/Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Additional notes about this activity..."
-                  />
-                </div>
+                  {/* Status */}
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Status</label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      style={styles.select}
+                      className="activity-modal-select"
+                    >
+                      <option value="Scheduled">Scheduled</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </div>
 
-                {/* Status (optional - defaults to Scheduled) */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Scheduled">Scheduled</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
-                  </select>
+                  {/* Description - Full Width */}
+                  <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
+                    <label style={styles.label}>Notes/Description</label>
+                    <textarea
+                      name="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      rows="3"
+                      style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }}
+                      placeholder="Additional notes about this activity..."
+                      className="activity-modal-input"
+                    />
+                  </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                <div style={styles.actions}>
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    style={styles.cancelButton}
                     disabled={loading}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      ...styles.submitButton,
+                      ...(loading ? styles.buttonDisabled : {}),
+                    }}
                     disabled={loading}
                   >
                     {loading ? 'Creating...' : 'Create Activity'}
@@ -348,6 +401,195 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
       </div>
     </div>
   );
+};
+
+// Styles - Gradient Design
+const styles = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.sm,
+    backdropFilter: 'blur(4px)',
+  },
+  modal: {
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
+    width: '100%',
+    maxWidth: '640px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+  },
+  title: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    margin: 0,
+  },
+  subtitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+    marginTop: SPACING.xs,
+    margin: 0,
+  },
+  closeButton: {
+    padding: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: '50%',
+    cursor: 'pointer',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  closeButtonHover: {
+    background: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    transform: 'scale(1.05)',
+  },
+  content: {
+    padding: SPACING.lg,
+  },
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xxl,
+    gap: SPACING.md,
+  },
+  spinner: {
+    width: '32px',
+    height: '32px',
+    border: '3px solid rgba(255, 255, 255, 0.1)',
+    borderTopColor: COLORS.status.info,
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+  loadingText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+    margin: 0,
+  },
+  errorBox: {
+    padding: SPACING.md,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.md,
+  },
+  errorBoxText: {
+    fontSize: FONT_SIZES.sm,
+    color: '#fca5a5',
+    margin: 0,
+  },
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: SPACING.md,
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.xs,
+  },
+  label: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+  input: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+  },
+  inputError: {
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+  },
+  select: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    cursor: 'pointer',
+    outline: 'none',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    appearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFFFFF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 0.5rem center',
+    backgroundSize: '1rem',
+    paddingRight: '2rem',
+  },
+  errorText: {
+    fontSize: FONT_SIZES.xs,
+    color: '#fca5a5',
+    margin: 0,
+  },
+  actions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  cancelButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  submitButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
 };
 
 export default CreateActivityModal;
