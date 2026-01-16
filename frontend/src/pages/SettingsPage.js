@@ -97,11 +97,17 @@ function SettingsPage() {
   // DATA FETCHING
   // ============================================
 
-  // Load stats and roles on mount, but DON'T load users until Search clicked
+  // Load stats, roles, and ALL users on mount (users cached but not displayed until Search)
   useEffect(() => {
-    console.log('📦 Page Mount: Loading stats and roles...');
+    console.log('📦 Page Mount: Loading stats, roles, and caching all users...');
     fetchStats();
     fetchRoles();
+    // Fetch ALL users into cache (no filters) - they won't display until hasSearched is true
+    fetchUsers({}).then(() => {
+      console.log('✅ All users cached and ready for client-side filtering');
+    }).catch(err => {
+      console.error('❌ Failed to cache users:', err);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
@@ -109,36 +115,43 @@ function SettingsPage() {
   // FILTER HANDLERS
   // ============================================
 
-  const handleFilter = useCallback(async (filters) => {
-  console.log('🔍 Search clicked with filters:', filters);
+  const handleFilter = useCallback((filters) => {
+    console.log('🔍 Search clicked with filters:', filters);
 
-  // Normalize filters - ensure is_active defaults to 'true'
-  const normalizedFilters = {
-    role: filters.role || '',
-    school: filters.school || '',
-    is_active: filters.is_active !== undefined ? filters.is_active : 'true', // Default active
-    search: filters.search || '',
-  };
+    // Normalize filters - ensure is_active defaults to 'true'
+    const normalizedFilters = {
+      role: filters.role || '',
+      school: filters.school || '',
+      is_active: filters.is_active !== undefined ? filters.is_active : 'true', // Default active
+      search: filters.search || '',
+    };
 
-  console.log('🔍 Normalized filters:', normalizedFilters);
+    console.log('🔍 Normalized filters:', normalizedFilters);
 
-  setCurrentFilters(normalizedFilters);
+    // Update filters and enable display (client-side filtering via useMemo)
+    setCurrentFilters(normalizedFilters);
+    setHasSearched(true);
 
-  // If this is the first search, load users
-  if (!hasSearched) {
-    try {
-      console.log('🔄 First search - loading users...');
-      await fetchUsers(normalizedFilters);  // ← Pass filters to initial fetch
-      setHasSearched(true);
-      console.log('✅ Users loaded, ready for client-side filtering');
-    } catch (err) {
-      console.error('❌ Error loading users:', err);
-      toast.error('Failed to load users');
-    }
-  } else {
     console.log('🔍 Client-side filtering applied');
-  }
-}, [hasSearched, fetchUsers]);
+  }, []);
+
+  // Reset handler - clears display but keeps cache
+  const handleReset = useCallback(() => {
+    console.log('🔄 Reset clicked - clearing display and filters');
+
+    // Reset filters to defaults
+    setCurrentFilters({
+      role: '',
+      school: '',
+      is_active: 'true',
+      search: '',
+    });
+
+    // Hide the results (cache remains intact)
+    setHasSearched(false);
+
+    console.log('✅ Filters reset, display cleared');
+  }, []);
 
   // ============================================
   // USER ACTIONS
@@ -476,6 +489,8 @@ function SettingsPage() {
   // RENDER
   // ============================================
 
+  const pageStyles = getPageStyles(isMobile);
+
   return (
     <div style={pageStyles.pageContainer}>
       <div style={pageStyles.contentWrapper}>
@@ -507,6 +522,7 @@ function SettingsPage() {
         {/* Filter Bar */}
         <UserFilterBar
           onFilter={handleFilter}
+          onReset={handleReset}
           roles={roles}
           schools={schools}
           additionalActions={
@@ -801,31 +817,36 @@ function SettingsPage() {
 // PAGE STYLES - Glassmorphism Design System
 // ============================================
 
-const pageStyles = {
+const getPageStyles = (isMobile) => ({
   pageContainer: {
     minHeight: '100vh',
     background: COLORS.background.gradient,
-    padding: SPACING.xl,
+    padding: isMobile ? SPACING.md : SPACING.xl,
+    transition: `padding ${TRANSITIONS.normal}`,
   },
   contentWrapper: {
+    ...MIXINS.glassmorphicCard,
     maxWidth: '1400px',
     margin: '0 auto',
+    padding: isMobile ? SPACING.md : SPACING.xl,
+    borderRadius: BORDER_RADIUS.xl,
+    transition: `all ${TRANSITIONS.normal}`,
   },
   pageHeader: {
     marginBottom: SPACING['2xl'],
     textAlign: 'center',
   },
   pageTitle: {
-    fontSize: FONT_SIZES['2xl'],
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.text.white,
     marginBottom: SPACING.sm,
   },
   pageSubtitle: {
-    fontSize: FONT_SIZES.lg,
+    fontSize: isMobile ? FONT_SIZES.md : FONT_SIZES.lg,
     color: COLORS.text.whiteSubtle,
     margin: 0,
   },
-};
+});
 
 export default SettingsPage;

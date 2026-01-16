@@ -81,7 +81,13 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Set created_by to current user and send email if BDM assigned"""
-        lead = serializer.save(created_by=self.request.user)
+        user = self.request.user
+
+        # Auto-assign to self if BDM and no assignment specified
+        if user.role == 'BDM' and not serializer.validated_data.get('assigned_to'):
+            lead = serializer.save(created_by=user, assigned_to=user)
+        else:
+            lead = serializer.save(created_by=user)
 
         # Send email if lead is assigned to BDM during creation
         if lead.assigned_to and lead.assigned_to.role == 'BDM':

@@ -132,6 +132,9 @@ function SchoolsPage() {
   // Get user role from localStorage
   const userRole = localStorage.getItem('role') || 'Teacher';
   const isAdmin = userRole === 'Admin';
+  const isTeacher = userRole === 'Teacher';
+  // Teachers can edit their assigned schools
+  const canEdit = isAdmin || isTeacher;
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -385,6 +388,7 @@ function SchoolsPage() {
                 onEdit={handleEditSchool}
                 onDelete={openDeleteConfirm}
                 isAdmin={isAdmin}
+                canEdit={canEdit}
               />
             ))}
           </div>
@@ -432,6 +436,7 @@ function SchoolsPage() {
           onCancel={handleCancelEdit}
           onSave={handleSchoolUpdated}
           isAdmin={isAdmin}
+          canEdit={canEdit}
         />
 
         {/* Delete Confirmation Modal */}

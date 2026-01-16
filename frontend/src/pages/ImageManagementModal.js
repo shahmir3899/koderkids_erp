@@ -1,5 +1,5 @@
 // ============================================
-// IMAGE MANAGEMENT MODAL - Optimized Version
+// IMAGE MANAGEMENT MODAL - Glassmorphism Design
 // ============================================
 // Location: src/pages/ImageManagementModal.js
 //
@@ -12,12 +12,22 @@
 // - useCallback for handlers to prevent re-renders
 // - Native lazy loading for images
 // - Cleaner code structure
+// - Glassmorphic dark theme
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_URL, getAuthHeaders } from '../api';
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  MIXINS,
+} from '../utils/designConstants';
 
 // ============================================
 // CONSTANTS
@@ -26,7 +36,7 @@ import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 const MAX_SELECTIONS = 4;
 
 // ============================================
-// STYLES
+// STYLES - Glassmorphism Design
 // ============================================
 
 const styles = {
@@ -40,110 +50,132 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    backdropFilter: 'blur(4px)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backdropFilter: 'blur(8px)',
+    padding: SPACING.lg,
   },
   modal: {
-    background: 'linear-gradient(135deg, #FFFFFF 0%, #F3F4F6 100%)',
-    padding: '1.5rem',
-    borderRadius: '1rem',
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING['2xl'],
     maxWidth: '900px',
-    width: '95%',
+    width: '100%',
     maxHeight: '90vh',
     overflowY: 'auto',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '1rem',
-    paddingBottom: '1rem',
-    borderBottom: '1px solid #E5E7EB',
+    marginBottom: SPACING.xl,
+    paddingBottom: SPACING.lg,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
   },
   title: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
     margin: 0,
   },
   selectionBadge: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    padding: '0.5rem 1rem',
-    backgroundColor: '#EFF6FF',
-    borderRadius: '9999px',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#1D4ED8',
+    gap: SPACING.xs,
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(99, 102, 241, 0.3)',
+    border: '1px solid rgba(99, 102, 241, 0.5)',
+    borderRadius: BORDER_RADIUS.full,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
   },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-    gap: '1rem',
-    marginBottom: '1.5rem',
+    gap: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
   footer: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: '1rem',
-    borderTop: '1px solid #E5E7EB',
+    paddingTop: SPACING.lg,
+    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
   },
   footerHint: {
-    fontSize: '0.875rem',
-    color: '#6B7280',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
   },
   buttonGroup: {
     display: 'flex',
-    gap: '0.75rem',
+    gap: SPACING.md,
   },
   confirmButton: {
-    padding: '0.75rem 1.5rem',
-    background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-    color: '#FFFFFF',
+    padding: `${SPACING.sm} ${SPACING.xl}`,
+    background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+    color: COLORS.text.white,
     border: 'none',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    fontWeight: '600',
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    transition: 'all 0.2s ease',
+    gap: SPACING.sm,
+    transition: TRANSITIONS.normal,
+    boxShadow: '0 4px 15px rgba(176, 97, 206, 0.4)',
   },
   confirmButtonDisabled: {
-    background: '#9CA3AF',
+    background: 'rgba(156, 163, 175, 0.5)',
     cursor: 'not-allowed',
+    boxShadow: 'none',
   },
   cancelButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#F3F4F6',
-    color: '#374151',
-    border: '1px solid #D1D5DB',
-    borderRadius: '0.5rem',
-    fontSize: '0.875rem',
-    fontWeight: '500',
+    padding: `${SPACING.sm} ${SPACING.xl}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.lg,
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
+    transition: TRANSITIONS.normal,
   },
   errorMessage: {
-    padding: '0.75rem 1rem',
-    backgroundColor: '#FEE2E2',
-    color: '#DC2626',
-    borderRadius: '0.5rem',
-    marginBottom: '1rem',
-    fontSize: '0.875rem',
+    padding: SPACING.md,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    color: '#F87171',
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.lg,
+    fontSize: FONT_SIZES.sm,
+  },
+  warningMessage: {
+    padding: SPACING.md,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    border: '1px solid rgba(245, 158, 11, 0.3)',
+    color: '#FBBF24',
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.lg,
+    fontSize: FONT_SIZES.sm,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   emptyState: {
-    padding: '3rem',
+    padding: SPACING['3xl'],
     textAlign: 'center',
-    color: '#6B7280',
+    color: COLORS.text.whiteMedium,
   },
   emptyIcon: {
     fontSize: '3rem',
-    marginBottom: '1rem',
+    marginBottom: SPACING.md,
+  },
+  loadingContainer: {
+    padding: SPACING['3xl'],
+    textAlign: 'center',
   },
 };
 
@@ -151,12 +183,12 @@ const styles = {
 // IMAGE CARD COMPONENT
 // ============================================
 
-const ImageCard = React.memo(({ 
-  image, 
-  index, 
-  isSelected, 
+const ImageCard = React.memo(({
+  image,
+  index,
+  isSelected,
   selectionOrder,
-  onSelect, 
+  onSelect,
   onDelete,
   disabled,
 }) => {
@@ -165,13 +197,16 @@ const ImageCard = React.memo(({
 
   const cardStyle = {
     position: 'relative',
-    borderRadius: '0.75rem',
+    borderRadius: BORDER_RADIUS.lg,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    boxShadow: isSelected 
-      ? '0 0 0 3px #3B82F6, 0 4px 12px rgba(59, 130, 246, 0.3)' 
-      : '0 1px 3px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.2s ease',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    border: isSelected
+      ? '2px solid rgba(139, 92, 246, 0.8)'
+      : '1px solid rgba(255, 255, 255, 0.15)',
+    boxShadow: isSelected
+      ? '0 0 20px rgba(139, 92, 246, 0.4)'
+      : '0 4px 12px rgba(0, 0, 0, 0.2)',
+    transition: `all ${TRANSITIONS.normal}`,
     cursor: disabled && !isSelected ? 'not-allowed' : 'pointer',
     opacity: disabled && !isSelected ? 0.5 : 1,
     transform: isSelected ? 'scale(1.02)' : 'scale(1)',
@@ -181,7 +216,7 @@ const ImageCard = React.memo(({
     position: 'relative',
     width: '100%',
     height: '120px',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -192,7 +227,7 @@ const ImageCard = React.memo(({
     height: '100%',
     objectFit: 'cover',
     opacity: imageLoaded ? 1 : 0,
-    transition: 'opacity 0.3s ease',
+    transition: `opacity ${TRANSITIONS.normal}`,
   };
 
   const selectionBadgeStyle = {
@@ -201,18 +236,18 @@ const ImageCard = React.memo(({
     left: '8px',
     width: '28px',
     height: '28px',
-    borderRadius: '50%',
-    backgroundColor: isSelected ? '#3B82F6' : 'rgba(255, 255, 255, 0.9)',
-    border: isSelected ? 'none' : '2px solid #D1D5DB',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: isSelected ? COLORS.primary : 'rgba(255, 255, 255, 0.2)',
+    border: isSelected ? 'none' : '2px solid rgba(255, 255, 255, 0.4)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '0.75rem',
-    fontWeight: 'bold',
-    color: isSelected ? '#FFFFFF' : '#9CA3AF',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
     zIndex: 10,
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.2s ease',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+    transition: `all ${TRANSITIONS.normal}`,
   };
 
   const deleteButtonStyle = {
@@ -221,28 +256,29 @@ const ImageCard = React.memo(({
     right: '8px',
     width: '28px',
     height: '28px',
-    borderRadius: '50%',
-    backgroundColor: '#EF4444',
-    color: '#FFFFFF',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.status.error,
+    color: COLORS.text.white,
     border: 'none',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '0.875rem',
+    fontSize: FONT_SIZES.sm,
     cursor: 'pointer',
     zIndex: 10,
     opacity: 0.9,
-    transition: 'all 0.2s ease',
+    transition: `all ${TRANSITIONS.normal}`,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
   };
 
   const dateStyle = {
-    padding: '0.5rem',
-    fontSize: '0.75rem',
-    fontWeight: '500',
-    color: '#374151',
+    padding: SPACING.sm,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: isSelected ? COLORS.text.white : COLORS.text.whiteMedium,
     textAlign: 'center',
-    backgroundColor: isSelected ? '#EFF6FF' : '#F9FAFB',
-    borderTop: '1px solid #E5E7EB',
+    backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
   };
 
   const handleClick = (e) => {
@@ -266,8 +302,8 @@ const ImageCard = React.memo(({
     const dateMatch = name.match(/(\d{4})-(\d{2})-(\d{2})/);
     if (dateMatch) {
       const date = new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`);
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
         day: 'numeric',
         year: 'numeric'
       });
@@ -298,11 +334,11 @@ const ImageCard = React.memo(({
         }}
         style={deleteButtonStyle}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#DC2626';
+          e.currentTarget.style.backgroundColor = COLORS.status.errorDark;
           e.currentTarget.style.transform = 'scale(1.1)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = '#EF4444';
+          e.currentTarget.style.backgroundColor = COLORS.status.error;
           e.currentTarget.style.transform = 'scale(1)';
         }}
         aria-label={`Delete image from ${extractDate(image.name)}`}
@@ -317,11 +353,11 @@ const ImageCard = React.memo(({
             <LoadingSpinner size="small" />
           </div>
         )}
-        
+
         {imageError ? (
-          <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '1rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>🖼️</div>
-            <div style={{ fontSize: '0.625rem' }}>Image unavailable</div>
+          <div style={{ textAlign: 'center', color: COLORS.text.whiteSubtle, padding: SPACING.md }}>
+            <div style={{ fontSize: '2rem', marginBottom: SPACING.xs }}>🖼️</div>
+            <div style={{ fontSize: FONT_SIZES.xs }}>Image unavailable</div>
           </div>
         ) : (
           <img
@@ -354,7 +390,7 @@ const getMonthsBetweenDates = (startDate, endDate) => {
   const end = new Date(endDate);
   const months = new Set();
   let current = new Date(start);
-  
+
   while (current <= end) {
     const year = current.getFullYear();
     const month = String(current.getMonth() + 1).padStart(2, '0');
@@ -362,7 +398,7 @@ const getMonthsBetweenDates = (startDate, endDate) => {
     current.setMonth(current.getMonth() + 1);
     current.setDate(1);
   }
-  
+
   return Array.from(months);
 };
 
@@ -379,12 +415,12 @@ const extractFilename = (url) => {
 // MAIN COMPONENT
 // ============================================
 
-const ImageManagementModal = ({ 
-  studentId, 
-  selectedMonth, 
-  startDate, 
-  endDate, 
-  mode, 
+const ImageManagementModal = ({
+  studentId,
+  selectedMonth,
+  startDate,
+  endDate,
+  mode,
   onClose,
   initialSelectedImages = [], // NEW: Accept pre-selected images
 }) => {
@@ -415,7 +451,7 @@ const ImageManagementModal = ({
           imageData = response.data.progress_images || [];
         } else if (mode === 'range') {
           const months = getMonthsBetweenDates(startDate, endDate);
-          
+
           // Fetch all months in parallel for better performance
           const responses = await Promise.all(
             months.map((month) =>
@@ -489,21 +525,21 @@ const ImageManagementModal = ({
   const handleImageSelect = useCallback((image) => {
     setSelectedImages((prev) => {
       // Check if already selected (by URL or filename)
-      const isAlreadySelected = prev.includes(image.url) || 
+      const isAlreadySelected = prev.includes(image.url) ||
         prev.some((url) => extractFilename(url) === extractFilename(image.url));
-      
+
       if (isAlreadySelected) {
         // Remove by matching URL or filename
-        return prev.filter((url) => 
+        return prev.filter((url) =>
           url !== image.url && extractFilename(url) !== extractFilename(image.url)
         );
       }
-      
+
       if (prev.length >= MAX_SELECTIONS) {
         toast.warning(`You can only select up to ${MAX_SELECTIONS} images.`);
         return prev;
       }
-      
+
       return [...prev, image.url];
     });
   }, []);
@@ -523,7 +559,7 @@ const ImageManagementModal = ({
 
       // Remove from images list
       setImages((prev) => prev.filter((img) => img.name !== filename));
-      
+
       // Remove from selection if selected
       setSelectedImages((prev) => {
         const imageToRemove = images.find((img) => img.name === filename);
@@ -613,7 +649,7 @@ const ImageManagementModal = ({
         {/* Header */}
         <div style={styles.header}>
           <h2 id="modal-title" style={styles.title}>
-            📸 Select Images
+            Select Images
           </h2>
           <div style={styles.selectionBadge}>
             <span>{selectedImages.length}</span>
@@ -630,14 +666,16 @@ const ImageManagementModal = ({
 
         {/* Content */}
         {isLoading ? (
-          <div style={{ padding: '3rem', textAlign: 'center' }}>
+          <div style={styles.loadingContainer}>
             <LoadingSpinner size="large" message="Loading images..." />
           </div>
         ) : images.length === 0 ? (
           <div style={styles.emptyState}>
             <div style={styles.emptyIcon}>📷</div>
-            <p style={{ margin: 0, fontWeight: '500' }}>No images available</p>
-            <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem' }}>
+            <p style={{ margin: 0, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.text.white }}>
+              No images available
+            </p>
+            <p style={{ margin: `${SPACING.sm} 0 0`, fontSize: FONT_SIZES.sm }}>
               There are no progress images for this student in the selected period.
             </p>
           </div>
@@ -645,19 +683,7 @@ const ImageManagementModal = ({
           <>
             {/* Selection hint when max reached */}
             {isMaxReached && (
-              <div
-                style={{
-                  padding: '0.75rem 1rem',
-                  backgroundColor: '#FEF3C7',
-                  color: '#92400E',
-                  borderRadius: '0.5rem',
-                  marginBottom: '1rem',
-                  fontSize: '0.875rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                }}
-              >
+              <div style={styles.warningMessage}>
                 <span>⚠️</span>
                 <span>Maximum {MAX_SELECTIONS} images selected. Deselect an image to choose a different one.</span>
               </div>
@@ -668,7 +694,7 @@ const ImageManagementModal = ({
               {images.map((image, index) => {
                 const selected = isImageSelected(image.url);
                 const order = getSelectionOrder(image.url);
-                
+
                 return (
                   <ImageCard
                     key={image.url}
@@ -691,26 +717,26 @@ const ImageManagementModal = ({
           <div style={styles.footerHint}>
             {images.length > 0 && (
               <>
-                💡 Click images to select (max {MAX_SELECTIONS}). 
+                Click images to select (max {MAX_SELECTIONS}).
                 Selected images will appear in the report.
               </>
             )}
           </div>
-          
+
           <div style={styles.buttonGroup}>
             <button
               onClick={handleCancel}
               style={styles.cancelButton}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#E5E7EB';
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#F3F4F6';
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
               }}
             >
               Cancel
             </button>
-            
+
             <button
               onClick={handleConfirm}
               disabled={selectedImages.length === 0}
@@ -720,16 +746,16 @@ const ImageManagementModal = ({
               }}
               onMouseEnter={(e) => {
                 if (selectedImages.length > 0) {
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(176, 97, 206, 0.5)';
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(176, 97, 206, 0.4)';
               }}
             >
-              ✓ Confirm Selection ({selectedImages.length})
+              Confirm Selection ({selectedImages.length})
             </button>
           </div>
         </div>

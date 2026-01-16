@@ -20,12 +20,14 @@ import {
  *
  * @param {Object} props
  * @param {Function} props.onFilter - Callback when filter button clicked
+ * @param {Function} props.onReset - Callback when reset button clicked
  * @param {Array} props.roles - Available roles from API
  * @param {Array} props.schools - Available schools
  * @param {React.ReactNode} props.additionalActions - Extra buttons (e.g., Add User)
  */
 export const UserFilterBar = ({
   onFilter,
+  onReset,
   roles = [],
   schools = [],
   additionalActions,
@@ -41,6 +43,31 @@ export const UserFilterBar = ({
   });
 
   const [includeInactive, setIncludeInactive] = useState(false);
+
+  // Ref for search input focus
+  const searchInputRef = useRef(null);
+
+  // ============================================
+  // EFFECTS
+  // ============================================
+
+  // Keyboard shortcut: Escape to reset filters, "/" to focus search
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Escape key resets filters
+      if (e.key === 'Escape' && onReset) {
+        onReset();
+      }
+      // "/" key focuses search input (when not already in an input)
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onReset]);
 
   // ============================================
   // HANDLERS
@@ -99,10 +126,16 @@ export const UserFilterBar = ({
     setIncludeInactive(false);
 
     console.log('Resetting filters');
-    onFilter({
-      ...resetFilters,
-      is_active: 'true', // Reset to active only
-    });
+
+    // Call onReset if provided (clears display), otherwise fall back to onFilter
+    if (onReset) {
+      onReset();
+    } else {
+      onFilter({
+        ...resetFilters,
+        is_active: 'true', // Reset to active only
+      });
+    }
   };
 
   // ============================================
@@ -116,11 +149,12 @@ export const UserFilterBar = ({
         <div style={styles.field}>
           <label style={styles.label}>Search</label>
           <input
+            ref={searchInputRef}
             type="text"
             name="search"
             value={filters.search}
             onChange={handleChange}
-            placeholder="Search by username, email, or name"
+            placeholder="Press / to focus, Esc to reset"
             style={styles.input}
           />
         </div>

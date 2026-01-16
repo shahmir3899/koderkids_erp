@@ -25,7 +25,7 @@ import {
 /**
  * SchoolDetailsModal Component
  * View and edit school details with statistics
- * 
+ *
  * @param {Object} props
  * @param {Object} props.school - School object to display
  * @param {boolean} props.isOpen - Whether modal is open
@@ -35,6 +35,7 @@ import {
  * @param {Function} props.onCancel - Cancel edit mode callback
  * @param {Function} props.onSave - Save changes callback
  * @param {boolean} props.isAdmin - Whether user is admin
+ * @param {boolean} props.canEdit - Whether user can edit (Admin or Teacher with assigned schools)
  */
 export const SchoolDetailsModal = ({
   school,
@@ -45,6 +46,7 @@ export const SchoolDetailsModal = ({
   onCancel,
   onSave,
   isAdmin = false,
+  canEdit = false,
 }) => {
   const [formData, setFormData] = useState({});
   const [stats, setStats] = useState(null);
@@ -870,7 +872,8 @@ export const SchoolDetailsModal = ({
               <Button variant="secondary" onClick={onClose}>
                 Close
               </Button>
-              {isAdmin && (
+              {/* Edit button: Show for Admin OR Teacher with canEdit */}
+              {(isAdmin || canEdit) && (
                 <Button variant="primary" onClick={onEdit}>
                   ✏️ Edit
                 </Button>

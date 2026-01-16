@@ -22,11 +22,12 @@ import {
  * @param {Object} props
  * @param {Object} props.school - School object
  * @param {Function} props.onView - Callback when view button is clicked
- * @param {Function} props.onEdit - Callback when edit button is clicked (Admin only)
+ * @param {Function} props.onEdit - Callback when edit button is clicked (Admin/Teacher with edit rights)
  * @param {Function} props.onDelete - Callback when delete button is clicked (Admin only)
  * @param {boolean} props.isAdmin - Whether user is admin
+ * @param {boolean} props.canEdit - Whether user can edit (Admin or Teacher with assigned schools)
  */
-export const SchoolCard = ({ school, onView, onEdit, onDelete, isAdmin = false }) => {
+export const SchoolCard = ({ school, onView, onEdit, onDelete, isAdmin = false, canEdit = false }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredButton, setHoveredButton] = useState(null);
 
@@ -168,25 +169,27 @@ export const SchoolCard = ({ school, onView, onEdit, onDelete, isAdmin = false }
         >
           👁️ View
         </button>
+        {/* Edit button: Show for Admin OR Teacher with canEdit */}
+        {(isAdmin || canEdit) && (
+          <button
+            style={getActionButtonStyle('success', 'edit')}
+            onClick={() => onEdit && onEdit(school)}
+            onMouseEnter={() => setHoveredButton('edit')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            ✏️ Edit
+          </button>
+        )}
+        {/* Delete button: Admin only */}
         {isAdmin && (
-          <>
-            <button
-              style={getActionButtonStyle('success', 'edit')}
-              onClick={() => onEdit && onEdit(school)}
-              onMouseEnter={() => setHoveredButton('edit')}
-              onMouseLeave={() => setHoveredButton(null)}
-            >
-              ✏️ Edit
-            </button>
-            <button
-              style={getActionButtonStyle('danger', 'delete')}
-              onClick={() => onDelete && onDelete(school)}
-              onMouseEnter={() => setHoveredButton('delete')}
-              onMouseLeave={() => setHoveredButton(null)}
-            >
-              🗑️ Delete
-            </button>
-          </>
+          <button
+            style={getActionButtonStyle('danger', 'delete')}
+            onClick={() => onDelete && onDelete(school)}
+            onMouseEnter={() => setHoveredButton('delete')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            🗑️ Delete
+          </button>
         )}
       </div>
     </div>

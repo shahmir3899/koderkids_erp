@@ -29,6 +29,7 @@ import { CollapsibleSection } from '../components/common/cards/CollapsibleSectio
 import { ToggleSwitch } from '../components/common/ui/ToggleSwitch';
 import { ModeSelector } from '../components/common/ui/ModeSelector';
 import { PageHeader } from '../components/common/PageHeader';
+import { MonthSelector } from '../components/common/ui/MonthSelector';
 
 // Page-specific Components
 import ImageManagementModal from './ImageManagementModal';
@@ -744,20 +745,15 @@ const ReportsPage = () => {
           {/* Date Filters */}
           <div style={responsiveStyles.filterGrid}>
             {/* Month Picker */}
-            <div>
-              <label style={responsiveStyles.label}>Month</label>
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                disabled={mode === 'range'}
-                style={{
-                  ...responsiveStyles.input,
-                  ...(mode === 'range' ? styles.inputDisabled : {}),
-                }}
-                aria-label="Select month"
-              />
-            </div>
+            <MonthSelector
+              label="Month"
+              value={selectedMonth}
+              onChange={setSelectedMonth}
+              disabled={mode === 'range'}
+              variant="glass"
+              monthsCount={24}
+              placeholder="Select Month"
+            />
 
             {/* Start Date */}
             <div>

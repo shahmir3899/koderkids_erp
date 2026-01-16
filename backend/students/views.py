@@ -121,21 +121,23 @@ class SchoolViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
     
     def update(self, request, *args, **kwargs):
-        """Only admin can update schools"""
-        if request.user.role != 'Admin':
+        """Admin and Teacher can update schools (Teacher only their assigned schools)"""
+        if request.user.role not in ['Admin', 'Teacher']:
             return Response(
-                {'error': 'Only admins can update schools'},
+                {'error': 'Only admins and teachers can update schools'},
                 status=status.HTTP_403_FORBIDDEN
             )
+        # Teachers can only update their assigned schools (enforced by get_queryset)
         return super().update(request, *args, **kwargs)
     
     def partial_update(self, request, *args, **kwargs):
-        """Only admin can partially update schools"""
-        if request.user.role != 'Admin':
+        """Admin and Teacher can partially update schools (Teacher only their assigned schools)"""
+        if request.user.role not in ['Admin', 'Teacher']:
             return Response(
-                {'error': 'Only admins can update schools'},
+                {'error': 'Only admins and teachers can update schools'},
                 status=status.HTTP_403_FORBIDDEN
             )
+        # Teachers can only update their assigned schools (enforced by get_queryset)
         return super().partial_update(request, *args, **kwargs)
     
     def destroy(self, request, *args, **kwargs):
@@ -275,14 +277,23 @@ def create_school(request):
 @permission_classes([IsAuthenticated])
 def update_school(request, pk):
     """
-    Update a school (Admin only)
+    Update a school (Admin and Teacher)
     Endpoint: PUT/PATCH /api/schools/update/{id}/
+    Teachers can only update their assigned schools.
     """
-    if request.user.role != 'Admin':
+    if request.user.role not in ['Admin', 'Teacher']:
         return Response(
-            {'error': 'Only admins can update schools'},
+            {'error': 'Only admins and teachers can update schools'},
             status=status.HTTP_403_FORBIDDEN
         )
+
+    # For teachers, verify they are assigned to this school
+    if request.user.role == 'Teacher':
+        if not request.user.assigned_schools.filter(pk=pk).exists():
+            return Response(
+                {'error': 'You can only update schools assigned to you'},
+                status=status.HTTP_403_FORBIDDEN
+            )
     
     try:
         school = School.objects.get(pk=pk)

@@ -420,7 +420,9 @@ function LeadsListPage() {
       toast.error('Unable to view details: Invalid lead data');
       return;
     }
-    navigate(`/crm/leads/${lead.id}`);
+    // Reuse EditLeadModal for viewing (user can see details and edit if needed)
+    setLeadToEdit(lead);
+    setIsEditModalOpen(true);
   };
 
   const handleCreateSuccess = () => {
