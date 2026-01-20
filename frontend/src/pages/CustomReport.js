@@ -186,31 +186,100 @@ async function generatePDFWithBackground(to, subject, bodyText, lineSpacing, adm
       });
     });
 
-    page.drawText(`To: ${to}`, {
+    // Helper function to wrap text within max width
+    const wrapText = (text, font, size, maxWidth) => {
+      const words = text.split(/\s+/);
+      const lines = [];
+      let currentLine = '';
+
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const testWidth = font.widthOfTextAtSize(testLine, size);
+
+        if (testWidth > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+      return lines;
+    };
+
+    // Draw "To:" field with multiline and word-wrap support
+    const toLines = to.split('\n');
+    let currentY = pageHeight - topSpace - 20;
+    const toLineHeight = fontSize + 4; // Line height for To field
+    const toLabelWidth = fontBold.widthOfTextAtSize("To: ", 12);
+    const toMaxWidth = pageWidth - margin - margin - toLabelWidth; // Available width for To content
+
+    // Draw "To:" label on first line
+    page.drawText("To:", {
       x: margin,
-      y: pageHeight - topSpace - 20,
-      size: 12,
-      font: fontRegular,
-      color: rgb(0, 0, 0),
-    });
-    const subjectLabel = "Subject: ";
-    const subjectLabelWidth = fontBold.widthOfTextAtSize(subjectLabel, 12);
-    page.drawText(subjectLabel, {
-      x: margin,
-      y: pageHeight - topSpace - 40,
+      y: currentY,
       size: 12,
       font: fontBold,
       color: rgb(0, 0, 0),
     });
-    page.drawText(subject, {
-      x: margin + subjectLabelWidth,
-      y: pageHeight - topSpace - 40,
+
+    // Process each line of To field with word wrapping
+    let isFirstLine = true;
+    for (const toLine of toLines) {
+      const wrappedLines = wrapText(toLine, fontRegular, 12, toMaxWidth);
+
+      for (const wrappedLine of wrappedLines) {
+        if (!isFirstLine) {
+          currentY -= toLineHeight;
+        }
+        page.drawText(wrappedLine, {
+          x: margin + toLabelWidth,
+          y: currentY,
+          size: 12,
+          font: fontRegular,
+          color: rgb(0, 0, 0),
+        });
+        isFirstLine = false;
+      }
+    }
+
+    // Position Subject below the last To line with some spacing
+    currentY -= toLineHeight + 5;
+
+    const subjectLabel = "Subject: ";
+    const subjectLabelWidth = fontBold.widthOfTextAtSize(subjectLabel, 12);
+    const subjectMaxWidth = pageWidth - margin - margin - subjectLabelWidth; // Available width for Subject
+
+    // Draw Subject label
+    page.drawText(subjectLabel, {
+      x: margin,
+      y: currentY,
       size: 12,
-      font: fontRegular,
+      font: fontBold,
       color: rgb(0, 0, 0),
     });
 
-    let yPosition = pageHeight - bodyTopMargin;
+    // Wrap subject text if needed
+    const subjectWrappedLines = wrapText(subject, fontRegular, 12, subjectMaxWidth);
+    let isFirstSubjectLine = true;
+    for (const subjectLine of subjectWrappedLines) {
+      if (!isFirstSubjectLine) {
+        currentY -= toLineHeight;
+      }
+      page.drawText(subjectLine, {
+        x: margin + subjectLabelWidth,
+        y: currentY,
+        size: 12,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      isFirstSubjectLine = false;
+    }
+
+    // Body starts below Subject with spacing
+    let yPosition = currentY - lineHeight - 15;
 
     const lines = bodyText.split("\n");
     for (const line of lines) {
@@ -646,6 +715,145 @@ const styles = {
     color: COLORS.text.whiteSubtle,
     fontSize: FONT_SIZES.sm,
   },
+  // Recipient picker styles
+  recipientButtons: {
+    display: 'flex',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+  recipientTypeButton: {
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.normal}`,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    minWidth: '80px',
+    textAlign: 'center',
+  },
+  recipientPickerDropdown: {
+    marginTop: SPACING.sm,
+    backgroundColor: 'rgba(30, 30, 50, 0.95)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.lg,
+    maxHeight: '200px',
+    overflowY: 'auto',
+    padding: SPACING.xs,
+  },
+  pickerItem: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    cursor: 'pointer',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    transition: `background-color ${TRANSITIONS.fast}`,
+  },
+  pickerItemSubtext: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
+  },
+  pickerLoading: {
+    padding: SPACING.md,
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+  },
+  pickerEmpty: {
+    padding: SPACING.md,
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+  },
+  // Update/Create modal styles
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backdropFilter: 'blur(8px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    animation: 'fadeIn 0.2s ease-out',
+  },
+  modalBox: {
+    background: 'linear-gradient(135deg, rgba(30, 30, 60, 0.95) 0%, rgba(20, 20, 40, 0.98) 100%)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    maxWidth: '420px',
+    width: '90%',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.1)',
+    animation: 'slideUp 0.3s ease-out',
+  },
+  modalIcon: {
+    width: '60px',
+    height: '60px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(59, 130, 246, 0.3) 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto',
+    marginBottom: SPACING.md,
+    fontSize: '28px',
+  },
+  modalTitle: {
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  modalText: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: SPACING.lg,
+    textAlign: 'center',
+    lineHeight: 1.6,
+  },
+  modalButtons: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.sm,
+  },
+  modalButton: {
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.lg,
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    transition: `all ${TRANSITIONS.normal}`,
+    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  modalButtonPrimary: {
+    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
+  },
+  modalButtonSuccess: {
+    background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+    boxShadow: '0 4px 15px rgba(34, 197, 94, 0.3)',
+  },
+  modalButtonCancel: {
+    background: 'rgba(107, 114, 128, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
+  },
 };
 
 // ============================================
@@ -668,14 +876,21 @@ const CustomReport = () => {
     templateOptions,
     applyTemplate,
     saveReportToDb,
+    updateReportInDb,
     loadHistoricalReport,
     deleteHistoricalReport,
-    clearHistoricalReport,
     clearForm,
     loading,
     error,
     setError,
-    isFormValid,
+    // Recipient picker
+    recipientType,
+    schools,
+    employees,
+    showRecipientPicker,
+    openRecipientPicker,
+    closeRecipientPicker,
+    selectRecipient,
   } = useCustomReport();
 
   const [adminName, setAdminName] = useState("");
@@ -683,6 +898,7 @@ const CustomReport = () => {
   const [textAreaHeight, setTextAreaHeight] = useState(256);
   const [hoveredButton, setHoveredButton] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
   useEffect(() => {
     const storedFullName = localStorage.getItem('fullName') || 'Unknown';
@@ -765,14 +981,27 @@ const CustomReport = () => {
       toast.warning("All fields are required.");
       return;
     }
-    if (to.length > 100 || subject.length > 100) {
-      setError("To and Subject must be under 100 characters.");
+    if (to.length > 500 || subject.length > 200) {
+      setError("To must be under 500 characters and Subject under 200 characters.");
       toast.warning("Input too long.");
       return;
     }
 
+    // If loaded from history, ask user whether to update or create new
+    if (selectedHistoryReport) {
+      setShowUpdateDialog(true);
+      return;
+    }
+
+    // Generate and save as new
+    await executeGeneration(false);
+  };
+
+  // Execute PDF generation and save/update
+  const executeGeneration = async (shouldUpdate) => {
     setError("");
     setIsGenerating(true);
+    // Keep modal open during generation to show progress
 
     try {
       const pdfBlob = await generatePDFWithBackground(to, subject, bodyText, lineSpacing, adminName);
@@ -786,16 +1015,35 @@ const CustomReport = () => {
       window.URL.revokeObjectURL(url);
       toast.success("Report generated successfully!");
 
-      // Auto-save to history after successful generation
-      await saveReportToDb();
+      // Save or update based on user choice
+      if (shouldUpdate && selectedHistoryReport) {
+        await updateReportInDb(selectedHistoryReport.id);
+      } else {
+        await saveReportToDb();
+      }
 
-      // Clear the form after successful generation and save
+      // Close modal and clear the form after successful generation and save
+      setShowUpdateDialog(false);
       clearForm();
     } catch (err) {
       setError(`Failed to generate report: ${err.message}`);
+      setShowUpdateDialog(false);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Handle dialog choices
+  const handleUpdateChoice = () => {
+    executeGeneration(true);
+  };
+
+  const handleCreateNewChoice = () => {
+    executeGeneration(false);
+  };
+
+  const handleCancelDialog = () => {
+    setShowUpdateDialog(false);
   };
 
   const handleDeleteReport = async (reportId) => {
@@ -829,6 +1077,72 @@ const CustomReport = () => {
 
   return (
     <div style={responsiveStyles.pageContainer}>
+      {/* Update/Create Modal */}
+      {showUpdateDialog && (
+        <div style={styles.modalOverlay} onClick={isGenerating ? undefined : handleCancelDialog}>
+          <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalIcon}>
+              {isGenerating ? '⏳' : '📄'}
+            </div>
+            <h3 style={styles.modalTitle}>
+              {isGenerating ? 'Generating Report...' : 'Save Report'}
+            </h3>
+            <p style={styles.modalText}>
+              {isGenerating
+                ? 'Please wait while your PDF is being generated and saved.'
+                : 'This report was loaded from history. How would you like to save your changes?'
+              }
+            </p>
+            <div style={styles.modalButtons}>
+              <button
+                onClick={handleUpdateChoice}
+                disabled={isGenerating}
+                style={{
+                  ...styles.modalButton,
+                  ...styles.modalButtonPrimary,
+                  ...(isGenerating ? styles.modalButtonDisabled : {}),
+                }}
+              >
+                {isGenerating ? (
+                  <>
+                    <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <span>🔄</span>
+                    Update Existing
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleCreateNewChoice}
+                disabled={isGenerating}
+                style={{
+                  ...styles.modalButton,
+                  ...styles.modalButtonSuccess,
+                  ...(isGenerating ? styles.modalButtonDisabled : {}),
+                }}
+              >
+                <span>➕</span>
+                Create New Copy
+              </button>
+              <button
+                onClick={handleCancelDialog}
+                disabled={isGenerating}
+                style={{
+                  ...styles.modalButton,
+                  ...styles.modalButtonCancel,
+                  ...(isGenerating ? styles.modalButtonDisabled : {}),
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={responsiveStyles.contentWrapper}>
         <PageHeader
           icon="📄"
@@ -887,15 +1201,128 @@ const CustomReport = () => {
           {/* To Field */}
           <div style={styles.fieldGroup}>
             <label style={styles.label} htmlFor="to">To:</label>
-            <input
+            <textarea
               id="to"
-              type="text"
-              style={responsiveStyles.input}
+              style={{
+                ...responsiveStyles.input,
+                minHeight: '80px',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+              }}
               value={to}
               onChange={(e) => setTo(e.target.value)}
               placeholder="Enter recipient (e.g., Mr. Babar)"
-              maxLength={100}
+              maxLength={500}
             />
+            {/* Recipient Type Buttons */}
+            <div style={styles.recipientButtons}>
+              <button
+                type="button"
+                onClick={() => openRecipientPicker('school')}
+                style={{
+                  ...styles.recipientTypeButton,
+                  backgroundColor: recipientType === 'school' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                  borderColor: recipientType === 'school' ? '#22c55e' : 'rgba(255, 255, 255, 0.2)',
+                }}
+              >
+                School
+              </button>
+              <button
+                type="button"
+                onClick={() => openRecipientPicker('employee')}
+                style={{
+                  ...styles.recipientTypeButton,
+                  backgroundColor: recipientType === 'employee' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                  borderColor: recipientType === 'employee' ? '#3b82f6' : 'rgba(255, 255, 255, 0.2)',
+                }}
+              >
+                Employee
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeRecipientPicker();
+                  setTo('');
+                }}
+                style={{
+                  ...styles.recipientTypeButton,
+                  backgroundColor: recipientType === 'custom' && !showRecipientPicker ? 'rgba(139, 92, 246, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                  borderColor: recipientType === 'custom' && !showRecipientPicker ? '#8b5cf6' : 'rgba(255, 255, 255, 0.2)',
+                }}
+              >
+                Custom
+              </button>
+            </div>
+
+            {/* Recipient Picker Dropdown */}
+            {showRecipientPicker && (
+              <div style={styles.recipientPickerDropdown}>
+                {recipientType === 'school' && (
+                  <>
+                    {loading.schools ? (
+                      <div style={styles.pickerLoading}>Loading schools...</div>
+                    ) : schools.length === 0 ? (
+                      <div style={styles.pickerEmpty}>No schools found</div>
+                    ) : (
+                      schools.map((school) => {
+                        // Format school address for the "To" field
+                        const schoolAddress = school.address || school.location || '';
+                        const formattedRecipient = `The Principal,\n${school.name}${schoolAddress ? `\n${schoolAddress}` : ''}`;
+                        return (
+                          <div
+                            key={school.id}
+                            style={styles.pickerItem}
+                            onClick={() => selectRecipient('school', formattedRecipient)}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <div style={{ fontWeight: 500 }}>{school.name}</div>
+                            {schoolAddress && (
+                              <div style={styles.pickerItemSubtext}>{schoolAddress}</div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </>
+                )}
+                {recipientType === 'employee' && (
+                  <>
+                    {loading.employees ? (
+                      <div style={styles.pickerLoading}>Loading employees...</div>
+                    ) : employees.length === 0 ? (
+                      <div style={styles.pickerEmpty}>No employees found</div>
+                    ) : (
+                      employees.map((employee) => {
+                        // Get the best available name
+                        const displayName = employee.full_name ||
+                          (employee.first_name && employee.last_name
+                            ? `${employee.first_name} ${employee.last_name}`
+                            : employee.first_name || employee.last_name || employee.username);
+                        // Format recipient with name and employee ID
+                        const formattedRecipient = employee.employee_id
+                          ? `${displayName}\nEmployee ID: ${employee.employee_id}`
+                          : displayName;
+                        return (
+                          <div
+                            key={employee.id}
+                            style={styles.pickerItem}
+                            onClick={() => selectRecipient('employee', formattedRecipient)}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <div style={{ fontWeight: 500 }}>{displayName}</div>
+                            {employee.employee_id && (
+                              <div style={styles.pickerItemSubtext}>ID: {employee.employee_id}</div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Subject Field */}
@@ -1058,11 +1485,11 @@ const CustomReport = () => {
             onClick={handleGenerateReport}
             style={{
               ...responsiveStyles.generateButton,
-              ...(isGenerating ? styles.generateButtonDisabled : {}),
+              ...((isGenerating || showUpdateDialog) ? styles.generateButtonDisabled : {}),
             }}
-            disabled={isGenerating}
+            disabled={isGenerating || showUpdateDialog}
             onMouseEnter={(e) => {
-              if (!isGenerating) {
+              if (!isGenerating && !showUpdateDialog) {
                 e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)';
                 e.currentTarget.style.transform = 'translateY(-2px)';
                 e.currentTarget.style.boxShadow = '0 4px 15px rgba(59, 130, 246, 0.4)';
@@ -1211,12 +1638,26 @@ const CustomReport = () => {
         </div>
       </div>
 
-      {/* Keyframe animation for spinner */}
+      {/* Keyframe animations */}
       <style>
         {`
           @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px) scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
           }
         `}
       </style>

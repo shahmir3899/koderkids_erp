@@ -1,18 +1,78 @@
 // ============================================
 // ADMIN SERVICE - API calls for Admin Profile
-// UPDATED: Uses centralized API config
+// UPDATED: With localStorage caching for faster page loads
 // Location: frontend/src/services/adminService.js
 // ============================================
 
 import axios from 'axios';
 import { API_URL, getAuthHeaders, getJsonHeaders, getMultipartHeaders } from '../api';
 
+// Cache configuration
+const CACHE_KEY = 'admin_profile';
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+
 /**
- * Get current admin's profile
+ * Get cached data if still valid
+ */
+const getCachedData = (cacheKey) => {
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (!cached) return null;
+
+    const { data, timestamp } = JSON.parse(cached);
+    const age = Date.now() - timestamp;
+
+    if (age > CACHE_DURATION) {
+      localStorage.removeItem(cacheKey);
+      console.log(`🗑️ Admin profile cache expired (age: ${Math.round(age / 1000)}s)`);
+      return null;
+    }
+
+    console.log(`⚡ Admin profile cache hit (age: ${Math.round(age / 1000)}s)`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error reading admin profile cache:', error);
+    return null;
+  }
+};
+
+/**
+ * Save data to cache
+ */
+const setCachedData = (cacheKey, data) => {
+  try {
+    const cacheObject = { data, timestamp: Date.now() };
+    localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
+    console.log('💾 Admin profile cached');
+  } catch (error) {
+    console.error('❌ Error caching admin profile:', error);
+  }
+};
+
+/**
+ * Clear admin profile cache
+ */
+export const clearAdminProfileCache = () => {
+  localStorage.removeItem(CACHE_KEY);
+  console.log('🗑️ Admin profile cache cleared');
+};
+
+/**
+ * Get current admin's profile (WITH CACHING)
+ * @param {boolean} bypassCache - Force fresh fetch
  * @returns {Promise} Admin profile data
  */
-export const getAdminProfile = async () => {
+export const getAdminProfile = async (bypassCache = false) => {
+  // Try cache first (unless bypassed)
+  if (!bypassCache) {
+    const cached = getCachedData(CACHE_KEY);
+    if (cached !== null) {
+      return cached;
+    }
+  }
+
   try {
+    console.log('🌐 Fetching admin profile from API...');
     const response = await axios.get(
       `${API_URL}/employees/admin/profile/`,
       {
@@ -21,6 +81,10 @@ export const getAdminProfile = async () => {
     );
 
     console.log('✅ Admin profile loaded:', response.data);
+
+    // Cache the response
+    setCachedData(CACHE_KEY, response.data);
+
     return response.data;
   } catch (error) {
     console.error('❌ Error fetching admin profile:', error);
@@ -44,6 +108,10 @@ export const updateAdminProfile = async (profileData) => {
     );
 
     console.log('✅ Admin profile updated:', response.data);
+
+    // Update cache with new data
+    setCachedData(CACHE_KEY, response.data);
+
     return response.data;
   } catch (error) {
     console.error('❌ Error updating admin profile:', error);
@@ -98,9 +166,12 @@ export const deleteAdminPhoto = async () => {
   }
 };
 
-export default {
+const adminService = {
   getAdminProfile,
   updateAdminProfile,
   uploadAdminPhoto,
   deleteAdminPhoto,
+  clearAdminProfileCache,
 };
+
+export default adminService;

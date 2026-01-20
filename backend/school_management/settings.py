@@ -95,6 +95,8 @@ INSTALLED_APPS = [
     'dashboards',
     'crm',
     'tasks',
+    'commands',
+    'ai',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]
@@ -194,3 +196,56 @@ print(f"SSL: {EMAIL_USE_SSL}")
 print(f"PASSWORD SET: {'Yes' if EMAIL_HOST_PASSWORD else 'No (MISSING!)'}")
 print(f"FROM EMAIL: {DEFAULT_FROM_EMAIL}")
 print("="*50 + "\n")
+
+# ============================================
+# OLLAMA AI CONFIGURATION
+# ============================================
+OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'deepseek-coder:6.7b')
+OLLAMA_TIMEOUT = int(os.getenv('OLLAMA_TIMEOUT', '180'))  # 3 minutes (first request loads model into memory)
+
+# AI Agent Settings
+AI_CONFIRMATION_EXPIRY = 300  # 5 minutes for delete confirmations
+AI_ENABLE_AUDIT_LOG = True
+AI_FALLBACK_TO_TEMPLATE = True  # Use template mode if Ollama unavailable
+
+# ============================================
+# LOGGING CONFIGURATION
+# ============================================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'ai': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'ai.ollama_client': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'ai.service': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}

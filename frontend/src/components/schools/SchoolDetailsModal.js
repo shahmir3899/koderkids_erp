@@ -3,7 +3,7 @@
 // Updated with Payment Mode Configuration
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { updateSchool, fetchSchoolStats } from '../../api/services/schoolService';
 import { uploadSchoolLogo } from '../../utils/supabaseUpload';
@@ -54,12 +54,26 @@ export const SchoolDetailsModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // Load detailed stats - wrapped in useCallback
+  const loadStats = useCallback(async () => {
+    if (!school?.id) return;
+    setIsLoadingStats(true);
+    try {
+      const data = await fetchSchoolStats(school.id);
+      setStats(data);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, [school?.id]);
+
   // Load school stats when modal opens
   useEffect(() => {
     if (isOpen && school?.id) {
       loadStats();
     }
-  }, [isOpen, school?.id]);
+  }, [isOpen, school?.id, loadStats]);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -98,19 +112,6 @@ export const SchoolDetailsModal = ({
       });
     }
   }, [school]);
-
-  // Load detailed stats
-  const loadStats = async () => {
-    setIsLoadingStats(true);
-    try {
-      const data = await fetchSchoolStats(school.id);
-      setStats(data);
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    } finally {
-      setIsLoadingStats(false);
-    }
-  };
 
   // Handle input change
   const handleChange = (e) => {

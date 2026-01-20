@@ -1,11 +1,66 @@
 // ============================================
 // STUDENT SERVICE - Complete API calls
-// UPDATED: Uses centralized API config
+// UPDATED: With localStorage caching for faster page loads
 // Location: frontend/src/services/studentService.js
 // ============================================
 
 import axios from 'axios';
 import { API_URL, getAuthHeaders, getJsonHeaders, getMultipartHeaders } from '../api';
+
+// ============================================
+// LOCALSTORAGE CACHING UTILITIES
+// ============================================
+const CACHE_KEYS = {
+  profile: 'student_profile',
+  dashboardData: 'student_dashboard_data',
+};
+
+const CACHE_DURATIONS = {
+  profile: 30 * 60 * 1000,       // 30 minutes
+  dashboardData: 10 * 60 * 1000, // 10 minutes
+};
+
+const getCachedData = (cacheKey, duration) => {
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (!cached) return null;
+
+    const { data, timestamp } = JSON.parse(cached);
+    const age = Date.now() - timestamp;
+
+    if (age > duration) {
+      localStorage.removeItem(cacheKey);
+      console.log(`🗑️ Student cache expired: ${cacheKey}`);
+      return null;
+    }
+
+    console.log(`⚡ Student cache hit: ${cacheKey} (age: ${Math.round(age / 1000)}s)`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error reading student cache:', error);
+    return null;
+  }
+};
+
+const setCachedData = (cacheKey, data) => {
+  try {
+    const cacheObject = { data, timestamp: Date.now() };
+    localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
+    console.log(`💾 Student cached: ${cacheKey}`);
+  } catch (error) {
+    console.error('❌ Error caching student data:', error);
+  }
+};
+
+/**
+ * Clear all student caches
+ */
+export const clearStudentCache = () => {
+  Object.values(CACHE_KEYS).forEach(key => {
+    localStorage.removeItem(key);
+  });
+  console.log('🗑️ All student caches cleared');
+};
 
 // ============================================
 // ADMIN STUDENT MANAGEMENT (for StudentsPage)
@@ -86,12 +141,22 @@ export const deleteStudent = async (studentId) => {
 // ============================================
 
 /**
- * Get current student's complete profile
+ * Get current student's complete profile (WITH CACHING)
  * Uses ViewSet endpoint: /api/students/profile/
+ * @param {boolean} bypassCache - Force fresh fetch
  * @returns {Promise} Student profile data including fees and attendance
  */
-export const getStudentProfile = async () => {
+export const getStudentProfile = async (bypassCache = false) => {
+  // Try cache first
+  if (!bypassCache) {
+    const cached = getCachedData(CACHE_KEYS.profile, CACHE_DURATIONS.profile);
+    if (cached !== null) {
+      return cached;
+    }
+  }
+
   try {
+    console.log('🌐 Fetching student profile from API...');
     const response = await axios.get(
       `${API_URL}/api/students/profile/`,
       {
@@ -100,6 +165,10 @@ export const getStudentProfile = async () => {
     );
 
     console.log('✅ Student profile loaded:', response.data);
+
+    // Cache the response
+    setCachedData(CACHE_KEYS.profile, response.data);
+
     return response.data;
   } catch (error) {
     console.error('❌ Error fetching student profile:', error);
@@ -132,10 +201,14 @@ export const updateStudentProfile = async (profileData) => {
     );
 
     console.log('✅ Student profile updated:', response.data);
+
+    // Update cache with new data
+    setCachedData(CACHE_KEYS.profile, response.data);
+
     return response.data;
   } catch (error) {
     console.error('❌ Error updating student profile:', error);
-    
+
     // Handle specific error cases
     if (error.response?.status === 403) {
       throw new Error('You do not have permission to update this profile.');
@@ -145,7 +218,7 @@ export const updateStudentProfile = async (profileData) => {
       // Return validation errors from serializer
       throw new Error(JSON.stringify(error.response.data));
     }
-    
+
     throw error;
   }
 };
@@ -266,22 +339,27 @@ export const getCompleteStudentProfile = async () => {
   return getStudentProfile();
 };
 
-export default {
+const studentService = {
   // Admin CRUD
   fetchStudents,
   updateStudent,
   deleteStudent,
-  
+
   // Student Profile
   getStudentProfile,
   updateStudentProfile,
   patchStudentProfile,
-  
+
   // Photo management
   uploadStudentPhoto,
   deleteStudentPhoto,
-  
+
   // Legacy/Deprecated
   getStudentUser,
   getCompleteStudentProfile,
+
+  // Cache management
+  clearStudentCache,
 };
+
+export default studentService;

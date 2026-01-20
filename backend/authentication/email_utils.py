@@ -333,3 +333,103 @@ def send_password_reset_link_email(user, uid, token):
 # ============================================
 # END OF NEW CODE
 # ============================================
+
+
+def send_student_progress_email(student, session_date, image_url, lesson_plan=None):
+    """
+    Send progress email to student when they upload a progress image.
+
+    Args:
+        student: Student model instance
+        session_date: Date of the session (string or date object)
+        image_url: URL of the uploaded image
+        lesson_plan: LessonPlan model instance (optional)
+
+    Returns:
+        dict: {
+            'success': bool,
+            'email_sent': bool,
+            'has_email': bool,
+            'message': str
+        }
+    """
+    # Check if student has an associated user with email
+    if not student.user:
+        return {
+            'success': True,
+            'email_sent': False,
+            'has_email': False,
+            'message': 'Student has no linked user account'
+        }
+
+    user_email = student.user.email
+    if not user_email:
+        return {
+            'success': True,
+            'email_sent': False,
+            'has_email': False,
+            'message': 'No email configured for this student'
+        }
+
+    try:
+        # Format session date for display
+        if hasattr(session_date, 'strftime'):
+            formatted_date = session_date.strftime('%B %d, %Y')
+        else:
+            from datetime import datetime
+            try:
+                parsed_date = datetime.strptime(str(session_date), '%Y-%m-%d')
+                formatted_date = parsed_date.strftime('%B %d, %Y')
+            except:
+                formatted_date = str(session_date)
+
+        # Get planned lesson text
+        planned_lesson = None
+        if lesson_plan:
+            # Try to get formatted topics first, fallback to plain text
+            planned_lesson = lesson_plan._build_planned_topic_from_fks()
+            if not planned_lesson:
+                planned_lesson = lesson_plan.planned_topic
+
+        # Build email context
+        context = {
+            'student_name': student.name,
+            'session_date': formatted_date,
+            'school_name': student.school.name if student.school else 'Unknown School',
+            'student_class': student.student_class or 'Unknown Class',
+            'planned_lesson': planned_lesson,
+            'image_url': image_url,
+        }
+
+        subject = f'Your Progress Update - {formatted_date}'
+
+        # Render HTML email
+        html_message = render_to_string('emails/student_progress_email.html', context)
+        plain_message = strip_tags(html_message)
+
+        # Send email
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+
+        logger.info(f"Progress email sent to {student.name} ({user_email})")
+        return {
+            'success': True,
+            'email_sent': True,
+            'has_email': True,
+            'message': f'Progress email sent to {user_email}'
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to send progress email to {student.name}: {str(e)}")
+        return {
+            'success': False,
+            'email_sent': False,
+            'has_email': True,
+            'message': f'Failed to send email: {str(e)}'
+        }

@@ -1,0 +1,73 @@
+# ============================================
+# Render Blueprint Configuration
+# ============================================
+# This configures deployment for:
+# - Backend: Django + Ollama (AI Agent)
+# - Frontend: React (static site)
+# ============================================
+
+services:
+  # ============================================
+  # BACKEND SERVICE (Django + Ollama)
+  # ============================================
+  - type: web
+    name: school-management-backend-ai
+    env: docker
+    dockerfilePath: ./backend/Dockerfile.ai
+    dockerContext: ./backend
+    region: oregon  # Choose your preferred region
+    plan: starter   # 2 CPU, 8GB RAM - required for Ollama
+
+    # Health check
+    healthCheckPath: /api/health/
+
+    # Environment variables
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DJANGO_SETTINGS_MODULE
+        value: school_management.settings
+      - key: DEBUG
+        value: "False"
+      - key: OLLAMA_HOST
+        value: "http://localhost:11434"
+      - key: AI_ENABLED
+        value: "true"
+      # Add your existing env vars here
+      - key: DATABASE_URL
+        sync: false  # Set manually in Render dashboard
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost"
+
+    # Disk for Ollama models (persistent storage)
+    disk:
+      name: ollama-models
+      mountPath: /app/ollama_models
+      sizeGB: 5  # phi3:mini is ~2.3GB
+
+  # ============================================
+  # FRONTEND SERVICE (React Static Site)
+  # ============================================
+  - type: web
+    name: school-management-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/build
+
+    # Route all requests to index.html (SPA)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    # Headers
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://school-management-backend-ai.onrender.com

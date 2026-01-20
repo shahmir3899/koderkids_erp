@@ -7,7 +7,6 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 // Design Constants
@@ -124,7 +123,6 @@ const ACTION_BUTTON_COLORS = {
 };
 
 function LeadsListPage() {
-  const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
 
   // ============================================
@@ -212,6 +210,7 @@ function LeadsListPage() {
       overflow: 'hidden',
       overflowX: 'auto',
       WebkitOverflowScrolling: 'touch', // iOS smooth scrolling
+      boxShadow: SHADOWS.lg,
     },
     actionsContainer: {
       display: 'flex',

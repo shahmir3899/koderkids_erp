@@ -1,0 +1,238 @@
+[
+  {
+    "model": "commands.quickaction",
+    "pk": 1,
+    "fields": {
+      "name": "Inventory Summary",
+      "icon": "package",
+      "agent": "inventory",
+      "description": "Get overview of all inventory items by status and category",
+      "command_template": "Show inventory summary",
+      "required_params": [],
+      "api_endpoint": "/api/inventory/summary/",
+      "api_method": "GET",
+      "allowed_roles": ["Admin", "Teacher"],
+      "is_active": true,
+      "order": 1,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 2,
+    "fields": {
+      "name": "Electronics Items",
+      "icon": "monitor",
+      "agent": "inventory",
+      "description": "View all items in Electronics category",
+      "command_template": "Show Electronics items",
+      "required_params": [],
+      "api_endpoint": "/api/inventory/items/",
+      "api_method": "GET",
+      "allowed_roles": ["Admin", "Teacher"],
+      "is_active": true,
+      "order": 2,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 3,
+    "fields": {
+      "name": "Available Items",
+      "icon": "check-circle",
+      "agent": "inventory",
+      "description": "View all available inventory items",
+      "command_template": "Show available items",
+      "required_params": [],
+      "api_endpoint": "/api/inventory/items/",
+      "api_method": "GET",
+      "allowed_roles": ["Admin", "Teacher"],
+      "is_active": true,
+      "order": 3,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 4,
+    "fields": {
+      "name": "Damaged Items",
+      "icon": "alert-triangle",
+      "agent": "inventory",
+      "description": "View all damaged inventory items",
+      "command_template": "Show damaged items",
+      "required_params": [],
+      "api_endpoint": "/api/inventory/items/",
+      "api_method": "GET",
+      "allowed_roles": ["Admin", "Teacher"],
+      "is_active": true,
+      "order": 4,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 5,
+    "fields": {
+      "name": "Mark Absent",
+      "icon": "user-x",
+      "agent": "hr",
+      "description": "Mark yourself as absent for today",
+      "command_template": "Mark me absent today",
+      "required_params": [],
+      "api_endpoint": "/api/commands/staff-attendance/",
+      "api_method": "POST",
+      "allowed_roles": ["Admin", "Teacher"],
+      "is_active": true,
+      "order": 5,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 6,
+    "fields": {
+      "name": "Who's Absent",
+      "icon": "users",
+      "agent": "hr",
+      "description": "Check who is absent today",
+      "command_template": "Who is absent today",
+      "required_params": [],
+      "api_endpoint": "/api/commands/staff-attendance/",
+      "api_method": "GET",
+      "allowed_roles": ["Admin"],
+      "is_active": true,
+      "order": 6,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 7,
+    "fields": {
+      "name": "Find Substitute",
+      "icon": "user-plus",
+      "agent": "hr",
+      "description": "Find available teachers for substitution",
+      "command_template": "Find substitute for today",
+      "required_params": [],
+      "api_endpoint": "/api/commands/staff-attendance/available_teachers/",
+      "api_method": "GET",
+      "allowed_roles": ["Admin"],
+      "is_active": true,
+      "order": 7,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 8,
+    "fields": {
+      "name": "Pending Fees",
+      "icon": "dollar-sign",
+      "agent": "finance",
+      "description": "Show pending fee payments",
+      "command_template": "Show pending fees",
+      "required_params": [],
+      "api_endpoint": "/api/fees/",
+      "api_method": "GET",
+      "allowed_roles": ["Admin"],
+      "is_active": true,
+      "order": 8,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 9,
+    "fields": {
+      "name": "Fee Summary",
+      "icon": "pie-chart",
+      "agent": "finance",
+      "description": "Get fee collection summary",
+      "command_template": "Fee summary",
+      "required_params": [],
+      "api_endpoint": "/api/fee-summary/",
+      "api_method": "GET",
+      "allowed_roles": ["Admin"],
+      "is_active": true,
+      "order": 9,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 10,
+    "fields": {
+      "name": "Notify Parents",
+      "icon": "bell",
+      "agent": "broadcast",
+      "description": "Send notification to parents of a class",
+      "command_template": "Tell Class {class} parents that {message}",
+      "required_params": [
+        {"name": "class", "label": "Class", "type": "text", "placeholder": "e.g., 10"},
+        {"name": "message", "label": "Message", "type": "text", "placeholder": "e.g., school is closed tomorrow"}
+      ],
+      "api_endpoint": "/api/employees/notifications/send-to-class/",
+      "api_method": "POST",
+      "allowed_roles": ["Admin"],
+      "is_active": true,
+      "order": 10,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 11,
+    "fields": {
+      "name": "Message Teachers",
+      "icon": "message-circle",
+      "agent": "broadcast",
+      "description": "Send message to all teachers",
+      "command_template": "Send to all teachers: {message}",
+      "required_params": [
+        {"name": "message", "label": "Message", "type": "text", "placeholder": "e.g., Staff meeting at 4 PM"}
+      ],
+      "api_endpoint": "/employees/notifications/send-to-all/",
+      "api_method": "POST",
+      "allowed_roles": ["Admin"],
+      "is_active": true,
+      "order": 11,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  },
+  {
+    "model": "commands.quickaction",
+    "pk": 12,
+    "fields": {
+      "name": "Request Items",
+      "icon": "shopping-cart",
+      "agent": "inventory",
+      "description": "Request procurement of items",
+      "command_template": "Request {quantity} {item_name}",
+      "required_params": [
+        {"name": "quantity", "label": "Quantity", "type": "number", "placeholder": "e.g., 20"},
+        {"name": "item_name", "label": "Item Description", "type": "text", "placeholder": "e.g., Laptops for computer lab"}
+      ],
+      "api_endpoint": "/api/notifications/",
+      "api_method": "POST",
+      "allowed_roles": ["Admin", "Teacher"],
+      "is_active": true,
+      "order": 12,
+      "created_at": "2026-01-19T00:00:00Z",
+      "updated_at": "2026-01-19T00:00:00Z"
+    }
+  }
+]

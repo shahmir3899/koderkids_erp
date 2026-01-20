@@ -62,24 +62,25 @@ class TeacherListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get list of all teachers"""
-        teachers = CustomUser.objects.filter(role='Teacher').select_related()
-        
+        """Get list of all active teachers"""
+        teachers = CustomUser.objects.filter(role='Teacher', is_active=True).select_related()
+
         teacher_list = []
         for teacher in teachers:
             # Get profile if exists
             profile = getattr(teacher, 'teacher_profile', None)
-            
+
             teacher_list.append({
                 'id': teacher.id,
                 'username': teacher.username,
                 'email': teacher.email,
                 'name': teacher.get_full_name() or teacher.username,
+                'full_name': teacher.get_full_name() or teacher.username,
                 'first_name': teacher.first_name,
                 'last_name': teacher.last_name,
                 'employee_id': profile.employee_id if profile else None,
             })
-        
+
         return Response(teacher_list)
 
 

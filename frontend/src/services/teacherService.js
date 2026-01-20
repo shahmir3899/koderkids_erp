@@ -1,5 +1,6 @@
 // ============================================
-// TEACHER SERVICE - API Functions for Teacher (FIXED URLs)
+// TEACHER SERVICE - API Functions for Teacher
+// UPDATED: With localStorage caching for faster page loads
 // ============================================
 // Location: src/services/teacherService.js
 
@@ -10,20 +11,99 @@ import { getAuthHeaders, API_URL } from '../api';
 const EMPLOYEES_URL = `${API_URL}/employees`;
 
 // ============================================
+// LOCALSTORAGE CACHING UTILITIES
+// ============================================
+const CACHE_KEYS = {
+  profile: 'teacher_profile',
+  dashboardData: 'teacher_dashboard_data',
+  lessons: 'teacher_lessons',
+  monthlyData: 'teacher_monthly_data',
+};
+
+const CACHE_DURATIONS = {
+  profile: 30 * 60 * 1000,      // 30 minutes
+  dashboardData: 10 * 60 * 1000, // 10 minutes
+  lessons: 5 * 60 * 1000,        // 5 minutes (lessons change frequently)
+  monthlyData: 10 * 60 * 1000,   // 10 minutes
+};
+
+const getCachedData = (cacheKey, duration) => {
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (!cached) return null;
+
+    const { data, timestamp } = JSON.parse(cached);
+    const age = Date.now() - timestamp;
+
+    if (age > duration) {
+      localStorage.removeItem(cacheKey);
+      console.log(`🗑️ Teacher cache expired: ${cacheKey}`);
+      return null;
+    }
+
+    console.log(`⚡ Teacher cache hit: ${cacheKey} (age: ${Math.round(age / 1000)}s)`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error reading teacher cache:', error);
+    return null;
+  }
+};
+
+const setCachedData = (cacheKey, data) => {
+  try {
+    const cacheObject = { data, timestamp: Date.now() };
+    localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
+    console.log(`💾 Teacher cached: ${cacheKey}`);
+  } catch (error) {
+    console.error('❌ Error caching teacher data:', error);
+  }
+};
+
+/**
+ * Clear all teacher caches
+ */
+export const clearTeacherCache = () => {
+  Object.values(CACHE_KEYS).forEach(key => {
+    localStorage.removeItem(key);
+  });
+  // Also clear monthly data caches
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('teacher_monthly_')) {
+      localStorage.removeItem(key);
+    }
+  }
+  console.log('🗑️ All teacher caches cleared');
+};
+
+// ============================================
 // TEACHER PROFILE API
 // ============================================
 
 /**
- * Get the current teacher's profile
+ * Get the current teacher's profile (WITH CACHING)
+ * @param {boolean} bypassCache - Force fresh fetch
  * @returns {Promise<Object>} Teacher profile data
  */
-export const getTeacherProfile = async () => {
+export const getTeacherProfile = async (bypassCache = false) => {
+  // Try cache first
+  if (!bypassCache) {
+    const cached = getCachedData(CACHE_KEYS.profile, CACHE_DURATIONS.profile);
+    if (cached !== null) {
+      return cached;
+    }
+  }
+
   try {
-    console.log('📡 Fetching teacher profile...');
+    console.log('🌐 Fetching teacher profile from API...');
     const response = await axios.get(`${EMPLOYEES_URL}/teacher/profile/`, {
       headers: getAuthHeaders(),
     });
     console.log('✅ Teacher profile fetched:', response.data);
+
+    // Cache the response
+    setCachedData(CACHE_KEYS.profile, response.data);
+
     return response.data;
   } catch (error) {
     console.error('❌ Error fetching teacher profile:', error.response?.data || error.message);
@@ -46,6 +126,10 @@ export const updateTeacherProfile = async (profileData) => {
       },
     });
     console.log('✅ Teacher profile updated:', response.data);
+
+    // Update cache with new data
+    setCachedData(CACHE_KEYS.profile, response.data);
+
     return response.data;
   } catch (error) {
     console.error('❌ Error updating teacher profile:', error.response?.data || error.message);
@@ -99,16 +183,29 @@ export const deleteProfilePhoto = async () => {
 };
 
 /**
- * Get all teacher dashboard data in one call
+ * Get all teacher dashboard data in one call (WITH CACHING)
+ * @param {boolean} bypassCache - Force fresh fetch
  * @returns {Promise<Object>} Dashboard data including profile, notifications, etc.
  */
-export const getTeacherDashboardData = async () => {
+export const getTeacherDashboardData = async (bypassCache = false) => {
+  // Try cache first
+  if (!bypassCache) {
+    const cached = getCachedData(CACHE_KEYS.dashboardData, CACHE_DURATIONS.dashboardData);
+    if (cached !== null) {
+      return cached;
+    }
+  }
+
   try {
-    console.log('📡 Fetching teacher dashboard data...');
+    console.log('🌐 Fetching teacher dashboard data from API...');
     const response = await axios.get(`${EMPLOYEES_URL}/teacher/dashboard-data/`, {
       headers: getAuthHeaders(),
     });
     console.log('✅ Dashboard data fetched:', response.data);
+
+    // Cache the response
+    setCachedData(CACHE_KEYS.dashboardData, response.data);
+
     return response.data;
   } catch (error) {
     console.error('❌ Error fetching dashboard data:', error.response?.data || error.message);
@@ -227,7 +324,7 @@ export const getTeacherDeductions = async () => {
   }
 };
 
-export default {
+const teacherService = {
   getTeacherProfile,
   updateTeacherProfile,
   uploadProfilePhoto,
@@ -239,4 +336,7 @@ export default {
   markAllNotificationsAsRead,
   getTeacherEarnings,
   getTeacherDeductions,
+  clearTeacherCache,
 };
+
+export default teacherService;

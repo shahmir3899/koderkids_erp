@@ -18,6 +18,7 @@ import {
   FONT_WEIGHTS,
   BORDER_RADIUS,
   TRANSITIONS,
+  MIXINS,
 } from '../../../utils/designConstants';
 
 /**
@@ -28,7 +29,7 @@ const parseToHTML = (text) => {
     .replace(/\*(.*?)\*/g, '<strong>$1</strong>') // Bold
     .replace(/~(.*?)~/g, '<s>$1</s>') // Strikethrough
     .replace(/_(.*?)_/g, '<em>$1</em>') // Italic
-    .replace(/```(.*?)```/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px;">$1</code>') // Monospace
+    .replace(/```(.*?)```/g, '<code style="background:rgba(255,255,255,0.15);padding:2px 4px;border-radius:3px;">$1</code>') // Monospace
     .replace(/^\s*-\s+(.*)$/gm, '<li>$1</li>') // Bulleted list
     .replace(/^\s*(\d+)\.\s+(.*)$/gm, "<li value='$1'>$2</li>") // Numbered list
     .replace(/\n/g, '<br>'); // New lines
@@ -172,8 +173,7 @@ export const RichTextEditor = ({
     alignItems: 'center',
     gap: SPACING.xs,
     padding: SPACING.xs,
-    backgroundColor: COLORS.background.white,
-    border: `1px solid ${COLORS.border.light}`,
+    ...MIXINS.glassmorphicSubtle,
     borderBottom: 'none',
     borderRadius: `${BORDER_RADIUS.sm} ${BORDER_RADIUS.sm} 0 0`,
   };
@@ -185,7 +185,7 @@ export const RichTextEditor = ({
     borderRadius: BORDER_RADIUS.xs,
     cursor: 'pointer',
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
     transition: `background-color ${TRANSITIONS.fast} ease`,
   };
 
@@ -193,38 +193,40 @@ export const RichTextEditor = ({
     width: '100%',
     height: `${textAreaHeight}px`,
     padding: SPACING.sm,
-    border: `1px solid ${COLORS.border.light}`,
+    ...MIXINS.glassmorphicSubtle,
     borderRadius: `0 0 ${BORDER_RADIUS.sm} ${BORDER_RADIUS.sm}`,
     fontSize: FONT_SIZES.sm,
     fontFamily: 'inherit',
     resize: 'none',
     outline: 'none',
+    color: COLORS.text.white,
     transition: `border-color ${TRANSITIONS.fast} ease`,
   };
 
   const previewStyle = {
     height: `${textAreaHeight}px`,
     padding: SPACING.sm,
-    backgroundColor: COLORS.background.white,
-    border: `1px solid ${COLORS.border.light}`,
+    ...MIXINS.glassmorphicSubtle,
     borderRadius: BORDER_RADIUS.sm,
     overflow: 'auto',
     fontSize: FONT_SIZES.sm,
     lineHeight: '1.6',
+    color: COLORS.text.white,
   };
 
   const labelStyle = {
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
   };
 
   const selectStyle = {
     padding: `${SPACING.xs} ${SPACING.xs}`,
-    border: `1px solid ${COLORS.border.light}`,
+    ...MIXINS.glassmorphicSelect,
     borderRadius: BORDER_RADIUS.xs,
     fontSize: FONT_SIZES.xs,
     cursor: 'pointer',
+    color: COLORS.text.white,
   };
 
   const sliderContainerStyle = {
@@ -254,7 +256,7 @@ export const RichTextEditor = ({
               onClick={() => formatText('bold')}
               style={toolbarButtonStyle}
               title="Bold (*text*)"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255,255,255,0.15)')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               <strong>B</strong>
@@ -264,7 +266,7 @@ export const RichTextEditor = ({
               onClick={() => formatText('italic')}
               style={toolbarButtonStyle}
               title="Italic (_text_)"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255,255,255,0.15)')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               <em>I</em>
@@ -274,7 +276,7 @@ export const RichTextEditor = ({
               onClick={() => formatText('strike')}
               style={toolbarButtonStyle}
               title="Strikethrough (~text~)"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255,255,255,0.15)')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               <s>S</s>
@@ -284,20 +286,20 @@ export const RichTextEditor = ({
               onClick={() => formatText('mono')}
               style={toolbarButtonStyle}
               title="Monospace (```text```)"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255,255,255,0.15)')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               <code style={{ fontFamily: 'monospace' }}>M</code>
             </button>
 
-            <div style={{ width: '1px', height: '20px', backgroundColor: COLORS.border.light, margin: `0 ${SPACING.xs}` }} />
+            <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.2)', margin: `0 ${SPACING.xs}` }} />
 
             <button
               type="button"
               onClick={() => formatText('bullet')}
               style={toolbarButtonStyle}
               title="Bullet List"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255,255,255,0.15)')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               •
@@ -307,20 +309,20 @@ export const RichTextEditor = ({
               onClick={() => formatText('number')}
               style={toolbarButtonStyle}
               title="Numbered List"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255,255,255,0.15)')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               1.
             </button>
 
-            <div style={{ width: '1px', height: '20px', backgroundColor: COLORS.border.light, margin: `0 ${SPACING.xs}` }} />
+            <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.2)', margin: `0 ${SPACING.xs}` }} />
 
             <button
               type="button"
               onClick={() => formatText('newline')}
               style={toolbarButtonStyle}
               title="New Line"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255,255,255,0.15)')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               ↵
@@ -330,7 +332,7 @@ export const RichTextEditor = ({
               onClick={() => formatText('emptyline')}
               style={toolbarButtonStyle}
               title="Empty Line"
-              onMouseEnter={(e) => (e.target.style.backgroundColor = COLORS.background.offWhite)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255,255,255,0.15)')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = 'transparent')}
             >
               ⏎
@@ -339,23 +341,23 @@ export const RichTextEditor = ({
             {/* Line Spacing */}
             {showLineSpacing && onLineSpacingChange && (
               <>
-                <div style={{ width: '1px', height: '20px', backgroundColor: COLORS.border.light, margin: `0 ${SPACING.xs}` }} />
+                <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.2)', margin: `0 ${SPACING.xs}` }} />
                 <select
                   value={lineSpacing}
                   onChange={(e) => onLineSpacingChange(e.target.value)}
                   style={selectStyle}
                   title="Line Spacing"
                 >
-                  <option value="single">Single</option>
-                  <option value="1.5">1.5</option>
-                  <option value="double">Double</option>
+                  <option value="single" style={MIXINS.selectOption}>Single</option>
+                  <option value="1.5" style={MIXINS.selectOption}>1.5</option>
+                  <option value="double" style={MIXINS.selectOption}>Double</option>
                 </select>
               </>
             )}
 
             {/* Height Slider */}
             <div style={sliderContainerStyle}>
-              <span style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.secondary }}>Height:</span>
+              <span style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.white }}>Height:</span>
               <input
                 type="range"
                 min={minHeight}
@@ -365,7 +367,7 @@ export const RichTextEditor = ({
                 style={{ width: '80px', cursor: 'pointer' }}
                 title="Adjust Text Area Height"
               />
-              <span style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.secondary }}>{textAreaHeight}px</span>
+              <span style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.white }}>{textAreaHeight}px</span>
             </div>
           </div>
 
@@ -378,7 +380,7 @@ export const RichTextEditor = ({
             style={textareaStyle}
             required={required}
             onFocus={(e) => (e.target.style.borderColor = COLORS.status.info)}
-            onBlur={(e) => (e.target.style.borderColor = COLORS.border.light)}
+            onBlur={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
           />
         </div>
 
@@ -389,9 +391,8 @@ export const RichTextEditor = ({
               style={{
                 ...labelStyle,
                 padding: SPACING.xs,
-                backgroundColor: COLORS.background.lightGray,
+                ...MIXINS.glassmorphicSubtle,
                 borderRadius: `${BORDER_RADIUS.sm} ${BORDER_RADIUS.sm} 0 0`,
-                border: `1px solid ${COLORS.border.light}`,
                 borderBottom: 'none',
               }}
             >
@@ -403,7 +404,7 @@ export const RichTextEditor = ({
       </div>
 
       {/* Help Text */}
-      <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.tertiary }}>
+      <div style={{ fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.7)' }}>
         Use *bold*, _italic_, ~strike~, ```mono``` for formatting. Use - or 1. for lists.
       </div>
     </div>

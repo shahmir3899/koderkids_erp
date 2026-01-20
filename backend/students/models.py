@@ -49,8 +49,20 @@ class School(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Soft delete fields
+    deactivated_at = models.DateTimeField(null=True, blank=True, help_text="When the school was deactivated")
+    deactivated_by = models.ForeignKey(
+        'students.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='schools_deactivated',
+        help_text="User who deactivated this school"
+    )
+
     def __str__(self):
         return self.name
+
     class Meta:
         ordering = ['name']
 
@@ -62,16 +74,22 @@ class CustomUser(AbstractUser):
         ('Student', 'Student'),
         ('BDM', 'Business Development Manager'),
     ]
-     # Override email to make it unique
+    # Override email to make it unique (but allow NULL for users without email)
     email = models.EmailField(
         ('email address'),
-        blank=False,
-        unique=True,  # ← ADDED
-        null=True,
+        blank=True,   # Allow empty in forms
+        unique=True,  # Unique constraint (NULL values are ignored by PostgreSQL)
+        null=True,    # Allow NULL in database
         error_messages={
             'unique': 'A user with this email already exists.',
         }
     )
+
+    def save(self, *args, **kwargs):
+        # Convert empty string email to None to avoid unique constraint issues
+        if self.email == '':
+            self.email = None
+        super().save(*args, **kwargs)
     # Profile Photo URL (ADD THIS)
     profile_photo_url = models.URLField(
         max_length=500, 

@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import { useAuth } from "../auth";
 import Compressor from "compressorjs";
 import { getAuthHeaders } from "../api";
+import { EmailPromptModal } from "../components/common/modals/EmailPromptModal";
 
 // Design Constants
 import {
@@ -125,6 +126,7 @@ const StudentProgressPage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [sessionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
 
 useEffect(() => {
   if (authLoading) return;
@@ -269,10 +271,20 @@ useEffect(() => {
 
     console.log("Upload success:", res.data);
 
-    // Backend returns: image_url
+    // Backend returns: image_url, email_sent, has_email
     setCurrentImage(res.data.image_url);
     setSelectedFile(null);
-    toast.success("Uploaded successfully!");
+
+    // Handle email notification based on response
+    if (res.data.email_sent) {
+      toast.success("Uploaded! Progress email sent to your inbox.");
+    } else if (res.data.has_email === false) {
+      // No email configured - show prompt modal
+      toast.success("Uploaded successfully!");
+      setShowEmailPrompt(true);
+    } else {
+      toast.success("Uploaded successfully!");
+    }
   } catch (err) {
     console.error("Upload error:", err.response?.data || err);
     toast.error(err.response?.data?.error || "Upload failed");
@@ -412,6 +424,13 @@ useEffect(() => {
           </div>
         </div>
       </div>
+
+      {/* Email Prompt Modal - shown when student has no email configured */}
+      <EmailPromptModal
+        isOpen={showEmailPrompt}
+        onClose={() => setShowEmailPrompt(false)}
+        settingsPath="/student/settings"
+      />
     </div>
   );
 };

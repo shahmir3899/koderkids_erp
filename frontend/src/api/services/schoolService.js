@@ -185,21 +185,76 @@ export const updateSchool = async (schoolId, schoolData) => {
 };
 
 /**
- * Delete a school (Admin only)
+ * Deactivate a school (Soft Delete - Admin only)
+ * This will:
+ * - Set school is_active to false
+ * - Mark all active students as 'Left'
+ * - Remove school from all teachers' assigned_schools
  * @param {number} schoolId - School ID
- * @returns {Promise<void>}
+ * @returns {Promise<Object>} Deactivation result with details
  */
 export const deleteSchool = async (schoolId) => {
   try {
-    console.log(`📡 Deleting school ${schoolId}...`);
-    
-    await axios.delete(`${API_URL}${API_ENDPOINTS.SCHOOLS}${schoolId}/`, {
+    console.log(`📡 Deactivating school ${schoolId}...`);
+
+    const response = await axios.delete(`${API_URL}${API_ENDPOINTS.SCHOOLS}${schoolId}/`, {
       headers: getAuthHeaders(),
     });
 
-    console.log('✅ School deleted successfully');
+    console.log('✅ School deactivated successfully:', response.data);
+    return response.data;
   } catch (error) {
-    console.error('❌ Error deleting school:', error.response?.data || error.message);
+    console.error('❌ Error deactivating school:', error.response?.data || error.message);
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Reactivate a deactivated school (Admin only)
+ * @param {number} schoolId - School ID
+ * @returns {Promise<Object>} Reactivated school data
+ */
+export const reactivateSchool = async (schoolId) => {
+  try {
+    console.log(`📡 Reactivating school ${schoolId}...`);
+
+    const response = await axios.post(
+      `${API_URL}${API_ENDPOINTS.SCHOOLS}${schoolId}/reactivate/`,
+      {},
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    console.log('✅ School reactivated successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error reactivating school:', error.response?.data || error.message);
+    handleAuthError(error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch all deactivated schools (Admin only)
+ * @returns {Promise<Array>} List of deactivated schools
+ */
+export const fetchDeactivatedSchools = async () => {
+  try {
+    console.log('📡 Fetching deactivated schools...');
+
+    const response = await axios.get(
+      `${API_URL}${API_ENDPOINTS.SCHOOLS}deactivated/`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    console.log('✅ Deactivated schools fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching deactivated schools:', error.response?.data || error.message);
     handleAuthError(error);
     throw error;
   }
@@ -297,12 +352,16 @@ export default {
   fetchSchoolsWithClasses,
   fetchSchoolDetails,
   getUniqueClasses,
-  
-  // New functions
+
+  // CRUD functions
   createSchool,
   updateSchool,
   deleteSchool,
   fetchSchoolStats,
   fetchSchoolsOverview,
   uploadSchoolLogo,
+
+  // Soft delete functions
+  reactivateSchool,
+  fetchDeactivatedSchools,
 };

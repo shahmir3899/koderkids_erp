@@ -363,6 +363,24 @@ function StudentsPage() {
         icon="👨‍🎓"
         title="Student Management"
         subtitle="View and manage all enrolled students"
+        actions={
+          <Button
+            onClick={handleAddNewStudent}
+            variant="success"
+            size="large"
+            style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
+              boxShadow: '0 4px 20px rgba(16, 185, 129, 0.5), 0 0 40px rgba(16, 185, 129, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              fontWeight: 600,
+              letterSpacing: '0.5px',
+              padding: '12px 24px',
+              fontSize: '15px',
+            }}
+          >
+            ✨ Add New Student
+          </Button>
+        }
       />
 
       {/* Statistics Cards */}
@@ -393,11 +411,6 @@ function StudentsPage() {
         showSearch={false}
         searchPlaceholder="Search by Name or Reg Num"
         submitButtonText="🔍 Search"
-        additionalActions={
-          <Button onClick={handleAddNewStudent} variant="primary">
-            ➕ Add New Student
-          </Button>
-        }
       />
 
       {/* Students Table */}
@@ -508,6 +521,7 @@ function StudentsPage() {
             setIsAdding(false);
             refetchStudents();
           }}
+          schools={schools}
         />
       )}
 

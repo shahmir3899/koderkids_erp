@@ -4,14 +4,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import Count, Case, When, IntegerField, FloatField
+from django.db.models import Count, Case, When, IntegerField, FloatField, Q
 from django.db.models.functions import Round
 from django.contrib.postgres.aggregates import ArrayAgg
 from datetime import datetime, timedelta
 from django.utils.timezone import now
 import logging
 
-from students.models import LessonPlan, Student, StudentImage
+from students.models import LessonPlan, Student, StudentImage, School, CustomUser
 from students.serializers import (
     MonthlyLessonsSerializer, UpcomingLessonsSerializer,
     LessonStatusSerializer, SchoolLessonsSerializer, StudentEngagementSerializer
@@ -275,4 +275,77 @@ class TeacherStudentEngagement(APIView):
             return Response(serializer.data)
         except ValueError:
             return Response({"error": "Invalid month format. Use YYYY-MM"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_login_activity(request):
+    """
+    Returns login counts for students and teachers per school in last 3 WORKING days.
+    Working day = a day where a LessonPlan exists for that school.
+    Uses CustomUser.last_login field (auto-updated by Django on each login)
+    """
+    today = now().date()
+
+    # Get active schools
+    schools = School.objects.filter(is_active=True)
+
+    result = []
+    for school in schools:
+        # Check if today is a working day for this school
+        is_working_today = LessonPlan.objects.filter(
+            school=school,
+            session_date=today
+        ).exists()
+
+        # Get last 3 working days for this school (days with lesson plans)
+        working_days = list(
+            LessonPlan.objects.filter(
+                school=school,
+                session_date__lte=today
+            ).values_list('session_date', flat=True)
+            .distinct()
+            .order_by('-session_date')[:3]
+        )
+
+        # If no working days found, show 0 logins
+        if not working_days:
+            result.append({
+                'school_id': school.id,
+                'school_name': school.name,
+                'student_logins_3d': 0,
+                'teacher_logins_3d': 0,
+                'working_days': [],
+                'is_working_today': is_working_today,
+            })
+            continue
+
+        # Count students who logged in on any of the working days
+        student_logins = CustomUser.objects.filter(
+            role='Student',
+            student_profile__school=school,
+            last_login__date__in=working_days,
+            is_active=True
+        ).count()
+
+        # Count teachers who logged in on any of the working days
+        teacher_logins = CustomUser.objects.filter(
+            role='Teacher',
+            assigned_schools=school,
+            last_login__date__in=working_days,
+            is_active=True
+        ).count()
+
+        result.append({
+            'school_id': school.id,
+            'school_name': school.name,
+            'student_logins_3d': student_logins,
+            'teacher_logins_3d': teacher_logins,
+            'working_days': [d.isoformat() for d in working_days],
+            'is_working_today': is_working_today,
+        })
+
+    # Sort: working today schools first, then by name
+    result.sort(key=lambda x: (not x['is_working_today'], x['school_name']))
+
+    return Response(result)

@@ -6,6 +6,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { reportService } from '../services/reportService';
+import { getSchools } from '../api';
+import { salaryService } from '../services/salaryService';
 
 /**
  * Custom hook for managing custom report state and operations.
@@ -20,6 +22,14 @@ export const useCustomReport = () => {
   const [bodyText, setBodyText] = useState('');
   const [lineSpacing, setLineSpacing] = useState('single');
   const [templateType, setTemplateType] = useState('custom');
+
+  // ============================================
+  // RECIPIENT PICKER STATE
+  // ============================================
+  const [recipientType, setRecipientType] = useState('custom'); // 'custom' | 'school' | 'employee'
+  const [schools, setSchools] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [showRecipientPicker, setShowRecipientPicker] = useState(false);
 
   // ============================================
   // HISTORY STATE
@@ -40,12 +50,75 @@ export const useCustomReport = () => {
     templates: false,
     saving: false,
     deleting: false,
+    schools: false,
+    employees: false,
   });
 
   // ============================================
   // ERROR STATE
   // ============================================
   const [error, setError] = useState('');
+
+  // ============================================
+  // FETCH SCHOOLS
+  // ============================================
+  const fetchSchools = useCallback(async () => {
+    setLoading(prev => ({ ...prev, schools: true }));
+    try {
+      const data = await getSchools();
+      setSchools(data || []);
+    } catch (err) {
+      console.error('Error fetching schools:', err);
+      toast.error('Failed to load schools');
+    } finally {
+      setLoading(prev => ({ ...prev, schools: false }));
+    }
+  }, []);
+
+  // ============================================
+  // FETCH EMPLOYEES
+  // ============================================
+  const fetchEmployees = useCallback(async () => {
+    setLoading(prev => ({ ...prev, employees: true }));
+    try {
+      const data = await salaryService.fetchTeachers();
+      setEmployees(data || []);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+      toast.error('Failed to load employees');
+    } finally {
+      setLoading(prev => ({ ...prev, employees: false }));
+    }
+  }, []);
+
+  // ============================================
+  // SELECT RECIPIENT FROM PICKER
+  // ============================================
+  const selectRecipient = useCallback((type, value) => {
+    setTo(value);
+    setRecipientType(type);
+    setShowRecipientPicker(false);
+  }, []);
+
+  // ============================================
+  // OPEN RECIPIENT PICKER
+  // ============================================
+  const openRecipientPicker = useCallback((type) => {
+    setRecipientType(type);
+    if (type === 'school' && schools.length === 0) {
+      fetchSchools();
+    } else if (type === 'employee' && employees.length === 0) {
+      fetchEmployees();
+    }
+    setShowRecipientPicker(true);
+  }, [schools.length, employees.length, fetchSchools, fetchEmployees]);
+
+  // ============================================
+  // CLOSE RECIPIENT PICKER
+  // ============================================
+  const closeRecipientPicker = useCallback(() => {
+    setShowRecipientPicker(false);
+  }, []);
 
   // ============================================
   // FETCH REPORT HISTORY
@@ -114,6 +187,40 @@ export const useCustomReport = () => {
   }, [to, subject, bodyText, lineSpacing, templateType, fetchReportHistory]);
 
   // ============================================
+  // UPDATE EXISTING REPORT IN DATABASE
+  // ============================================
+  const updateReportInDb = useCallback(async (reportId) => {
+    if (!to || !subject || !bodyText.trim()) {
+      return null;
+    }
+
+    setLoading(prev => ({ ...prev, saving: true }));
+    try {
+      const reportData = {
+        recipient: to,
+        subject,
+        body_text: bodyText,
+        line_spacing: lineSpacing,
+        template_type: templateType,
+      };
+
+      const updatedReport = await reportService.updateCustomReport(reportId, reportData);
+      toast.success('Report updated successfully');
+
+      // Refresh history
+      await fetchReportHistory();
+
+      return updatedReport;
+    } catch (err) {
+      console.error('Error updating report:', err);
+      toast.error('Failed to update report');
+      return null;
+    } finally {
+      setLoading(prev => ({ ...prev, saving: false }));
+    }
+  }, [to, subject, bodyText, lineSpacing, templateType, fetchReportHistory]);
+
+  // ============================================
   // LOAD HISTORICAL REPORT
   // ============================================
   const loadHistoricalReport = useCallback(async (reportId) => {
@@ -139,6 +246,40 @@ export const useCustomReport = () => {
   }, []);
 
   // ============================================
+  // APPLY TEMPLATE
+  // ============================================
+  const applyTemplate = useCallback((templateKey) => {
+    if (!templateKey || templateKey === 'custom') {
+      // Clear to custom/blank
+      setTemplateType('custom');
+      return;
+    }
+
+    const template = templates[templateKey];
+    if (template) {
+      setSubject(template.default_subject || '');
+      setBodyText(template.default_body || '');
+      setTemplateType(templateKey);
+      setSelectedHistoryReport(null);
+      toast.success(`Template "${template.name}" applied`);
+    }
+  }, [templates]);
+
+  // ============================================
+  // CLEAR FORM
+  // ============================================
+  const clearForm = useCallback(() => {
+    setTo('');
+    setSubject('');
+    setBodyText('');
+    setLineSpacing('single');
+    setTemplateType('custom');
+    setRecipientType('custom');
+    setSelectedHistoryReport(null);
+    setError('');
+  }, []);
+
+  // ============================================
   // DELETE HISTORICAL REPORT
   // ============================================
   const deleteHistoricalReport = useCallback(async (reportId) => {
@@ -160,41 +301,7 @@ export const useCustomReport = () => {
     } finally {
       setLoading(prev => ({ ...prev, deleting: false }));
     }
-  }, [selectedHistoryReport, fetchReportHistory]);
-
-  // ============================================
-  // APPLY TEMPLATE
-  // ============================================
-  const applyTemplate = useCallback((templateKey) => {
-    if (!templateKey || templateKey === 'custom') {
-      // Clear to custom/blank
-      setTemplateType('custom');
-      return;
-    }
-
-    const template = templates[templateKey];
-    if (template) {
-      setTo(template.recipient);
-      setSubject(template.subject);
-      setBodyText(template.body_text);
-      setTemplateType(templateKey);
-      setSelectedHistoryReport(null);
-      toast.success(`Template "${template.name}" applied`);
-    }
-  }, [templates]);
-
-  // ============================================
-  // CLEAR FORM
-  // ============================================
-  const clearForm = useCallback(() => {
-    setTo('');
-    setSubject('');
-    setBodyText('');
-    setLineSpacing('single');
-    setTemplateType('custom');
-    setSelectedHistoryReport(null);
-    setError('');
-  }, []);
+  }, [selectedHistoryReport, fetchReportHistory, clearForm]);
 
   // ============================================
   // CLEAR HISTORICAL REPORT (back to new)
@@ -216,7 +323,9 @@ export const useCustomReport = () => {
   const templateOptions = useMemo(() => {
     const options = [{ value: 'custom', label: 'Custom Report' }];
     Object.entries(templates).forEach(([key, template]) => {
-      options.push({ value: key, label: template.name });
+      if (key !== 'custom') {
+        options.push({ value: key, label: template.name });
+      }
     });
     return options;
   }, [templates]);
@@ -245,6 +354,18 @@ export const useCustomReport = () => {
     templateType,
     setTemplateType,
 
+    // Recipient picker
+    recipientType,
+    setRecipientType,
+    schools,
+    employees,
+    showRecipientPicker,
+    openRecipientPicker,
+    closeRecipientPicker,
+    selectRecipient,
+    fetchSchools,
+    fetchEmployees,
+
     // History
     reportHistory,
     selectedHistoryReport,
@@ -260,6 +381,7 @@ export const useCustomReport = () => {
 
     // Actions
     saveReportToDb,
+    updateReportInDb,
     clearForm,
 
     // State

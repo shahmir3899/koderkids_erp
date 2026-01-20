@@ -74,6 +74,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if not user.is_active:
             raise serializers.ValidationError("User account is inactive.")
 
+        # Update last_login timestamp (Django doesn't do this automatically for JWT)
+        from django.utils import timezone
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+
         # Include additional data
         data['role'] = user.role
         data['username'] = user.username
@@ -108,10 +113,10 @@ def register_user(request):
     if CustomUser.objects.filter(username=data.get('username')).exists():
         return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
     
-    # Create user
+    # Create user (email can be None if not provided)
     user = CustomUser.objects.create(
         username=data['username'],
-        email=data.get('email', ''),
+        email=data.get('email') or None,  # Convert empty string to None
         password=make_password(data['password'])
     )
 

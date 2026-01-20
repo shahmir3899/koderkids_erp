@@ -17,6 +17,8 @@ import { UserProvider } from './contexts/UserContext';
 import { BooksProvider } from './contexts/BooksContext';
 import { ClassesProvider } from './contexts/ClassesContext';
 import { LoadingProvider, useLoading } from './contexts/LoadingContext';
+import { InventoryProvider } from './contexts/InventoryContext';
+import { FinanceProvider } from './contexts/FinanceContext';
 import ProtectedRoute from "./components/ProtectedRoute";
 import InventoryDashboard from './pages/InventoryDashboard';
 import Sidebar from "./components/sidebar";
@@ -99,16 +101,8 @@ const AutoLogout = () => {
 
 function AppContent() {
   const location = useLocation();
-  const [role, setRole] = React.useState(localStorage.getItem("role") || null);
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const isPublicRoute = location.pathname === '/login' || location.pathname === '/register';
-
-  React.useEffect(() => {
-    const handleStorage = () => setRole(localStorage.getItem("role"));
-    window.addEventListener("storage", handleStorage);
-    handleStorage();
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
 
   return (
     <div style={{
@@ -242,18 +236,22 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SchoolsProvider>
-        <UserProvider>
-          <BooksProvider>
-            <ClassesProvider>
-              <LoadingProvider>
-                <Router>
-                  <AutoLogout />
-                  <AppWithLoader />
-                </Router>
-              </LoadingProvider>
-            </ClassesProvider>
-          </BooksProvider>
-        </UserProvider>
+        <InventoryProvider>
+          <FinanceProvider>
+            <UserProvider>
+              <BooksProvider>
+                <ClassesProvider>
+                  <LoadingProvider>
+                    <Router>
+                      <AutoLogout />
+                      <AppWithLoader />
+                    </Router>
+                  </LoadingProvider>
+                </ClassesProvider>
+              </BooksProvider>
+            </UserProvider>
+          </FinanceProvider>
+        </InventoryProvider>
       </SchoolsProvider>
     </QueryClientProvider>
   );

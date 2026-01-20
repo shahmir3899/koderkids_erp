@@ -24,10 +24,23 @@ import {
  * @param {Function} props.onView - Callback when view button is clicked
  * @param {Function} props.onEdit - Callback when edit button is clicked (Admin/Teacher with edit rights)
  * @param {Function} props.onDelete - Callback when delete button is clicked (Admin only)
+ * @param {Function} props.onReactivate - Callback when reactivate button is clicked (Admin only, deactivated schools)
  * @param {boolean} props.isAdmin - Whether user is admin
  * @param {boolean} props.canEdit - Whether user can edit (Admin or Teacher with assigned schools)
+ * @param {boolean} props.isDeactivated - Whether viewing deactivated schools
+ * @param {boolean} props.isReactivating - Whether reactivation is in progress
  */
-export const SchoolCard = ({ school, onView, onEdit, onDelete, isAdmin = false, canEdit = false }) => {
+export const SchoolCard = ({
+  school,
+  onView,
+  onEdit,
+  onDelete,
+  onReactivate,
+  isAdmin = false,
+  canEdit = false,
+  isDeactivated = false,
+  isReactivating = false,
+}) => {
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredButton, setHoveredButton] = useState(null);
 
@@ -42,6 +55,8 @@ export const SchoolCard = ({ school, onView, onEdit, onDelete, isAdmin = false, 
     monthly_revenue = 0,
     capacity_utilization = 0,
     total_capacity,
+    deactivated_at,
+    deactivated_by_name,
   } = school;
 
   // Calculate capacity bar width
@@ -64,12 +79,17 @@ export const SchoolCard = ({ school, onView, onEdit, onDelete, isAdmin = false, 
     boxShadow: isHovered
       ? '0 16px 48px rgba(0, 0, 0, 0.3)'
       : '0 4px 24px rgba(0, 0, 0, 0.12)',
-    background: isHovered
-      ? 'rgba(255, 255, 255, 0.16)'
-      : 'rgba(255, 255, 255, 0.1)',
-    borderColor: isHovered
-      ? 'rgba(255, 255, 255, 0.3)'
-      : 'rgba(255, 255, 255, 0.18)',
+    background: isDeactivated
+      ? 'rgba(239, 68, 68, 0.08)'
+      : isHovered
+        ? 'rgba(255, 255, 255, 0.16)'
+        : 'rgba(255, 255, 255, 0.1)',
+    borderColor: isDeactivated
+      ? 'rgba(239, 68, 68, 0.3)'
+      : isHovered
+        ? 'rgba(255, 255, 255, 0.3)'
+        : 'rgba(255, 255, 255, 0.18)',
+    opacity: isDeactivated ? 0.9 : 1,
   });
 
   // Get button style using design constants helper
@@ -88,12 +108,29 @@ export const SchoolCard = ({ school, onView, onEdit, onDelete, isAdmin = false, 
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Deactivated Badge */}
+      {isDeactivated && (
+        <div style={styles.deactivatedBadge}>
+          <span>⚠️ Deactivated</span>
+          {deactivated_at && (
+            <span style={styles.deactivatedDate}>
+              {new Date(deactivated_at).toLocaleDateString()}
+            </span>
+          )}
+          {deactivated_by_name && (
+            <span style={styles.deactivatedBy}>by {deactivated_by_name}</span>
+          )}
+        </div>
+      )}
+
       {/* Header with Logo and Name */}
       <div style={styles.header}>
         {logo ? (
-          <img src={logo} alt={name} style={styles.logo} />
+          <img src={logo} alt={name} style={{ ...styles.logo, ...(isDeactivated && { filter: 'grayscale(50%)' }) }} />
         ) : (
-          <div style={styles.logoPlaceholder}>{name?.charAt(0) || '🏫'}</div>
+          <div style={{ ...styles.logoPlaceholder, ...(isDeactivated && { filter: 'grayscale(50%)' }) }}>
+            {name?.charAt(0) || '🏫'}
+          </div>
         )}
         <div style={styles.headerContent}>
           <div style={styles.name}>{name}</div>
@@ -169,26 +206,49 @@ export const SchoolCard = ({ school, onView, onEdit, onDelete, isAdmin = false, 
         >
           👁️ View
         </button>
-        {/* Edit button: Show for Admin OR Teacher with canEdit */}
-        {(isAdmin || canEdit) && (
-          <button
-            style={getActionButtonStyle('success', 'edit')}
-            onClick={() => onEdit && onEdit(school)}
-            onMouseEnter={() => setHoveredButton('edit')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            ✏️ Edit
-          </button>
+
+        {/* For active schools: Edit and Delete buttons */}
+        {!isDeactivated && (
+          <>
+            {/* Edit button: Show for Admin OR Teacher with canEdit */}
+            {(isAdmin || canEdit) && onEdit && (
+              <button
+                style={getActionButtonStyle('success', 'edit')}
+                onClick={() => onEdit(school)}
+                onMouseEnter={() => setHoveredButton('edit')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                ✏️ Edit
+              </button>
+            )}
+            {/* Delete button: Admin only */}
+            {isAdmin && onDelete && (
+              <button
+                style={getActionButtonStyle('danger', 'delete')}
+                onClick={() => onDelete(school)}
+                onMouseEnter={() => setHoveredButton('delete')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                🗑️ Deactivate
+              </button>
+            )}
+          </>
         )}
-        {/* Delete button: Admin only */}
-        {isAdmin && (
+
+        {/* For deactivated schools: Reactivate button */}
+        {isDeactivated && isAdmin && onReactivate && (
           <button
-            style={getActionButtonStyle('danger', 'delete')}
-            onClick={() => onDelete && onDelete(school)}
-            onMouseEnter={() => setHoveredButton('delete')}
+            style={{
+              ...getActionButtonStyle('success', 'reactivate'),
+              opacity: isReactivating ? 0.7 : 1,
+              cursor: isReactivating ? 'wait' : 'pointer',
+            }}
+            onClick={() => !isReactivating && onReactivate(school)}
+            onMouseEnter={() => setHoveredButton('reactivate')}
             onMouseLeave={() => setHoveredButton(null)}
+            disabled={isReactivating}
           >
-            🗑️ Delete
+            {isReactivating ? '⏳ Reactivating...' : '✅ Reactivate'}
           </button>
         )}
       </div>
@@ -211,6 +271,32 @@ const styles = {
     transition: `all ${TRANSITIONS.normal}`,
     cursor: 'default',
     border: '1px solid rgba(255, 255, 255, 0.18)',
+  },
+
+  deactivatedBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    color: '#f87171',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    marginBottom: SPACING.md,
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    flexWrap: 'wrap',
+  },
+
+  deactivatedDate: {
+    color: 'rgba(248, 113, 113, 0.8)',
+    fontSize: FONT_SIZES.xs,
+  },
+
+  deactivatedBy: {
+    color: 'rgba(248, 113, 113, 0.7)',
+    fontSize: FONT_SIZES.xs,
+    fontStyle: 'italic',
   },
 
   header: {

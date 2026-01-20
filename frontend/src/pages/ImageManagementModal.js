@@ -191,6 +191,7 @@ const ImageCard = React.memo(({
   onSelect,
   onDelete,
   disabled,
+  isDeleting,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -330,20 +331,27 @@ const ImageCard = React.memo(({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onDelete(image.name);
+          if (!isDeleting) onDelete(image.name);
         }}
-        style={deleteButtonStyle}
+        style={{
+          ...deleteButtonStyle,
+          opacity: isDeleting ? 0.6 : 0.9,
+          cursor: isDeleting ? 'not-allowed' : 'pointer',
+        }}
+        disabled={isDeleting}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = COLORS.status.errorDark;
-          e.currentTarget.style.transform = 'scale(1.1)';
+          if (!isDeleting) {
+            e.currentTarget.style.backgroundColor = COLORS.status.errorDark;
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor = COLORS.status.error;
           e.currentTarget.style.transform = 'scale(1)';
         }}
-        aria-label={`Delete image from ${extractDate(image.name)}`}
+        aria-label={isDeleting ? 'Deleting...' : `Delete image from ${extractDate(image.name)}`}
       >
-        ✕
+        {isDeleting ? '...' : '✕'}
       </button>
 
       {/* Image Container */}
@@ -705,6 +713,7 @@ const ImageManagementModal = ({
                     onSelect={handleImageSelect}
                     onDelete={handleDeleteImage}
                     disabled={isMaxReached && !selected}
+                    isDeleting={isDeleting === image.name}
                   />
                 );
               })}

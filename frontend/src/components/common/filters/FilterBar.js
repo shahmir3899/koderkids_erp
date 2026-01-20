@@ -165,9 +165,22 @@ export const FilterBar = ({
 
   const buttonContainerStyle = {
     display: 'flex',
-    gap: SPACING.sm,
+    gap: SPACING.md,
     alignItems: 'flex-end',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
+    flex: 1,
+    minWidth: '200px',
+  };
+
+  // Match button height with filter inputs (including label space)
+  const filterButtonStyle = {
+    flex: 1,
+    height: '38px',
+    padding: `0 ${SPACING.lg}`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
   };
 
   const inputContainerStyle = {
@@ -308,7 +321,7 @@ export const FilterBar = ({
           <Button
             onClick={handleApplyFilters}
             variant="primary"
-            style={{ minWidth: '120px' }}
+            style={filterButtonStyle}
           >
             {submitButtonText}
           </Button>
@@ -316,9 +329,9 @@ export const FilterBar = ({
             <Button
               onClick={handleReset}
               variant="secondary"
-              style={{ minWidth: '120px' }}
+              style={filterButtonStyle}
             >
-              Reset
+              🔄 Reset
             </Button>
           )}
           {additionalActions && additionalActions}

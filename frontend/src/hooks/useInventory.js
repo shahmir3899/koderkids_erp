@@ -1,25 +1,18 @@
 // ============================================
-// USE INVENTORY HOOK - With RBAC Support
+// USE INVENTORY HOOK - Now Uses Global Context
 // ============================================
 // Location: src/hooks/useInventory.js
 //
-// Manages all inventory state and operations with role-based access control.
-// - Fetches user context on mount
-// - Filters data based on role
-// - Provides permission flags to components
+// UPDATED: This hook now reads from InventoryContext instead of making API calls
+// This eliminates duplicate API requests and provides instant page loads
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useContext } from 'react';
 import { toast } from 'react-toastify';
+import InventoryContext from '../contexts/InventoryContext';
 import {
-  fetchInventoryItems,
-  fetchInventorySummary,
-  fetchCategories,
-  fetchAvailableUsers,
-  fetchAllowedSchools,
   deleteInventoryItem,
   exportInventory,
   generateItemDetailReport,
-  fetchUserInventoryContext,
 } from '../services/inventoryService';
 
 // ============================================
@@ -49,50 +42,42 @@ export const ALL_LOCATION_OPTIONS = [
 
 export const useInventory = () => {
   // ============================================
-  // USER CONTEXT STATE (RBAC)
+  // CONTEXT - Global cached data
+  // ============================================
+  const context = useContext(InventoryContext);
+
+  if (!context) {
+    throw new Error('useInventory must be used within InventoryProvider');
+  }
+
+  const {
+    inventoryItems: allItems,
+    summary,
+    categories,
+    schools,
+    users,
+    userContext,
+    loading: contextLoading,
+    refetchItems,
+    refetchSummary,
+    refetchCategories,
+    refetchAll,
+    removeItemFromCache,
+  } = context;
+
+  // ============================================
+  // LOCAL STATE (UI-specific, not cached)
   // ============================================
   const isMounted = useRef(true);
-   // Cleanup effect
+
   useEffect(() => {
     isMounted.current = true;
-    
     return () => {
       isMounted.current = false;
     };
   }, []);
 
-  const [userContext, setUserContext] = useState({
-    isAdmin: false,
-    allowedSchools: [],
-    allowedSchoolDetails: [],
-    canDelete: false,
-    canManageCategories: false,
-    canAccessHeadquarters: false,
-    canAccessUnassigned: false,
-    userName: '',
-    userId: null,
-    loading: true,
-  });
-
-  // ============================================
-  // DATA STATE
-  // ============================================
-  // Initialize as empty array to prevent .filter errors
-  const [inventoryItems, setInventoryItems] = useState([]);
-  const [summary, setSummary] = useState({
-    total: 0,
-    total_value: 0,
-    by_status: [],
-    by_category: [],
-    by_location: [],
-  });
-  const [categories, setCategories] = useState([]);
-  const [schools, setSchools] = useState([]);
-  const [users, setUsers] = useState([]);
-
-  // ============================================
-  // FILTER STATE
-  // ============================================
+  // Filter state
   const [filters, setFilters] = useState({
     location: '',
     schoolId: '',
@@ -101,14 +86,10 @@ export const useInventory = () => {
     search: '',
   });
 
-  // ============================================
-  // SELECTION STATE
-  // ============================================
+  // Selection state
   const [selectedItemIds, setSelectedItemIds] = useState([]);
 
-  // ============================================
-  // MODAL STATE
-  // ============================================
+  // Modal state
   const [modals, setModals] = useState({
     add: false,
     details: false,
@@ -121,12 +102,8 @@ export const useInventory = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
 
-  // ============================================
-  // LOADING STATE
-  // ============================================
-  const [loading, setLoading] = useState({
-    items: false,
-    summary: false,
+  // Action loading states (not data loading)
+  const [actionLoading, setActionLoading] = useState({
     delete: false,
     export: false,
     certificate: {},
@@ -147,187 +124,70 @@ export const useInventory = () => {
   }, [userContext.isAdmin]);
 
   // ============================================
-  // FETCH USER CONTEXT (RBAC)
+  // CLIENT-SIDE FILTERING
   // ============================================
-  const loadUserContext = useCallback(async () => {
-  try {
-    const context = await fetchUserInventoryContext();
-    
-    // ✅ CHECK: Don't update state if unmounted
-    if (!isMounted.current) return null;
-    
-    setUserContext({
-      isAdmin: context.is_admin,
-      allowedSchools: context.allowed_schools || [],
-      allowedSchoolDetails: context.allowed_school_details || [],
-      canDelete: context.can_delete,
-      canManageCategories: context.can_manage_categories,
-      canAccessHeadquarters: context.can_access_headquarters,
-      canAccessUnassigned: context.can_access_unassigned,
-      userName: context.name,
-      userId: context.user_id,
-      loading: false,
+
+  const filteredItems = useMemo(() => {
+    const items = Array.isArray(allItems) ? allItems : [];
+
+    console.log('🔍 Client-side filtering inventory...');
+    console.log('   Total cached items:', items.length);
+    console.log('   Filters:', filters);
+
+    return items.filter(item => {
+      // Location filter
+      if (filters.location && filters.location !== '') {
+        if (filters.location === 'School' && item.location_type !== 'School') {
+          return false;
+        }
+        if (filters.location === 'Headquarters' && item.location_type !== 'Headquarters') {
+          return false;
+        }
+        if (filters.location === 'Unassigned' && item.location_type !== 'Unassigned' && item.location_type !== null) {
+          return false;
+        }
+      }
+
+      // School filter (only applies when location is School)
+      if (filters.schoolId && filters.schoolId !== '') {
+        const schoolId = Number(filters.schoolId);
+        if (item.school_id !== schoolId && item.school?.id !== schoolId) {
+          return false;
+        }
+      }
+
+      // Category filter
+      if (filters.categoryId && filters.categoryId !== '') {
+        const categoryId = Number(filters.categoryId);
+        if (item.category_id !== categoryId && item.category?.id !== categoryId) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (filters.status && filters.status !== '') {
+        if (item.status !== filters.status) {
+          return false;
+        }
+      }
+
+      // Search filter (name, serial_number, asset_tag)
+      if (filters.search && filters.search !== '') {
+        const searchLower = filters.search.toLowerCase();
+        const matchesSearch =
+          (item.name && item.name.toLowerCase().includes(searchLower)) ||
+          (item.serial_number && item.serial_number.toLowerCase().includes(searchLower)) ||
+          (item.asset_tag && item.asset_tag.toLowerCase().includes(searchLower));
+
+        if (!matchesSearch) {
+          return false;
+        }
+      }
+
+      return true;
     });
-    return context;
-  } catch (error) {
-    // ✅ CHECK: Don't show errors if unmounted
-    if (!isMounted.current) return null;
-    
-    console.error('Failed to load user context:', error);
-    toast.error('Failed to load user permissions');
-    setUserContext(prev => ({ ...prev, loading: false }));
-    return null;
-  }
-}, []);
+  }, [allItems, filters]);
 
-  // ============================================
-  // FETCH FUNCTIONS
-  // ============================================
-  
-  const fetchItems = useCallback(async () => {
-  if (!isMounted.current) return; // ✅ CHECK
-  
-  setLoading(prev => ({ ...prev, items: true }));
-  try {
-    const data = await fetchInventoryItems({
-      locationId: filters.schoolId,
-      categoryId: filters.categoryId,
-      status: filters.status,
-      search: filters.search,
-      location: filters.location,
-    });
-    
-    if (!isMounted.current) return; // ✅ CHECK
-
-    // Ensure data is always an array to prevent .filter errors
-    setInventoryItems(Array.isArray(data) ? data : []);
-  } catch (error) {
-    if (!isMounted.current) return; // ✅ CHECK
-    
-    console.error('Error fetching items:', error);
-    toast.error('Failed to load inventory items');
-  } finally {
-    if (isMounted.current) { // ✅ CHECK
-      setLoading(prev => ({ ...prev, items: false }));
-    }
-  }
-}, [filters]);
-
-  const fetchSummaryData = useCallback(async () => {
-  if (!isMounted.current) return; // ✅ ADD
-  
-  setLoading(prev => ({ ...prev, summary: true }));
-  try {
-    const data = await fetchInventorySummary(filters.schoolId, filters.location);
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    setSummary(data);
-  } catch (error) {
-    if (!isMounted.current) return; // ✅ ADD
-    
-    console.error('Error fetching summary:', error);
-  } finally {
-    if (isMounted.current) { // ✅ ADD
-      setLoading(prev => ({ ...prev, summary: false }));
-    }
-  }
-}, [filters.schoolId, filters.location]);
-
-  const fetchCategoryList = useCallback(async () => {
-  try {
-    const data = await fetchCategories();
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    setCategories(data);
-  } catch (error) {
-    if (!isMounted.current) return; // ✅ ADD
-    
-    console.error('Error fetching categories:', error);
-  }
-}, []);
-
-  const fetchSchoolsList = useCallback(async () => {
-  try {
-    const data = await fetchAllowedSchools();
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    setSchools(data);
-  } catch (error) {
-    if (!isMounted.current) return; // ✅ ADD
-    
-    console.error('Error fetching schools:', error);
-  }
-}, []);
-
-  const fetchUsersList = useCallback(async () => {
-  try {
-    const data = await fetchAvailableUsers();
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    setUsers(data);
-  } catch (error) {
-    if (!isMounted.current) return; // ✅ ADD
-    
-    console.error('Error fetching users:', error);
-  }
-}, []);
-
-  // ============================================
-  // INITIAL LOAD
-  // ============================================
-  
-  useEffect(() => {
-  const initializeData = async () => {
-    if (!isMounted.current) return; // ✅ ADD
-    
-    setLoading(prev => ({ ...prev, initial: true }));
-    
-    // Load user context first (needed for role-based filtering)
-    const context = await loadUserContext();
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    // Load supporting data in parallel
-    await Promise.all([
-      fetchCategoryList(),
-      fetchSchoolsList(),
-      fetchUsersList(),
-    ]);
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    // Then load items and summary (these depend on role context)
-    await Promise.all([
-      fetchItems(),
-      fetchSummaryData(),
-    ]);
-    
-    if (isMounted.current) { // ✅ ADD
-      setLoading(prev => ({ ...prev, initial: false }));
-    }
-  };
-  
-
-    
-    initializeData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Refetch items and summary when filters change
-useEffect(() => {
-  if (isMounted.current) {
-    const refreshData = async () => {
-      await Promise.all([
-        fetchItems(),
-        fetchSummaryData(),
-      ]);
-    };
-    refreshData();
-  }
-}, [filters.schoolId, filters.location, filters.categoryId, filters.status, filters.search]); // eslint-disable-line react-hooks/exhaustive-deps
   // ============================================
   // FILTER HANDLERS
   // ============================================
@@ -335,12 +195,12 @@ useEffect(() => {
   const updateFilter = useCallback((key, value) => {
     setFilters(prev => {
       const newFilters = { ...prev, [key]: value };
-      
+
       // Reset schoolId when location changes away from School
       if (key === 'location' && value !== 'School') {
         newFilters.schoolId = '';
       }
-      
+
       return newFilters;
     });
     setSelectedItemIds([]); // Clear selection on filter change
@@ -374,14 +234,12 @@ useEffect(() => {
   }, []);
 
   const toggleSelectAll = useCallback(() => {
-    // Safeguard: ensure inventoryItems is an array
-    const items = Array.isArray(inventoryItems) ? inventoryItems : [];
-    if (selectedItemIds.length === items.length) {
+    if (selectedItemIds.length === filteredItems.length) {
       setSelectedItemIds([]);
     } else {
-      setSelectedItemIds(items.map(item => item.id));
+      setSelectedItemIds(filteredItems.map(item => item.id));
     }
-  }, [selectedItemIds.length, inventoryItems]);
+  }, [selectedItemIds.length, filteredItems]);
 
   const clearSelection = useCallback(() => {
     setSelectedItemIds([]);
@@ -389,10 +247,8 @@ useEffect(() => {
 
   // Get full item objects for selected IDs
   const selectedItems = useMemo(() => {
-    // Safeguard: ensure inventoryItems is an array
-    const items = Array.isArray(inventoryItems) ? inventoryItems : [];
-    return items.filter(item => selectedItemIds.includes(item.id));
-  }, [inventoryItems, selectedItemIds]);
+    return filteredItems.filter(item => selectedItemIds.includes(item.id));
+  }, [filteredItems, selectedItemIds]);
 
   // ============================================
   // MODAL HANDLERS
@@ -430,7 +286,6 @@ useEffect(() => {
   }, [openModal]);
 
   const handleDeleteRequest = useCallback((item) => {
-    // Only admins can delete
     if (!userContext.canDelete) {
       toast.error('You do not have permission to delete items');
       return;
@@ -440,39 +295,42 @@ useEffect(() => {
   }, [userContext.canDelete, openModal]);
 
   const handleDeleteConfirm = useCallback(async () => {
-  if (!itemToDelete || !userContext.canDelete) return;
-  
-  if (!isMounted.current) return; // ✅ ADD
+    if (!itemToDelete || !userContext.canDelete) return;
 
-  setLoading(prev => ({ ...prev, delete: true }));
-  try {
-    await deleteInventoryItem(itemToDelete.id);
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    toast.success(`"${itemToDelete.name}" deleted successfully`);
-    closeModal('confirmDelete');
-    fetchItems();
-    fetchSummaryData();
-  } catch (error) {
-    if (!isMounted.current) return; // ✅ ADD
-    
-    console.error('Delete error:', error);
-    const errorMsg = error.response?.data?.detail || 'Failed to delete item';
-    toast.error(errorMsg);
-  } finally {
-    if (isMounted.current) { // ✅ ADD
-      setLoading(prev => ({ ...prev, delete: false }));
+    if (!isMounted.current) return;
+
+    setActionLoading(prev => ({ ...prev, delete: true }));
+    try {
+      await deleteInventoryItem(itemToDelete.id);
+
+      if (!isMounted.current) return;
+
+      toast.success(`"${itemToDelete.name}" deleted successfully`);
+      closeModal('confirmDelete');
+
+      // Update cache instead of refetching
+      removeItemFromCache(itemToDelete.id);
+      refetchSummary(); // Summary needs refresh
+    } catch (error) {
+      if (!isMounted.current) return;
+
+      console.error('Delete error:', error);
+      const errorMsg = error.response?.data?.detail || 'Failed to delete item';
+      toast.error(errorMsg);
+    } finally {
+      if (isMounted.current) {
+        setActionLoading(prev => ({ ...prev, delete: false }));
+      }
     }
-  }
-}, [itemToDelete, userContext.canDelete, closeModal, fetchItems, fetchSummaryData]);
+  }, [itemToDelete, userContext.canDelete, closeModal, removeItemFromCache, refetchSummary]);
 
   const handleAddSuccess = useCallback(() => {
     closeModal('add');
-    fetchItems();
-    fetchSummaryData();
-    fetchCategoryList();
-  }, [closeModal, fetchItems, fetchSummaryData, fetchCategoryList]);
+    // Refetch to get the new item with full data
+    refetchItems();
+    refetchSummary();
+    refetchCategories();
+  }, [closeModal, refetchItems, refetchSummary, refetchCategories]);
 
   // ============================================
   // TRANSFER HANDLERS
@@ -489,82 +347,82 @@ useEffect(() => {
   const handleTransferSuccess = useCallback(() => {
     closeModal('transfer');
     clearSelection();
-    fetchItems();
-    fetchSummaryData();
+    refetchItems();
+    refetchSummary();
     toast.success('Transfer completed successfully');
-  }, [closeModal, clearSelection, fetchItems, fetchSummaryData]);
+  }, [closeModal, clearSelection, refetchItems, refetchSummary]);
 
   // ============================================
   // CERTIFICATE HANDLER
   // ============================================
 
   const handlePrintCertificate = useCallback(async (itemId) => {
-  if (!isMounted.current) return; // ✅ ADD
-  
-  setLoading(prev => ({
-    ...prev,
-    certificate: { ...prev.certificate, [itemId]: true },
-  }));
+    if (!isMounted.current) return;
 
-  try {
-    const blob = await generateItemDetailReport(itemId);
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Item_Certificate_${itemId}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    toast.success('Certificate downloaded');
-  } catch (error) {
-    if (!isMounted.current) return; // ✅ ADD
-    
-    console.error('Certificate error:', error);
-    const errorMsg = error.response?.data?.error || 'Failed to generate certificate';
-    toast.error(errorMsg);
-  } finally {
-    if (isMounted.current) { // ✅ ADD
-      setLoading(prev => ({
-        ...prev,
-        certificate: { ...prev.certificate, [itemId]: false },
-      }));
+    setActionLoading(prev => ({
+      ...prev,
+      certificate: { ...prev.certificate, [itemId]: true },
+    }));
+
+    try {
+      const blob = await generateItemDetailReport(itemId);
+
+      if (!isMounted.current) return;
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Item_Certificate_${itemId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Certificate downloaded');
+    } catch (error) {
+      if (!isMounted.current) return;
+
+      console.error('Certificate error:', error);
+      const errorMsg = error.response?.data?.error || 'Failed to generate certificate';
+      toast.error(errorMsg);
+    } finally {
+      if (isMounted.current) {
+        setActionLoading(prev => ({
+          ...prev,
+          certificate: { ...prev.certificate, [itemId]: false },
+        }));
+      }
     }
-  }
-}, []);
+  }, []);
 
   // ============================================
   // EXPORT HANDLER
   // ============================================
 
   const handleExport = useCallback(async () => {
-  if (!isMounted.current) return; // ✅ ADD
-  
-  setLoading(prev => ({ ...prev, export: true }));
-  try {
-    await exportInventory({
-      locationId: filters.schoolId,
-      categoryId: filters.categoryId,
-      status: filters.status,
-    });
-    
-    if (!isMounted.current) return; // ✅ ADD
-    
-    toast.success('Export completed');
-  } catch (error) {
-    if (!isMounted.current) return; // ✅ ADD
-    
-    console.error('Export error:', error);
-    toast.error(error.message || 'Failed to export');
-  } finally {
-    if (isMounted.current) { // ✅ ADD
-      setLoading(prev => ({ ...prev, export: false }));
+    if (!isMounted.current) return;
+
+    setActionLoading(prev => ({ ...prev, export: true }));
+    try {
+      await exportInventory({
+        locationId: filters.schoolId,
+        categoryId: filters.categoryId,
+        status: filters.status,
+      });
+
+      if (!isMounted.current) return;
+
+      toast.success('Export completed');
+    } catch (error) {
+      if (!isMounted.current) return;
+
+      console.error('Export error:', error);
+      toast.error(error.message || 'Failed to export');
+    } finally {
+      if (isMounted.current) {
+        setActionLoading(prev => ({ ...prev, export: false }));
+      }
     }
-  }
-}, [filters]);
+  }, [filters]);
 
   // ============================================
   // CATEGORY HANDLERS
@@ -579,19 +437,17 @@ useEffect(() => {
   }, [userContext.canManageCategories, openModal]);
 
   const handleCategoryUpdate = useCallback(() => {
-    fetchCategoryList();
-    fetchItems();
-  }, [fetchCategoryList, fetchItems]);
+    refetchCategories();
+    refetchItems();
+  }, [refetchCategories, refetchItems]);
 
   // ============================================
   // COMPUTED VALUES
   // ============================================
 
   const totalValue = useMemo(() => {
-    // Safeguard: ensure inventoryItems is an array
-    const items = Array.isArray(inventoryItems) ? inventoryItems : [];
-    return items.reduce((sum, item) => sum + Number(item.purchase_value || 0), 0);
-  }, [inventoryItems]);
+    return filteredItems.reduce((sum, item) => sum + Number(item.purchase_value || 0), 0);
+  }, [filteredItems]);
 
   const getStatusCount = useCallback((statusName) => {
     const found = summary.by_status?.find(s => s.status === statusName);
@@ -615,15 +471,28 @@ useEffect(() => {
   }, [summary.by_status]);
 
   // ============================================
+  // COMBINED LOADING STATE
+  // ============================================
+
+  const loading = useMemo(() => ({
+    items: contextLoading.items,
+    summary: contextLoading.summary,
+    initial: contextLoading.initial,
+    delete: actionLoading.delete,
+    export: actionLoading.export,
+    certificate: actionLoading.certificate,
+  }), [contextLoading, actionLoading]);
+
+  // ============================================
   // RETURN
   // ============================================
 
   return {
     // User Context (RBAC)
     userContext,
-    
-    // Data
-    inventoryItems,
+
+    // Data (from context, filtered client-side)
+    inventoryItems: filteredItems,
     summary,
     categories,
     schools,
@@ -673,14 +542,10 @@ useEffect(() => {
     categoryChartData,
     statusChartData,
 
-    // Refresh functions
-    refreshItems: fetchItems,
-    refreshSummary: fetchSummaryData,
-    refreshAll: useCallback(() => {
-      fetchItems();
-      fetchSummaryData();
-      fetchCategoryList();
-    }, [fetchItems, fetchSummaryData, fetchCategoryList]),
+    // Refresh functions (now use context)
+    refreshItems: refetchItems,
+    refreshSummary: refetchSummary,
+    refreshAll: refetchAll,
   };
 };
 

@@ -1,10 +1,9 @@
 // ============================================
-// TEACHER INVENTORY WIDGET - FINAL WORKING VERSION
+// TEACHER INVENTORY WIDGET - WITH CACHING
 // ============================================
 // Location: src/components/teacher/TeacherInventoryWidget.js
 
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   COLORS,
   SPACING,
@@ -14,17 +13,7 @@ import {
   SHADOWS,
   TRANSITIONS,
 } from '../../utils/designConstants';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
-// Helper function to get auth headers
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('access');
-  return {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
-};
+import { teacherDashboardService } from '../../services/teacherDashboardService';
 
 /**
  * TeacherInventoryWidget Component
@@ -47,18 +36,14 @@ export const TeacherInventoryWidget = ({
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchInventoryData();
-  }, [teacherSchools, teacherName]);
-
-  const fetchInventoryData = async () => {
+  const fetchInventoryData = useCallback(async () => {
     try {
       setLoading(true);
-      
-      console.log('🔍 TeacherInventoryWidget - Fetching data...');
+
+      console.log('🔍 TeacherInventoryWidget - Fetching data (CACHED)...');
       console.log('📍 Teacher Schools:', teacherSchools);
       console.log('👤 Teacher Name:', teacherName);
-      
+
       // Skip if no schools assigned
       if (!teacherSchools || teacherSchools.length === 0) {
         console.warn('⚠️ No schools assigned to teacher');
@@ -73,162 +58,15 @@ export const TeacherInventoryWidget = ({
         return;
       }
 
-      // Extract school IDs (handle both objects and primitives)
-      let schoolIds = [];
-      if (Array.isArray(teacherSchools)) {
-        schoolIds = teacherSchools.map(school => {
-          if (typeof school === 'object' && school !== null) {
-            return school.id || school.school_id;
-          }
-          return school;
-        }).filter(id => id !== null && id !== undefined);
-      }
+      // Use cached service for inventory data
+      const inventoryData = await teacherDashboardService.getInventoryData(teacherSchools, teacherName);
 
-      console.log('📤 Using school IDs:', schoolIds);
-
-      // Ensure we have valid IDs
-      if (schoolIds.length === 0) {
-        console.warn('⚠️ No valid school IDs found');
-        setLoading(false);
-        return;
-      }
-      
-      // Check auth token
-      const token = localStorage.getItem('access');
-      if (!token) {
-        console.error('❌ No access token found!');
-        setLoading(false);
-        return;
-      }
-      
-      // Fetch data for all schools in PARALLEL (not sequential)
-console.log('🚀 Fetching inventory data for all schools in parallel...');
-
-// Build all requests at once
-const schoolRequests = schoolIds.map(schoolId => 
-  Promise.all([
-    // Summary request
-    axios.get(
-      `${API_BASE_URL}/api/inventory/summary/`,
-      { 
-        headers: getAuthHeaders(),
-        params: { school: schoolId }
-      }
-    ).catch(err => {
-      console.warn(`⚠️ Error fetching summary for school ${schoolId}:`, err.message);
-      return { data: { total: 0, available_count: 0 } }; // Return empty data on error
-    }),
-    
-    // Items request
-    axios.get(
-      `${API_BASE_URL}/api/inventory/items/`,
-      {
-        headers: getAuthHeaders(),
-        params: {
-          school: schoolId,
-          status: 'Assigned'
-        }
-      }
-    ).catch(err => {
-      console.warn(`⚠️ Error fetching items for school ${schoolId}:`, err.message);
-      return { data: [] }; // Return empty array on error
-    })
-  ]).then(([summaryResponse, itemsResponse]) => ({
-    schoolId,
-    summary: summaryResponse.data,
-    items: itemsResponse.data.results || itemsResponse.data || []
-  }))
-);
-
-// Wait for ALL schools to complete
-const schoolResults = await Promise.all(schoolRequests);
-
-console.log('✅ All school data fetched in parallel:', schoolResults);
-
-// Aggregate results
-let totalSummary = { total: 0, available_count: 0 };
-let allAssignedItems = [];
-
-schoolResults.forEach(({ schoolId, summary, items }) => {
-  // Aggregate totals
-  totalSummary.total += summary.total || 0;
-  totalSummary.available_count += summary.available_count || 0;
-  
-  // Collect all items
-  if (Array.isArray(items)) {
-    allAssignedItems = allAssignedItems.concat(items);
-  }
-  
-  console.log(`✅ School ${schoolId}: ${summary.total} total, ${items.length} assigned items`);
-});
-
-      console.log('📦 Total items across all schools:', allAssignedItems.length);
-
-      // Log sample item to see structure
-      if (allAssignedItems.length > 0) {
-        console.log('🔍 Sample item structure:', allAssignedItems[0]);
-      }
-
-      // Filter to only items assigned to this teacher
-      let teacherItems = [];
-      
-      if (teacherName && Array.isArray(allAssignedItems)) {
-        teacherItems = allAssignedItems.filter(item => {
-          // The API returns:
-          // - assigned_to: ID (number like 3)
-          // - assigned_to_name: Name (string like "Mah Noor")
-          // We need to match by assigned_to_name!
-          
-          const assignedToName = item.assigned_to_name || '';
-          const teacherNameStr = String(teacherName || '').toLowerCase();
-          const assignedNameStr = String(assignedToName).toLowerCase();
-          
-          const matches = assignedNameStr.includes(teacherNameStr);
-          console.log(`🔎 Checking: "${assignedToName}" includes "${teacherName}"? ${matches}`);
-          return matches;
-        });
-        
-        console.log('🔍 Filtered to teacher items:', teacherItems.length);
-      } else if (!teacherName) {
-        // If no teacher name provided, show all assigned items
-        console.log('⚠️ No teacher name provided, showing all assigned items');
-        teacherItems = allAssignedItems;
-      }
-
-      // Category breakdown (top 3 categories)
-      const categoryMap = {};
-      teacherItems.forEach(item => {
-        const cat = item.category_name || item.category || 'Other';
-        categoryMap[cat] = (categoryMap[cat] || 0) + 1;
-      });
-
-      const topCategories = Object.entries(categoryMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([name, count]) => ({ name, count }));
-
-      // Count unique categories
-      const categoriesCount = Object.keys(categoryMap).length;
-
-      const finalData = {
-        totalItems: totalSummary.total,
-        availableItems: totalSummary.available_count,
-        assignedToMe: teacherItems.length,
-        categoryBreakdown: topCategories,
-        categoriesCount
-      };
-
-      console.log('📊 Final data:', finalData);
-      setData(finalData);
+      console.log('📊 Inventory data (cached):', inventoryData);
+      setData(inventoryData);
 
     } catch (error) {
       console.error('❌ Error fetching teacher inventory:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
+
       // Set empty data on error
       setData({
         totalItems: 0,
@@ -240,7 +78,11 @@ schoolResults.forEach(({ schoolId, summary, items }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teacherSchools, teacherName]);
+
+  useEffect(() => {
+    fetchInventoryData();
+  }, [fetchInventoryData]);
 
   if (loading) {
     return (

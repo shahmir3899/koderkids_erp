@@ -42,6 +42,8 @@ import FeeSummaryHeader from '../components/fees/FeeSummaryHeader';
 import FeeTable from '../components/fees/FeeTable';
 import SingleFeeModal from '../components/fees/SingleFeeModal';
 import { PageHeader } from '../components/common/PageHeader';
+import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
+import FeeAgentChat from '../components/finance/FeeAgentChat';
 
 // Responsive Styles Generator
 const getResponsiveStyles = (isMobile, isTablet) => ({
@@ -110,7 +112,7 @@ function FeePage() {
   const { schools, loading: schoolsLoading } = useSchools();
 
   // Classes data - fetched dynamically based on selected school
-  const { fetchClassesBySchool, getCachedClasses } = useClasses();
+  const { fetchClassesBySchool } = useClasses();
   const [classes, setClasses] = useState([]);
 
   // Fee management hook - declare first to access filters
@@ -147,21 +149,17 @@ function FeePage() {
   useEffect(() => {
     const loadClasses = async () => {
       if (filters.schoolId) {
-        // Check cache first
-        const cached = getCachedClasses(filters.schoolId);
-        if (cached) {
-          setClasses(cached);
-        } else {
-          // Fetch from API
-          const fetchedClasses = await fetchClassesBySchool(filters.schoolId);
-          setClasses(fetchedClasses || []);
-        }
+        // fetchClassesBySchool already handles caching internally
+        const fetchedClasses = await fetchClassesBySchool(filters.schoolId);
+        setClasses(fetchedClasses || []);
       } else {
         setClasses([]);
       }
     };
     loadClasses();
-  }, [filters.schoolId, fetchClassesBySchool, getCachedClasses]);
+    // Note: Only depend on filters.schoolId and fetchClassesBySchool
+    // getCachedClasses is not needed here as fetchClassesBySchool handles caching
+  }, [filters.schoolId, fetchClassesBySchool]);
 
   // PDF export hook
   const { exportToPDF } = useFeePDF();
@@ -294,6 +292,20 @@ function FeePage() {
         title="Fee Management"
         subtitle="Create, manage, and track student fee records"
       />
+
+      {/* Fee Agent Chat - AI Assistant */}
+      <CollapsibleSection
+        title="Fee Agent - AI Assistant"
+        defaultOpen={true}
+        icon="🤖"
+      >
+        <FeeAgentChat
+          schools={schools}
+          students={students}
+          onRefresh={fetchFees}
+          height="400px"
+        />
+      </CollapsibleSection>
 
       {/* Create Records Section */}
       <CreateRecordsSection

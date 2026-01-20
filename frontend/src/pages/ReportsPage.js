@@ -62,7 +62,7 @@ const isValidDate = (dateStr) => {
 const formatToMMDDYYYY = (dateStr) => {
   if (!dateStr) return '';
   try {
-    const [year, month, day] = dateStr.split('-');
+    const [year, month] = dateStr.split('-');
     if (!year || !month) return '';
     return `${month.padStart(2, '0')}/01/${year}`;
   } catch (error) {
@@ -328,7 +328,6 @@ const ReportsPage = () => {
     generateReport,
     isGenerating,
     error: reportError,
-    setError: setReportError,
   } = useReportGeneration({
     students,
     selectedSchool,
@@ -694,6 +693,7 @@ const ReportsPage = () => {
       toggleBackground,
       handleViewImages,
       handleGenerateReport,
+      responsiveStyles,
     ]
   );
 

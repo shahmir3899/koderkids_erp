@@ -7,6 +7,7 @@ from .views import (
     TeacherUpcomingLessons,
     TeacherLessonsBySchool,
     TeacherStudentEngagement,
+    get_login_activity,
 )
 
 urlpatterns = [
@@ -17,4 +18,5 @@ urlpatterns = [
     path('teacher-upcoming-lessons/', TeacherUpcomingLessons.as_view(), name='teacher_upcoming_lessons'),
     path('teacher-lessons-by-school/', TeacherLessonsBySchool.as_view(), name='teacher_lessons_by_school'),
     path('teacher-student-engagement/', TeacherStudentEngagement.as_view(), name='teacher_student_engagement'),
+    path('login-activity/', get_login_activity, name='login_activity'),
 ]

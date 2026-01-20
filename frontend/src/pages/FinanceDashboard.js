@@ -3,10 +3,8 @@
 // ============================================
 // Location: src/pages/FinanceDashboard.js
 
-import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
-import { toast } from 'react-toastify';
-import { API_URL, getAuthHeaders } from '../api';
+import React, { useState, useMemo } from 'react';
+import { useFinance } from '../contexts/FinanceContext';
 import {
   BarChart,
   Bar,
@@ -35,7 +33,6 @@ import { useResponsive } from '../hooks/useResponsive';
 // Common Components
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
 import { DataTable } from '../components/common/tables/DataTable';
-import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ui/ErrorDisplay';
 import { useSchools } from '../hooks/useSchools';
 import { IncomeCategoriesPie } from '../components/finance/IncomeCategoriesPie';
@@ -50,12 +47,14 @@ import { CashFlowChart } from '../components/finance/CashFlowChart';
 import { AccountBalanceSelector } from '../components/finance/AccountBalanceSelector';
 import { ExpenseCategoriesPie } from '../components/finance/ExpenseCategoriesPie';
 
-// Styles
-const styles = {
+
+// Styles - responsive helper function
+const getStyles = (isMobile) => ({
   pageContainer: {
     minHeight: '100vh',
     background: COLORS.background.gradient,
-    padding: SPACING.xl,
+    padding: isMobile ? SPACING.md : SPACING.xl,
+    transition: `padding ${TRANSITIONS.normal}`,
   },
   contentWrapper: {
     maxWidth: LAYOUT.maxWidth.md,
@@ -142,7 +141,7 @@ const styles = {
     color: COLORS.text.white,
     fontWeight: FONT_WEIGHTS.medium,
   },
-};
+});
 
 function FinanceDashboard() {
   // ============================================
@@ -150,24 +149,19 @@ function FinanceDashboard() {
   // ============================================
   const { isMobile } = useResponsive();
 
+  // Get responsive styles
+  const styles = getStyles(isMobile);
+
   // ============================================
-  // STATE MANAGEMENT
+  // FINANCE DATA FROM CONTEXT (CACHED!)
+  // ============================================
+  const { summary, loanSummary, error, refetch } = useFinance();
+
+  // ============================================
+  // LOCAL STATE MANAGEMENT
   // ============================================
 
-  // Data States
-  const [summary, setSummary] = useState({
-    income: 0,
-    expenses: 0,
-    loans: 0,
-    accounts: [],
-  });
-  const [loanSummary, setLoanSummary] = useState([]);
-
-  // Loading States (Consolidated)
-  const [loading, setLoading] = useState({});
-
-  // Error States
-  const [error, setError] = useState(null);
+  // Retry state for error handling
   const [isRetrying, setIsRetrying] = useState(false);
 
   // Lazy Loading States - Track which sections have been opened
@@ -194,44 +188,10 @@ function FinanceDashboard() {
   // Use Schools Hook
   const { schools } = useSchools();
 
-  // ============================================
-  // DATA FETCHING
-  // ============================================
-
-  // Fetch Initial Data
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setError(null);
-
-    try {
-      const [summaryResponse, loanResponse] = await Promise.all([
-        axios.get(`${API_URL}/api/finance-summary/`, { headers: getAuthHeaders() }),
-        axios.get(`${API_URL}/api/loan-summary/`, { headers: getAuthHeaders() }),
-      ]);
-
-      setSummary(summaryResponse.data);
-      setLoanSummary(loanResponse.data);
-    } catch (err) {
-      let errorMessage;
-      if (err.response && err.response.status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.';
-      } else if (err.response && err.response.status === 404) {
-        errorMessage = 'Data not found. Please check the server or try again.';
-      } else {
-        errorMessage = 'Failed to fetch data. Please try again later.';
-      }
-      setError(errorMessage);
-      toast.error(errorMessage);
-    }
-  };
-
-  // Handle Retry
+  // Handle Retry - uses refetch from context
   const handleRetry = async () => {
     setIsRetrying(true);
-    await fetchData();
+    await refetch();
     setIsRetrying(false);
   };
 

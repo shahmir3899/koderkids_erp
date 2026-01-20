@@ -269,7 +269,8 @@ class SchoolSerializer(serializers.ModelSerializer):
     total_classes = serializers.SerializerMethodField()
     monthly_revenue = serializers.SerializerMethodField()
     capacity_utilization = serializers.SerializerMethodField()
-    
+    deactivated_by_name = serializers.CharField(source='deactivated_by.username', read_only=True)
+
     class Meta:
         model = School
         fields = [
@@ -278,10 +279,12 @@ class SchoolSerializer(serializers.ModelSerializer):
             'established_date', 'total_capacity', 'is_active',
             'created_at', 'updated_at',
             'payment_mode', 'monthly_subscription_amount',
+            # Soft delete fields
+            'deactivated_at', 'deactivated_by', 'deactivated_by_name',
             # Computed fields
             'total_students', 'total_classes', 'monthly_revenue', 'capacity_utilization'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'deactivated_at', 'deactivated_by', 'deactivated_by_name']
     
     def get_total_students(self, obj):
         """Count active students in this school"""

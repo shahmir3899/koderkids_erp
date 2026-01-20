@@ -18,8 +18,9 @@ import {
   Z_INDEX,
 } from '../utils/designConstants';
 
-function AddStudentPopup({ onClose, onStudentAdded }) {
+function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
   const [closeButtonHovered, setCloseButtonHovered] = useState(false);
+  const [cancelButtonHovered, setCancelButtonHovered] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     reg_num: "",
@@ -33,10 +34,34 @@ function AddStudentPopup({ onClose, onStudentAdded }) {
     confirm_password: ""
   });
 
-  const [schools, setSchools] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Use schools from props if provided (cached from parent), otherwise fetch
+  const [schools, setSchools] = useState(propSchools || []);
+  const [loading, setLoading] = useState(!propSchools);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Password validation state
+  const [passwordValidation, setPasswordValidation] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    passwordsMatch: false,
+  });
+
+  // Password visibility toggle (shows both passwords simultaneously)
+  const [showPasswords, setShowPasswords] = useState(false);
+
+  // Validate password on change
+  const validatePassword = (password, confirmPassword) => {
+    setPasswordValidation({
+      minLength: password.length >= 8,
+      hasUppercase: /[A-Z]/.test(password),
+      hasLowercase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      passwordsMatch: password.length > 0 && password === confirmPassword,
+    });
+  };
 
   // Handle ESC key to close modal
   const handleEscKey = useCallback((e) => {
@@ -50,7 +75,15 @@ function AddStudentPopup({ onClose, onStudentAdded }) {
     return () => document.removeEventListener('keydown', handleEscKey);
   }, [handleEscKey]);
 
+  // Only fetch schools if not provided via props (fallback for backwards compatibility)
   useEffect(() => {
+    // Skip fetching if schools were provided via props
+    if (propSchools && propSchools.length > 0) {
+      setSchools(propSchools);
+      setLoading(false);
+      return;
+    }
+
     async function fetchSchools() {
       setLoading(true);
       setError(null);
@@ -79,11 +112,22 @@ function AddStudentPopup({ onClose, onStudentAdded }) {
       }
     }
     fetchSchools();
-  }, []);
+  }, [propSchools]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+
+      // Validate password when password or confirm_password changes
+      if (name === 'password' || name === 'confirm_password') {
+        const pwd = name === 'password' ? value : prev.password;
+        const confirmPwd = name === 'confirm_password' ? value : prev.confirm_password;
+        validatePassword(pwd, confirmPwd);
+      }
+
+      return newData;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -113,6 +157,16 @@ function AddStudentPopup({ onClose, onStudentAdded }) {
         !formData.password
       ) {
         toast.error("Please fill all required fields, including password.", {
+          position: "top-right",
+          autoClose: 4000,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Password strength check
+      if (formData.password.length < 8) {
+        toast.error("Password must be at least 8 characters long.", {
           position: "top-right",
           autoClose: 4000,
         });
@@ -345,10 +399,11 @@ function AddStudentPopup({ onClose, onStudentAdded }) {
                   type="text"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  placeholder="e.g., +92 300 1234567"
+                  placeholder="e.g., 03001234567"
                   style={styles.input}
                   className="add-student-input"
                 />
+                <small style={styles.helperText}>Parent/Guardian contact number</small>
               </div>
 
               {/* Gender */}
@@ -390,15 +445,41 @@ function AddStudentPopup({ onClose, onStudentAdded }) {
                 <label style={styles.label}>
                   Login Password <span style={styles.required}>*</span>
                 </label>
-                <input
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  placeholder="Set strong password"
-                  style={styles.input}
-                  className="add-student-input"
-                />
+                <div style={styles.passwordInputWrapper}>
+                  <input
+                    name="password"
+                    type={showPasswords ? "text" : "password"}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="Min 8 characters"
+                    style={{
+                      ...styles.input,
+                      ...styles.passwordInput,
+                      borderColor: formData.password.length > 0
+                        ? (passwordValidation.minLength ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)')
+                        : COLORS.border.whiteTransparent,
+                    }}
+                    className="add-student-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(!showPasswords)}
+                    style={styles.eyeButton}
+                    title={showPasswords ? "Hide passwords" : "Show passwords"}
+                  >
+                    {showPasswords ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Confirm Password */}
@@ -408,13 +489,82 @@ function AddStudentPopup({ onClose, onStudentAdded }) {
                 </label>
                 <input
                   name="confirm_password"
-                  type="password"
+                  type={showPasswords ? "text" : "password"}
                   value={formData.confirm_password}
                   onChange={handleInputChange}
                   placeholder="Re-type password"
-                  style={styles.input}
+                  style={{
+                    ...styles.input,
+                    borderColor: formData.confirm_password.length > 0
+                      ? (passwordValidation.passwordsMatch ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)')
+                      : COLORS.border.whiteTransparent,
+                  }}
                   className="add-student-input"
                 />
+                {/* Password match indicator */}
+                {formData.confirm_password.length > 0 && (
+                  <small style={{
+                    ...styles.helperText,
+                    color: passwordValidation.passwordsMatch ? '#22c55e' : '#ef4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    marginTop: '4px',
+                  }}>
+                    {passwordValidation.passwordsMatch ? '✓ Passwords match' : '✗ Passwords do not match'}
+                  </small>
+                )}
+              </div>
+            </div>
+
+            {/* Password Requirements Info */}
+            {(formData.password.length > 0 || formData.confirm_password.length > 0) && (
+              <div style={styles.passwordRequirements}>
+                <p style={styles.passwordRequirementsTitle}>Password Requirements:</p>
+                <div style={styles.requirementsList}>
+                  <span style={{
+                    ...styles.requirementItem,
+                    color: passwordValidation.minLength ? '#22c55e' : '#ef4444',
+                  }}>
+                    {passwordValidation.minLength ? '✓' : '✗'} At least 8 characters
+                  </span>
+                  <span style={{
+                    ...styles.requirementItem,
+                    color: passwordValidation.hasUppercase ? '#22c55e' : 'rgba(255,255,255,0.5)',
+                  }}>
+                    {passwordValidation.hasUppercase ? '✓' : '○'} Uppercase letter (recommended)
+                  </span>
+                  <span style={{
+                    ...styles.requirementItem,
+                    color: passwordValidation.hasLowercase ? '#22c55e' : 'rgba(255,255,255,0.5)',
+                  }}>
+                    {passwordValidation.hasLowercase ? '✓' : '○'} Lowercase letter (recommended)
+                  </span>
+                  <span style={{
+                    ...styles.requirementItem,
+                    color: passwordValidation.hasNumber ? '#22c55e' : 'rgba(255,255,255,0.5)',
+                  }}>
+                    {passwordValidation.hasNumber ? '✓' : '○'} Number (recommended)
+                  </span>
+                  <span style={{
+                    ...styles.requirementItem,
+                    color: passwordValidation.passwordsMatch ? '#22c55e' : (formData.confirm_password.length > 0 ? '#ef4444' : 'rgba(255,255,255,0.5)'),
+                  }}>
+                    {passwordValidation.passwordsMatch ? '✓' : (formData.confirm_password.length > 0 ? '✗' : '○')} Passwords match
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Login Info Note */}
+            <div style={styles.infoNote}>
+              <span style={styles.infoIcon}>ℹ️</span>
+              <div>
+                <p style={styles.infoTitle}>Login Credentials</p>
+                <p style={styles.infoText}>
+                  After creation, the student can log in using their <strong>Registration Number</strong> as username
+                  and the password you set above. The registration number will be auto-generated.
+                </p>
               </div>
             </div>
 
@@ -423,15 +573,23 @@ function AddStudentPopup({ onClose, onStudentAdded }) {
               <button
                 type="button"
                 onClick={onClose}
-                style={styles.cancelButton}
+                style={{
+                  ...styles.cancelButton,
+                  ...(cancelButtonHovered ? styles.cancelButtonHover : {}),
+                }}
+                onMouseEnter={() => setCancelButtonHovered(true)}
+                onMouseLeave={() => setCancelButtonHovered(false)}
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                style={styles.submitButton}
-                disabled={isSubmitting}
+                style={{
+                  ...styles.submitButton,
+                  opacity: (!passwordValidation.minLength || !passwordValidation.passwordsMatch) && formData.password.length > 0 ? 0.6 : 1,
+                }}
+                disabled={isSubmitting || (formData.password.length > 0 && (!passwordValidation.minLength || !passwordValidation.passwordsMatch))}
               >
                 {isSubmitting ? 'Adding...' : 'Add Student'}
               </button>
@@ -499,8 +657,9 @@ const styles = {
     flexShrink: 0,
   },
   closeButtonHover: {
-    background: 'rgba(255, 255, 255, 0.2)',
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    background: 'rgba(239, 68, 68, 0.2)',
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    color: '#ef4444',
     transform: 'scale(1.05)',
   },
   loadingContainer: {
@@ -558,6 +717,31 @@ const styles = {
     background: 'rgba(255, 255, 255, 0.1)',
     color: COLORS.text.white,
   },
+  passwordInputWrapper: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  passwordInput: {
+    width: '100%',
+    paddingRight: '44px',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: '8px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '6px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BORDER_RADIUS.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    opacity: 0.8,
+  },
   inputDisabled: {
     background: 'rgba(255, 255, 255, 0.05)',
     color: COLORS.text.whiteSubtle,
@@ -584,6 +768,62 @@ const styles = {
     fontSize: FONT_SIZES.xs,
     color: COLORS.text.whiteSubtle,
   },
+  passwordRequirements: {
+    marginTop: SPACING.md,
+    padding: SPACING.md,
+    background: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.md,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  passwordRequirementsTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    marginBottom: SPACING.sm,
+    margin: 0,
+    marginBottom: SPACING.xs,
+  },
+  requirementsList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  requirementItem: {
+    fontSize: FONT_SIZES.xs,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  infoNote: {
+    display: 'flex',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    padding: SPACING.md,
+    background: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+  },
+  infoIcon: {
+    fontSize: FONT_SIZES.lg,
+    flexShrink: 0,
+  },
+  infoTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: '#60a5fa',
+    margin: 0,
+    marginBottom: '4px',
+  },
+  infoText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    margin: 0,
+    lineHeight: 1.5,
+  },
   actions: {
     display: 'flex',
     justifyContent: 'flex-end',
@@ -594,14 +834,21 @@ const styles = {
   },
   cancelButton: {
     padding: `${SPACING.sm} ${SPACING.lg}`,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    color: COLORS.text.white,
-    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    color: '#f87171',
+    border: '1px solid rgba(239, 68, 68, 0.4)',
     borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
     cursor: 'pointer',
     transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  cancelButtonHover: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+    color: '#fca5a5',
+    boxShadow: '0 0 15px rgba(239, 68, 68, 0.3)',
+    transform: 'translateY(-1px)',
   },
   submitButton: {
     padding: `${SPACING.sm} ${SPACING.lg}`,

@@ -3,8 +3,7 @@
 // ============================================
 // Location: src/pages/TeacherDashboardFigma.js
 
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
@@ -20,20 +19,20 @@ import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { LessonSummaryDashboard } from '../components/teacher/LessonSummaryDashboard';
 import { TeacherInventoryWidget } from '../components/teacher/TeacherInventoryWidget';
+import { StaffCommandInput, CommandHistory, QuickActionsPanel } from '../components/staff';
 
 // Hooks
 import { useSchools } from '../hooks/useSchools';
 import { useResponsive } from '../hooks/useResponsive';
 
 // Services
-import { getTeacherProfile, getTeacherDashboardData } from '../services/teacherService';
+import { getTeacherProfile } from '../services/teacherService';
+import { teacherDashboardService } from '../services/teacherDashboardService';
 
 // Constants
 import { COLORS, SPACING, LAYOUT, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS, TRANSITIONS } from '../utils/designConstants';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://koderkids-erp.onrender.com';
-
-// Hover wrapper component for cards
+// Hover wrapper component for cards - uses TRANSITIONS from design system
 const HoverCard = ({ children, style = {} }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -41,7 +40,7 @@ const HoverCard = ({ children, style = {} }) => {
     <div
       style={{
         ...style,
-        transition: 'all 0.3s ease',
+        transition: `all ${TRANSITIONS.normal}`,
         transform: isHovered ? 'translateY(-4px) scale(1.01)' : 'translateY(0) scale(1)',
         boxShadow: isHovered ? '0 12px 40px rgba(0, 0, 0, 0.25)' : '0 4px 24px rgba(0, 0, 0, 0.12)',
         background: isHovered ? 'rgba(255, 255, 255, 0.18)' : style.background || 'rgba(255, 255, 255, 0.12)',
@@ -54,16 +53,14 @@ const HoverCard = ({ children, style = {} }) => {
   );
 };
 
-const getAuthHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem('access')}`,
-  'Content-Type': 'application/json',
-});
-
 const TeacherDashboardFigma = () => {
   // ============================================
   // RESPONSIVE HOOK
   // ============================================
   const { isMobile } = useResponsive();
+
+  // Get responsive styles
+  const styles = getStyles(isMobile);
 
   // ============================================
   // STATE
@@ -76,7 +73,6 @@ const TeacherDashboardFigma = () => {
   const [lessons, setLessons] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(moment().format('YYYY-MM'));
   const [monthlyLessonData, setMonthlyLessonData] = useState([]);
-  const [schoolLessons, setSchoolLessons] = useState([]);
   
   // Completion Data
   const [completionData, setCompletionData] = useState([]);
@@ -96,8 +92,11 @@ const TeacherDashboardFigma = () => {
     completion: false,
   });
 
-  // Hooks
-  const { schools } = useSchools();
+  // Hooks - useSchools available for future school-related features
+  useSchools();
+
+  // Ref for command input
+  const commandInputRef = useRef(null);
 
   // ============================================
   // DATA FETCHING
@@ -138,111 +137,102 @@ useEffect(() => {
   return () => { isMounted = false; }; // ADD THIS CLEANUP
 }, []);
 
-  // Fetch lessons
-  // Fetch lessons
+  // Fetch lessons (CACHED via teacherDashboardService)
 useEffect(() => {
-  let isMounted = true; // ADD THIS
-  
+  let isMounted = true;
+
   const fetchLessons = async () => {
-    if (!isMounted) return; // ADD THIS
-    
+    if (!isMounted) return;
+
     setLoading(prev => ({ ...prev, lessons: true }));
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/dashboards/teacher-upcoming-lessons/`, { 
-        headers: getAuthHeaders() 
-      });
-      if (isMounted) { // ADD THIS
-        setLessons(response.data.lessons || []);
+      const data = await teacherDashboardService.getUpcomingLessons();
+      if (isMounted) {
+        setLessons(data.lessons || []);
       }
     } catch (error) {
-      if (isMounted) { // ADD THIS
+      if (isMounted) {
         console.error('❌ Failed to fetch lessons:', error);
         toast.error('Failed to fetch lessons');
       }
     }
-    if (isMounted) { // ADD THIS
+    if (isMounted) {
       setLoading(prev => ({ ...prev, lessons: false }));
     }
   };
 
   fetchLessons();
-  
-  return () => { isMounted = false; }; // ADD THIS CLEANUP
+
+  return () => { isMounted = false; };
 }, []);
 
-  // Fetch monthly data when month changes
-  // Fetch monthly data when month changes
+  // Fetch monthly data when month changes (CACHED via teacherDashboardService)
 useEffect(() => {
-  let isMounted = true; // ADD THIS
-  
+  let isMounted = true;
+
   const fetchMonthlyData = async () => {
-    if (!isMounted) return; // ADD THIS
-    
+    if (!isMounted) return;
+
     setLoading(prev => ({ ...prev, monthlyData: true, schoolData: true, completion: true }));
-    
+
     try {
-      const [lessonStatusRes, schoolLessonsRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/dashboards/teacher-lesson-status/?month=${selectedMonth}`, {
-          headers: getAuthHeaders(),
-        }),
-        axios.get(`${API_BASE_URL}/api/dashboards/teacher-lessons-by-school/?month=${selectedMonth}`, {
-          headers: getAuthHeaders(),
-        }),
+      const [lessonStatusData, schoolLessonsData] = await Promise.all([
+        teacherDashboardService.getLessonStatus(selectedMonth),
+        teacherDashboardService.getLessonsBySchool(selectedMonth),
       ]);
 
-      if (isMounted) { // ADD THIS
-        setMonthlyLessonData(lessonStatusRes.data);
-        setSchoolLessons(schoolLessonsRes.data);
-        
-        console.log('📊 Lesson Status Data:', lessonStatusRes.data);
-        console.log('🏫 School Lessons Data:', schoolLessonsRes.data);
-        
+      if (isMounted) {
+        setMonthlyLessonData(lessonStatusData);
+
+        console.log('📊 Lesson Status Data:', lessonStatusData);
+        console.log('🏫 School Lessons Data:', schoolLessonsData);
+
         // Calculate completion data for charts
-        const completionBySchool = schoolLessonsRes.data.reduce((acc, school) => {
-          const schoolData = lessonStatusRes.data.filter(
+        const completionBySchool = schoolLessonsData.reduce((acc, school) => {
+          const schoolData = lessonStatusData.filter(
             lesson => lesson.school_name === school.school_name
           );
-          
+
           console.log(`🎯 School: ${school.school_name}, Matching lessons:`, schoolData);
-          
+
           if (schoolData.length > 0) {
             const avgCompletion = schoolData.reduce(
-              (sum, lesson) => sum + (lesson.completion_rate || 0), 
+              (sum, lesson) => sum + (lesson.completion_rate || 0),
               0
             ) / schoolData.length;
-            
+
             console.log(`✅ ${school.school_name} completion: ${avgCompletion}%`);
-            
+
             acc.push({
               school_name: school.school_name,
               completion_rate: avgCompletion,
             });
           }
-          
+
           return acc;
         }, []);
-        
+
         console.log('📈 Final Completion Data:', completionBySchool);
         setCompletionData(completionBySchool);
       }
     } catch (error) {
-      if (isMounted) { // ADD THIS
+      if (isMounted) {
         console.error('❌ Failed to fetch monthly data:', error);
         toast.error('Failed to fetch monthly data');
       }
     }
-    
-    if (isMounted) { // ADD THIS
+
+    if (isMounted) {
       setLoading(prev => ({ ...prev, monthlyData: false, schoolData: false, completion: false }));
     }
   };
 
   fetchMonthlyData();
-  
-  return () => { isMounted = false; }; // ADD THIS CLEANUP
+
+  return () => { isMounted = false; };
 }, [selectedMonth]);
 
-  // Fetch student data
+  // Fetch student data (CACHED via teacherDashboardService)
   const fetchStudentData = async (filters) => {
     if (!filters.schoolId || !filters.className) {
       toast.error('Please select school and class');
@@ -250,30 +240,19 @@ useEffect(() => {
     }
 
     setLoading(prev => ({ ...prev, studentData: true }));
-    
+
     try {
-      const params = `month=${filters.month || selectedMonth}&school_id=${filters.schoolId}&student_class=${filters.className}`;
+      const month = filters.month || selectedMonth;
+      const data = await teacherDashboardService.getStudentData(month, filters.schoolId, filters.className);
 
-      const [attendanceRes, topicsRes, imagesRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/attendance/student-counts/?${params}`, {
-          headers: getAuthHeaders(),
-        }),
-        axios.get(`${API_BASE_URL}/api/reports/student-achieved-topics-count/?${params}`, {
-          headers: getAuthHeaders(),
-        }),
-        axios.get(`${API_BASE_URL}/api/reports/student-image-uploads-count/?${params}`, {
-          headers: getAuthHeaders(),
-        }),
-      ]);
-
-      setStudentAttendance(attendanceRes.data);
-      setStudentTopics(topicsRes.data);
-      setStudentImages(imagesRes.data);
+      setStudentAttendance(data.attendance);
+      setStudentTopics(data.topics);
+      setStudentImages(data.images);
     } catch (error) {
       console.error('❌ Failed to fetch student data:', error);
       toast.error('Failed to fetch student data');
     }
-    
+
     setLoading(prev => ({ ...prev, studentData: false }));
   };
 
@@ -317,7 +296,44 @@ useEffect(() => {
   //onNotificationClick={handleNotificationClick}  // Optional: if you use notifications
 />
 
-        
+        {/* Staff Command Center */}
+        <CollapsibleSection title="🤖 Command Center" defaultOpen={false}>
+          {/* Chat + History Row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: SPACING.lg,
+            marginBottom: SPACING.lg
+          }}>
+            <StaffCommandInput
+              ref={commandInputRef}
+              placeholder="Type a command... (e.g., 'Show my inventory')"
+              showQuickActions={false}
+              height={isMobile ? '300px' : '350px'}
+              onCommandSuccess={() => {
+                // Optionally refresh data after command execution
+              }}
+            />
+            <CommandHistory
+              limit={8}
+              showFilters={!isMobile}
+              compact={isMobile}
+              style={{ height: isMobile ? '300px' : '350px' }}
+            />
+          </div>
+          {/* Quick Actions Row */}
+          <QuickActionsPanel
+            onActionSelect={(action) => {
+              if (commandInputRef.current) {
+                if (action.required_params && action.required_params.length > 0) {
+                  commandInputRef.current.setCommand(action.command_template);
+                } else {
+                  commandInputRef.current.executeCommand(action.command_template);
+                }
+              }
+            }}
+          />
+        </CollapsibleSection>
 
         {/* Course Completion Charts */}
         {!loading.completion && completionData.length > 0 && (
@@ -448,8 +464,8 @@ useEffect(() => {
   );
 };
 
-// Styles with glassmorphism
-const styles = {
+// Styles with glassmorphism - responsive helper function using LAYOUT
+const getStyles = (isMobile) => ({
   pageContainer: {
     display: 'flex',
     minHeight: '100vh',
@@ -460,26 +476,32 @@ const styles = {
     marginLeft: '0', // Original sidebar from App.js will provide margin
     flex: 1,
     minHeight: '100vh',
-    padding: SPACING.xl,
+    padding: isMobile ? SPACING.md : SPACING.xl,
+    maxWidth: LAYOUT.maxWidth.lg,
+    transition: `padding ${TRANSITIONS.normal}`,
   },
   completionSection: {
     display: 'flex',
-    justifyContent: 'space-between',
+    flexDirection: isMobile ? 'column' : 'row',
+    justifyContent: isMobile ? 'center' : 'space-between',
     alignItems: 'center',
-    padding: SPACING.xl,
+    gap: isMobile ? SPACING.lg : 0,
+    padding: isMobile ? SPACING.lg : SPACING.xl,
     ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.lg,
     maxWidth: '900px',
-    marginBottom: SPACING.xl,
+    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
   },
   lessonScheduleHeader: {
     display: 'flex',
+    flexDirection: isMobile ? 'column' : 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: `${SPACING.xl} 0 ${SPACING.lg}`,
+    alignItems: isMobile ? 'flex-start' : 'center',
+    gap: isMobile ? SPACING.md : 0,
+    padding: `${isMobile ? SPACING.lg : SPACING.xl} 0 ${SPACING.lg}`,
   },
   sectionTitle: {
-    fontSize: FONT_SIZES['2xl'],
+    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.text.white,
     fontFamily: 'Montserrat, -apple-system, sans-serif',
@@ -488,11 +510,13 @@ const styles = {
   },
   monthSelectorWrapper: {
     display: 'flex',
-    alignItems: 'center',
-    gap: SPACING.lg,
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'center',
+    gap: isMobile ? SPACING.md : SPACING.lg,
     ...MIXINS.glassmorphicSubtle,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
+    width: isMobile ? '100%' : 'auto',
   },
   monthLabel: {
     fontSize: FONT_SIZES.sm,
@@ -500,16 +524,17 @@ const styles = {
     color: COLORS.text.whiteMedium,
   },
   lessonScheduleSection: {
-    padding: `0 0 ${SPACING.xl}`,
+    padding: `0 0 ${isMobile ? SPACING.lg : SPACING.xl}`,
   },
   tableContainer: {
     ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.lg,
     overflow: 'hidden',
+    overflowX: isMobile ? 'auto' : 'visible',
   },
   emptyState: {
-    padding: SPACING['2xl'],
+    padding: isMobile ? SPACING.lg : SPACING['2xl'],
     textAlign: 'center',
     color: COLORS.text.whiteSubtle,
     ...MIXINS.glassmorphicSubtle,
@@ -517,11 +542,11 @@ const styles = {
     marginTop: SPACING.lg,
   },
   emptyIcon: {
-    width: '3rem',
-    height: '3rem',
+    width: isMobile ? '2.5rem' : '3rem',
+    height: isMobile ? '2.5rem' : '3rem',
     margin: '0 auto 1rem',
     color: COLORS.text.whiteSubtle,
   },
-};
+});
 
 export default TeacherDashboardFigma;

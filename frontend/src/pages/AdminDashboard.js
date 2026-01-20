@@ -9,7 +9,7 @@
 // 5. Collapsible sections start collapsed for heavy data
 // ============================================
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import { UnifiedProfileHeader } from '../components/common/UnifiedProfileHeader';
@@ -31,6 +31,12 @@ import {
   useNewRegistrations,
   useStudentData,
 } from '../hooks/queries';
+
+// Dashboard Components
+import LoginActivityWidget from '../components/dashboard/LoginActivityWidget';
+
+// Staff Command Components
+import { StaffCommandInput, CommandHistory, QuickActionsPanel } from '../components/staff';
 import {
   COLORS,
   SPACING,
@@ -119,6 +125,9 @@ function AdminDashboard() {
   // Profile state (still using local state since it's user-specific)
   const [profile, setProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
+  // Ref for command input
+  const commandInputRef = useRef(null);
 
   // Derived loading states
   const loading = {
@@ -410,6 +419,48 @@ function AdminDashboard() {
       />
       <div>
 
+      {/* Login Activity Widget - Shows login counts per school */}
+      <LoginActivityWidget />
+
+      {/* Staff Command Center */}
+      <CollapsibleSection
+        title="Command Center"
+        defaultOpen={true}
+        icon="🤖"
+      >
+        {/* Chat + History Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.lg, marginBottom: SPACING.lg }}>
+          <StaffCommandInput
+            ref={commandInputRef}
+            placeholder="Type a command... (e.g., 'Show inventory summary')"
+            showQuickActions={false}
+            height="350px"
+            onCommandSuccess={() => {
+              // Optionally refresh data after command execution
+            }}
+          />
+          <CommandHistory
+            limit={8}
+            showFilters={true}
+            compact={false}
+            style={{ height: '350px' }}
+          />
+        </div>
+        {/* Quick Actions Row */}
+        <QuickActionsPanel
+          onActionSelect={(action) => {
+            if (commandInputRef.current) {
+              if (action.required_params && action.required_params.length > 0) {
+                // Set command template for user to fill in
+                commandInputRef.current.setCommand(action.command_template);
+              } else {
+                // Execute directly
+                commandInputRef.current.executeCommand(action.command_template);
+              }
+            }
+          }}
+        />
+      </CollapsibleSection>
 
       {/* Students per School */}
       <CollapsibleSection

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import os
 from django.http import JsonResponse
+from django.utils import timezone
 from django.utils.timezone import now
 from django.db.models import Sum, Count, Q
 from rest_framework import viewsets, status
@@ -35,11 +36,13 @@ from django.db import transaction
 from datetime import datetime
 import uuid  # Add this import
 from django.conf import settings
-from students.models import StudentImage
+from students.models import StudentImage, LessonPlan
 from rest_framework.views import APIView
 from datetime import datetime, timedelta
 from .models import StudentImage
+from authentication.email_utils import send_student_progress_email
 
+logger = logging.getLogger(__name__)
 
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
@@ -92,17 +95,22 @@ class SchoolViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Filter schools based on user role:
-        - Admin: See all schools
-        - Teacher: See only assigned schools
+        - Admin: See all schools (active by default, include deactivated if requested)
+        - Teacher: See only assigned active schools
         """
         user = self.request.user
-        
+
         if user.role == 'Admin':
-            return School.objects.all()
+            # Admin can see deactivated schools if explicitly requested
+            include_deactivated = self.request.query_params.get('include_deactivated', 'false').lower() == 'true'
+            if include_deactivated:
+                return School.objects.all()
+            return School.objects.filter(is_active=True)
         elif user.role == 'Teacher':
-            return user.assigned_schools.all()
+            # Teachers only see their assigned active schools
+            return user.assigned_schools.filter(is_active=True)
         else:
-            return School.objects.none()
+            return School.objects.filter(is_active=True)
     """
     ViewSet for School CRUD operations
     Admin: Full access | Teacher: Read-only
@@ -141,23 +149,52 @@ class SchoolViewSet(viewsets.ModelViewSet):
         return super().partial_update(request, *args, **kwargs)
     
     def destroy(self, request, *args, **kwargs):
-        """Only admin can delete schools"""
+        """
+        Soft delete school - deactivates school and related entities.
+        - Sets school is_active=False
+        - Marks all active students as 'Left'
+        - Removes school from all teachers' assigned_schools
+        """
         if request.user.role != 'Admin':
             return Response(
                 {'error': 'Only admins can delete schools'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         school = self.get_object()
-        
-        # Check if school has students
-        if school.students.exists():
+
+        if not school.is_active:
             return Response(
-                {'error': 'Cannot delete school with active students'},
+                {'error': 'School is already deactivated'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        return super().destroy(request, *args, **kwargs)
+
+        # Perform soft delete with cascading deactivation
+        with transaction.atomic():
+            # 1. Deactivate all active students in this school (mark as 'Left')
+            deactivated_students = school.students.filter(status='Active').update(status='Left')
+
+            # 2. Remove this school from all teachers' assigned_schools
+            teachers_affected = school.teachers.all()
+            teacher_count = teachers_affected.count()
+            for teacher in teachers_affected:
+                teacher.assigned_schools.remove(school)
+
+            # 3. Mark school as inactive
+            school.is_active = False
+            school.deactivated_at = timezone.now()
+            school.deactivated_by = request.user
+            school.save()
+
+        return Response({
+            'message': 'School deactivated successfully',
+            'details': {
+                'school_id': school.id,
+                'school_name': school.name,
+                'students_deactivated': deactivated_students,
+                'teachers_unassigned': teacher_count
+            }
+        }, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['get'])
     def stats(self, request, pk=None):
@@ -168,7 +205,61 @@ class SchoolViewSet(viewsets.ModelViewSet):
         school = self.get_object()
         serializer = SchoolStatsSerializer(school)
         return Response(serializer.data)
-    
+
+    @action(detail=True, methods=['post'])
+    def reactivate(self, request, pk=None):
+        """
+        Reactivate a deactivated school
+        Endpoint: POST /api/schools/{id}/reactivate/
+        Note: Students are NOT automatically reactivated - they must be manually reactivated
+        """
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can reactivate schools'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get school including deactivated ones
+        school = School.objects.filter(pk=pk).first()
+        if not school:
+            return Response(
+                {'error': 'School not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if school.is_active:
+            return Response(
+                {'error': 'School is already active'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Reactivate the school
+        school.is_active = True
+        school.deactivated_at = None
+        school.deactivated_by = None
+        school.save()
+
+        return Response({
+            'message': 'School reactivated successfully',
+            'school': SchoolSerializer(school).data
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'])
+    def deactivated(self, request):
+        """
+        List all deactivated schools (Admin only)
+        Endpoint: GET /api/schools/deactivated/
+        """
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can view deactivated schools'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        schools = School.objects.filter(is_active=False)
+        serializer = self.get_serializer(schools, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def overview(self, request):
         """
@@ -1096,7 +1187,7 @@ def create_new_month_fees(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_student_image(request):
-    """Uploads student images to Supabase Storage"""
+    """Uploads student images to Supabase Storage and sends progress email if student uploads"""
 
     if 'image' not in request.FILES:
         return Response({"error": "No image provided"}, status=400)
@@ -1130,11 +1221,57 @@ def upload_student_image(request):
         if isinstance(signed_url_response, dict) and "error" in signed_url_response:
             return Response({"error": signed_url_response["error"]["message"]}, status=500)
 
+        image_url = signed_url_response['signedURL']
+
+        # Initialize email result
+        email_result = {
+            'email_sent': False,
+            'has_email': False,
+            'email_message': None
+        }
+
+        # Check if the uploader is a Student and send progress email
+        if request.user.role == 'Student':
+            try:
+                # Get student profile via the reverse relation
+                student = request.user.student_profile
+
+                # Get lesson plan for today's session
+                lesson_plan = LessonPlan.objects.filter(
+                    school=student.school,
+                    student_class=student.student_class,
+                    session_date=session_date
+                ).first()
+
+                # Send progress email
+                email_result_raw = send_student_progress_email(
+                    student=student,
+                    session_date=session_date,
+                    image_url=image_url,
+                    lesson_plan=lesson_plan
+                )
+
+                email_result = {
+                    'email_sent': email_result_raw.get('email_sent', False),
+                    'has_email': email_result_raw.get('has_email', False),
+                    'email_message': email_result_raw.get('message', None)
+                }
+
+                logger.info(f"Progress email attempt for student {student.name}: {email_result}")
+
+            except Student.DoesNotExist:
+                logger.warning(f"Student profile not found for user {request.user.username}")
+                email_result['email_message'] = 'Student profile not linked'
+            except Exception as e:
+                logger.error(f"Error sending progress email: {str(e)}")
+                email_result['email_message'] = f'Email error: {str(e)}'
+
         return Response({
             "message": "Image uploaded successfully",
-            "image_url": signed_url_response['signedURL'],
+            "image_url": image_url,
             "student_id": student_id,
-            "date": session_date
+            "date": session_date,
+            **email_result
         }, status=201)
 
     except Exception as e:

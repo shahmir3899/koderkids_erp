@@ -17,7 +17,18 @@
       "Bash(cat:*)",
       "Bash(cp:*)",
       "Bash(mkdir:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(python manage.py:*)",
+      "Bash(tree:*)",
+      "Bash(where:*)",
+      "Bash(curl:*)",
+      "Bash(winget install:*)",
+      "Bash(\"/c/Users/hp/AppData/Local/Programs/Ollama/ollama.exe\" --version)",
+      "Bash(\"/c/Users/hp/AppData/Local/Programs/Ollama/ollama.exe\" pull phi3:mini)",
+      "Bash(\"/c/Users/hp/AppData/Local/Programs/Ollama/ollama.exe\" list)",
+      "Bash(python:*)",
+      "Bash(ollama pull:*)",
+      "Bash(ollama list:*)"
     ]
   }
 }

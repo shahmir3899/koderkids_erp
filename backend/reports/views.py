@@ -4,8 +4,8 @@ import os
 from zipfile import ZIP_DEFLATED, ZipFile
 from django.http import HttpResponse
 from django.utils.timezone import now
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status, viewsets
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from students.models import Student, Attendance, LessonPlan, Student, Attendance, LessonPlan, StudentImage
@@ -26,6 +26,12 @@ from django.http import JsonResponse
 from datetime import datetime, timedelta
 
 from lessons.serializers import LessonPlanSerializer
+from .models import CustomReport
+from .serializers import (
+    CustomReportSerializer,
+    CustomReportListSerializer,
+    CustomReportCreateSerializer,
+)
 
 logger = logging.getLogger(__name__)
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
@@ -903,3 +909,205 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     buffer.seek(0)
     logger.info("PDF rendered successfully")
     return buffer
+
+
+# ============================================
+# CUSTOM REPORT VIEWSET
+# ============================================
+
+class CustomReportViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing custom reports.
+    Provides list, create, retrieve, update, delete operations.
+    """
+    queryset = CustomReport.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return CustomReportListSerializer
+        elif self.action in ['create', 'update', 'partial_update']:
+            return CustomReportCreateSerializer
+        return CustomReportSerializer
+
+    def get_queryset(self):
+        queryset = CustomReport.objects.all()
+
+        # Filter by template_type
+        template_type = self.request.query_params.get('template_type')
+        if template_type:
+            queryset = queryset.filter(template_type=template_type)
+
+        # Filter by recipient (partial match)
+        recipient = self.request.query_params.get('recipient')
+        if recipient:
+            queryset = queryset.filter(recipient__icontains=recipient)
+
+        # Filter by subject (partial match)
+        subject = self.request.query_params.get('subject')
+        if subject:
+            queryset = queryset.filter(subject__icontains=subject)
+
+        # Limit results
+        limit = self.request.query_params.get('limit')
+        if limit:
+            try:
+                queryset = queryset[:int(limit)]
+            except ValueError:
+                pass
+
+        return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    @action(detail=False, methods=['get'])
+    def templates(self, request):
+        """
+        Return available report templates with their default content.
+        GET /api/reports/custom-reports/templates/
+        """
+        templates = {
+            'custom': {
+                'name': 'Custom Report',
+                'description': 'Create a custom report with your own content',
+                'default_subject': '',
+                'default_body': '',
+            },
+            'offer_letter': {
+                'name': 'Offer Letter',
+                'description': 'Employment offer letter template',
+                'default_subject': 'Employment Offer Letter',
+                'default_body': '''Dear {recipient},
+
+We are pleased to offer you the position of {position} at {company_name}.
+
+*Start Date:* {start_date}
+*Salary:* {salary}
+*Department:* {department}
+
+Please review the attached terms and conditions. We look forward to welcoming you to our team.
+
+Sincerely,
+{sender_name}
+{sender_title}''',
+            },
+            'experience_letter': {
+                'name': 'Experience Letter',
+                'description': 'Employment experience certificate',
+                'default_subject': 'Experience Certificate',
+                'default_body': '''To Whom It May Concern,
+
+This is to certify that {employee_name} was employed with {company_name} from {start_date} to {end_date} as {position}.
+
+During their tenure, they demonstrated excellent performance and professionalism.
+
+We wish them all the best in their future endeavors.
+
+Sincerely,
+{sender_name}
+{sender_title}''',
+            },
+            'warning_letter': {
+                'name': 'Warning Letter',
+                'description': 'Employee warning letter template',
+                'default_subject': 'Warning Letter',
+                'default_body': '''Dear {recipient},
+
+This letter serves as a formal warning regarding {issue}.
+
+*Date of Incident:* {incident_date}
+*Details:* {incident_details}
+
+Please take immediate corrective action. Further violations may result in disciplinary action.
+
+Sincerely,
+{sender_name}
+{sender_title}''',
+            },
+            'termination_letter': {
+                'name': 'Termination Letter',
+                'description': 'Employment termination letter',
+                'default_subject': 'Termination of Employment',
+                'default_body': '''Dear {recipient},
+
+This letter confirms the termination of your employment with {company_name}, effective {termination_date}.
+
+*Reason:* {reason}
+*Final Working Day:* {last_day}
+
+Please return all company property before your last day.
+
+Sincerely,
+{sender_name}
+{sender_title}''',
+            },
+            'appreciation_letter': {
+                'name': 'Appreciation Letter',
+                'description': 'Employee appreciation letter',
+                'default_subject': 'Letter of Appreciation',
+                'default_body': '''Dear {recipient},
+
+We would like to express our sincere appreciation for your outstanding contribution to {project_or_achievement}.
+
+Your dedication and hard work have made a significant impact on our team.
+
+Thank you for your continued excellence.
+
+Sincerely,
+{sender_name}
+{sender_title}''',
+            },
+            'salary_certificate': {
+                'name': 'Salary Certificate',
+                'description': 'Salary verification certificate',
+                'default_subject': 'Salary Certificate',
+                'default_body': '''To Whom It May Concern,
+
+This is to certify that {employee_name} is employed with {company_name} as {position}.
+
+*Monthly Salary:* {salary}
+*Employee ID:* {employee_id}
+*Date of Joining:* {joining_date}
+
+This certificate is issued upon request for {purpose}.
+
+Sincerely,
+{sender_name}
+{sender_title}''',
+            },
+            'employment_certificate': {
+                'name': 'Employment Certificate',
+                'description': 'Employment verification certificate',
+                'default_subject': 'Employment Certificate',
+                'default_body': '''To Whom It May Concern,
+
+This is to certify that {employee_name} is currently employed with {company_name} as {position} since {joining_date}.
+
+This certificate is issued upon request for official purposes.
+
+Sincerely,
+{sender_name}
+{sender_title}''',
+            },
+            'recommendation_letter': {
+                'name': 'Recommendation Letter',
+                'description': 'Professional recommendation letter',
+                'default_subject': 'Letter of Recommendation',
+                'default_body': '''To Whom It May Concern,
+
+I am pleased to recommend {employee_name} for {purpose}.
+
+I have known {employee_name} for {duration} in my capacity as {relationship}. During this time, they have demonstrated exceptional skills in {skills}.
+
+I highly recommend them without reservation.
+
+Sincerely,
+{sender_name}
+{sender_title}''',
+            },
+        }
+
+        return Response(templates)

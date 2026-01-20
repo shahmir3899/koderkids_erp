@@ -63,18 +63,28 @@ export const ClassesProvider = ({ children }) => {
 
     const schoolIdStr = String(schoolId);
 
-    // Check if already in memory cache
-    if (classesCache[schoolIdStr]) {
-      const cached = classesCache[schoolIdStr];
-      const age = Date.now() - (cached.timestamp || 0);
-      const maxAge = 30 * 60 * 1000; // 30 minutes
+    // Check if already in memory cache using functional state access
+    // This avoids needing classesCache in dependencies (prevents infinite loop)
+    let cachedData = null;
+    setClassesCache(prev => {
+      if (prev[schoolIdStr]) {
+        const cached = prev[schoolIdStr];
+        const age = Date.now() - (cached.timestamp || 0);
+        const maxAge = 30 * 60 * 1000; // 30 minutes
 
-      if (age < maxAge) {
-        console.log(`⚡ ClassesContext: Using cached classes for school ${schoolId}`);
-        return cached.classes || [];
-      } else {
-        console.log(`🗑️ ClassesContext: Cache expired for school ${schoolId}`);
+        if (age < maxAge) {
+          console.log(`⚡ ClassesContext: Using cached classes for school ${schoolId}`);
+          cachedData = cached.classes || [];
+        } else {
+          console.log(`🗑️ ClassesContext: Cache expired for school ${schoolId}`);
+        }
       }
+      return prev; // Don't modify state, just read it
+    });
+
+    // If we found valid cached data, return it
+    if (cachedData !== null) {
+      return cachedData;
     }
 
     // Cache miss or expired - fetch from API
@@ -88,19 +98,19 @@ export const ClassesProvider = ({ children }) => {
 
       console.log(`✅ ClassesContext: Loaded ${data.length} classes for school ${schoolId}`);
 
-      // Update memory cache
-      const newCache = {
-        ...classesCache,
-        [schoolIdStr]: {
-          classes: data,
-          timestamp: Date.now(),
-        },
-      };
-
-      setClassesCache(newCache);
-
-      // Save to localStorage
-      setCachedData('classesCache', newCache);
+      // Update memory cache using functional update
+      setClassesCache(prev => {
+        const newCache = {
+          ...prev,
+          [schoolIdStr]: {
+            classes: data,
+            timestamp: Date.now(),
+          },
+        };
+        // Save to localStorage
+        setCachedData('classesCache', newCache);
+        return newCache;
+      });
 
       setLoading(prev => ({ ...prev, [schoolIdStr]: false }));
 
@@ -113,7 +123,7 @@ export const ClassesProvider = ({ children }) => {
       // Return empty array on error
       return [];
     }
-  }, [classesCache]);
+  }, []); // No dependencies - function is now stable
 
   /**
    * Get cached classes for a school (synchronous)
@@ -121,7 +131,7 @@ export const ClassesProvider = ({ children }) => {
    * @param {number|string} schoolId - School ID
    * @returns {Array|null} Cached classes or null
    */
-  const getCachedClasses = (schoolId) => {
+  const getCachedClasses = useCallback((schoolId) => {
     if (!schoolId) return null;
 
     const schoolIdStr = String(schoolId);
@@ -137,7 +147,7 @@ export const ClassesProvider = ({ children }) => {
     }
 
     return null; // Expired
-  };
+  }, [classesCache]);
 
   /**
    * Clear cache for a specific school
