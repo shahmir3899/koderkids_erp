@@ -4,6 +4,7 @@
 // ============================================
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { Button } from '../common/ui/Button';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 import {
@@ -315,7 +316,7 @@ export const StudentDetailsModal = ({
 
   if (!student) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <div style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
@@ -589,7 +590,8 @@ export const StudentDetailsModal = ({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

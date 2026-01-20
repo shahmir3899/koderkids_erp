@@ -28,7 +28,8 @@
       "Bash(\"/c/Users/hp/AppData/Local/Programs/Ollama/ollama.exe\" list)",
       "Bash(python:*)",
       "Bash(ollama pull:*)",
-      "Bash(ollama list:*)"
+      "Bash(ollama list:*)",
+      "Bash(grep:*)"
     ]
   }
 }

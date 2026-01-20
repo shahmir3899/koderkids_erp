@@ -265,9 +265,13 @@ export const Z_INDEX = {
   base: 1,
   dropdown: 10,
   sticky: 100,
-  modal: 1000,
-  popover: 1010,
-  tooltip: 1020,
+  sidebar: 100,
+  sidebarTooltip: 110,
+  sidebarFlyout: 120,
+  modal: 2000,
+  modalOverlay: 1999,
+  popover: 2010,
+  tooltip: 2020,
 };
 
 /**

@@ -194,12 +194,13 @@ function AppContent() {
           position="top-right"
           autoClose={3000}
           hideProgressBar={false}
-          newestOnTop={false}
+          newestOnTop
           closeOnClick
           rtl={false}
           pauseOnFocusLoss
           draggable
           pauseOnHover
+          style={{ zIndex: 99999 }}
         />
       </div>
     </div>

@@ -19,6 +19,8 @@ import { BarChartWrapper } from '../components/common/charts/BarChartWrapper';
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { LessonSummaryDashboard } from '../components/teacher/LessonSummaryDashboard';
 import { TeacherInventoryWidget } from '../components/teacher/TeacherInventoryWidget';
+import TeacherAttendanceWidget from '../components/dashboard/TeacherAttendanceWidget';
+import AttendanceConfirmationModal from '../components/AttendanceConfirmationModal';
 import { StaffCommandInput, CommandHistory, QuickActionsPanel } from '../components/staff';
 
 // Hooks
@@ -92,8 +94,31 @@ const TeacherDashboardFigma = () => {
     completion: false,
   });
 
+  // Attendance Modal State
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [attendanceModalData, setAttendanceModalData] = useState(null);
+
   // Hooks - useSchools available for future school-related features
   useSchools();
+
+  // Check for attendance data on mount and show modal
+  useEffect(() => {
+    const lastAttendance = localStorage.getItem('lastAttendance');
+    if (lastAttendance) {
+      try {
+        const attendanceData = JSON.parse(lastAttendance);
+        if (attendanceData && attendanceData.records && attendanceData.records.length > 0) {
+          setAttendanceModalData(attendanceData);
+          setShowAttendanceModal(true);
+          // Clear the stored attendance after showing
+          localStorage.removeItem('lastAttendance');
+        }
+      } catch (e) {
+        console.error('Error parsing attendance data:', e);
+        localStorage.removeItem('lastAttendance');
+      }
+    }
+  }, []);
 
   // Ref for command input
   const commandInputRef = useRef(null);
@@ -377,9 +402,14 @@ useEffect(() => {
     loading={loading.monthlyData}
   />
 </CollapsibleSection>
+{/* Teacher Attendance Widget */}
+<CollapsibleSection title="📋 My Attendance" defaultOpen={true}>
+  <TeacherAttendanceWidget />
+</CollapsibleSection>
+
 {/* Teacher Inventory Widget */}
 <CollapsibleSection title="📚 Teaching Resources" defaultOpen={false}>
-  <TeacherInventoryWidget 
+  <TeacherInventoryWidget
     teacherSchools={teacherSchools}
     teacherName={teacherName}
   />
@@ -460,6 +490,13 @@ useEffect(() => {
           )}
         </CollapsibleSection>
       </div>
+
+      {/* Attendance Confirmation Modal */}
+      <AttendanceConfirmationModal
+        isOpen={showAttendanceModal}
+        onClose={() => setShowAttendanceModal(false)}
+        attendanceData={attendanceModalData}
+      />
     </div>
   );
 };

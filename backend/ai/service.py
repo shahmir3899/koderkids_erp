@@ -264,6 +264,23 @@ Current user message: {message}"""
                 'PAY_FEE': 'UPDATE_FEE',
                 'FEE_PAYMENT': 'UPDATE_FEE',
                 'ADD_PAYMENT': 'UPDATE_FEE',
+                # Single fee creation variations
+                'CREATE_STUDENT_FEE': 'CREATE_SINGLE_FEE',
+                'ADD_STUDENT_FEE': 'CREATE_SINGLE_FEE',
+                'SINGLE_STUDENT_FEE': 'CREATE_SINGLE_FEE',
+                'ADD_FEE': 'CREATE_SINGLE_FEE',
+                'NEW_FEE': 'CREATE_SINGLE_FEE',
+                # Delete fee variations
+                'DELETE_FEE': 'DELETE_FEES',
+                'REMOVE_FEE': 'DELETE_FEES',
+                'REMOVE_FEES': 'DELETE_FEES',
+                # Bulk update variations
+                'BULK_PAYMENT': 'BULK_UPDATE_FEES',
+                'BATCH_UPDATE_FEES': 'BULK_UPDATE_FEES',
+                'UPDATE_MULTIPLE_FEES': 'BULK_UPDATE_FEES',
+                'MASS_UPDATE_FEES': 'BULK_UPDATE_FEES',
+                'UPDATE_ALL_FEES': 'BULK_UPDATE_FEES',
+                'PAY_ALL_FEES': 'BULK_UPDATE_FEES',
             }
             if action_name in action_name_mapping:
                 action_name = action_name_mapping[action_name]

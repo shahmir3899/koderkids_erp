@@ -34,6 +34,7 @@ import {
 
 // Dashboard Components
 import LoginActivityWidget from '../components/dashboard/LoginActivityWidget';
+import AdminTeacherAttendanceWidget from '../components/dashboard/AdminTeacherAttendanceWidget';
 
 // Staff Command Components
 import { StaffCommandInput, CommandHistory, QuickActionsPanel } from '../components/staff';
@@ -421,6 +422,15 @@ function AdminDashboard() {
 
       {/* Login Activity Widget - Shows login counts per school */}
       <LoginActivityWidget />
+
+      {/* Teacher Attendance Overview - Shows attendance rates for all teachers */}
+      <CollapsibleSection
+        title="Teacher Attendance"
+        defaultOpen={false}
+        icon="👨‍🏫"
+      >
+        <AdminTeacherAttendanceWidget />
+      </CollapsibleSection>
 
       {/* Staff Command Center */}
       <CollapsibleSection

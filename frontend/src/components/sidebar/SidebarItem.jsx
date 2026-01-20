@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { COLORS, BORDER_RADIUS, TRANSITIONS, FONT_SIZES } from '../../utils/designConstants';
+import { COLORS, BORDER_RADIUS, TRANSITIONS, FONT_SIZES, Z_INDEX } from '../../utils/designConstants';
 
 /**
  * SidebarItem Component
@@ -116,7 +116,7 @@ const styles = {
     borderRadius: '8px',
     fontSize: FONT_SIZES.sm,
     whiteSpace: 'nowrap',
-    zIndex: 1020,
+    zIndex: Z_INDEX.sidebarTooltip,
     pointerEvents: 'none',
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
   },

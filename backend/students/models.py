@@ -60,6 +60,28 @@ class School(models.Model):
         help_text="User who deactivated this school"
     )
 
+    # Assigned days for teacher attendance and lesson planning
+    # Format: List of integers [0=Monday, 1=Tuesday, ..., 6=Sunday]
+    # Example: [0, 1] means Monday and Tuesday
+    assigned_days = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Days of week when this school has classes. [0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun]"
+    )
+
+    def is_working_day(self, date=None):
+        """Check if the given date (or today) is a working day for this school."""
+        from django.utils import timezone
+        if date is None:
+            date = timezone.now().date()
+        # Python weekday(): Monday=0, Sunday=6
+        return date.weekday() in self.assigned_days if self.assigned_days else True
+
+    def get_assigned_days_display(self):
+        """Return human-readable list of assigned days."""
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        return [day_names[d] for d in self.assigned_days if 0 <= d <= 6]
+
     def __str__(self):
         return self.name
 
@@ -298,3 +320,61 @@ class StudentImage(models.Model):
 
     def __str__(self):
         return f"Image for {self.student.name} on {self.session_date}"
+
+
+class TeacherAttendance(models.Model):
+    """
+    Automatic teacher attendance tracking.
+    Records are created when teachers log in based on their location.
+    """
+    STATUS_CHOICES = [
+        ('present', 'Present'),                      # Within 200m of school
+        ('out_of_range', 'Out of Range'),            # Logged in but outside geofence
+        ('location_unavailable', 'Location Unavailable'),  # User denied location permission
+    ]
+
+    teacher = models.ForeignKey(
+        'students.CustomUser',
+        on_delete=models.CASCADE,
+        related_name='teacher_attendances'
+    )
+    school = models.ForeignKey(
+        'students.School',
+        on_delete=models.CASCADE,
+        related_name='teacher_attendances'
+    )
+    date = models.DateField()
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='present')
+
+    # Login details
+    login_time = models.DateTimeField(auto_now_add=True)
+    login_latitude = models.DecimalField(
+        max_digits=10, decimal_places=7,
+        null=True, blank=True,
+        help_text="Teacher's latitude at login time"
+    )
+    login_longitude = models.DecimalField(
+        max_digits=10, decimal_places=7,
+        null=True, blank=True,
+        help_text="Teacher's longitude at login time"
+    )
+    distance_from_school = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        help_text="Distance from school in meters"
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        # Changed from ('teacher', 'school', 'date') to ('teacher', 'date')
+        # One attendance record per teacher per day (school determined by assigned_days)
+        unique_together = ('teacher', 'date')
+        ordering = ['-date', '-login_time']
+        verbose_name = "Teacher Attendance"
+        verbose_name_plural = "Teacher Attendances"
+
+    def __str__(self):
+        return f"{self.teacher.username} - {self.school.name} - {self.date} ({self.status})"

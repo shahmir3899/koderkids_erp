@@ -71,6 +71,7 @@ class ActionExecutor:
             'CREATE_MISSING_FEES': self._execute_create_missing_fees,
             'CREATE_FEES_MULTIPLE_SCHOOLS': self._execute_create_fees_multiple_schools,
             'GET_RECOVERY_REPORT': self._execute_get_recovery_report,
+            'BULK_UPDATE_FEES': self._execute_bulk_update_fees,
 
             # Inventory actions
             'GET_ITEMS': self._execute_get_inventory_items,
@@ -247,16 +248,33 @@ class ActionExecutor:
         }
 
     def _execute_create_single_fee(self, params: Dict) -> Dict:
-        """Create single fee record."""
+        """Create single fee record for one student."""
         from students.views import create_single_fee
+        from students.models import Student
+
+        student_id = params.get('student_id')
+
+        # Get student info for response message
+        try:
+            student = Student.objects.get(id=student_id)
+            student_name = student.name
+            school_name = student.school.name
+        except Student.DoesNotExist:
+            return {"success": False, "message": f"Student #{student_id} not found", "data": None}
+
+        request_data = {
+            'student_id': student_id,
+            'month': params.get('month'),
+            'paid_amount': params.get('paid_amount', 0)
+        }
+
+        # Include total_fee if provided
+        if params.get('total_fee'):
+            request_data['total_fee'] = params.get('total_fee')
 
         request = self.factory.post(
             '/api/fees/create-single/',
-            data=json.dumps({
-                'student_id': params.get('student_id'),
-                'month': params.get('month'),
-                'paid_amount': params.get('paid_amount', 0)
-            }),
+            data=json.dumps(request_data),
             content_type='application/json'
         )
         request.user = self.user
@@ -265,9 +283,20 @@ class ActionExecutor:
 
         if hasattr(response, 'data'):
             data = response.data
+            month = params.get('month')
+            if response.status_code in [200, 201]:
+                return {
+                    "success": True,
+                    "message": f"Created fee for {student_name} ({school_name}) - {month}",
+                    "data": {
+                        **data,
+                        "student_name": student_name,
+                        "school_name": school_name
+                    }
+                }
             return {
-                "success": response.status_code in [200, 201],
-                "message": data.get('message', 'Fee created'),
+                "success": False,
+                "message": data.get('error', 'Fee creation failed'),
                 "data": data,
                 "error": data.get('error')
             }
@@ -276,53 +305,101 @@ class ActionExecutor:
 
     def _execute_update_fee(self, params: Dict) -> Dict:
         """Update fee payment."""
-        from students.views import update_fees
         from students.models import Fee
+        from datetime import date, timedelta
 
         fee_id = params.get('fee_id')
         paid_amount = params.get('paid_amount')
+        date_received = params.get('date_received')
+        total_fee = params.get('total_fee')
+
+        try:
+            fee = Fee.objects.get(id=fee_id)
+        except Fee.DoesNotExist:
+            return {"success": False, "message": f"Fee #{fee_id} not found", "data": None}
 
         # Handle special payment amount keywords
         special_amounts = ['full', 'total', 'balance', 'remaining', 'payable', 'pending', 'due']
         paid_amount_str = str(paid_amount).lower().strip() if paid_amount else ''
 
         if paid_amount_str in special_amounts:
-            try:
-                fee = Fee.objects.get(id=fee_id)
-                # "full" or "total" means pay the entire fee amount
-                if paid_amount_str in ['full', 'total']:
-                    paid_amount = float(fee.total_fee)
-                # "balance", "remaining", "payable", "pending", "due" means pay just the remaining balance
-                else:
-                    paid_amount = float(fee.balance_due)
-            except Fee.DoesNotExist:
-                return {"success": False, "message": f"Fee #{fee_id} not found", "data": None}
+            if paid_amount_str in ['full', 'total']:
+                paid_amount = float(fee.total_fee)
+            else:
+                paid_amount = float(fee.balance_due)
 
-        request = self.factory.post(
-            '/api/fees/update/',
-            data=json.dumps({
-                'fees': [{
-                    'id': fee_id,
-                    'paid_amount': paid_amount,
-                    'total_fee': params.get('total_fee')
-                }]
-            }),
-            content_type='application/json'
-        )
-        request.user = self.user
+        # Handle date_received special values
+        if date_received:
+            date_str = str(date_received).lower().strip()
+            if date_str == 'today':
+                date_received = date.today()
+            elif date_str == 'yesterday':
+                date_received = date.today() - timedelta(days=1)
+            else:
+                # Try to parse the date
+                try:
+                    from datetime import datetime
+                    # Try various date formats
+                    for fmt in ['%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y']:
+                        try:
+                            date_received = datetime.strptime(date_str, fmt).date()
+                            break
+                        except ValueError:
+                            continue
+                except Exception:
+                    pass  # Keep original value if parsing fails
 
-        response = update_fees(request)
+        # Update fee fields
+        updates_made = []
 
-        if hasattr(response, 'data'):
-            data = response.data
-            return {
-                "success": response.status_code == 200,
-                "message": data.get('message', 'Fee updated'),
-                "data": data,
-                "error": data.get('error')
+        if paid_amount is not None and paid_amount != '':
+            fee.paid_amount = float(paid_amount)
+            fee.balance_due = max(0, float(fee.total_fee) - float(paid_amount))
+
+            if fee.balance_due == 0:
+                fee.status = 'Paid'
+            elif fee.paid_amount > 0:
+                fee.status = 'Partial'
+            else:
+                fee.status = 'Pending'
+            updates_made.append(f"payment PKR {float(paid_amount):,.0f}")
+
+        if date_received:
+            fee.date_received = date_received
+            updates_made.append(f"date received: {date_received}")
+
+        if total_fee:
+            old_total = float(fee.total_fee)
+            fee.total_fee = float(total_fee)
+            fee.balance_due = max(0, float(total_fee) - float(fee.paid_amount))
+
+            if fee.balance_due == 0 and float(fee.paid_amount) >= float(total_fee):
+                fee.status = 'Paid'
+            elif fee.paid_amount > 0:
+                fee.status = 'Partial'
+            else:
+                fee.status = 'Pending'
+            updates_made.append(f"total fee: PKR {old_total:,.0f} → PKR {float(total_fee):,.0f}")
+
+        fee.save()
+
+        student_name = fee.student_name  # Fee model has student_name directly
+        update_desc = ", ".join(updates_made) if updates_made else "no changes"
+
+        return {
+            "success": True,
+            "message": f"Updated fee for {student_name} ({fee.month}): {update_desc}",
+            "data": {
+                "fee_id": fee.id,
+                "student_name": student_name,
+                "month": fee.month,
+                "total_fee": float(fee.total_fee),
+                "paid_amount": float(fee.paid_amount),
+                "balance_due": float(fee.balance_due),
+                "status": fee.status,
+                "date_received": str(fee.date_received) if fee.date_received else None
             }
-
-        return {"success": False, "message": "Unknown error", "data": None}
+        }
 
     def _execute_delete_fees(self, params: Dict) -> Dict:
         """Delete fee records."""
@@ -351,44 +428,90 @@ class ActionExecutor:
         return {"success": False, "message": "Unknown error", "data": None}
 
     def _execute_get_fees(self, params: Dict) -> Dict:
-        """Query fee records."""
-        from students.views import get_fees
+        """Query fee records with filters."""
+        from students.models import Fee
+        from django.db.models import Q
 
-        query_params = {}
+        # Build queryset - Fee model uses student_name directly, not FK
+        fees = Fee.objects.select_related('school').all()
+
+        # Apply filters
         if params.get('school_id'):
-            query_params['school_id'] = params['school_id']
+            fees = fees.filter(school_id=params['school_id'])
+
         if params.get('month'):
-            query_params['month'] = params['month']
+            fees = fees.filter(month=params['month'])
+
         if params.get('class'):
-            query_params['class'] = params['class']
+            student_class = params['class']
+            # Fee model has student_class field directly
+            fees = fees.filter(
+                Q(student_class__icontains=student_class) |
+                Q(student_class__iexact=student_class)
+            )
 
-        request = self.factory.get('/api/fees/', query_params)
-        request.user = self.user
+        if params.get('status'):
+            fees = fees.filter(status=params['status'])
 
-        response = get_fees(request)
+        if params.get('student_id'):
+            fees = fees.filter(student_id=params['student_id'])
 
-        if hasattr(response, 'data'):
-            data = response.data
-            # Filter by status if requested (not supported by API directly)
-            if params.get('status') and isinstance(data, list):
-                data = [f for f in data if f.get('status') == params['status']]
+        # Order by id descending (no created_at field in Fee model)
+        fees = fees.order_by('-id')
 
-            count = len(data) if isinstance(data, list) else 0
-            total_pending = sum(
-                float(f.get('balance_due', 0)) for f in data
-            ) if isinstance(data, list) else 0
+        # Convert to list for response
+        fee_list = []
+        for fee in fees[:50]:  # Limit to 50 results
+            fee_list.append({
+                'id': fee.id,
+                'student_name': fee.student_name,  # Fee model has student_name directly
+                'student_class': fee.student_class,  # Fee model has student_class directly
+                'school_name': fee.school.name if fee.school else 'Unknown',
+                'month': fee.month,
+                'total_fee': float(fee.total_fee),
+                'paid_amount': float(fee.paid_amount),
+                'balance_due': float(fee.balance_due),
+                'status': fee.status,
+                'date_received': str(fee.date_received) if fee.date_received else None
+            })
 
-            return {
-                "success": True,
-                "message": f"Found {count} fee record(s)",
-                "data": {
-                    "results": data[:50] if isinstance(data, list) else data,
-                    "count": count,
-                    "total_pending": total_pending
-                }
+        total_count = fees.count()
+        total_fee = sum(f['total_fee'] for f in fee_list)
+        total_paid = sum(f['paid_amount'] for f in fee_list)
+        total_pending = sum(f['balance_due'] for f in fee_list)
+
+        # Build descriptive message
+        filter_desc = []
+        if params.get('status'):
+            filter_desc.append(f"status={params['status']}")
+        if params.get('school_id'):
+            filter_desc.append(f"school")
+        if params.get('month'):
+            filter_desc.append(f"month={params['month']}")
+        if params.get('class'):
+            filter_desc.append(f"class={params['class']}")
+        if params.get('student_id'):
+            filter_desc.append(f"student")
+
+        filter_text = f" ({', '.join(filter_desc)})" if filter_desc else ""
+
+        message = f"Found {total_count} fee record(s){filter_text}"
+        if total_count > 0:
+            message += f" | Total: PKR {total_fee:,.0f} | Paid: PKR {total_paid:,.0f} | Pending: PKR {total_pending:,.0f}"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "results": fee_list,
+                "count": total_count,
+                "total_fee": total_fee,
+                "total_paid": total_paid,
+                "total_pending": total_pending,
+                "showing": len(fee_list),
+                "truncated": total_count > 50
             }
-
-        return {"success": False, "message": "Unknown error", "data": None}
+        }
 
     def _execute_get_fee_summary(self, params: Dict) -> Dict:
         """Get fee summary."""
@@ -862,6 +985,80 @@ class ActionExecutor:
                     "total_pending": total_pending_all,
                     "overall_recovery_rate": round(overall_recovery, 1)
                 }
+            }
+        }
+
+    def _execute_bulk_update_fees(self, params: Dict) -> Dict:
+        """Update multiple fees at once."""
+        from students.models import Fee
+
+        fee_ids = params.get('fee_ids', [])
+        paid_amount = params.get('paid_amount')
+
+        if not fee_ids:
+            return {"success": False, "message": "No fee IDs provided", "data": None}
+
+        # Handle special payment amount keywords
+        special_amounts = ['full', 'total', 'balance', 'remaining', 'payable', 'pending', 'due']
+        paid_amount_str = str(paid_amount).lower().strip() if paid_amount else ''
+        use_special = paid_amount_str in special_amounts
+
+        updated_count = 0
+        total_amount_updated = 0
+        errors = []
+
+        for fee_id in fee_ids:
+            try:
+                fee = Fee.objects.get(id=fee_id)
+
+                if use_special:
+                    if paid_amount_str in ['full', 'total']:
+                        # Pay full amount
+                        amount_to_pay = float(fee.total_fee)
+                    else:
+                        # Pay remaining balance
+                        amount_to_pay = float(fee.balance_due)
+                else:
+                    amount_to_pay = float(paid_amount)
+
+                # Update the fee
+                fee.paid_amount = amount_to_pay
+                fee.balance_due = max(0, float(fee.total_fee) - amount_to_pay)
+
+                if fee.balance_due == 0:
+                    fee.status = 'Paid'
+                elif fee.paid_amount > 0:
+                    fee.status = 'Partial'
+                else:
+                    fee.status = 'Pending'
+
+                fee.save()
+                updated_count += 1
+                total_amount_updated += amount_to_pay
+
+            except Fee.DoesNotExist:
+                errors.append(f"Fee #{fee_id} not found")
+            except Exception as e:
+                errors.append(f"Fee #{fee_id}: {str(e)}")
+
+        if updated_count == 0:
+            return {
+                "success": False,
+                "message": "No fees were updated",
+                "data": {"errors": errors}
+            }
+
+        message = f"Updated {updated_count} fee record(s). Total amount: PKR {total_amount_updated:,.0f}"
+        if errors:
+            message += f" ({len(errors)} error(s))"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "updated_count": updated_count,
+                "total_amount": total_amount_updated,
+                "errors": errors if errors else None
             }
         }
 

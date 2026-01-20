@@ -270,6 +270,7 @@ class SchoolSerializer(serializers.ModelSerializer):
     monthly_revenue = serializers.SerializerMethodField()
     capacity_utilization = serializers.SerializerMethodField()
     deactivated_by_name = serializers.CharField(source='deactivated_by.username', read_only=True)
+    assigned_days_display = serializers.SerializerMethodField()
 
     class Meta:
         model = School
@@ -279,12 +280,18 @@ class SchoolSerializer(serializers.ModelSerializer):
             'established_date', 'total_capacity', 'is_active',
             'created_at', 'updated_at',
             'payment_mode', 'monthly_subscription_amount',
+            # Assigned days for scheduling
+            'assigned_days', 'assigned_days_display',
             # Soft delete fields
             'deactivated_at', 'deactivated_by', 'deactivated_by_name',
             # Computed fields
             'total_students', 'total_classes', 'monthly_revenue', 'capacity_utilization'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'deactivated_at', 'deactivated_by', 'deactivated_by_name']
+        read_only_fields = ['created_at', 'updated_at', 'deactivated_at', 'deactivated_by', 'deactivated_by_name', 'assigned_days_display']
+
+    def get_assigned_days_display(self, obj):
+        """Return human-readable list of assigned days."""
+        return obj.get_assigned_days_display()
     
     def get_total_students(self, obj):
         """Count active students in this school"""

@@ -4,6 +4,7 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { toast } from 'react-toastify';
 import { updateSchool, fetchSchoolStats } from '../../api/services/schoolService';
 import { uploadSchoolLogo } from '../../utils/supabaseUpload';
@@ -106,6 +107,8 @@ export const SchoolDetailsModal = ({
         established_date: school.established_date || '',
         total_capacity: school.total_capacity || '',
         is_active: school.is_active !== false,
+        // 📅 Assigned Days Configuration
+        assigned_days: school.assigned_days || [],
         // 💰 Payment Configuration
         payment_mode: school.payment_mode || 'per_student',
         monthly_subscription_amount: school.monthly_subscription_amount || '',
@@ -135,6 +138,24 @@ export const SchoolDetailsModal = ({
       setErrors(prev => ({ ...prev, [name]: null }));
     }
   };
+
+  // Handle assigned days change (checkboxes)
+  const handleDayToggle = (dayIndex) => {
+    setFormData(prev => {
+      const currentDays = prev.assigned_days || [];
+      if (currentDays.includes(dayIndex)) {
+        // Remove day
+        return { ...prev, assigned_days: currentDays.filter(d => d !== dayIndex) };
+      } else {
+        // Add day and sort
+        return { ...prev, assigned_days: [...currentDays, dayIndex].sort((a, b) => a - b) };
+      }
+    });
+  };
+
+  // Day names for display
+  const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   // Handle logo change
   const handleLogoChange = (file) => {
@@ -199,6 +220,8 @@ export const SchoolDetailsModal = ({
         established_date: formData.established_date || null,
         total_capacity: formData.total_capacity ? parseInt(formData.total_capacity) : null,
         is_active: formData.is_active,
+        // 📅 Assigned Days Configuration
+        assigned_days: formData.assigned_days || [],
         // 💰 Payment Configuration
         payment_mode: formData.payment_mode,
         monthly_subscription_amount: formData.payment_mode === 'monthly_subscription'
@@ -422,7 +445,7 @@ export const SchoolDetailsModal = ({
     color: COLORS.text.white,
   };
 
-  return (
+  return ReactDOM.createPortal(
     <div style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
@@ -694,6 +717,77 @@ export const SchoolDetailsModal = ({
             )}
           </div>
 
+          {/* 📅 ASSIGNED DAYS SECTION */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>📅 Assigned Days (for Teacher Attendance)</label>
+            {isEditing ? (
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: SPACING.sm,
+                padding: SPACING.md,
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                borderRadius: BORDER_RADIUS.md,
+                border: `1px solid ${COLORS.border.whiteSubtle}`,
+              }}>
+                {DAY_NAMES.map((day, index) => {
+                  const isSelected = formData.assigned_days?.includes(index);
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => handleDayToggle(index)}
+                      style={{
+                        padding: `${SPACING.sm} ${SPACING.md}`,
+                        borderRadius: BORDER_RADIUS.md,
+                        border: `1px solid ${isSelected ? 'rgba(16, 185, 129, 0.5)' : COLORS.border.whiteTransparent}`,
+                        backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                        color: isSelected ? '#10b981' : COLORS.text.whiteSubtle,
+                        fontSize: FONT_SIZES.sm,
+                        fontWeight: isSelected ? FONT_WEIGHTS.semibold : FONT_WEIGHTS.normal,
+                        cursor: 'pointer',
+                        transition: `all ${TRANSITIONS.normal} ease`,
+                        minWidth: '80px',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                          e.target.style.borderColor = COLORS.border.whiteMedium;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                          e.target.style.borderColor = COLORS.border.whiteTransparent;
+                        }
+                      }}
+                    >
+                      {isSelected && '✓ '}{DAY_SHORT[index]}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={valueStyle}>
+                {school.assigned_days_display && school.assigned_days_display.length > 0
+                  ? school.assigned_days_display.join(', ')
+                  : school.assigned_days && school.assigned_days.length > 0
+                    ? school.assigned_days.map(d => DAY_NAMES[d]).join(', ')
+                    : 'Not set (will use Lesson Plans)'}
+              </div>
+            )}
+            {isEditing && (
+              <div style={{
+                marginTop: SPACING.sm,
+                fontSize: FONT_SIZES.xs,
+                color: COLORS.text.whiteSubtle,
+                fontStyle: 'italic',
+              }}>
+                Select the days when this school operates. Used for teacher attendance tracking.
+              </div>
+            )}
+          </div>
+
           {/* 💰 PAYMENT CONFIGURATION SECTION */}
           <div style={{
             borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
@@ -883,7 +977,8 @@ export const SchoolDetailsModal = ({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

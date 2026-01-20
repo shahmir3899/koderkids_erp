@@ -42,9 +42,9 @@ export const NotificationPanel = ({ onNotificationClick }) => {
   // Fetch unread count on mount
   useEffect(() => {
     fetchUnreadCount();
-    
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
+
+    // Poll for new notifications every 10 minutes (600000ms)
+    const interval = setInterval(fetchUnreadCount, 600000);
     return () => clearInterval(interval);
   }, []);
 

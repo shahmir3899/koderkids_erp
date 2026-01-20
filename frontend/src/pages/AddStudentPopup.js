@@ -4,6 +4,7 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import axios from "axios";
 import { toast } from 'react-toastify';
 import { ClipLoader } from 'react-spinners';
@@ -251,7 +252,7 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <div style={styles.overlay} onClick={onClose}>
       <style>
         {`
@@ -597,7 +598,8 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

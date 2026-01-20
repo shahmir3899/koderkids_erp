@@ -4,8 +4,9 @@
 // Location: src/components/sidebar/Sidebar.jsx
 
 import React, { useState, useEffect } from 'react';
-import { COLORS, SIDEBAR, MIXINS, SHADOWS } from '../../utils/designConstants';
+import { COLORS, SIDEBAR, MIXINS, SHADOWS, Z_INDEX } from '../../utils/designConstants';
 import { useSidebar } from '../../hooks/useSidebar';
+import { useResponsive } from '../../hooks/useResponsive';
 import SidebarHeader from './SidebarHeader';
 import SidebarNav from './SidebarNav';
 import SidebarFooter from './SidebarFooter';
@@ -22,13 +23,17 @@ import { getBDMProfile } from '../../services/bdmService';
  * @param {function} setSidebarOpen - Optional controlled setter
  */
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
+  // Detect mobile to collapse sidebar by default on small screens
+  const { isMobile } = useResponsive();
+
   // Use internal state if not controlled
+  // Sidebar is collapsed by default on mobile, open on desktop
   const {
     isOpen: internalIsOpen,
     openDropdowns,
     toggleSidebar: internalToggle,
     toggleDropdown,
-  } = useSidebar(true);
+  } = useSidebar(!isMobile);
 
   // Use props if provided, otherwise use internal state
   const isOpen = sidebarOpen !== undefined ? sidebarOpen : internalIsOpen;
@@ -137,7 +142,7 @@ const styles = {
     height: '100vh',
     width: isOpen ? SIDEBAR.expandedWidth : SIDEBAR.collapsedWidth,
     transition: `width ${SIDEBAR.transitionDuration} ${SIDEBAR.transitionEasing}`,
-    zIndex: 1000,
+    zIndex: Z_INDEX.sidebar,
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',

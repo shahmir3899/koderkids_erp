@@ -4,6 +4,7 @@
 // ============================================
 
 import React, { useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import {
   COLORS,
   SPACING,
@@ -109,7 +110,7 @@ export function ConfirmationModal({
 
   const currentVariant = variantStyles[variant] || variantStyles.danger;
 
-  return (
+  return ReactDOM.createPortal(
     <div
       onClick={handleBackdropClick}
       style={{
@@ -331,7 +332,8 @@ export function ConfirmationModal({
           }
         `}
       </style>
-    </div>
+    </div>,
+    document.body
   );
 }
 

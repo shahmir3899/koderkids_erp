@@ -60,15 +60,16 @@ def generate_random_password(length=12):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
-    Custom JWT serializer that includes user role and username in token response
+    Custom JWT serializer that includes user role and username in token response.
+    Also accepts optional latitude/longitude for automatic teacher attendance.
     """
+
     def validate(self, attrs):
+        # Call parent validation first - this sets self.user
         data = super().validate(attrs)
 
-        # Check if user exists
-        user = CustomUser.objects.filter(username=attrs['username']).first()
-        if not user:
-            raise serializers.ValidationError("User not found!")
+        # Get the authenticated user from parent class
+        user = self.user
 
         # Ensure user is active
         if not user.is_active:
@@ -79,9 +80,24 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         user.last_login = timezone.now()
         user.save(update_fields=['last_login'])
 
+        # Extract location from initial_data (not validated fields)
+        # This avoids serializer validation issues with optional fields
+        latitude = self.initial_data.get('latitude')
+        longitude = self.initial_data.get('longitude')
+
+        # Auto-mark teacher attendance if teacher
+        attendance_result = None
+        if user.role == 'Teacher':
+            from .attendance_service import mark_teacher_attendance
+            attendance_result = mark_teacher_attendance(user, latitude, longitude)
+
         # Include additional data
         data['role'] = user.role
         data['username'] = user.username
+
+        # Include attendance info in response
+        if attendance_result:
+            data['attendance'] = attendance_result
 
         return data
 
@@ -92,7 +108,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """
-    Custom token view using our custom serializer
+    Custom token view using our custom serializer.
+    Accepts optional latitude/longitude for teacher attendance.
     """
     serializer_class = CustomTokenObtainPairSerializer
 

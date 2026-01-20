@@ -86,9 +86,9 @@ const FEE_TEMPLATES = [
 // Example prompts for users
 const EXAMPLE_PROMPTS = [
     "Record payment of 5000 for Ali Khan",
-    "Create fees for schools without records for Jan-2025",
-    "Show recovery report for Jan-2025",
-    "Mark fee #123 as fully paid"
+    "Show pending fees for class 10A",
+    "Mark all fees for class 10A as paid",
+    "Create fee for Sara Ahmed Jan-2026"
 ];
 
 // ============================================
@@ -935,19 +935,79 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
 
         // Handle fee list results (has results with student_name, balance_due, etc.)
         if (data.results && Array.isArray(data.results) && data.results[0]?.student_name) {
+            const statusColors = {
+                'Paid': '#4ADE80',
+                'Pending': '#FBBF24',
+                'Partial': '#FB923C'
+            };
             return (
                 <div style={styles.dataDisplay}>
-                    <div style={{ marginBottom: SPACING.xs }}>
-                        <strong>Total Pending:</strong> PKR {data.total_pending?.toLocaleString() || 0}
+                    {/* Summary stats */}
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap: SPACING.xs,
+                        marginBottom: SPACING.sm,
+                        padding: SPACING.xs,
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        borderRadius: BORDER_RADIUS.sm
+                    }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: FONT_SIZES.sm, fontWeight: 600, color: '#4ADE80' }}>
+                                PKR {(data.total_paid || 0).toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Paid</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: FONT_SIZES.sm, fontWeight: 600, color: '#FBBF24' }}>
+                                PKR {(data.total_pending || 0).toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Pending</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: FONT_SIZES.sm, fontWeight: 600, color: COLORS.text.white }}>
+                                {data.count || 0}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Records</div>
+                        </div>
                     </div>
-                    {data.results.slice(0, 5).map((fee, idx) => (
-                        <div key={idx} style={{ padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                            {fee.student_name} - {fee.student_class} | Balance: PKR {parseFloat(fee.balance_due || 0).toLocaleString()}
+                    {/* Fee list */}
+                    {data.results.slice(0, 8).map((fee, idx) => (
+                        <div key={idx} style={{
+                            padding: '6px 0',
+                            borderBottom: '1px solid rgba(255,255,255,0.1)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <div>
+                                <div style={{ fontWeight: 500 }}>{fee.student_name}</div>
+                                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>
+                                    {fee.student_class} • {fee.school_name} • {fee.month}
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{
+                                    fontSize: FONT_SIZES.xs,
+                                    fontWeight: 600,
+                                    color: statusColors[fee.status] || '#FBBF24'
+                                }}>
+                                    {fee.status === 'Paid' ? '✓ Paid' : `PKR ${parseFloat(fee.balance_due || 0).toLocaleString()}`}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+                                    #{fee.id}
+                                </div>
+                            </div>
                         </div>
                     ))}
-                    {data.count > 5 && (
-                        <div style={{ marginTop: SPACING.xs, fontStyle: 'italic' }}>
-                            ...and {data.count - 5} more
+                    {data.count > 8 && (
+                        <div style={{ marginTop: SPACING.xs, fontStyle: 'italic', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
+                            ...and {data.count - 8} more records
+                        </div>
+                    )}
+                    {data.truncated && (
+                        <div style={{ marginTop: SPACING.xs, fontSize: '10px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+                            (Showing first 50 of {data.count} records)
                         </div>
                     )}
                 </div>
@@ -1036,7 +1096,7 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                         <div style={styles.welcomeTitle}>Fee Management Assistant</div>
                         <div style={styles.welcomeText}>
                             {aiAvailable
-                                ? "Create fees, check recovery rates, find missing records"
+                                ? "Create fees, record payments, delete records, bulk updates, view reports"
                                 : "Use the quick actions below to manage fees"}
                         </div>
 

@@ -10,11 +10,43 @@ function LoginPage() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [locationStatus, setLocationStatus] = useState("pending"); // pending, granted, denied
   const { setLoading } = useLoading();
   const { isMobile } = useResponsive();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Get user's location for teacher attendance
+  const getUserLocation = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setLocationStatus("denied");
+        resolve(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocationStatus("granted");
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.log("Location error:", error.message);
+          setLocationStatus("denied");
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -25,14 +57,32 @@ function LoginPage() {
     }
     setMessage("");
     setIsLoading(true);
+    setLoading(true, "GETTING LOCATION");
+
+    // Try to get location (for teacher attendance)
+    const location = await getUserLocation();
+    console.log("📍 Location result:", location ? `${location.latitude}, ${location.longitude}` : "NOT AVAILABLE");
+
     setLoading(true, "SIGNING IN");
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+
+      // Build request body with optional location
+      const requestBody = {
+        username: formData.username,
+        password: formData.password,
+      };
+
+      if (location) {
+        requestBody.latitude = location.latitude;
+        requestBody.longitude = location.longitude;
+      }
+
       const response = await fetch(`${API_URL}/api/auth/token/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(requestBody),
       });
       const data = await response.json();
 
@@ -41,6 +91,12 @@ function LoginPage() {
         localStorage.setItem("refresh", data.refresh);
         localStorage.setItem("role", data.role);
         localStorage.setItem("username", data.username);
+
+        // Store attendance info if present (for teachers)
+        // The dashboard will show a confirmation modal with this data
+        if (data.attendance) {
+          localStorage.setItem("lastAttendance", JSON.stringify(data.attendance));
+        }
 
         // Fetch full name using the updated API
         setLoading(true, "LOADING PROFILE");

@@ -4,6 +4,7 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { toast } from 'react-toastify';
 import { createSchool } from '../../api/services/schoolService';
 import { uploadSchoolLogo } from '../../utils/supabaseUpload';
@@ -58,9 +59,14 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
     established_date: '',
     total_capacity: '',
     is_active: true,
+    assigned_days: [],
     payment_mode: 'per_student',
     monthly_subscription_amount: '',
   });
+
+  // Day names for display
+  const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const [errors, setErrors] = useState({});
 
@@ -84,6 +90,18 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
+  };
+
+  // Handle assigned days toggle
+  const handleDayToggle = (dayIndex) => {
+    setFormData(prev => {
+      const currentDays = prev.assigned_days || [];
+      if (currentDays.includes(dayIndex)) {
+        return { ...prev, assigned_days: currentDays.filter(d => d !== dayIndex) };
+      } else {
+        return { ...prev, assigned_days: [...currentDays, dayIndex].sort((a, b) => a - b) };
+      }
+    });
   };
 
   // Handle logo change
@@ -173,6 +191,7 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
         established_date: formData.established_date || null,
         total_capacity: formData.total_capacity ? parseInt(formData.total_capacity) : null,
         is_active: formData.is_active,
+        assigned_days: formData.assigned_days || [],
         payment_mode: formData.payment_mode,
         monthly_subscription_amount: formData.payment_mode === 'monthly_subscription'
           ? parseFloat(formData.monthly_subscription_amount)
@@ -204,6 +223,7 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
         established_date: '',
         total_capacity: '',
         is_active: true,
+        assigned_days: [],
         payment_mode: 'per_student',
         monthly_subscription_amount: '',
       });
@@ -225,7 +245,7 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
 
   if (!isOpen) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <div style={styles.overlay} onClick={onClose}>
       <style>
         {`
@@ -402,6 +422,55 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
                   </div>
                 </div>
 
+                {/* Assigned Days Section */}
+                <div style={styles.divider} />
+                <h3 style={styles.sectionTitle}>Assigned Days (for Attendance)</h3>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Select operating days</label>
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: SPACING.sm,
+                    padding: SPACING.md,
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: BORDER_RADIUS.md,
+                    border: `1px solid ${COLORS.border.whiteTransparent}`,
+                  }}>
+                    {DAY_NAMES.map((day, index) => {
+                      const isSelected = formData.assigned_days?.includes(index);
+                      return (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleDayToggle(index)}
+                          style={{
+                            padding: `${SPACING.sm} ${SPACING.md}`,
+                            borderRadius: BORDER_RADIUS.md,
+                            border: `1px solid ${isSelected ? 'rgba(16, 185, 129, 0.5)' : COLORS.border.whiteTransparent}`,
+                            backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                            color: isSelected ? '#10b981' : COLORS.text.whiteSubtle,
+                            fontSize: FONT_SIZES.sm,
+                            fontWeight: isSelected ? FONT_WEIGHTS.semibold : FONT_WEIGHTS.normal,
+                            cursor: 'pointer',
+                            transition: `all ${TRANSITIONS.fast} ease`,
+                            minWidth: '80px',
+                          }}
+                        >
+                          {isSelected && '✓ '}{DAY_SHORT[index]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{
+                    marginTop: SPACING.sm,
+                    fontSize: FONT_SIZES.xs,
+                    color: COLORS.text.whiteSubtle,
+                    fontStyle: 'italic',
+                  }}>
+                    Optional: Select days when this school operates. Used for teacher attendance tracking.
+                  </div>
+                </div>
+
                 {/* Payment Configuration */}
                 <div style={styles.divider} />
                 <h3 style={styles.sectionTitle}>Payment Configuration</h3>
@@ -532,7 +601,8 @@ export const AddSchoolModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

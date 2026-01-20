@@ -63,11 +63,11 @@ FEE_ACTIONS: Dict[str, ActionDefinition] = {
     "UPDATE_FEE": ActionDefinition(
         name="UPDATE_FEE",
         action_type=ActionType.WRITE,
-        required_params=["paid_amount"],  # fee_id OR student lookup params
-        optional_params=["fee_id", "student_name", "student_id", "class", "school_id", "school_name", "month", "total_fee"],
+        required_params=[],  # paid_amount OR date_received OR total_fee required
+        optional_params=["fee_id", "student_name", "student_id", "class", "school_id", "school_name", "month", "paid_amount", "total_fee", "date_received"],
         endpoint="/api/fees/update/",
         requires_confirmation=False,
-        description="Update fee payment - can use fee_id OR student_name+class/school to find fee"
+        description="Update fee payment, date received, or total amount - can use fee_id OR student_name+class/school to find fee"
     ),
     "DELETE_FEES": ActionDefinition(
         name="DELETE_FEES",
@@ -131,6 +131,15 @@ FEE_ACTIONS: Dict[str, ActionDefinition] = {
         handler="get_recovery_report",
         requires_confirmation=False,
         description="Get fee recovery rate report for all schools for a specific month"
+    ),
+    "BULK_UPDATE_FEES": ActionDefinition(
+        name="BULK_UPDATE_FEES",
+        action_type=ActionType.WRITE,
+        required_params=[],  # Either fee_ids OR filter criteria required
+        optional_params=["fee_ids", "school_id", "school_name", "class", "month", "status", "paid_amount"],
+        handler="bulk_update_fees",
+        requires_confirmation=False,
+        description="Update multiple fee records at once"
     ),
 }
 

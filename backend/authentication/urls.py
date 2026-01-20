@@ -14,6 +14,12 @@ from .views import (
     password_reset_confirm,       # ← NEW
     change_password,
 )
+from .teacher_attendance_views import (
+    get_my_attendance,
+    get_my_attendance_calendar,
+    get_admin_teacher_attendance,
+    get_teacher_attendance_detail,
+)
 
 # Create router for ViewSet-based routes
 router = DefaultRouter()
@@ -35,7 +41,13 @@ urlpatterns = [
     path('password-reset/confirm/', password_reset_confirm, name='password-reset-confirm'),
     # Change Password for logged-in users
     path('change-password/', change_password, name='change-password'),
-    
+
+    # Teacher Attendance endpoints
+    path('teacher-attendance/', get_my_attendance, name='teacher-attendance'),
+    path('teacher-attendance/calendar/', get_my_attendance_calendar, name='teacher-attendance-calendar'),
+    path('teacher-attendance/admin/', get_admin_teacher_attendance, name='admin-teacher-attendance'),
+    path('teacher-attendance/admin/<int:teacher_id>/', get_teacher_attendance_detail, name='teacher-attendance-detail'),
+
     # User management routes (from router)
     path('', include(router.urls)),
 ]

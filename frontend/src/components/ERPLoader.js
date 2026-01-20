@@ -44,14 +44,14 @@ function ERPLoader({ isLoading, loadingMessage = 'LOADING ERP', onComplete, dela
     left: 0,
     width: '100%',
     height: '100vh',
-    background: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(4px)',
-    WebkitBackdropFilter: 'blur(4px)',
+    background: 'rgba(255, 255, 255, 0.85)',
+    backdropFilter: 'blur(3px)',
+    WebkitBackdropFilter: 'blur(3px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontFamily: '"Segoe UI", Arial, sans-serif',
-    zIndex: 9999,
+    zIndex: 9990, // Lower than toast (9999) so toasts appear on top
     opacity: isVisible ? 1 : 0,
     transition: `opacity ${TRANSITIONS.normal} ease-out`,
   };
