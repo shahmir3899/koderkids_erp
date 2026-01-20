@@ -35,6 +35,7 @@ def create_lesson_plan(request):
             session_date = lesson_data.get('session_date')
             planned_topic_ids = lesson_data.get('planned_topic_ids', [])
             planned_topic_id = lesson_data.get('planned_topic_id')  # backward compat
+            planned_topic = lesson_data.get('planned_topic', '')  # Custom text topic
 
             if not all([school_id, student_class, session_date]):
                 return Response({
@@ -72,6 +73,10 @@ def create_lesson_plan(request):
             elif planned_topic_id is not None:
                 serializer_data['planned_topic_ids'] = [planned_topic_id]
 
+            # Add custom text topic if provided
+            if planned_topic:
+                serializer_data['planned_topic'] = planned_topic
+
             serializer = LessonPlanSerializer(data=serializer_data)
             if serializer.is_valid():
                 plan = serializer.save()
@@ -105,6 +110,7 @@ def create_lesson_plan(request):
             session_date = lesson_data.get('session_date')
             planned_topic_ids = lesson_data.get('planned_topic_ids', [])
             planned_topic_id = lesson_data.get('planned_topic_id')
+            planned_topic = lesson_data.get('planned_topic', '')  # Custom text topic
 
             if not session_date:
                 return Response({"error": "session_date required."}, status=400)
@@ -127,6 +133,10 @@ def create_lesson_plan(request):
                 serializer_data['planned_topic_ids'] = planned_topic_ids
             elif planned_topic_id is not None:
                 serializer_data['planned_topic_ids'] = [planned_topic_id]
+
+            # Add custom text topic if provided
+            if planned_topic:
+                serializer_data['planned_topic'] = planned_topic
 
             serializer = LessonPlanSerializer(data=serializer_data)
             if serializer.is_valid():
