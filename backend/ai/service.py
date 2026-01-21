@@ -9,7 +9,7 @@ import secrets
 from typing import Dict, Any, Optional
 from django.conf import settings
 
-from .ollama_client import get_ollama_client
+from .llm_client import get_llm_client
 from .prompts import get_agent_prompt
 from .actions import (
     get_action_definition,
@@ -32,11 +32,11 @@ class AIAgentService:
 
     def __init__(self, user):
         self.user = user
-        self.ollama = get_ollama_client()
+        self.llm = get_llm_client()
 
     def is_available(self) -> bool:
-        """Check if AI service is available."""
-        return self.ollama.is_available_sync()
+        """Check if AI service is available (any LLM provider)."""
+        return self.llm.get_available_provider() is not None
 
     def process_message(
         self,
@@ -165,8 +165,8 @@ If the Assistant asked for clarification, complete the ORIGINAL action with the 
 
 Current user message: {message}"""
 
-            # Step 3: Call Ollama (use smaller max_tokens for faster response)
-            llm_result = self.ollama.generate_sync(
+            # Step 3: Call LLM (Ollama or Groq, whichever is available)
+            llm_result = self.llm.generate_sync(
                 prompt=full_prompt,
                 system_prompt=system_prompt,
                 max_tokens=200  # JSON responses are short

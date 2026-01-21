@@ -199,16 +199,28 @@ print(f"FROM EMAIL: {DEFAULT_FROM_EMAIL}")
 print("="*50 + "\n")
 
 # ============================================
-# OLLAMA AI CONFIGURATION
+# AI/LLM CONFIGURATION
 # ============================================
+# Provider preference: comma-separated list (first available will be used)
+# Options: "ollama" (local), "groq" (cloud, free tier)
+# For production on Render: use "groq" or "groq,ollama"
+# For local development: use "ollama,groq" or just "ollama"
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'ollama,groq')
+
+# Ollama (local LLM - for development)
 OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'deepseek-coder:6.7b')
-OLLAMA_TIMEOUT = int(os.getenv('OLLAMA_TIMEOUT', '180'))  # 3 minutes (first request loads model into memory)
+OLLAMA_TIMEOUT = int(os.getenv('OLLAMA_TIMEOUT', '180'))  # 3 minutes
+
+# Groq (cloud LLM - for production, free tier available)
+# Get your free API key at: https://console.groq.com/keys
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.1-8b-instant')  # Fast, free model
 
 # AI Agent Settings
 AI_CONFIRMATION_EXPIRY = 300  # 5 minutes for delete confirmations
 AI_ENABLE_AUDIT_LOG = True
-AI_FALLBACK_TO_TEMPLATE = True  # Use template mode if Ollama unavailable
+AI_FALLBACK_TO_TEMPLATE = True  # Use template mode if LLM unavailable
 
 # ============================================
 # LOGGING CONFIGURATION
