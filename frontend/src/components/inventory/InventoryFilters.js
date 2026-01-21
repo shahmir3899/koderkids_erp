@@ -84,22 +84,20 @@ export const InventoryFilters = ({
   locationOptions,
   schools,
   categories,
+  users = [],
+  noCollapse = false,
 }) => {
   const { isAdmin } = userContext;
 
   // School dropdown is enabled when:
   // - Admin: location is 'School' or empty (showing all)
   // - Teacher: always enabled (they only see School items)
-  const schoolDropdownEnabled = isAdmin 
+  const schoolDropdownEnabled = isAdmin
     ? (filters.location === 'School' || filters.location === '')
     : true;
 
-  return (
-    <CollapsibleSection 
-      title="🔍 Filter Options" 
-      defaultOpen={true}
-      style={{ marginBottom: '1.5rem' }}
-    >
+  const content = (
+    <>
       <div style={filterContainerStyle}>
         {/* Search */}
         <div>
@@ -191,6 +189,24 @@ export const InventoryFilters = ({
           </select>
         </div>
 
+        {/* Assigned To */}
+        <div>
+          <label style={labelStyle}>👤 Assigned To</label>
+          <select
+            value={filters.assignedTo}
+            onChange={(e) => updateFilter('assignedTo', e.target.value)}
+            style={selectStyle}
+          >
+            <option value="" style={optionStyle}>All Employees</option>
+            <option value="unassigned" style={optionStyle}>Unassigned</option>
+            {users.map(user => (
+              <option key={user.id} value={user.id} style={optionStyle}>
+                {user.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Reset Button */}
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <button
@@ -250,6 +266,11 @@ export const InventoryFilters = ({
           {filters.status && (
             <FilterBadge label={`Status: ${filters.status}`} />
           )}
+          {filters.assignedTo && (
+            <FilterBadge
+              label={`Assigned To: ${filters.assignedTo === 'unassigned' ? 'Unassigned' : users.find(u => u.id == filters.assignedTo)?.name || filters.assignedTo}`}
+            />
+          )}
         </div>
       )}
 
@@ -271,6 +292,21 @@ export const InventoryFilters = ({
           </span>
         </div>
       )}
+    </>
+  );
+
+  // If noCollapse, return content directly without CollapsibleSection wrapper
+  if (noCollapse) {
+    return <div style={{ marginBottom: SPACING.lg }}>{content}</div>;
+  }
+
+  return (
+    <CollapsibleSection
+      title="🔍 Filter Options"
+      defaultOpen={true}
+      style={{ marginBottom: '1.5rem' }}
+    >
+      {content}
     </CollapsibleSection>
   );
 };

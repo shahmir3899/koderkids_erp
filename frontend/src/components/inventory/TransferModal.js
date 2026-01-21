@@ -8,76 +8,232 @@
 // - Teacher: Can only transfer to their assigned schools
 
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import Select from 'react-select';
 import { toast } from 'react-toastify';
 import { transferInventoryItems, fetchEmployees } from '../../services/inventoryService';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../utils/designConstants';
 
 // ============================================
-// STYLES
+// STYLES - Gradient Design (matching other modals)
 // ============================================
 
-const modalOverlayStyle = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-  padding: '1rem',
+const styles = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.sm,
+    backdropFilter: 'blur(4px)',
+  },
+  modal: {
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
+    width: '100%',
+    maxWidth: '700px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+  },
+  title: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    margin: 0,
+  },
+  subtitle: {
+    margin: `${SPACING.xs} 0 0`,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+  },
+  closeButton: {
+    padding: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: '50%',
+    cursor: 'pointer',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  content: {
+    padding: SPACING.lg,
+  },
+  label: {
+    display: 'block',
+    marginBottom: SPACING.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+  },
+  input: {
+    width: '100%',
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    boxSizing: 'border-box',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    outline: 'none',
+  },
+  readOnlyInput: {
+    width: '100%',
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    boxSizing: 'border-box',
+    background: 'rgba(255, 255, 255, 0.05)',
+    color: COLORS.text.whiteSubtle,
+    cursor: 'not-allowed',
+    outline: 'none',
+  },
+  warningBox: {
+    backgroundColor: '#FEE2E2',
+    border: '1px solid #FECACA',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  infoBox: {
+    padding: SPACING.md,
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    border: '1px solid rgba(251, 191, 36, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.md,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+    color: '#fcd34d',
+  },
+  itemsPreview: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    maxHeight: '150px',
+    overflowY: 'auto',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  footer: {
+    padding: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.03)',
+    position: 'sticky',
+    bottom: 0,
+    flexWrap: 'wrap',
+  },
+  cancelButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  submitButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: '#8B5CF6',
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  reportButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
 };
 
-const modalContentStyle = {
-  backgroundColor: 'white',
-  borderRadius: '16px',
-  width: '100%',
-  maxWidth: '600px',
-  maxHeight: '90vh',
-  overflow: 'auto',
-  display: 'flex',
-  flexDirection: 'column',
-  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-};
-
-const labelStyle = {
-  display: 'block',
-  marginBottom: '0.5rem',
-  fontWeight: '500',
-  color: '#374151',
-  fontSize: '0.875rem',
-};
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  border: '1px solid #D1D5DB',
-  borderRadius: '8px',
-  fontSize: '0.875rem',
-  boxSizing: 'border-box',
-};
-
-const readOnlyInputStyle = {
-  ...inputStyle,
-  backgroundColor: '#F3F4F6',
-  color: '#6B7280',
-  cursor: 'not-allowed',
-};
-
+// Custom select styles for gradient design
 const selectStyles = {
   control: (base, state) => ({
     ...base,
-    borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-    boxShadow: state.isFocused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
-    '&:hover': { borderColor: '#3B82F6' },
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: state.isFocused ? 'rgba(139, 92, 246, 0.6)' : 'rgba(255, 255, 255, 0.2)',
+    boxShadow: state.isFocused ? '0 0 0 2px rgba(139, 92, 246, 0.2)' : 'none',
+    '&:hover': { borderColor: 'rgba(139, 92, 246, 0.4)' },
     minHeight: '42px',
+    color: '#fff',
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: '#fff',
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: 'rgba(255, 255, 255, 0.5)',
+  }),
+  input: (base) => ({
+    ...base,
+    color: '#fff',
   }),
   option: (base, state) => ({
     ...base,
-    backgroundColor: state.isSelected ? '#3B82F6' : state.isFocused ? '#EFF6FF' : 'white',
-    color: state.isSelected ? 'white' : '#374151',
+    backgroundColor: state.isSelected ? '#8B5CF6' : state.isFocused ? '#3B3B5C' : '#1e293b',
+    color: '#fff',
+  }),
+  menu: (base) => ({
+    ...base,
+    backgroundColor: '#1e293b',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
   }),
   menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
@@ -289,58 +445,51 @@ export const TransferModal = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div style={modalOverlayStyle} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={modalContentStyle}>
+  return ReactDOM.createPortal(
+    <div style={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <style>
+        {`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+          .transfer-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+          .transfer-input:focus {
+            border-color: rgba(139, 92, 246, 0.6) !important;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+          }
+        `}
+      </style>
+      <div style={styles.modal}>
         {/* Header */}
-        <div style={{
-          padding: '1.5rem',
-          borderBottom: '1px solid #E5E7EB',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-        }}>
+        <div style={styles.header}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600', color: '#1F2937' }}>
-              📦 Transfer Inventory
-            </h2>
-            <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#6B7280' }}>
+            <h2 style={styles.title}>📦 Transfer Inventory</h2>
+            <p style={styles.subtitle}>
               {selectedItems.length} items selected • Total value: PKR {totalValue.toLocaleString()}
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              color: '#9CA3AF',
-              padding: '0.25rem',
-            }}
+            style={styles.closeButton}
+            title="Close"
           >
-            ×
+            <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+        <div style={styles.content}>
           {/* Location Mismatch Warning */}
           {locationMismatch && (
-            <div style={{
-              backgroundColor: '#FEE2E2',
-              border: '1px solid #FECACA',
-              borderRadius: '8px',
-              padding: '1rem',
-              marginBottom: '1.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-            }}>
+            <div style={styles.warningBox}>
               <span style={{ fontSize: '1.25rem' }}>⚠️</span>
               <div>
                 <div style={{ fontWeight: '600', color: '#DC2626' }}>Location Mismatch</div>
-                <div style={{ fontSize: '0.875rem', color: '#991B1B' }}>
+                <div style={{ fontSize: FONT_SIZES.sm, color: '#991B1B' }}>
                   Selected items are from different locations. Please select items from the same location.
                 </div>
               </div>
@@ -349,32 +498,15 @@ export const TransferModal = ({
 
           {/* Role indicator for teachers */}
           {!isAdmin && (
-            <div style={{
-              padding: '0.75rem 1rem',
-              backgroundColor: '#FEF3C7',
-              borderRadius: '0.5rem',
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-            }}>
+            <div style={styles.infoBox}>
               <span>ℹ️</span>
-              <span style={{ fontSize: '0.875rem', color: '#92400E' }}>
-                You can only transfer items to your assigned schools.
-              </span>
+              <span>You can only transfer items to your assigned schools.</span>
             </div>
           )}
 
           {/* Items Preview */}
-          <div style={{
-            backgroundColor: '#F9FAFB',
-            borderRadius: '8px',
-            padding: '1rem',
-            marginBottom: '1.25rem',
-            maxHeight: '150px',
-            overflowY: 'auto',
-          }}>
-            <div style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.5rem' }}>
+          <div style={styles.itemsPreview}>
+            <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle, marginBottom: SPACING.xs }}>
               Items to Transfer:
             </div>
             {groupedItems.map((group, idx) => (
@@ -382,33 +514,33 @@ export const TransferModal = ({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '0.5rem 0',
-                borderBottom: idx < groupedItems.length - 1 ? '1px solid #E5E7EB' : 'none',
+                padding: `${SPACING.xs} 0`,
+                borderBottom: idx < groupedItems.length - 1 ? `1px solid ${COLORS.border.whiteTransparent}` : 'none',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontWeight: '500' }}>{group.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs }}>
+                  <span style={{ fontWeight: FONT_WEIGHTS.medium, color: COLORS.text.white }}>{group.name}</span>
                   <span style={{
-                    fontSize: '0.7rem',
-                    padding: '0.125rem 0.5rem',
-                    backgroundColor: '#E5E7EB',
-                    borderRadius: '4px',
-                    color: '#6B7280',
+                    fontSize: FONT_SIZES.xs,
+                    padding: `2px ${SPACING.xs}`,
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderRadius: BORDER_RADIUS.sm,
+                    color: COLORS.text.whiteSubtle,
                   }}>
                     {group.category_name}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
                   <span style={{
-                    backgroundColor: '#3B82F6',
+                    backgroundColor: '#8B5CF6',
                     color: 'white',
-                    padding: '0.125rem 0.5rem',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    fontWeight: '600',
+                    padding: `2px ${SPACING.xs}`,
+                    borderRadius: BORDER_RADIUS.sm,
+                    fontSize: FONT_SIZES.xs,
+                    fontWeight: FONT_WEIGHTS.semibold,
                   }}>
                     Qty: {group.items.length}
                   </span>
-                  <span style={{ fontSize: '0.875rem', color: '#6B7280' }}>
+                  <span style={{ fontSize: FONT_SIZES.sm, color: COLORS.text.whiteSubtle }}>
                     PKR {group.totalValue.toLocaleString()}
                   </span>
                 </div>
@@ -417,21 +549,21 @@ export const TransferModal = ({
           </div>
 
           {/* From Location (Read-only) */}
-          <div style={{ marginBottom: '1.25rem' }}>
-            <label style={labelStyle}>From Location</label>
+          <div style={{ marginBottom: SPACING.md }}>
+            <label style={styles.label}>From Location</label>
             <input
               type="text"
               value={fromLocation}
               readOnly
-              style={readOnlyInputStyle}
+              style={styles.readOnlyInput}
             />
           </div>
 
           {/* To Location */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.md, marginBottom: SPACING.md }}>
             <div>
-              <label style={labelStyle}>
-                To Location <span style={{ color: '#EF4444' }}>*</span>
+              <label style={styles.label}>
+                To Location <span style={{ color: '#f87171' }}>*</span>
               </label>
               <Select
                 options={locationOptions}
@@ -450,8 +582,8 @@ export const TransferModal = ({
             </div>
 
             <div>
-              <label style={labelStyle}>
-                To School {toLocation?.value === 'School' && <span style={{ color: '#EF4444' }}>*</span>}
+              <label style={styles.label}>
+                To School {toLocation?.value === 'School' && <span style={{ color: '#f87171' }}>*</span>}
               </label>
               <Select
                 options={schoolOptions}
@@ -462,7 +594,7 @@ export const TransferModal = ({
                   ...selectStyles,
                   control: (base, state) => ({
                     ...selectStyles.control(base, state),
-                    backgroundColor: toLocation?.value !== 'School' ? '#F3F4F6' : 'white',
+                    opacity: toLocation?.value !== 'School' ? 0.5 : 1,
                   }),
                 }}
                 isDisabled={toLocation?.value !== 'School' || locationMismatch}
@@ -472,19 +604,19 @@ export const TransferModal = ({
           </div>
 
           {/* Transferred By & Received By */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.md, marginBottom: SPACING.md }}>
             <div>
-              <label style={labelStyle}>Transfer Initiated By</label>
+              <label style={styles.label}>Transfer Initiated By</label>
               <input
                 type="text"
                 value={userName || 'Current User'}
                 readOnly
-                style={readOnlyInputStyle}
+                style={styles.readOnlyInput}
               />
             </div>
 
             <div>
-              <label style={labelStyle}>Received By / Assign To</label>
+              <label style={styles.label}>Received By / Assign To</label>
               <Select
                 options={employeeOptions}
                 value={receivedBy}
@@ -500,14 +632,15 @@ export const TransferModal = ({
           </div>
 
           {/* Reason */}
-          <div style={{ marginBottom: '1.25rem' }}>
-            <label style={labelStyle}>Reason for Transfer</label>
+          <div style={{ marginBottom: SPACING.md }}>
+            <label style={styles.label}>Reason for Transfer</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Optional: Equipment upgrade, relocation, etc."
               rows={3}
-              style={{ ...inputStyle, resize: 'vertical', minHeight: '80px' }}
+              style={{ ...styles.input, resize: 'vertical', minHeight: '80px' }}
+              className="transfer-input"
               disabled={locationMismatch}
             />
           </div>
@@ -515,16 +648,16 @@ export const TransferModal = ({
           {/* Auto-assignment info */}
           {receivedBy && (
             <div style={{
-              backgroundColor: '#EFF6FF',
-              border: '1px solid #BFDBFE',
-              borderRadius: '8px',
-              padding: '0.75rem 1rem',
+              backgroundColor: 'rgba(139, 92, 246, 0.15)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              borderRadius: BORDER_RADIUS.md,
+              padding: SPACING.md,
               display: 'flex',
               alignItems: 'center',
-              gap: '0.75rem',
+              gap: SPACING.sm,
             }}>
               <span style={{ fontSize: '1.25rem' }}>ℹ️</span>
-              <span style={{ fontSize: '0.875rem', color: '#1E40AF' }}>
+              <span style={{ fontSize: FONT_SIZES.sm, color: '#c4b5fd' }}>
                 All {selectedItems.length} items will be assigned to <strong>{receivedBy.label}</strong> after transfer.
               </span>
             </div>
@@ -532,48 +665,27 @@ export const TransferModal = ({
         </div>
 
         {/* Footer */}
-        <div style={{
-          padding: '1rem 1.5rem',
-          borderTop: '1px solid #E5E7EB',
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          backgroundColor: '#F9FAFB',
-          flexWrap: 'wrap',
-        }}>
+        <div style={styles.footer}>
           <button
             type="button"
             onClick={() => handleSubmit(false)}
             disabled={isSubmitting || locationMismatch}
             style={{
-              padding: '0.75rem 1.25rem',
-              borderRadius: '8px',
-              border: '1px solid #D1D5DB',
-              backgroundColor: 'white',
-              color: '#374151',
-              fontWeight: '500',
-              cursor: isSubmitting || locationMismatch ? 'not-allowed' : 'pointer',
+              ...styles.reportButton,
               opacity: isSubmitting || locationMismatch ? 0.6 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
+              cursor: isSubmitting || locationMismatch ? 'not-allowed' : 'pointer',
             }}
           >
             📄 Generate Report Only
           </button>
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: SPACING.sm }}>
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
               style={{
-                padding: '0.75rem 1.25rem',
-                borderRadius: '8px',
-                border: '1px solid #D1D5DB',
-                backgroundColor: 'white',
-                color: '#374151',
-                fontWeight: '500',
+                ...styles.cancelButton,
                 cursor: isSubmitting ? 'not-allowed' : 'pointer',
               }}
             >
@@ -585,16 +697,9 @@ export const TransferModal = ({
               onClick={() => handleSubmit(true)}
               disabled={isSubmitting || locationMismatch}
               style={{
-                padding: '0.75rem 1.25rem',
-                borderRadius: '8px',
-                border: 'none',
+                ...styles.submitButton,
                 backgroundColor: isSubmitting || locationMismatch ? '#9CA3AF' : '#8B5CF6',
-                color: 'white',
-                fontWeight: '500',
                 cursor: isSubmitting || locationMismatch ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
               }}
             >
               {isSubmitting ? (
@@ -616,15 +721,8 @@ export const TransferModal = ({
           </div>
         </div>
       </div>
-
-      <style>
-        {`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}
-      </style>
-    </div>
+    </div>,
+    document.body
   );
 };
 

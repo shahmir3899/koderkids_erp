@@ -24,6 +24,7 @@ import { useInventory } from '../hooks/useInventory';
 // Common Components
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { ConfirmationModal } from '../components/common/modals/ConfirmationModal';
+import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
 
 // Inventory Components
 import { InventoryHeader } from '../components/inventory/InventoryHeader';
@@ -155,35 +156,44 @@ const InventoryDashboard = () => {
           statusChartData={statusChartData}
         />
 
-        {/* 4. Filters - NOW BELOW ANALYTICS */}
-        <InventoryFilters
-          userContext={userContext}
-          filters={filters}
-          updateFilter={updateFilter}
-          resetFilters={resetFilters}
-          hasActiveFilters={hasActiveFilters}
-          locationOptions={locationOptions}
-          schools={schools}
-          categories={categories}
-        />
+        {/* 4 & 5. Filters + Table in one collapsible section */}
+        <CollapsibleSection
+          title="📦 Inventory Items"
+          defaultOpen={true}
+        >
+          {/* Filters */}
+          <InventoryFilters
+            userContext={userContext}
+            filters={filters}
+            updateFilter={updateFilter}
+            resetFilters={resetFilters}
+            hasActiveFilters={hasActiveFilters}
+            locationOptions={locationOptions}
+            schools={schools}
+            categories={categories}
+            users={users}
+            noCollapse={true}
+          />
 
-        {/* 5. Table */}
-        <InventoryTable
-          userContext={userContext}
-          items={inventoryItems}
-          loading={loading.items}
-          selectedItemIds={selectedItemIds}
-          toggleItemSelection={toggleItemSelection}
-          toggleSelectAll={toggleSelectAll}
-          clearSelection={clearSelection}
-          onViewDetails={handleViewDetails}
-          onEdit={handleEdit}
-          onDelete={handleDeleteRequest}
-          onPrintCertificate={handlePrintCertificate}
-          onOpenTransfer={handleOpenTransfer}
-          onOpenReport={() => openModal('report')}
-          certificateLoading={loading.certificate}
-        />
+          {/* Table */}
+          <InventoryTable
+            userContext={userContext}
+            items={inventoryItems}
+            loading={loading.items}
+            selectedItemIds={selectedItemIds}
+            toggleItemSelection={toggleItemSelection}
+            toggleSelectAll={toggleSelectAll}
+            clearSelection={clearSelection}
+            onViewDetails={handleViewDetails}
+            onEdit={handleEdit}
+            onDelete={handleDeleteRequest}
+            onPrintCertificate={handlePrintCertificate}
+            onOpenTransfer={handleOpenTransfer}
+            onOpenReport={() => openModal('report')}
+            certificateLoading={loading.certificate}
+            noCollapse={true}
+          />
+        </CollapsibleSection>
 
         {/* ============================================ */}
         {/* MODALS */}

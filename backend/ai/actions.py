@@ -81,20 +81,20 @@ FEE_ACTIONS: Dict[str, ActionDefinition] = {
     "GET_FEES": ActionDefinition(
         name="GET_FEES",
         action_type=ActionType.READ,
-        required_params=[],
-        optional_params=["school_id", "month", "status", "class"],
+        required_params=["month"],
+        optional_params=["school_id", "school_name", "status", "class"],
         endpoint="/api/fees/",
         requires_confirmation=False,
-        description="Query fee records"
+        description="Query fee records for a specific month"
     ),
     "GET_FEE_SUMMARY": ActionDefinition(
         name="GET_FEE_SUMMARY",
         action_type=ActionType.READ,
-        required_params=[],
-        optional_params=["school_id", "month"],
+        required_params=["month"],
+        optional_params=["school_id", "school_name"],
         endpoint="/api/fee-summary/",
         requires_confirmation=False,
-        description="Get fee collection summary"
+        description="Get fee collection summary for a specific month (optionally filtered by school)"
     ),
     "GET_SCHOOLS_WITHOUT_FEES": ActionDefinition(
         name="GET_SCHOOLS_WITHOUT_FEES",
@@ -109,10 +109,10 @@ FEE_ACTIONS: Dict[str, ActionDefinition] = {
         name="CREATE_MISSING_FEES",
         action_type=ActionType.WRITE,
         required_params=["month"],
-        optional_params=[],
+        optional_params=["school_id", "school_name"],
         handler="create_missing_fees",
         requires_confirmation=False,
-        description="Create fees only for schools that don't have fee records for a specific month"
+        description="Create fees for schools without fee records AND for students added after monthly fees were created"
     ),
     "CREATE_FEES_MULTIPLE_SCHOOLS": ActionDefinition(
         name="CREATE_FEES_MULTIPLE_SCHOOLS",

@@ -31,15 +31,19 @@ Available actions:
 9. {{"action":"UPDATE_FEE","student_name":"STUDENT_NAME","paid_amount":5000,"date_received":"today"}}
 10. {{"action":"DELETE_FEES","fee_ids":[123]}}
 11. {{"action":"DELETE_FEES","student_name":"STUDENT_NAME","month":"{current_month}"}}
-12. {{"action":"GET_FEES","status":"Pending","school_name":"SCHOOL","class":"10A"}}
-13. {{"action":"GET_FEE_SUMMARY"}}
-14. {{"action":"GET_SCHOOLS_WITHOUT_FEES","month":"Jan-2025"}}
-15. {{"action":"CREATE_MISSING_FEES","month":"Jan-2025"}}
-16. {{"action":"GET_RECOVERY_REPORT","month":"Jan-2025"}}
-17. {{"action":"BULK_UPDATE_FEES","school_name":"SCHOOL","class":"10A","paid_amount":"full"}}
-18. {{"action":"BULK_UPDATE_FEES","fee_ids":[1,2,3],"paid_amount":5000}}
-19. {{"action":"CLARIFY","message":"your question here"}}
-20. {{"action":"CHAT","message":"your friendly response here"}}
+12. {{"action":"GET_FEES","school_name":"SCHOOL","month":"Dec-2025"}}
+13. {{"action":"GET_FEES","status":"Pending","school_name":"SCHOOL","class":"10A"}}
+14. {{"action":"GET_FEE_SUMMARY","month":"{current_month}"}}
+15. {{"action":"GET_FEE_SUMMARY","month":"{current_month}","school_name":"SCHOOL"}}
+16. {{"action":"GET_SCHOOLS_WITHOUT_FEES","month":"{current_month}"}}
+17. {{"action":"CREATE_MISSING_FEES","month":"{current_month}"}}
+18. {{"action":"CREATE_MISSING_FEES","month":"{current_month}","school_name":"SCHOOL"}}
+19. {{"action":"GET_RECOVERY_REPORT","month":"{current_month}"}}
+20. {{"action":"BULK_UPDATE_FEES","school_name":"SCHOOL","month":"{current_month}","paid_amount":"full"}}
+21. {{"action":"BULK_UPDATE_FEES","school_name":"SCHOOL","class":"10A","month":"{current_month}","paid_amount":"full"}}
+22. {{"action":"BULK_UPDATE_FEES","fee_ids":[1,2,3],"paid_amount":5000}}
+23. {{"action":"CLARIFY","message":"your question here"}}
+24. {{"action":"CHAT","message":"your friendly response here"}}
 
 Decision rules:
 - User greets (hi, hello, hey) → return CHAT with a friendly greeting and brief intro of your capabilities
@@ -67,20 +71,38 @@ Decision rules:
 - User says "delete fee #123" or "remove fee 123" → return DELETE_FEES with fee_ids:[123]
 - User says "delete fee for [student name]" or "remove [student]'s fee" → return DELETE_FEES with student_name
 - User says "delete fees for [month]" with student context → return DELETE_FEES with student_name and month
-- User asks "show pending fees" or "list unpaid fees" → return GET_FEES with status:"Pending"
-- User asks "show fees for [school]" → return GET_FEES with school_name
-- User asks "show fees for class [X]" → return GET_FEES with class
-- User asks "show paid fees" → return GET_FEES with status:"Paid"
-- User asks for summary → return GET_FEE_SUMMARY
+- User asks "show pending fees" or "list unpaid fees" → return GET_FEES with status:"Pending" and month (use current_month if not specified)
+- User asks "show fees for [school]" or "show records for [school]" → return GET_FEES with school_name and month (use current_month if not specified)
+- User asks "show fees for [school] for [month]" or "show records for [month] for [school]" → return GET_FEES with school_name and month
+- User asks "show fees for [month]" or "list fees for [month]" → return GET_FEES with month
+- User asks "show fees for class [X]" → return GET_FEES with class and month (use current_month if not specified)
+- User asks "show paid fees" → return GET_FEES with status:"Paid" and month (use current_month if not specified)
+- User asks "list fees" or "view fees" or "get fees" or "show all fees" → return GET_FEES with month (use current_month)
+- IMPORTANT: GET_FEES always requires month parameter (use current_month if user says "this month" or doesn't specify)
+- IMPORTANT: "show", "list", "view", "get" with "fees" or "records" means GET_FEES (read-only). "create" means CREATE_MONTHLY_FEES (write).
+- User asks "fee summary" or "summary" without month → return GET_FEE_SUMMARY with month set to current_month
+- User asks "fee summary for [month]" → return GET_FEE_SUMMARY with that month
+- User asks "fee summary for [school]" or "summary for [school]" → return GET_FEE_SUMMARY with school_name and month (current_month if not specified)
+- User asks "fee summary for [school] for [month]" → return GET_FEE_SUMMARY with school_name and month
+- IMPORTANT: GET_FEE_SUMMARY always requires month parameter (use current_month if user says "this month" or doesn't specify)
 - User asks "which schools don't have fees" or "schools missing fees" or "schools without fee records" → return GET_SCHOOLS_WITHOUT_FEES with the month
-- User says "create fees for schools that don't have" or "create missing fees" or "fill gaps" → return CREATE_MISSING_FEES with the month
+- User says "create fees for schools that don't have" or "create missing fees" or "fill gaps" → return CREATE_MISSING_FEES with month (use current_month if not specified)
 - User asks to create fees for schools WITHOUT existing fees for a specific month → return CREATE_MISSING_FEES with that month
+- User says "create missing fees for [school]" or "fill gaps for [school]" → return CREATE_MISSING_FEES with school_name and month
+- User says "create fees for new students" or "fees for students without records" or "students missing fees" → return CREATE_MISSING_FEES with month (this creates fees for students added after monthly fees were created)
+- IMPORTANT: CREATE_MISSING_FEES creates fees for: (1) schools without any fee records, AND (2) students added after monthly fees were created
 - User asks "recovery report" or "recovery rate" or "collection status" or "how much collected" → return GET_RECOVERY_REPORT with the month
 - User asks "which schools have low recovery" or "schools not paying" → return GET_RECOVERY_REPORT with the month
 - User says "mark all fees for class [X] as paid" or "pay all fees for [class]" → return BULK_UPDATE_FEES with class and paid_amount:"full"
 - User says "update all fees for [school] with [amount]" → return BULK_UPDATE_FEES with school_name and paid_amount
 - User says "bulk update fees" or "update multiple fees" → return BULK_UPDATE_FEES
 - User says "mark pending fees for [school] as paid" → return BULK_UPDATE_FEES with school_name, status:"Pending", paid_amount:"full"
+- User says "update fee for [school]" or "update fees for [school]" (school name, NOT student) → return BULK_UPDATE_FEES with school_name, month (current or specified), and paid_amount:"full"
+- User says "mark [school] fees as paid" or "mark fees for [school] as paid" → return BULK_UPDATE_FEES with school_name, month, and paid_amount:"full"
+- User says "collect fees for [school]" or "receive fees for [school]" → return BULK_UPDATE_FEES with school_name, month, and paid_amount:"full"
+- User says "update fee for [school] for this month" or "this month's fees" → use current_month in the month field
+- IMPORTANT: If user mentions a SCHOOL NAME (like "Smart School", "Main Campus", "Soan Garden", etc.) with "update fee" or "mark paid", use BULK_UPDATE_FEES with that school_name. UPDATE_FEE is ONLY for individual STUDENT names.
+- IMPORTANT: When using BULK_UPDATE_FEES, ALWAYS include month (use current_month if user says "this month" or doesn't specify)
 
 Current month: {current_month}
 

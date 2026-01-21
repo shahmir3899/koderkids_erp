@@ -157,10 +157,22 @@ def get_logged_in_user(request):
     """
     Get current logged-in user's information
     Returns: { id, username, role, fullName }
+
+    For students: Uses Student.name (source of truth)
+    For others: Uses CustomUser.first_name + last_name
     """
     user = request.user
-    full_name = f"{user.first_name} {user.last_name}".strip() or "Unknown"
-    
+
+    # For students, get name from Student table (source of truth)
+    if user.role == 'Student':
+        try:
+            student = user.student_profile
+            full_name = student.name or "Unknown"
+        except Exception:
+            full_name = f"{user.first_name} {user.last_name}".strip() or "Unknown"
+    else:
+        full_name = f"{user.first_name} {user.last_name}".strip() or "Unknown"
+
     return Response({
         "id": user.id,
         "username": user.username,

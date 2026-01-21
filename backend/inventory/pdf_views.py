@@ -580,16 +580,16 @@ def generate_transfer_receipt(request):
         return Response({"error": str(e)}, status=500)
 
 
-def generate_transfer_receipt_pdf(grouped_items, from_location, to_location, 
+def generate_transfer_receipt_pdf(grouped_items, from_location, to_location,
                                    transferred_by, received_by, reason,
                                    total_items, total_value, is_transfer=True):
     """Generate the actual Transfer Receipt PDF content"""
-    
+
     page_css = get_background_css()
     base_styles = get_base_styles()
-    
+
     table_rows = ""
-    for idx, item in enumerate(items, 1):
+    for idx, item in enumerate(grouped_items, 1):
         unique_id_display = item['unique_ids'][0] if item['unique_ids'] else 'N/A'
         if len(item['unique_ids']) > 1:
             unique_id_display += f" <span style='color:#666;font-size:7pt;'>+{len(item['unique_ids'])-1} more</span>"

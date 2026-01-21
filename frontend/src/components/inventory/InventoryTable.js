@@ -69,6 +69,7 @@ export const InventoryTable = ({
   onOpenTransfer,
   onOpenReport,
   certificateLoading = {},
+  noCollapse = false,
 }) => {
   const { isAdmin, canDelete } = userContext;
   const { isMobile, isTablet } = useResponsive();
@@ -468,12 +469,8 @@ export const InventoryTable = ({
   // RENDER
   // ============================================
 
-  return (
-    <CollapsibleSection
-      title={`📋 Inventory Items ${items.length > 0 ? `(${items.length})` : ''}`}
-      defaultOpen={true}
-      headerAction={<HeaderAction />}
-    >
+  const tableContent = (
+    <>
       <SelectionBar />
 
       {loading ? (
@@ -513,6 +510,36 @@ export const InventoryTable = ({
           </p>
         </div>
       )}
+    </>
+  );
+
+  // If noCollapse, return content directly without CollapsibleSection wrapper
+  if (noCollapse) {
+    return (
+      <div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: SPACING.md,
+        }}>
+          <h3 style={{ margin: 0, color: COLORS.text.white, fontSize: '1rem' }}>
+            📋 Inventory Items {items.length > 0 ? `(${items.length})` : ''}
+          </h3>
+          <HeaderAction />
+        </div>
+        {tableContent}
+      </div>
+    );
+  }
+
+  return (
+    <CollapsibleSection
+      title={`📋 Inventory Items ${items.length > 0 ? `(${items.length})` : ''}`}
+      defaultOpen={true}
+      headerAction={<HeaderAction />}
+    >
+      {tableContent}
     </CollapsibleSection>
   );
 };

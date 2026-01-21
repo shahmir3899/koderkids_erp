@@ -621,8 +621,8 @@ class AdminProfilePhotoUploadView(APIView):
             file_extension = os.path.splitext(photo.name)[1]
             unique_filename = f"admin_{request.user.id}_{uuid.uuid4().hex[:8]}{file_extension}"
             
-            # Upload to Supabase
-            bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'student-images')
+            # Upload to Supabase - use profile-photos bucket for profile pictures
+            bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'profile-photos')
             
             # Read file content
             file_content = photo.read()
@@ -688,8 +688,8 @@ class AdminProfilePhotoDeleteView(APIView):
                     try:
                         # Extract filename from URL
                         filename = profile.profile_photo_url.split('/')[-1]
-                        bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'student-images')
-                        
+                        bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'profile-photos')
+
                         # Delete from Supabase
                         supabase.storage.from_(bucket_name).remove([f"profile_photos/{filename}"])
                     except Exception as e:

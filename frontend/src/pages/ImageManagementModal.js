@@ -15,6 +15,7 @@
 // - Glassmorphic dark theme
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_URL, getAuthHeaders } from '../api';
@@ -49,7 +50,7 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    zIndex: 2000,  // Above sidebar (which is 100-120)
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     backdropFilter: 'blur(8px)',
     padding: SPACING.lg,
@@ -645,7 +646,9 @@ const ImageManagementModal = ({
   // RENDER
   // ============================================
 
-  return (
+  // Use React Portal to render modal at document body level
+  // This ensures it appears above all other elements including sidebar
+  return ReactDOM.createPortal(
     <div
       style={styles.overlay}
       role="dialog"
@@ -769,7 +772,8 @@ const ImageManagementModal = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

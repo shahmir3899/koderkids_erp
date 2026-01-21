@@ -1017,24 +1017,55 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
         // Handle fee summary (has total_fee and total_records)
         if (data.total_fee !== undefined && data.total_records !== undefined) {
             return (
-                <div style={styles.summaryGrid}>
-                    <div style={styles.summaryItem}>
-                        <div style={styles.summaryValue}>{data.total_records || 0}</div>
-                        <div style={styles.summaryLabel}>Records</div>
-                    </div>
-                    <div style={styles.summaryItem}>
-                        <div style={styles.summaryValue}>{data.paid_count || 0}</div>
-                        <div style={styles.summaryLabel}>Paid</div>
-                    </div>
-                    <div style={styles.summaryItem}>
-                        <div style={styles.summaryValue}>{data.pending_count || 0}</div>
-                        <div style={styles.summaryLabel}>Pending</div>
-                    </div>
-                    <div style={{ ...styles.summaryItem, gridColumn: 'span 2' }}>
-                        <div style={{ ...styles.summaryValue, color: '#FCA5A5' }}>
-                            PKR {(data.total_pending || 0).toLocaleString()}
+                <div>
+                    {/* Month and School Header */}
+                    {(data.month || data.school_name) && (
+                        <div style={{
+                            marginBottom: SPACING.sm,
+                            padding: SPACING.xs,
+                            background: 'rgba(255,255,255,0.1)',
+                            borderRadius: '4px',
+                            textAlign: 'center',
+                            fontSize: '0.9rem'
+                        }}>
+                            <strong>{data.month || ''}</strong>
+                            {data.school_name && <span> • {data.school_name}</span>}
+                            {!data.school_name && data.month && <span> • All Schools</span>}
                         </div>
-                        <div style={styles.summaryLabel}>Total Pending</div>
+                    )}
+                    <div style={styles.summaryGrid}>
+                        {/* Financial Summary - Main metrics */}
+                        <div style={styles.summaryItem}>
+                            <div style={{ ...styles.summaryValue, color: '#60A5FA' }}>
+                                PKR {(data.total_fee || 0).toLocaleString()}
+                            </div>
+                            <div style={styles.summaryLabel}>Total Fee</div>
+                        </div>
+                        <div style={styles.summaryItem}>
+                            <div style={{ ...styles.summaryValue, color: '#4ADE80' }}>
+                                PKR {(data.total_received || 0).toLocaleString()}
+                            </div>
+                            <div style={styles.summaryLabel}>Received</div>
+                        </div>
+                        <div style={styles.summaryItem}>
+                            <div style={{ ...styles.summaryValue, color: '#FCA5A5' }}>
+                                PKR {(data.total_pending || 0).toLocaleString()}
+                            </div>
+                            <div style={styles.summaryLabel}>Pending</div>
+                        </div>
+                        {/* Record counts */}
+                        <div style={styles.summaryItem}>
+                            <div style={styles.summaryValue}>{data.total_records || 0}</div>
+                            <div style={styles.summaryLabel}>Total Records</div>
+                        </div>
+                        <div style={styles.summaryItem}>
+                            <div style={{ ...styles.summaryValue, color: '#4ADE80' }}>{data.paid_count || 0}</div>
+                            <div style={styles.summaryLabel}>Paid</div>
+                        </div>
+                        <div style={styles.summaryItem}>
+                            <div style={{ ...styles.summaryValue, color: '#FCA5A5' }}>{data.pending_count || 0}</div>
+                            <div style={styles.summaryLabel}>Pending</div>
+                        </div>
                     </div>
                 </div>
             );

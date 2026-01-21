@@ -83,6 +83,7 @@ export const useInventory = () => {
     schoolId: '',
     categoryId: '',
     status: '',
+    assignedTo: '',
     search: '',
   });
 
@@ -135,23 +136,25 @@ export const useInventory = () => {
     console.log('   Filters:', filters);
 
     return items.filter(item => {
-      // Location filter
+      // Location filter (field is 'location', not 'location_type')
       if (filters.location && filters.location !== '') {
-        if (filters.location === 'School' && item.location_type !== 'School') {
+        if (filters.location === 'School' && item.location !== 'School') {
           return false;
         }
-        if (filters.location === 'Headquarters' && item.location_type !== 'Headquarters') {
+        if (filters.location === 'Headquarters' && item.location !== 'Headquarters') {
           return false;
         }
-        if (filters.location === 'Unassigned' && item.location_type !== 'Unassigned' && item.location_type !== null) {
+        if (filters.location === 'Unassigned' && item.location !== 'Unassigned' && item.location !== null) {
           return false;
         }
       }
 
-      // School filter (only applies when location is School)
+      // School filter
       if (filters.schoolId && filters.schoolId !== '') {
         const schoolId = Number(filters.schoolId);
-        if (item.school_id !== schoolId && item.school?.id !== schoolId) {
+        // Backend returns 'school' as the FK ID directly (not school_id or school.id)
+        const itemSchoolId = item.school;
+        if (itemSchoolId !== schoolId) {
           return false;
         }
       }
@@ -168,6 +171,23 @@ export const useInventory = () => {
       if (filters.status && filters.status !== '') {
         if (item.status !== filters.status) {
           return false;
+        }
+      }
+
+      // Assigned To filter
+      if (filters.assignedTo && filters.assignedTo !== '') {
+        const assignedToId = Number(filters.assignedTo);
+        // Handle both 'assigned_to' (FK ID) and check for unassigned
+        if (filters.assignedTo === 'unassigned') {
+          // Show only unassigned items
+          if (item.assigned_to !== null && item.assigned_to !== undefined) {
+            return false;
+          }
+        } else {
+          // Filter by specific user
+          if (item.assigned_to !== assignedToId) {
+            return false;
+          }
         }
       }
 
@@ -212,6 +232,7 @@ export const useInventory = () => {
       schoolId: '',
       categoryId: '',
       status: '',
+      assignedTo: '',
       search: '',
     });
     setSelectedItemIds([]);

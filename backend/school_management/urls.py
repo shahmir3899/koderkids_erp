@@ -9,17 +9,17 @@ from finance import views as finance_views  # Corrected import
 from employees import views as employee_views  # Corrected import
 from students.views import (
     # Authentication
-    FeeSummaryView, StudentProfileViewSet,  debug_cors, 
+    FeeSummaryView, StudentProfileViewSet,  debug_cors,
 
     # Students Management
     StudentViewSet, add_student,  get_students, get_student_details,
-    get_student_images,  students_per_school, new_registrations, 
+    get_student_images,  students_per_school, new_registrations,
 
     # Schools and Classes
     get_schools, get_schools_with_classes, get_classes, get_school_details, schools_list,
 
     # Lessons and Attendance
-    
+
     SchoolViewSet,    create_school,    update_school,  delete_school, get_school_stats, get_schools_overview,
     # Fee Management
     get_fees, create_new_month_fees, update_fees, fee_received_per_month,
@@ -28,7 +28,7 @@ from students.views import (
      upload_student_image, get_class_image_count,
 
 
-    my_student_data, create_single_fee, delete_fees,
+    my_student_data, create_single_fee, delete_fees, my_progress,
 
     StudentProfilePhotoUploadView,      # ← ADD
     StudentProfilePhotoDeleteView,      # ← ADD
@@ -76,6 +76,7 @@ urlpatterns = [
     path('api/students-per-school/', students_per_school, name='students_per_school'),
     path('api/new-registrations/', new_registrations, name='new_registrations'),
     path('api/students/my-data/', my_student_data, name='my_student_data'),  # ← NEW
+    path('api/students/my-progress/', my_progress, name='my_progress'),  # Student progress dashboard data
     path('api/schools-with-classes/', get_schools_with_classes, name='schools_with_classes'),
 
     # Fees Management

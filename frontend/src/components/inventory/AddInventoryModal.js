@@ -4,6 +4,7 @@
 // ============================================
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { toast } from 'react-toastify';
 import {
   createInventoryItem,
@@ -182,7 +183,7 @@ const AddInventoryModal = ({
 
   const totalValue = quantity * Number(formData.purchase_value || 0);
 
-  return (
+  return ReactDOM.createPortal(
     <div style={styles.overlay} onClick={onClose}>
       <style>
         {`
@@ -469,7 +470,8 @@ const AddInventoryModal = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

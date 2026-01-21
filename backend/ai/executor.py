@@ -294,14 +294,22 @@ class ActionExecutor:
                         "school_name": school_name
                     }
                 }
+
+            # Handle specific error cases with better messages
+            error_msg = data.get('error', 'Fee creation failed')
+
+            # If fee already exists, provide helpful info
+            if response.status_code == 409 and 'existing_fee_id' in data:
+                error_msg = f"{error_msg}. Use 'update fee for {student_name}' to modify it."
+
             return {
                 "success": False,
-                "message": data.get('error', 'Fee creation failed'),
+                "message": error_msg,
                 "data": data,
-                "error": data.get('error')
+                "error": error_msg
             }
 
-        return {"success": False, "message": "Unknown error", "data": None}
+        return {"success": False, "message": "Unknown error creating fee", "data": None}
 
     def _execute_update_fee(self, params: Dict) -> Dict:
         """Update fee payment."""
@@ -428,19 +436,32 @@ class ActionExecutor:
         return {"success": False, "message": "Unknown error", "data": None}
 
     def _execute_get_fees(self, params: Dict) -> Dict:
-        """Query fee records with filters."""
-        from students.models import Fee
-        from django.db.models import Q
+        """Query fee records with filters. Month is required."""
+        from students.models import Fee, School
+        from django.db.models import Q, Sum, Count
 
-        # Build queryset - Fee model uses student_name directly, not FK
-        fees = Fee.objects.select_related('school').all()
+        month = params.get('month')
+        if not month:
+            return {"success": False, "message": "Month is required. Please specify the month (e.g., 'show fees for Jan-2026').", "data": None}
+
+        # Build queryset with required month filter
+        fees = Fee.objects.select_related('school').filter(month=month)
+
+        # Resolve school_name to school_id if provided
+        if params.get('school_name') and not params.get('school_id'):
+            try:
+                school = School.objects.filter(
+                    Q(name__icontains=params['school_name']) |
+                    Q(short_name__icontains=params['school_name'])
+                ).first()
+                if school:
+                    params['school_id'] = school.id
+            except Exception:
+                pass
 
         # Apply filters
         if params.get('school_id'):
             fees = fees.filter(school_id=params['school_id'])
-
-        if params.get('month'):
-            fees = fees.filter(month=params['month'])
 
         if params.get('class'):
             student_class = params['class']
@@ -456,16 +477,29 @@ class ActionExecutor:
         if params.get('student_id'):
             fees = fees.filter(student_id=params['student_id'])
 
-        # Order by id descending (no created_at field in Fee model)
+        # Get accurate totals using database aggregation (ALL records)
+        aggregates = fees.aggregate(
+            total_fee=Sum('total_fee'),
+            total_paid=Sum('paid_amount'),
+            total_pending=Sum('balance_due'),
+            total_count=Count('id')
+        )
+
+        total_count = aggregates['total_count'] or 0
+        total_fee = float(aggregates['total_fee'] or 0)
+        total_paid = float(aggregates['total_paid'] or 0)
+        total_pending = float(aggregates['total_pending'] or 0)
+
+        # Order by id descending and get sample for display
         fees = fees.order_by('-id')
 
-        # Convert to list for response
+        # Convert to list for response (limit to 50 for display)
         fee_list = []
-        for fee in fees[:50]:  # Limit to 50 results
+        for fee in fees[:50]:
             fee_list.append({
                 'id': fee.id,
-                'student_name': fee.student_name,  # Fee model has student_name directly
-                'student_class': fee.student_class,  # Fee model has student_class directly
+                'student_name': fee.student_name,
+                'student_class': fee.student_class,
                 'school_name': fee.school.name if fee.school else 'Unknown',
                 'month': fee.month,
                 'total_fee': float(fee.total_fee),
@@ -474,11 +508,6 @@ class ActionExecutor:
                 'status': fee.status,
                 'date_received': str(fee.date_received) if fee.date_received else None
             })
-
-        total_count = fees.count()
-        total_fee = sum(f['total_fee'] for f in fee_list)
-        total_paid = sum(f['paid_amount'] for f in fee_list)
-        total_pending = sum(f['balance_due'] for f in fee_list)
 
         # Build descriptive message
         filter_desc = []
@@ -514,27 +543,81 @@ class ActionExecutor:
         }
 
     def _execute_get_fee_summary(self, params: Dict) -> Dict:
-        """Get fee summary."""
-        # Use get_fees and aggregate
-        result = self._execute_get_fees(params)
+        """Get fee summary using database aggregation (not limited to 50 records)."""
+        from students.models import Fee, School
+        from django.db.models import Sum, Count, Q
 
-        if not result['success']:
-            return result
+        month = params.get('month')
+        if not month:
+            return {"success": False, "message": "Month is required for fee summary. Please specify the month (e.g., 'Jan-2026').", "data": None}
 
-        fees = result['data'].get('results', [])
+        # Build the query with filters
+        fees = Fee.objects.filter(month=month)
+
+        # Track filter context for message
+        school_name = None
+
+        # Resolve school_name to school_id if provided
+        if params.get('school_name') and not params.get('school_id'):
+            try:
+                school = School.objects.filter(
+                    Q(name__icontains=params['school_name']) |
+                    Q(short_name__icontains=params['school_name'])
+                ).first()
+                if school:
+                    params['school_id'] = school.id
+                    school_name = school.name
+            except Exception:
+                pass
+
+        if params.get('school_id'):
+            fees = fees.filter(school_id=params['school_id'])
+            if not school_name:
+                try:
+                    school_name = School.objects.get(id=params['school_id']).name
+                except School.DoesNotExist:
+                    school_name = f"School #{params['school_id']}"
+
+        if params.get('class'):
+            student_class = params['class']
+            fees = fees.filter(
+                Q(student_class__icontains=student_class) |
+                Q(student_class__iexact=student_class)
+            )
+
+        if params.get('status'):
+            fees = fees.filter(status=params['status'])
+
+        # Use database aggregation for accurate totals
+        aggregates = fees.aggregate(
+            total_fee=Sum('total_fee'),
+            total_received=Sum('paid_amount'),
+            total_pending=Sum('balance_due'),
+            total_records=Count('id'),
+            paid_count=Count('id', filter=Q(status='Paid')),
+            pending_count=Count('id', filter=Q(status='Pending')),
+            partial_count=Count('id', filter=Q(status='Partial'))
+        )
 
         summary = {
-            "total_records": len(fees),
-            "total_fee": sum(float(f.get('total_fee', 0)) for f in fees),
-            "total_received": sum(float(f.get('paid_amount', 0)) for f in fees),
-            "total_pending": sum(float(f.get('balance_due', 0)) for f in fees),
-            "paid_count": len([f for f in fees if f.get('status') == 'Paid']),
-            "pending_count": len([f for f in fees if f.get('status') == 'Pending']),
+            "total_records": aggregates['total_records'] or 0,
+            "total_fee": float(aggregates['total_fee'] or 0),
+            "total_received": float(aggregates['total_received'] or 0),
+            "total_pending": float(aggregates['total_pending'] or 0),
+            "paid_count": aggregates['paid_count'] or 0,
+            "pending_count": aggregates['pending_count'] or 0,
+            "partial_count": aggregates['partial_count'] or 0,
+            "month": month,
+            "school_name": school_name
         }
+
+        # Build descriptive message
+        scope = f"{school_name}" if school_name else "All Schools"
+        message = f"Fee Summary for {month} ({scope}): Total PKR {summary['total_fee']:,.0f} | Received PKR {summary['total_received']:,.0f} | Pending PKR {summary['total_pending']:,.0f}"
 
         return {
             "success": True,
-            "message": f"Fee Summary: Collected PKR {summary['total_received']:,.0f}, Pending PKR {summary['total_pending']:,.0f}",
+            "message": message,
             "data": summary
         }
 
@@ -664,89 +747,131 @@ class ActionExecutor:
         }
 
     def _execute_create_missing_fees(self, params: Dict) -> Dict:
-        """Create fees only for schools that don't have fee records for a month."""
-        from students.models import School, Fee
-        from students.views import create_new_month_fees
+        """
+        Create fees for:
+        1. Schools that don't have any fee records for the month
+        2. Students within schools that DO have fees but are missing their individual fee record
+           (e.g., students added after monthly fees were created)
+        """
+        from students.models import School, Fee, Student
+        from students.views import create_new_month_fees, create_single_fee
 
         month = params.get('month')
+        school_id = params.get('school_id')  # Optional: filter to specific school
 
-        # First, find schools without fees
-        # Fee model has direct school ForeignKey
-        all_schools = School.objects.filter(is_active=True)
-        schools_with_fees = Fee.objects.filter(
-            month=month
-        ).values_list('school_id', flat=True).distinct()
-
-        schools_with_fees_set = set(schools_with_fees)
-
-        schools_to_process = [s for s in all_schools if s.id not in schools_with_fees_set]
-
-        if not schools_to_process:
-            return {
-                "success": True,
-                "message": f"All schools already have fee records for {month}. Nothing to create.",
-                "data": {
-                    "month": month,
-                    "schools_processed": 0,
-                    "total_records_created": 0
-                }
-            }
-
-        # Create fees for schools without fees
-        results = []
-        total_created = 0
+        # Track results
+        schools_created = []
+        students_created = []
+        total_school_records = 0
+        total_student_records = 0
         errors = []
 
-        for school in schools_to_process:
+        # Get schools to check
+        all_schools = School.objects.filter(is_active=True)
+        if school_id:
+            all_schools = all_schools.filter(id=school_id)
+
+        # Find which schools have fees for this month
+        schools_with_fees_ids = set(
+            Fee.objects.filter(month=month).values_list('school_id', flat=True).distinct()
+        )
+
+        # PART 1: Create fees for schools WITHOUT any fee records
+        schools_without_fees = [s for s in all_schools if s.id not in schools_with_fees_ids]
+
+        for school in schools_without_fees:
             try:
                 request = self._make_request('post', '/api/fees/create/', {
                     'school_id': school.id,
                     'month': month,
                     'force_overwrite': False
                 })
-
                 response = create_new_month_fees(request)
 
-                if hasattr(response, 'data'):
-                    data = response.data
-                    if response.status_code in [200, 201]:
-                        created = data.get('records_created', 0)
-                        total_created += created
-                        results.append({
-                            'school_id': school.id,
-                            'school_name': school.name,
-                            'records_created': created,
-                            'success': True
-                        })
-                    else:
-                        errors.append({
-                            'school_id': school.id,
-                            'school_name': school.name,
-                            'error': data.get('error', 'Unknown error')
-                        })
+                if hasattr(response, 'data') and response.status_code in [200, 201]:
+                    created = response.data.get('records_created', 0)
+                    total_school_records += created
+                    schools_created.append({
+                        'school_name': school.name,
+                        'records_created': created
+                    })
             except Exception as e:
-                errors.append({
-                    'school_id': school.id,
-                    'school_name': school.name,
-                    'error': str(e)
-                })
+                errors.append(f"School {school.name}: {str(e)}")
 
-        success_count = len(results)
-        error_count = len(errors)
-        school_names = ", ".join([r['school_name'] for r in results[:3]])
-        if success_count > 3:
-            school_names += f" and {success_count - 3} more"
+        # PART 2: Find students WITHOUT fee records in schools that DO have fees
+        schools_with_fees = [s for s in all_schools if s.id in schools_with_fees_ids]
+
+        for school in schools_with_fees:
+            # Get all active students in this school
+            active_students = Student.objects.filter(school=school, status='Active')
+
+            # Get student IDs that already have fee records for this month in this school
+            students_with_fees = set(
+                Fee.objects.filter(school=school, month=month).values_list('student_id', flat=True)
+            )
+
+            # Find students missing fee records
+            students_without_fees = [s for s in active_students if s.id not in students_with_fees]
+
+            for student in students_without_fees:
+                try:
+                    # Use the existing create_single_fee API
+                    request = self._make_request('post', '/api/fees/create-single/', {
+                        'student_id': student.id,
+                        'month': month,
+                        'paid_amount': 0
+                    })
+                    response = create_single_fee(request)
+
+                    if hasattr(response, 'data') and response.status_code in [200, 201]:
+                        total_student_records += 1
+                        students_created.append({
+                            'student_name': student.name,
+                            'school_name': school.name
+                        })
+                except Exception as e:
+                    errors.append(f"Student {student.name} ({school.name}): {str(e)}")
+
+        # Build response message
+        total_created = total_school_records + total_student_records
+
+        if total_created == 0:
+            return {
+                "success": True,
+                "message": f"All schools and students already have fee records for {month}. Nothing to create.",
+                "data": {
+                    "month": month,
+                    "schools_processed": 0,
+                    "students_processed": 0,
+                    "total_records_created": 0
+                }
+            }
+
+        message_parts = []
+        if total_school_records > 0:
+            school_names = ", ".join([s['school_name'] for s in schools_created[:3]])
+            if len(schools_created) > 3:
+                school_names += f" +{len(schools_created) - 3} more"
+            message_parts.append(f"{total_school_records} records for {len(schools_created)} school(s) ({school_names})")
+
+        if total_student_records > 0:
+            student_names = ", ".join([s['student_name'] for s in students_created[:3]])
+            if len(students_created) > 3:
+                student_names += f" +{len(students_created) - 3} more"
+            message_parts.append(f"{total_student_records} records for {len(students_created)} student(s) ({student_names})")
+
+        message = f"Created {total_created} fee records for {month}: " + "; ".join(message_parts)
+        if errors:
+            message += f". {len(errors)} error(s) occurred."
 
         return {
-            "success": success_count > 0,
-            "message": f"Created {total_created} fee records for {success_count} school(s) missing {month} fees ({school_names})" +
-                      (f". {error_count} school(s) had errors." if error_count > 0 else ""),
+            "success": True,
+            "message": message,
             "data": {
                 "month": month,
                 "total_records_created": total_created,
-                "schools_processed": success_count,
-                "schools_with_errors": error_count,
-                "results": results,
+                "schools_created": schools_created,
+                "students_created": students_created,
                 "errors": errors if errors else None
             }
         }

@@ -1204,24 +1204,36 @@ def upload_student_image(request):
     unique_filename = f"{student_id}/{session_date}_{uuid.uuid4().hex}{ext}"
 
     try:
-        # Upload to Supabase Storage
-        response = supabase.storage.from_(settings.SUPABASE_BUCKET).upload(
+        # Upload to Supabase Storage - use "student-images" bucket for progress images
+        STUDENT_IMAGES_BUCKET = "student-images"
+
+        logger.info(f"Uploading image for student {student_id}, date {session_date}, filename: {unique_filename}")
+        logger.info(f"Using bucket: {STUDENT_IMAGES_BUCKET}")
+
+        response = supabase.storage.from_(STUDENT_IMAGES_BUCKET).upload(
             unique_filename, image.read()
         )
 
+        logger.info(f"Supabase upload response: {response}")
+
         # Check for errors in response
         if isinstance(response, dict) and "error" in response:
+            logger.error(f"Supabase upload error: {response}")
             return Response({"error": response["error"]["message"]}, status=500)
 
         # Generate a signed URL (valid for 7 days)
-        signed_url_response = supabase.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(
+        signed_url_response = supabase.storage.from_(STUDENT_IMAGES_BUCKET).create_signed_url(
             unique_filename, 604800  # 7 days in seconds
         )
 
+        logger.info(f"Signed URL response: {signed_url_response}")
+
         if isinstance(signed_url_response, dict) and "error" in signed_url_response:
+            logger.error(f"Signed URL error: {signed_url_response}")
             return Response({"error": signed_url_response["error"]["message"]}, status=500)
 
         image_url = signed_url_response['signedURL']
+        logger.info(f"Image uploaded successfully: {image_url}")
 
         # Initialize email result
         email_result = {
@@ -1284,27 +1296,82 @@ supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_images(request):
+    """
+    Get student progress images from Supabase storage.
+
+    Query params:
+    - student_id: Required - the student's ID
+    - session_date: Optional - specific date (YYYY-MM-DD) to fetch single day's image
+    - month: Optional - month (YYYY-MM) to fetch all images for that month
+
+    If neither session_date nor month provided, defaults to current month.
+    Returns images sorted by date (newest first) with date metadata.
+    """
     student_id = request.GET.get('student_id')
     session_date = request.GET.get('session_date')
+    month = request.GET.get('month')
 
-    if not student_id or not session_date:
-        return Response({"error": "student_id and session_date are required"}, status=400)
+    if not student_id:
+        return Response({"error": "student_id is required"}, status=400)
 
     try:
         # Get all images for the student from Supabase storage
         folder_path = f"{student_id}/"
         response = supabase.storage.from_("student-images").list(folder_path)
 
-        if "error" in response:
+        # Handle error response - response is a list when successful
+        if isinstance(response, dict) and "error" in response:
             return Response({"error": response["error"]["message"]}, status=500)
 
-        # Generate signed URLs for each file
-        images = [
-            supabase.storage.from_("student-images").create_signed_url(f"{folder_path}{file['name']}", 604800)
-            for file in response if session_date in file['name']
-        ]
+        if not response:
+            return Response({"images": [], "monthly_images": []})
 
-        return Response({"images": images})
+        # Determine filter pattern
+        if session_date:
+            # Fetch single day's image (original behavior)
+            filter_pattern = session_date
+        elif month:
+            # Fetch all images for the month
+            filter_pattern = month
+        else:
+            # Default to current month
+            from datetime import datetime
+            filter_pattern = datetime.now().strftime('%Y-%m')
+
+        # Filter files matching the pattern
+        matching_files = [f for f in response if f.get('name', '').startswith(filter_pattern)]
+
+        # Sort by filename (date) descending (newest first)
+        matching_files.sort(key=lambda x: x.get('name', ''), reverse=True)
+
+        # Generate signed URLs with date metadata
+        images = []
+        monthly_images = []
+
+        for file in matching_files:
+            filename = file.get('name', '')
+            signed_url_response = supabase.storage.from_("student-images").create_signed_url(
+                f"{folder_path}{filename}", 604800
+            )
+
+            # Extract date from filename (format: YYYY-MM-DD_uuid.jpg)
+            date_str = filename.split('_')[0] if '_' in filename else None
+
+            image_data = {
+                "url": signed_url_response.get('signedURL') or signed_url_response.get('signedUrl'),
+                "filename": filename,
+                "date": date_str,
+            }
+
+            monthly_images.append(image_data)
+
+            # For backward compatibility - also add raw signed URL to images array
+            images.append(signed_url_response)
+
+        return Response({
+            "images": images,  # Backward compatible format
+            "monthly_images": monthly_images  # New format with date metadata
+        })
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
@@ -1569,8 +1636,8 @@ class StudentProfilePhotoDeleteView(APIView):
                     try:
                         # Extract filename from URL
                         filename = request.user.profile_photo_url.split('/')[-1]
-                        bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'student-images')
-                        
+                        bucket_name = getattr(settings, 'SUPABASE_BUCKET', 'profile-photos')
+
                         # Delete from Supabase
                         supabase.storage.from_(bucket_name).remove([f"profile_photos/{filename}"])
                     except Exception as e:
@@ -1976,3 +2043,192 @@ def delete_fees(request):
         return Response({
             'error': f'Failed to delete fee records: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_progress(request):
+    """
+    Get comprehensive progress data for the logged-in student.
+    Includes attendance summary, today's lesson plan, and recent progress history.
+
+    Query params:
+    - date: Target date (YYYY-MM-DD), defaults to today
+    - days: Number of days for history, defaults to 7
+
+    Returns:
+    {
+        "student": { id, name, school, class },
+        "attendance_summary": { month_name, total_school_days, present_days, absent_days, percentage, today_status },
+        "today_lesson": { date, planned_topic, achieved_topic, teacher_name },
+        "recent_progress": [{ date, attendance_status, achieved_topic, has_image, image_url }, ...]
+    }
+    """
+    # 1. Role Check
+    if request.user.role != 'Student':
+        return Response({"error": "Only students can access this endpoint"}, status=403)
+
+    # 2. Get the linked Student profile
+    try:
+        student = request.user.student_profile
+    except AttributeError:
+        return Response({"error": "Student profile not found"}, status=404)
+
+    # 3. Parse parameters
+    from datetime import datetime, timedelta
+    from calendar import monthrange
+
+    target_date_str = request.GET.get('date')
+    days = int(request.GET.get('days', 7))
+
+    if target_date_str:
+        try:
+            target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+    else:
+        target_date = timezone.now().date()
+
+    # 4. Build student info
+    student_info = {
+        "id": student.id,
+        "name": student.name,
+        "school": student.school.name,
+        "school_id": student.school.id,
+        "class": student.student_class,
+    }
+
+    # 5. Get attendance summary for current month
+    first_day_of_month = target_date.replace(day=1)
+    last_day_of_month = target_date.replace(day=monthrange(target_date.year, target_date.month)[1])
+
+    month_attendance = Attendance.objects.filter(
+        student=student,
+        session_date__gte=first_day_of_month,
+        session_date__lte=last_day_of_month
+    )
+
+    present_days = month_attendance.filter(status='Present').count()
+    absent_days = month_attendance.filter(status='Absent').count()
+    total_school_days = present_days + absent_days
+
+    # Get today's attendance status
+    today_attendance = month_attendance.filter(session_date=target_date).first()
+    today_status = today_attendance.status if today_attendance else "Not Marked"
+
+    attendance_summary = {
+        "month_name": target_date.strftime('%B %Y'),
+        "total_school_days": total_school_days,
+        "present_days": present_days,
+        "absent_days": absent_days,
+        "percentage": round((present_days / total_school_days * 100), 1) if total_school_days > 0 else 0,
+        "today_status": today_status,
+    }
+
+    # 6. Get today's lesson plan for the student's school and class
+    today_lesson_plan = LessonPlan.objects.filter(
+        school=student.school,
+        student_class=student.student_class,
+        session_date=target_date
+    ).first()
+
+    today_lesson = None
+    if today_lesson_plan:
+        # Get the planned topic - prefer M2M topics, fallback to text field
+        planned_topic = today_lesson_plan._build_planned_topic_from_fks()
+        if not planned_topic:
+            planned_topic = today_lesson_plan.planned_topic or ""
+
+        # Get achieved topic from attendance record (specific to student) or lesson plan
+        achieved_topic = ""
+        if today_attendance and today_attendance.achieved_topic:
+            achieved_topic = today_attendance.achieved_topic
+        elif today_lesson_plan.achieved_topic:
+            achieved_topic = today_lesson_plan.achieved_topic
+
+        today_lesson = {
+            "date": target_date.isoformat(),
+            "planned_topic": planned_topic,
+            "achieved_topic": achieved_topic,
+            "teacher_name": today_lesson_plan.teacher.get_full_name() or today_lesson_plan.teacher.username,
+        }
+
+    # 7. Get recent progress (last N days)
+    start_date = target_date - timedelta(days=days - 1)
+
+    # Get attendance records for the date range
+    recent_attendance = Attendance.objects.filter(
+        student=student,
+        session_date__gte=start_date,
+        session_date__lte=target_date
+    ).order_by('-session_date')
+
+    # Get lesson plans for the date range
+    recent_lessons = LessonPlan.objects.filter(
+        school=student.school,
+        student_class=student.student_class,
+        session_date__gte=start_date,
+        session_date__lte=target_date
+    ).order_by('-session_date')
+
+    # Convert to dict for easy lookup
+    attendance_dict = {a.session_date: a for a in recent_attendance}
+    lesson_dict = {lp.session_date: lp for lp in recent_lessons}
+
+    # Get images for the date range from Supabase
+    images_dict = {}
+    try:
+        folder_path = f"{student.id}/"
+        response = supabase.storage.from_("student-images").list(folder_path)
+
+        if isinstance(response, list):
+            for file in response:
+                filename = file.get('name', '')
+                if '_' in filename:
+                    date_str = filename.split('_')[0]
+                    try:
+                        file_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                        if start_date <= file_date <= target_date:
+                            signed_url = supabase.storage.from_("student-images").create_signed_url(
+                                f"{folder_path}{filename}", 604800
+                            )
+                            images_dict[file_date] = signed_url.get('signedURL') or signed_url.get('signedUrl')
+                    except ValueError:
+                        continue
+    except Exception as e:
+        logger.warning(f"Error fetching images for student {student.id}: {str(e)}")
+
+    # Build recent progress list - ONLY for dates that have lesson plans
+    recent_progress = []
+    for lesson in recent_lessons:
+        single_date = lesson.session_date
+        attendance = attendance_dict.get(single_date)
+        image_url = images_dict.get(single_date)
+
+        # Get achieved topic - from attendance or lesson plan
+        achieved_topic = ""
+        if attendance and attendance.achieved_topic:
+            achieved_topic = attendance.achieved_topic
+        elif lesson.achieved_topic:
+            achieved_topic = lesson.achieved_topic
+
+        # Get planned topic for display
+        planned_topic = lesson._build_planned_topic_from_fks()
+        if not planned_topic:
+            planned_topic = lesson.planned_topic or ""
+
+        recent_progress.append({
+            "date": single_date.isoformat(),
+            "attendance_status": attendance.status if attendance else "Not Marked",
+            "planned_topic": planned_topic,
+            "achieved_topic": achieved_topic,
+            "has_image": image_url is not None,
+            "image_url": image_url,
+        })
+
+    return Response({
+        "student": student_info,
+        "attendance_summary": attendance_summary,
+        "today_lesson": today_lesson,
+        "recent_progress": recent_progress,
+    })

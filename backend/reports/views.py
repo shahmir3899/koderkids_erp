@@ -137,10 +137,10 @@ def delete_student_image(request, student_id, filename):
     if not (is_owner or is_teacher):
         return Response({"message": "Permission denied"}, status=403)
 
-    # 4. Delete from Supabase
+    # 4. Delete from Supabase - use correct bucket name "student-images"
     try:
-        supabase.storage.from_('student-progress').remove([f"{student_id}/{filename}"])
-        logger.info(f"Deleted {filename} for student {student_id}")
+        result = supabase.storage.from_('student-images').remove([f"{student_id}/{filename}"])
+        logger.info(f"Deleted {filename} for student {student_id}, result: {result}")
         return Response({"message": "Image deleted successfully"}, status=200)
     except Exception as e:
         logger.error(f"Supabase delete failed: {str(e)}")
@@ -506,24 +506,46 @@ def get_student_progress_images(request):
         # Define the folder path inside the Supabase bucket
         folder_path = f"{student_id}/"
 
+        logger.info(f"Fetching progress images for student {student_id}, month {month}, path: {folder_path}")
+
         # Fetch all files from the student's folder in Supabase
         response = supabase.storage.from_("student-images").list(folder_path)
 
-        if not response or "error" in response:
+        logger.info(f"Supabase list response type: {type(response)}, content: {response}")
+
+        # Handle error response - response is a list when successful, dict when error
+        if isinstance(response, dict) and "error" in response:
+            logger.error(f"Supabase error: {response}")
             return JsonResponse({"error": "Failed to fetch files from Supabase"}, status=500)
 
-        # Filter files that start with the requested month (YYYY-MM)
-        matching_images = [
-            supabase.storage.from_("student-images").create_signed_url(f"{folder_path}{file['name']}", 604800)
-            for file in response if file["name"].startswith(month)
-        ]
-
-        if not matching_images:
+        # If response is empty list or None, return empty
+        if not response:
+            logger.info(f"No files found in folder {folder_path}")
             return JsonResponse({"progress_images": [], "message": "No images found"}, status=200)
 
+        # Filter files that start with the requested month (YYYY-MM)
+        matching_files = [file for file in response if file.get("name", "").startswith(month)]
+        logger.info(f"Found {len(matching_files)} files matching month {month}")
+
+        if not matching_files:
+            return JsonResponse({"progress_images": [], "message": "No images found for this month"}, status=200)
+
+        # Generate signed URLs for matching files
+        matching_images = []
+        for file in matching_files:
+            try:
+                signed_url = supabase.storage.from_("student-images").create_signed_url(
+                    f"{folder_path}{file['name']}", 604800
+                )
+                matching_images.append(signed_url)
+            except Exception as url_error:
+                logger.error(f"Error creating signed URL for {file['name']}: {url_error}")
+
+        logger.info(f"Generated {len(matching_images)} signed URLs")
         return JsonResponse({"progress_images": matching_images})
 
     except Exception as e:
+        logger.error(f"Error in get_student_progress_images: {str(e)}", exc_info=True)
         return JsonResponse({"error": str(e)}, status=500)
 
 
