@@ -156,12 +156,17 @@ def get_my_attendance_calendar(request):
 def get_admin_teacher_attendance(request):
     """
     Admin view: Get attendance overview for all teachers.
+    Each teacher appears ONCE with their aggregated attendance stats.
 
     Query params:
         - month: Month number (1-12)
         - year: Year
         - school_id: Filter by school (optional)
+        - today_only: If 'true', show only today's status
     """
+    import calendar
+    from datetime import date
+
     user = request.user
 
     if user.role != 'Admin':
@@ -171,6 +176,7 @@ def get_admin_teacher_attendance(request):
     month = int(request.GET.get('month', today.month))
     year = int(request.GET.get('year', today.year))
     school_id = request.GET.get('school_id')
+    today_only = request.GET.get('today_only', 'false').lower() == 'true'
 
     # Get all teachers
     teachers = CustomUser.objects.filter(role='Teacher', is_active=True)
@@ -178,52 +184,113 @@ def get_admin_teacher_attendance(request):
     if school_id:
         teachers = teachers.filter(assigned_schools__id=school_id)
 
-    teachers = teachers.distinct()
+    teachers = teachers.distinct().select_related().prefetch_related('assigned_schools')
 
     result = []
     for teacher in teachers:
-        # Get schools for this teacher
-        schools = teacher.assigned_schools.filter(is_active=True)
+        # Get all assigned schools for this teacher
+        assigned_schools = teacher.assigned_schools.filter(is_active=True)
         if school_id:
-            schools = schools.filter(id=school_id)
+            assigned_schools = assigned_schools.filter(id=school_id)
 
-        for school in schools:
-            # Total working days
+        if not assigned_schools.exists():
+            continue
+
+        # Calculate total working days based on assigned_days of all schools
+        # A working day is any day in the month where at least one school has that weekday in assigned_days
+        working_weekdays = set()
+        for school in assigned_schools:
+            if school.assigned_days:
+                working_weekdays.update(school.assigned_days)
+
+        # Count working days in the month
+        total_working_days = 0
+        if working_weekdays:
+            # Get all days in the month
+            _, days_in_month = calendar.monthrange(year, month)
+            for day in range(1, days_in_month + 1):
+                d = date(year, month, day)
+                # Only count past days (up to today) and days matching working weekdays
+                if d <= today and d.weekday() in working_weekdays:
+                    total_working_days += 1
+        else:
+            # Fallback to LessonPlan if no assigned_days set
             total_working_days = LessonPlan.objects.filter(
-                school=school,
+                school__in=assigned_schools,
                 session_date__year=year,
-                session_date__month=month
+                session_date__month=month,
+                session_date__lte=today
             ).values('session_date').distinct().count()
 
-            # Attendance counts
-            attendance_counts = TeacherAttendance.objects.filter(
-                teacher=teacher,
-                school=school,
-                date__year=year,
-                date__month=month
-            ).values('status').annotate(count=Count('status'))
+        # Get attendance counts for this teacher (across all their schools)
+        attendance_filter = {
+            'teacher': teacher,
+            'date__year': year,
+            'date__month': month,
+        }
+        if school_id:
+            attendance_filter['school_id'] = school_id
 
-            counts = {item['status']: item['count'] for item in attendance_counts}
-            present = counts.get('present', 0)
-            out_of_range = counts.get('out_of_range', 0)
-            location_unavailable = counts.get('location_unavailable', 0)
+        attendance_counts = TeacherAttendance.objects.filter(
+            **attendance_filter
+        ).values('status').annotate(count=Count('status'))
 
-            attendance_rate = 0
-            if total_working_days > 0:
-                attendance_rate = round((present / total_working_days) * 100, 1)
+        counts = {item['status']: item['count'] for item in attendance_counts}
+        present = counts.get('present', 0)
+        out_of_range = counts.get('out_of_range', 0)
+        location_unavailable = counts.get('location_unavailable', 0)
 
-            result.append({
-                'teacher_id': teacher.id,
-                'teacher_name': teacher.username,
-                'school_id': school.id,
-                'school_name': school.name,
-                'total_working_days': total_working_days,
-                'present_days': present,
-                'out_of_range_days': out_of_range,
-                'location_unavailable_days': location_unavailable,
-                'absent_days': total_working_days - (present + out_of_range + location_unavailable),
-                'attendance_rate': attendance_rate,
-            })
+        # Calculate attendance rate
+        attendance_rate = 0
+        if total_working_days > 0:
+            attendance_rate = round((present / total_working_days) * 100, 1)
+
+        # Get today's attendance info
+        today_attendance = TeacherAttendance.objects.filter(
+            teacher=teacher,
+            date=today
+        ).select_related('school').first()
+
+        today_status = 'not_logged_in'
+        today_school_name = None
+        today_school_id = None
+        today_login_time = None
+
+        if today_attendance:
+            today_status = today_attendance.status
+            today_school_name = today_attendance.school.name
+            today_school_id = today_attendance.school.id
+            today_login_time = today_attendance.login_time.isoformat() if today_attendance.login_time else None
+        else:
+            # Determine which school they should be at today
+            today_weekday = today.weekday()
+            for school in assigned_schools:
+                if school.assigned_days and today_weekday in school.assigned_days:
+                    today_school_name = school.name
+                    today_school_id = school.id
+                    break
+
+        # Build teacher's full name
+        full_name = f"{teacher.first_name} {teacher.last_name}".strip()
+        if not full_name:
+            full_name = teacher.username
+
+        result.append({
+            'teacher_id': teacher.id,
+            'teacher_name': full_name,
+            'teacher_username': teacher.username,
+            'total_working_days': total_working_days,
+            'present_days': present,
+            'out_of_range_days': out_of_range,
+            'location_unavailable_days': location_unavailable,
+            'absent_days': max(0, total_working_days - (present + out_of_range + location_unavailable)),
+            'attendance_rate': attendance_rate,
+            # Today's info
+            'today_status': today_status,
+            'today_school_id': today_school_id,
+            'today_school_name': today_school_name,
+            'today_login_time': today_login_time,
+        })
 
     # Sort by attendance rate (lowest first so admin can focus on issues)
     result.sort(key=lambda x: x['attendance_rate'])
@@ -231,6 +298,7 @@ def get_admin_teacher_attendance(request):
     return Response({
         'month': month,
         'year': year,
+        'today': today.isoformat(),
         'teachers': result,
     })
 

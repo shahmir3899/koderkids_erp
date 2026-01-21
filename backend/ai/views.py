@@ -8,10 +8,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from django.conf import settings
 
 from .service import get_ai_service
-from .ollama_client import get_ollama_client
+from .llm_client import get_llm_client
 from .models import AIAuditLog
 
 
@@ -25,6 +24,7 @@ class AIHealthView(APIView):
         {
             "status": "ok" | "degraded",
             "ai_available": bool,
+            "provider": str,
             "model": str,
             "message": str
         }
@@ -32,75 +32,66 @@ class AIHealthView(APIView):
     permission_classes = []  # Public endpoint
 
     def get(self, request):
-        ollama = get_ollama_client()
-        ai_available = ollama.is_available_sync()
+        client = get_llm_client()
+        provider = client.get_available_provider()
+        ai_available = provider is not None
+
+        # Get model info based on provider
+        if provider == 'groq':
+            model = client.config.get('GROQ_MODEL', 'llama-3.1-8b-instant')
+        elif provider == 'ollama':
+            model = client.config.get('OLLAMA_MODEL', 'deepseek-coder:6.7b')
+        else:
+            model = 'none'
 
         return Response({
             "status": "ok" if ai_available else "degraded",
             "ai_available": ai_available,
-            "model": getattr(settings, 'OLLAMA_MODEL', 'phi3:mini'),
-            "host": getattr(settings, 'OLLAMA_HOST', 'http://localhost:11434'),
-            "message": "AI service is ready" if ai_available else "AI service unavailable, using templates only"
+            "provider": provider or "none",
+            "model": model,
+            "message": f"AI service ready ({provider})" if ai_available else "AI service unavailable, using templates only"
         })
 
 
 class AITestView(APIView):
     """
-    Test endpoint for debugging AI/Ollama integration.
+    Test endpoint for debugging AI/LLM integration.
 
     GET /api/ai/test/
 
-    Returns detailed debug info about Ollama connectivity.
+    Returns detailed debug info about LLM connectivity (Groq or Ollama).
     """
     permission_classes = []  # Public for debugging
 
     def get(self, request):
-        import requests
-        import logging
-
-        logger = logging.getLogger(__name__)
-
-        ollama = get_ollama_client()
-        host = getattr(settings, 'OLLAMA_HOST', 'http://localhost:11434')
-        model = getattr(settings, 'OLLAMA_MODEL', 'phi3:mini')
+        client = get_llm_client()
+        provider = client.get_available_provider()
 
         result = {
-            "host": host,
-            "model": model,
-            "connection_test": None,
-            "models_available": [],
-            "model_found": False,
+            "provider": provider or "none",
+            "config": {
+                "LLM_PROVIDER": client.config.get('LLM_PROVIDER'),
+                "GROQ_API_KEY_length": len(client.config.get('GROQ_API_KEY', '')),
+                "GROQ_MODEL": client.config.get('GROQ_MODEL'),
+                "OLLAMA_HOST": client.config.get('OLLAMA_HOST'),
+                "OLLAMA_MODEL": client.config.get('OLLAMA_MODEL'),
+            },
+            "provider_available": provider is not None,
             "simple_prompt_test": None,
         }
 
-        # Test 1: Connection
-        try:
-            response = requests.get(f"{host}/api/tags", timeout=5)
-            result["connection_test"] = {
-                "success": response.status_code == 200,
-                "status_code": response.status_code
-            }
-            if response.status_code == 200:
-                data = response.json()
-                result["models_available"] = [m.get('name', '') for m in data.get('models', [])]
-                result["model_found"] = any(model in m for m in result["models_available"])
-        except Exception as e:
-            result["connection_test"] = {
-                "success": False,
-                "error": str(e)
-            }
-
-        # Test 2: Simple prompt (only if model found)
-        if result.get("model_found"):
+        # Test: Simple prompt (only if provider available)
+        if provider:
             try:
-                test_result = ollama.generate_sync(
-                    prompt='Respond with just the word "hello"',
-                    system_prompt='You are a helpful assistant. Respond only with a single word.',
-                    max_tokens=10
+                test_result = client.generate_sync(
+                    prompt='Respond with JSON: {"greeting": "hello"}',
+                    system_prompt='You are a helpful assistant. Respond only with valid JSON.',
+                    max_tokens=50
                 )
                 result["simple_prompt_test"] = {
                     "success": test_result.get("success"),
-                    "response": test_result.get("response", "")[:100],
+                    "provider": test_result.get("provider"),
+                    "response": test_result.get("response", "")[:200] if test_result.get("response") else None,
                     "response_time_ms": test_result.get("response_time_ms"),
                     "error": test_result.get("error")
                 }

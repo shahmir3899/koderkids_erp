@@ -19,6 +19,8 @@ const AdminTeacherAttendanceWidget = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [todayDate, setTodayDate] = useState('');
+  const [viewMode, setViewMode] = useState('month'); // 'month' or 'today'
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -40,6 +42,7 @@ const AdminTeacherAttendanceWidget = () => {
         }
       );
       setAttendanceData(response.data.teachers || []);
+      setTodayDate(response.data.today || '');
       setError(null);
     } catch (err) {
       console.error('Error fetching teacher attendance:', err);
@@ -59,6 +62,28 @@ const AdminTeacherAttendanceWidget = () => {
     if (rate >= 80) return '🟢';
     if (rate >= 60) return '🟡';
     return '🔴';
+  };
+
+  // Get today's status display info
+  const getTodayStatusInfo = (status) => {
+    switch (status) {
+      case 'present':
+        return { label: 'Present', color: COLORS.status.success, icon: '✓' };
+      case 'out_of_range':
+        return { label: 'Out of Range', color: COLORS.status.warning, icon: '⚠' };
+      case 'location_unavailable':
+        return { label: 'No Location', color: COLORS.status.info, icon: '📍' };
+      case 'not_logged_in':
+      default:
+        return { label: 'Not Logged In', color: COLORS.status.error, icon: '✗' };
+    }
+  };
+
+  // Format login time
+  const formatLoginTime = (isoTime) => {
+    if (!isoTime) return '-';
+    const date = new Date(isoTime);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
   if (loading) {
@@ -93,34 +118,81 @@ const AdminTeacherAttendanceWidget = () => {
   const moderate = attendanceData.filter((t) => t.attendance_rate >= 60 && t.attendance_rate < 80).length;
   const poor = attendanceData.filter((t) => t.attendance_rate < 60).length;
 
+  // Today's stats
+  const todayPresent = attendanceData.filter((t) => t.today_status === 'present').length;
+  const todayOutOfRange = attendanceData.filter((t) => t.today_status === 'out_of_range').length;
+  const todayNotLogged = attendanceData.filter((t) => t.today_status === 'not_logged_in').length;
+
   return (
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
         <h3 style={styles.title}>Teacher Attendance Overview</h3>
-        <input
-          type="month"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          style={styles.monthInput}
-        />
+        <div style={styles.headerControls}>
+          {/* View Mode Toggle */}
+          <div style={styles.viewToggle}>
+            <button
+              style={{
+                ...styles.toggleButton,
+                ...(viewMode === 'today' ? styles.toggleButtonActive : {}),
+              }}
+              onClick={() => setViewMode('today')}
+            >
+              Today
+            </button>
+            <button
+              style={{
+                ...styles.toggleButton,
+                ...(viewMode === 'month' ? styles.toggleButtonActive : {}),
+              }}
+              onClick={() => setViewMode('month')}
+            >
+              Month
+            </button>
+          </div>
+          {viewMode === 'month' && (
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={styles.monthInput}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Summary Cards */}
-      <div style={styles.summaryRow}>
-        <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.success }}>
-          <span style={styles.summaryValue}>{excellent}</span>
-          <span style={styles.summaryLabel}>Excellent (≥80%)</span>
+      {/* Summary Cards - Different for Today vs Month view */}
+      {viewMode === 'today' ? (
+        <div style={styles.summaryRow}>
+          <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.success }}>
+            <span style={styles.summaryValue}>{todayPresent}</span>
+            <span style={styles.summaryLabel}>Present Today</span>
+          </div>
+          <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.warning }}>
+            <span style={styles.summaryValue}>{todayOutOfRange}</span>
+            <span style={styles.summaryLabel}>Out of Range</span>
+          </div>
+          <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.error }}>
+            <span style={styles.summaryValue}>{todayNotLogged}</span>
+            <span style={styles.summaryLabel}>Not Logged In</span>
+          </div>
         </div>
-        <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.warning }}>
-          <span style={styles.summaryValue}>{moderate}</span>
-          <span style={styles.summaryLabel}>Moderate (60-80%)</span>
+      ) : (
+        <div style={styles.summaryRow}>
+          <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.success }}>
+            <span style={styles.summaryValue}>{excellent}</span>
+            <span style={styles.summaryLabel}>Excellent (≥80%)</span>
+          </div>
+          <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.warning }}>
+            <span style={styles.summaryValue}>{moderate}</span>
+            <span style={styles.summaryLabel}>Moderate (60-80%)</span>
+          </div>
+          <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.error }}>
+            <span style={styles.summaryValue}>{poor}</span>
+            <span style={styles.summaryLabel}>Needs Attention (&lt;60%)</span>
+          </div>
         </div>
-        <div style={{ ...styles.summaryCard, borderLeftColor: COLORS.status.error }}>
-          <span style={styles.summaryValue}>{poor}</span>
-          <span style={styles.summaryLabel}>Needs Attention (&lt;60%)</span>
-        </div>
-      </div>
+      )}
 
       {/* Teacher List */}
       {attendanceData.length === 0 ? (
@@ -134,7 +206,8 @@ const AdminTeacherAttendanceWidget = () => {
               <tr style={styles.tableHeaderRow}>
                 <th style={styles.tableHeader}>Status</th>
                 <th style={styles.tableHeader}>Teacher</th>
-                <th style={styles.tableHeader}>School</th>
+                <th style={styles.tableHeader}>Today's School</th>
+                <th style={styles.tableHeader}>Today's Status</th>
                 <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Present</th>
                 <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Out of Range</th>
                 <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Absent</th>
@@ -142,46 +215,70 @@ const AdminTeacherAttendanceWidget = () => {
               </tr>
             </thead>
             <tbody>
-              {attendanceData.map((teacher, index) => (
-                <tr key={`${teacher.teacher_id}-${teacher.school_id}`} style={styles.tableRow}>
-                  <td style={styles.tableCell}>
-                    <span style={styles.statusIndicator}>
-                      {getStatusIndicator(teacher.attendance_rate)}
-                    </span>
-                  </td>
-                  <td style={styles.tableCell}>
-                    <span style={styles.teacherName}>{teacher.teacher_name}</span>
-                  </td>
-                  <td style={styles.tableCell}>
-                    <span style={styles.schoolName}>{teacher.school_name}</span>
-                  </td>
-                  <td style={{ ...styles.tableCell, textAlign: 'center' }}>
-                    <span style={{ color: COLORS.status.success, fontWeight: FONT_WEIGHTS.semibold }}>
-                      {teacher.present_days}/{teacher.total_working_days}
-                    </span>
-                  </td>
-                  <td style={{ ...styles.tableCell, textAlign: 'center' }}>
-                    <span style={{ color: COLORS.status.warning }}>
-                      {teacher.out_of_range_days}
-                    </span>
-                  </td>
-                  <td style={{ ...styles.tableCell, textAlign: 'center' }}>
-                    <span style={{ color: COLORS.status.error }}>
-                      {teacher.absent_days}
-                    </span>
-                  </td>
-                  <td style={{ ...styles.tableCell, textAlign: 'right' }}>
-                    <span
-                      style={{
-                        ...styles.rateValue,
-                        color: getAttendanceRateColor(teacher.attendance_rate),
-                      }}
-                    >
-                      {teacher.attendance_rate}%
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {attendanceData.map((teacher) => {
+                const todayInfo = getTodayStatusInfo(teacher.today_status);
+                return (
+                  <tr key={teacher.teacher_id} style={styles.tableRow}>
+                    <td style={styles.tableCell}>
+                      <span style={styles.statusIndicator}>
+                        {getStatusIndicator(teacher.attendance_rate)}
+                      </span>
+                    </td>
+                    <td style={styles.tableCell}>
+                      <span style={styles.teacherName}>{teacher.teacher_name}</span>
+                    </td>
+                    <td style={styles.tableCell}>
+                      <span style={styles.schoolName}>
+                        {teacher.today_school_name || '-'}
+                      </span>
+                    </td>
+                    <td style={styles.tableCell}>
+                      <div style={styles.todayStatusContainer}>
+                        <span
+                          style={{
+                            ...styles.todayStatusBadge,
+                            backgroundColor: `${todayInfo.color}20`,
+                            color: todayInfo.color,
+                            borderColor: `${todayInfo.color}40`,
+                          }}
+                        >
+                          {todayInfo.icon} {todayInfo.label}
+                        </span>
+                        {teacher.today_login_time && (
+                          <span style={styles.loginTime}>
+                            {formatLoginTime(teacher.today_login_time)}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center' }}>
+                      <span style={{ color: COLORS.status.success, fontWeight: FONT_WEIGHTS.semibold }}>
+                        {teacher.present_days}/{teacher.total_working_days}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center' }}>
+                      <span style={{ color: COLORS.status.warning }}>
+                        {teacher.out_of_range_days}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center' }}>
+                      <span style={{ color: COLORS.status.error }}>
+                        {teacher.absent_days}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right' }}>
+                      <span
+                        style={{
+                          ...styles.rateValue,
+                          color: getAttendanceRateColor(teacher.attendance_rate),
+                        }}
+                      >
+                        {teacher.attendance_rate}%
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -219,6 +316,33 @@ const styles = {
     marginBottom: SPACING.lg,
     flexWrap: 'wrap',
     gap: SPACING.md,
+  },
+  headerControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.md,
+    flexWrap: 'wrap',
+  },
+  viewToggle: {
+    display: 'flex',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: '2px',
+  },
+  toggleButton: {
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    borderRadius: BORDER_RADIUS.sm,
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  toggleButtonActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    color: COLORS.text.white,
   },
   title: {
     fontSize: FONT_SIZES.lg,
@@ -331,7 +455,27 @@ const styles = {
   },
   schoolName: {
     color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+  },
+  todayStatusContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.xs,
+  },
+  todayStatusBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.sm,
     fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    border: '1px solid',
+    whiteSpace: 'nowrap',
+  },
+  loginTime: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
   },
   rateValue: {
     fontWeight: FONT_WEIGHTS.bold,
