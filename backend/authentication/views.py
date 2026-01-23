@@ -62,18 +62,50 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Custom JWT serializer that includes user role and username in token response.
     Also accepts optional latitude/longitude for automatic teacher attendance.
+    Returns specific error codes for different failure scenarios.
     """
 
     def validate(self, attrs):
-        # Call parent validation first - this sets self.user
-        data = super().validate(attrs)
+        username = attrs.get('username', '')
+
+        # Check if user exists first
+        try:
+            user_exists = CustomUser.objects.filter(username=username).first()
+        except Exception:
+            user_exists = None
+
+        if not user_exists:
+            raise serializers.ValidationError({
+                'detail': 'No account found with this username.',
+                'error_code': 'USER_NOT_FOUND'
+            })
+
+        # Check if account is active before password check
+        if not user_exists.is_active:
+            raise serializers.ValidationError({
+                'detail': 'Your account has been deactivated. Contact administrator.',
+                'error_code': 'ACCOUNT_INACTIVE'
+            })
+
+        # Now validate credentials (password check)
+        try:
+            data = super().validate(attrs)
+        except Exception as e:
+            # Parent raises exception for wrong password
+            raise serializers.ValidationError({
+                'detail': 'Incorrect password. Please try again.',
+                'error_code': 'INVALID_PASSWORD'
+            })
 
         # Get the authenticated user from parent class
         user = self.user
 
-        # Ensure user is active
+        # Double-check user is active (shouldn't reach here but safety check)
         if not user.is_active:
-            raise serializers.ValidationError("User account is inactive.")
+            raise serializers.ValidationError({
+                'detail': 'Your account has been deactivated. Contact administrator.',
+                'error_code': 'ACCOUNT_INACTIVE'
+            })
 
         # Update last_login timestamp (Django doesn't do this automatically for JWT)
         from django.utils import timezone
@@ -94,6 +126,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Include additional data
         data['role'] = user.role
         data['username'] = user.username
+
+        # Include fullName to avoid extra API call after login
+        if user.role == 'Student':
+            try:
+                student = user.student_profile
+                data['fullName'] = student.name or "Unknown"
+            except Exception:
+                data['fullName'] = f"{user.first_name} {user.last_name}".strip() or "Unknown"
+        else:
+            data['fullName'] = f"{user.first_name} {user.last_name}".strip() or "Unknown"
 
         # Include attendance info in response
         if attendance_result:
@@ -486,17 +528,40 @@ class UserViewSet(viewsets.ModelViewSet):
     def reset_password(self, request, pk=None):
         """
         Reset user password with optional email notification
+        Supports simple passwords for students (min 4 characters)
         """
         user = self.get_object()
-        
-        # Extract send_email flag
+
+        # Extract flags
         send_email = request.data.get('send_email', False)
-        
+        simple_password = request.data.get('simple_password', False)
+
         # Get password from request or auto-generate
         new_password = request.data.get('password')
         if not new_password:
             new_password = generate_random_password(12)
-        
+        else:
+            # Validate password if manually provided
+            if simple_password and user.role == 'Student':
+                # Simple password validation for students (min 4 characters)
+                if len(new_password) < 4:
+                    return Response(
+                        {'error': 'Password must be at least 4 characters'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                logger.info(f"Using simple password for student: {user.username}")
+            else:
+                # Full password validation for non-students
+                from django.contrib.auth.password_validation import validate_password
+                from django.core.exceptions import ValidationError as DjangoValidationError
+                try:
+                    validate_password(new_password)
+                except DjangoValidationError as e:
+                    return Response(
+                        {'error': list(e.messages)},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
         # Update password
         user.password = make_password(new_password)
         user.updated_by = request.user

@@ -464,7 +464,7 @@ def get_student_image_uploads_count(request):
         for student in students:
             # Fetch images from Supabase for this student
             folder_path = f"{student.id}/"
-            response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(folder_path)
+            response = supabase.storage.from_("student-images").list(folder_path)
 
             if "error" in response:
                 logger.error(f"Error fetching images for student {student.id}: {response['error']['message']}")

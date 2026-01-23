@@ -359,7 +359,18 @@ export const InventoryProvider = ({ children }) => {
         return;
       }
 
-      console.log('🏭 InventoryContext: Initializing...');
+      // Check user role - Students don't need inventory data
+      const userRole = localStorage.getItem('role');
+      if (userRole === 'Student') {
+        console.log('⏸️ InventoryContext: Student role detected, skipping inventory data fetch');
+        if (isMounted.current) {
+          setLoading(prev => ({ ...prev, initial: false }));
+          setIsInitialized(true);
+        }
+        return;
+      }
+
+      console.log('🏭 InventoryContext: Initializing for role:', userRole);
 
       // Load user context first
       await loadUserContext();

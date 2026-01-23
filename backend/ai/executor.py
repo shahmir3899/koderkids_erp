@@ -22,6 +22,37 @@ class ActionExecutor:
     def __init__(self, user):
         self.user = user
         self.factory = APIRequestFactory()
+        self._accessible_school_ids = None  # Cached
+
+    def _get_accessible_school_ids(self) -> list:
+        """
+        Get list of school IDs the user can access.
+        Returns None for admins (full access), list for teachers.
+        """
+        if self._accessible_school_ids is not None:
+            return self._accessible_school_ids
+
+        if not self.user or not self.user.is_authenticated:
+            return []
+
+        if self.user.role == 'Admin':
+            self._accessible_school_ids = None  # Full access
+            return None
+
+        if self.user.role == 'Teacher':
+            self._accessible_school_ids = list(
+                self.user.assigned_schools.values_list('id', flat=True)
+            )
+            return self._accessible_school_ids
+
+        return []  # No access for other roles
+
+    def _filter_by_accessible_schools(self, queryset):
+        """Filter queryset to only include accessible schools."""
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:  # None means admin (full access)
+            return queryset.filter(school_id__in=accessible_ids)
+        return queryset
 
     def _make_request(self, method: str, url: str, data: Dict = None) -> Any:
         """Create an authenticated request."""
@@ -79,6 +110,14 @@ class ActionExecutor:
             'UPDATE_ITEM_STATUS': self._execute_update_item_status,
             'DELETE_ITEM': self._execute_delete_item,
             'BULK_DELETE_ITEMS': self._execute_bulk_delete_items,
+            'CREATE_ITEM': self._execute_create_item,
+            'EDIT_ITEM': self._execute_edit_item,
+            'TRANSFER_ITEM': self._execute_transfer_item,
+            'ASSIGN_ITEM': self._execute_assign_item,
+            'GET_ITEM_DETAILS': self._execute_get_item_details,
+            'CREATE_CATEGORY': self._execute_create_category,
+            'UPDATE_CATEGORY': self._execute_update_category,
+            'DELETE_CATEGORY': self._execute_delete_category,
 
             # HR actions
             'MARK_ATTENDANCE': self._execute_mark_attendance,
@@ -182,15 +221,18 @@ class ActionExecutor:
         return {"success": False, "message": "Unknown error", "data": None}
 
     def _execute_create_fees_all_schools(self, params: Dict) -> Dict:
-        """Create monthly fees for ALL schools."""
+        """Create monthly fees for ALL accessible schools."""
         from students.models import School
         from students.views import create_new_month_fees
 
         month = params.get('month')
         force_overwrite = params.get('force_overwrite', False)
 
-        # Get all active schools
+        # Get all active schools (filtered by user's access)
         schools = School.objects.filter(is_active=True)
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            schools = schools.filter(id__in=accessible_ids)
 
         results = []
         total_created = 0
@@ -447,6 +489,9 @@ class ActionExecutor:
         # Build queryset with required month filter
         fees = Fee.objects.select_related('school').filter(month=month)
 
+        # Apply role-based access filter (teachers can only see their assigned schools)
+        fees = self._filter_by_accessible_schools(fees)
+
         # Resolve school_name to school_id if provided
         if params.get('school_name') and not params.get('school_id'):
             try:
@@ -528,6 +573,11 @@ class ActionExecutor:
         if total_count > 0:
             message += f" | Total: PKR {total_fee:,.0f} | Paid: PKR {total_paid:,.0f} | Pending: PKR {total_pending:,.0f}"
 
+        # Include fee IDs in message for context (if 10 or fewer results)
+        if 0 < total_count <= 10:
+            fee_ids = [str(f['id']) for f in fee_list]
+            message += f"\nFee IDs: {', '.join(fee_ids)}"
+
         return {
             "success": True,
             "message": message,
@@ -535,10 +585,16 @@ class ActionExecutor:
                 "results": fee_list,
                 "count": total_count,
                 "total_fee": total_fee,
+                "fee_ids": [f['id'] for f in fee_list],  # Include IDs in data for history
                 "total_paid": total_paid,
                 "total_pending": total_pending,
                 "showing": len(fee_list),
-                "truncated": total_count > 50
+                "truncated": total_count > 50,
+                # Include filter params for context preservation
+                "month": params.get('month'),
+                "school_id": params.get('school_id'),
+                "class": params.get('class'),
+                "status": params.get('status')
             }
         }
 
@@ -553,6 +609,9 @@ class ActionExecutor:
 
         # Build the query with filters
         fees = Fee.objects.filter(month=month)
+
+        # Apply role-based access filter (teachers can only see their assigned schools)
+        fees = self._filter_by_accessible_schools(fees)
 
         # Track filter context for message
         school_name = None
@@ -628,8 +687,11 @@ class ActionExecutor:
 
         month = params.get('month')
 
-        # Get all active schools with student counts
+        # Get all active schools with student counts (filtered by user's access)
         all_schools = School.objects.filter(is_active=True)
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            all_schools = all_schools.filter(id__in=accessible_ids)
 
         # Get fee statistics per school for this month
         # Fee model has direct school ForeignKey, not through student
@@ -766,8 +828,11 @@ class ActionExecutor:
         total_student_records = 0
         errors = []
 
-        # Get schools to check
+        # Get schools to check (filtered by user's access)
         all_schools = School.objects.filter(is_active=True)
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            all_schools = all_schools.filter(id__in=accessible_ids)
         if school_id:
             all_schools = all_schools.filter(id=school_id)
 
@@ -904,8 +969,11 @@ class ActionExecutor:
                 "message": "No school names provided. Please specify which schools to create fees for."
             }
 
-        # Get all active schools for matching
+        # Get all active schools for matching (filtered by user's access)
         all_schools = School.objects.filter(is_active=True)
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            all_schools = all_schools.filter(id__in=accessible_ids)
         school_lookup = {s.name.lower(): s for s in all_schools}
 
         # Match school names using fuzzy matching
@@ -1010,8 +1078,11 @@ class ActionExecutor:
 
         month = params.get('month')
 
-        # Get all active schools
+        # Get all active schools (filtered by user's access)
         all_schools = School.objects.filter(is_active=True)
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            all_schools = all_schools.filter(id__in=accessible_ids)
 
         # Get fee statistics per school for this month
         # Fee model has direct school ForeignKey
@@ -1132,9 +1203,17 @@ class ActionExecutor:
         total_amount_updated = 0
         errors = []
 
+        # Get accessible school IDs for permission check
+        accessible_ids = self._get_accessible_school_ids()
+
         for fee_id in fee_ids:
             try:
                 fee = Fee.objects.get(id=fee_id)
+
+                # Check school access for teachers
+                if accessible_ids is not None and fee.school_id not in accessible_ids:
+                    errors.append(f"Fee {fee_id}: No access to this school")
+                    continue
 
                 if use_special:
                     if paid_amount_str in ['full', 'total']:
@@ -1194,16 +1273,55 @@ class ActionExecutor:
     def _execute_get_inventory_items(self, params: Dict) -> Dict:
         """Query inventory items."""
         from inventory.views import InventoryItemViewSet
+        from inventory.models import InventoryCategory
+        from students.models import School
+        from django.contrib.auth import get_user_model
+        import logging
+        logger = logging.getLogger(__name__)
+
+        User = get_user_model()
 
         query_params = {}
+        filter_desc = []
+
+        # Build query params and track filter descriptions
         if params.get('category'):
             query_params['category'] = params['category']
+            # Try to get category name
+            try:
+                cat = InventoryCategory.objects.get(id=params['category'])
+                filter_desc.append(f"category={cat.name}")
+            except:
+                filter_desc.append(f"category={params['category']}")
+
         if params.get('status'):
             query_params['status'] = params['status']
+            filter_desc.append(f"status={params['status']}")
+
         if params.get('school_id'):
             query_params['school'] = params['school_id']
+            # Try to get school name
+            try:
+                school = School.objects.get(id=params['school_id'])
+                filter_desc.append(f"school={school.name}")
+            except:
+                filter_desc.append(f"school={params['school_id']}")
+
         if params.get('search'):
             query_params['search'] = params['search']
+            filter_desc.append(f"search='{params['search']}'")
+
+        if params.get('assigned_to'):
+            query_params['assigned_to'] = params['assigned_to']
+            # Try to get user name
+            try:
+                user = User.objects.get(id=params['assigned_to'])
+                user_name = f"{user.first_name} {user.last_name}".strip() or user.username
+                filter_desc.append(f"assigned_to={user_name}")
+            except:
+                filter_desc.append(f"assigned_to={params['assigned_to']}")
+
+        logger.info(f"🔍 GET_ITEMS query_params: {query_params}, user: {self.user.id} ({self.user.username})")
 
         request = self.factory.get('/api/inventory/items/', query_params)
         request.user = self.user
@@ -1216,22 +1334,77 @@ class ActionExecutor:
         results = data.get('results', data) if isinstance(data, dict) else data
         count = len(results) if isinstance(results, list) else data.get('count', 0)
 
+        logger.info(f"🔍 GET_ITEMS result: {count} items found")
+
+        # Calculate summary stats from results
+        total_value = 0
+        status_counts = {}
+        item_list = results[:50] if isinstance(results, list) else results
+
+        if isinstance(results, list):
+            for item in results:
+                # Sum up purchase values
+                value = item.get('purchase_value') or item.get('value') or 0
+                total_value += float(value) if value else 0
+
+                # Count by status
+                status = item.get('status', 'Unknown')
+                status_counts[status] = status_counts.get(status, 0) + 1
+
+        # Build descriptive message like fee agent
+        filter_text = f" ({', '.join(filter_desc)})" if filter_desc else ""
+        message = f"Found {count} inventory item(s){filter_text}"
+
+        if count > 0:
+            message += f" | Total Value: PKR {total_value:,.0f}"
+
+            # Add status breakdown if multiple statuses
+            if len(status_counts) > 1:
+                status_parts = [f"{s}: {c}" for s, c in sorted(status_counts.items())]
+                message += f" | {', '.join(status_parts)}"
+            elif len(status_counts) == 1:
+                status_name = list(status_counts.keys())[0]
+                message += f" | All {status_name}"
+
+        # Include item IDs in message for context (if 10 or fewer results)
+        if 0 < count <= 10 and isinstance(results, list):
+            item_ids = [str(item.get('id', '?')) for item in results]
+            message += f"\nItem IDs: {', '.join(item_ids)}"
+
         return {
             "success": True,
-            "message": f"Found {count} inventory item(s)",
+            "message": message,
             "data": {
-                "results": results[:50] if isinstance(results, list) else results,
-                "count": count
+                "results": item_list,
+                "count": count,
+                "total_value": total_value,
+                "status_counts": status_counts,
+                "item_ids": [item.get('id') for item in item_list] if isinstance(item_list, list) else [],
+                # Include filter params for context preservation
+                "category": params.get('category'),
+                "status": params.get('status'),
+                "school_id": params.get('school_id'),
+                "search": params.get('search'),
+                "assigned_to": params.get('assigned_to')
             }
         }
 
     def _execute_get_inventory_summary(self, params: Dict) -> Dict:
         """Get inventory summary."""
         from inventory.views import InventorySummaryView
+        from students.models import School
 
         query_params = {}
+        school_name = None
+
         if params.get('school_id'):
             query_params['school'] = params['school_id']
+            # Try to get school name
+            try:
+                school = School.objects.get(id=params['school_id'])
+                school_name = school.name
+            except:
+                school_name = f"School #{params['school_id']}"
 
         request = self.factory.get('/api/inventory/summary/', query_params)
         request.user = self.user
@@ -1240,20 +1413,65 @@ class ActionExecutor:
         response = view(request)
         response.render()
 
+        data = response.data
+
+        # Build detailed message like fee agent
+        scope = f" for {school_name}" if school_name else " (All Schools)"
+        total_items = data.get('total', data.get('total_items', 0))
+        total_value = data.get('total_value', 0)
+
+        message = f"Inventory Summary{scope}: {total_items} items | Total Value: PKR {float(total_value):,.0f}"
+
+        # Add status breakdown if available
+        by_status = data.get('by_status', {})
+        if by_status:
+            status_parts = [f"{s}: {c}" for s, c in by_status.items() if c > 0]
+            if status_parts:
+                message += f"\nBy Status: {', '.join(status_parts)}"
+
+        # Add category breakdown if available
+        by_category = data.get('by_category', [])
+        if by_category and len(by_category) > 0:
+            cat_parts = [f"{c.get('name', 'Unknown')}: {c.get('count', 0)}" for c in by_category[:5]]
+            if cat_parts:
+                message += f"\nBy Category: {', '.join(cat_parts)}"
+                if len(by_category) > 5:
+                    message += f" +{len(by_category) - 5} more"
+
         return {
             "success": True,
-            "message": "Inventory summary retrieved",
-            "data": response.data
+            "message": message,
+            "data": {
+                **data,
+                "school_name": school_name
+            }
         }
 
     def _execute_update_item_status(self, params: Dict) -> Dict:
         """Update inventory item status."""
         from inventory.views import InventoryItemViewSet
+        from inventory.models import InventoryItem
 
         item_id = params.get('item_id')
+        new_status = params.get('status')
+
+        # Get item info for detailed message
+        try:
+            item = InventoryItem.objects.select_related('school').get(id=item_id)
+            item_name = item.name
+            old_status = item.status
+            school_name = item.school.name if item.school else None
+        except InventoryItem.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Item #{item_id} not found",
+                "data": None,
+                "error": "Item not found"
+            }
+
         request = self.factory.patch(
             f'/api/inventory/items/{item_id}/',
-            data=json.dumps({'status': params.get('status')}),
+            data=json.dumps({'status': new_status}),
             content_type='application/json'
         )
         request.user = self.user
@@ -1262,44 +1480,670 @@ class ActionExecutor:
         response = viewset(request, pk=item_id)
         response.render()
 
-        return {
-            "success": response.status_code == 200,
-            "message": f"Item status updated to {params.get('status')}",
-            "data": response.data
-        }
+        if response.status_code == 200:
+            # Build detailed message
+            message = f"Updated '{item_name}' (#{item_id}): {old_status} → {new_status}"
+            if school_name:
+                message += f" | School: {school_name}"
+
+            return {
+                "success": True,
+                "message": message,
+                "data": {
+                    **response.data,
+                    "old_status": old_status,
+                    "new_status": new_status
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Failed to update item status",
+                "data": response.data if hasattr(response, 'data') else None,
+                "error": str(response.data) if hasattr(response, 'data') else "Unknown error"
+            }
 
     def _execute_delete_item(self, params: Dict) -> Dict:
         """Delete inventory item."""
         from inventory.views import InventoryItemViewSet
+        from inventory.models import InventoryItem
 
         item_id = params.get('item_id')
+
+        # Get item info for detailed message
+        try:
+            item = InventoryItem.objects.select_related('school', 'category').get(id=item_id)
+            item_name = item.name
+            item_unique_id = item.unique_id
+            school_name = item.school.name if item.school else None
+            category_name = item.category.name if item.category else None
+        except InventoryItem.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Item #{item_id} not found",
+                "data": None,
+                "error": "Item not found"
+            }
+
         request = self.factory.delete(f'/api/inventory/items/{item_id}/')
         request.user = self.user
 
         viewset = InventoryItemViewSet.as_view({'delete': 'destroy'})
         response = viewset(request, pk=item_id)
 
-        return {
-            "success": response.status_code == 204,
-            "message": "Item deleted",
-            "data": None
-        }
+        if response.status_code == 204:
+            # Build detailed message
+            message = f"Deleted '{item_name}' ({item_unique_id})"
+            details = []
+            if category_name:
+                details.append(f"Category: {category_name}")
+            if school_name:
+                details.append(f"School: {school_name}")
+            if details:
+                message += f" | {', '.join(details)}"
+
+            return {
+                "success": True,
+                "message": message,
+                "data": {
+                    "item_id": item_id,
+                    "item_name": item_name,
+                    "unique_id": item_unique_id,
+                    "category": category_name,
+                    "school": school_name
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Failed to delete item",
+                "data": response.data if hasattr(response, 'data') else None,
+                "error": str(response.data) if hasattr(response, 'data') else "Unknown error"
+            }
 
     def _execute_bulk_delete_items(self, params: Dict) -> Dict:
         """Delete multiple inventory items."""
         item_ids = params.get('item_ids', [])
-        deleted = 0
+        deleted_count = 0
+        deleted_items = []
+        failed_items = []
 
         for item_id in item_ids:
             result = self._execute_delete_item({'item_id': item_id})
             if result['success']:
-                deleted += 1
+                deleted_count += 1
+                deleted_items.append({
+                    'id': item_id,
+                    'name': result['data'].get('item_name'),
+                    'unique_id': result['data'].get('unique_id')
+                })
+            else:
+                failed_items.append(item_id)
+
+        # Build detailed message
+        message = f"Deleted {deleted_count} of {len(item_ids)} item(s)"
+        if deleted_items:
+            deleted_names = [f"{d['name']} ({d['unique_id']})" for d in deleted_items[:3]]
+            message += f": {', '.join(deleted_names)}"
+            if len(deleted_items) > 3:
+                message += f" +{len(deleted_items) - 3} more"
+        if failed_items:
+            message += f" | Failed: {len(failed_items)} item(s)"
 
         return {
-            "success": deleted > 0,
-            "message": f"Deleted {deleted} of {len(item_ids)} item(s)",
-            "data": {"deleted_count": deleted}
+            "success": deleted_count > 0,
+            "message": message,
+            "data": {
+                "deleted_count": deleted_count,
+                "deleted_items": deleted_items,
+                "failed_items": failed_items
+            }
         }
+
+    def _execute_create_item(self, params: Dict) -> Dict:
+        """Create a new inventory item."""
+        from inventory.views import InventoryItemViewSet
+        from inventory.models import InventoryCategory
+        from students.models import School
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        # Build the item data
+        item_data = {
+            'name': params.get('name'),
+            'purchase_value': params.get('purchase_value'),
+        }
+
+        # Handle optional fields
+        if params.get('category_id'):
+            item_data['category'] = params.get('category_id')
+
+        if params.get('school_id'):
+            item_data['school'] = params.get('school_id')
+            item_data['location'] = 'School'
+        elif params.get('location'):
+            item_data['location'] = params.get('location')
+        else:
+            item_data['location'] = 'School'  # Default
+
+        if params.get('assigned_to_id'):
+            item_data['assigned_to'] = params.get('assigned_to_id')
+            item_data['status'] = 'Assigned'
+        elif params.get('status'):
+            item_data['status'] = params.get('status')
+        else:
+            item_data['status'] = 'Available'
+
+        # Optional fields
+        optional_fields = ['description', 'serial_number', 'purchase_date',
+                         'warranty_expiry', 'notes']
+        for field in optional_fields:
+            if params.get(field):
+                item_data[field] = params.get(field)
+
+        request = self.factory.post(
+            '/api/inventory/items/',
+            data=json.dumps(item_data),
+            content_type='application/json'
+        )
+        request.user = self.user
+
+        viewset = InventoryItemViewSet.as_view({'post': 'create'})
+        response = viewset(request)
+        response.render()
+
+        if response.status_code in [200, 201]:
+            data = response.data
+            item_name = data.get('name', params.get('name'))
+            unique_id = data.get('unique_id', '')
+            purchase_value = params.get('purchase_value', 0)
+
+            # Build descriptive message like fee agent
+            message = f"Created item: {item_name} ({unique_id})"
+
+            details = []
+            if purchase_value:
+                details.append(f"Value: PKR {float(purchase_value):,.0f}")
+            if params.get('category_id'):
+                try:
+                    cat = InventoryCategory.objects.get(id=params['category_id'])
+                    details.append(f"Category: {cat.name}")
+                except:
+                    pass
+            if params.get('school_id'):
+                try:
+                    school = School.objects.get(id=params['school_id'])
+                    details.append(f"School: {school.name}")
+                except School.DoesNotExist:
+                    pass
+            if params.get('assigned_to_id'):
+                try:
+                    user = User.objects.get(id=params['assigned_to_id'])
+                    user_name = f"{user.first_name} {user.last_name}".strip() or user.username
+                    details.append(f"Assigned to: {user_name}")
+                except:
+                    pass
+
+            if details:
+                message += f"\n{' | '.join(details)}"
+
+            return {
+                "success": True,
+                "message": message,
+                "data": data
+            }
+        else:
+            error_msg = response.data.get('detail', str(response.data)) if hasattr(response, 'data') else 'Item creation failed'
+            return {
+                "success": False,
+                "message": f"Failed to create item: {error_msg}",
+                "data": response.data if hasattr(response, 'data') else None,
+                "error": error_msg
+            }
+
+    def _execute_edit_item(self, params: Dict) -> Dict:
+        """Edit/update an existing inventory item."""
+        from inventory.views import InventoryItemViewSet
+        from inventory.models import InventoryItem
+
+        item_id = params.get('item_id')
+
+        # Get current item for comparison
+        try:
+            item = InventoryItem.objects.select_related('category', 'school', 'assigned_to').get(id=item_id)
+            item_name = item.name
+        except InventoryItem.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Item #{item_id} not found",
+                "data": None,
+                "error": "Item not found"
+            }
+
+        # Build update data (only include changed fields)
+        update_data = {}
+        field_mapping = {
+            'name': 'name',
+            'category_id': 'category',
+            'school_id': 'school',
+            'location': 'location',
+            'assigned_to_id': 'assigned_to',
+            'status': 'status',
+            'description': 'description',
+            'serial_number': 'serial_number',
+            'purchase_value': 'purchase_value',
+            'purchase_date': 'purchase_date',
+            'warranty_expiry': 'warranty_expiry',
+            'notes': 'notes'
+        }
+
+        changes_made = []
+        for param_key, field_name in field_mapping.items():
+            if param_key in params and params[param_key] is not None:
+                update_data[field_name] = params[param_key]
+                changes_made.append(field_name)
+
+        if not update_data:
+            return {
+                "success": False,
+                "message": "No fields to update provided",
+                "data": None,
+                "error": "No update data"
+            }
+
+        request = self.factory.patch(
+            f'/api/inventory/items/{item_id}/',
+            data=json.dumps(update_data),
+            content_type='application/json'
+        )
+        request.user = self.user
+
+        viewset = InventoryItemViewSet.as_view({'patch': 'partial_update'})
+        response = viewset(request, pk=item_id)
+        response.render()
+
+        if response.status_code == 200:
+            return {
+                "success": True,
+                "message": f"Updated {item_name}: {', '.join(changes_made)}",
+                "data": response.data
+            }
+        else:
+            error_msg = response.data.get('detail', str(response.data)) if hasattr(response, 'data') else 'Update failed'
+            return {
+                "success": False,
+                "message": f"Failed to update item: {error_msg}",
+                "data": response.data if hasattr(response, 'data') else None,
+                "error": error_msg
+            }
+
+    def _execute_transfer_item(self, params: Dict) -> Dict:
+        """Transfer an inventory item to a different school."""
+        from inventory.models import InventoryItem
+        from students.models import School
+
+        item_id = params.get('item_id')
+        target_school_id = params.get('target_school_id')
+        notes = params.get('notes', '')
+
+        # Get the item
+        try:
+            item = InventoryItem.objects.select_related('school').get(id=item_id)
+            old_school_name = item.school.name if item.school else 'Unassigned'
+        except InventoryItem.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Item #{item_id} not found",
+                "data": None,
+                "error": "Item not found"
+            }
+
+        # Get target school
+        try:
+            target_school = School.objects.get(id=target_school_id)
+        except School.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Target school #{target_school_id} not found",
+                "data": None,
+                "error": "Target school not found"
+            }
+
+        # Update item
+        item.school = target_school
+        item.location = 'School'
+
+        # Append transfer note
+        transfer_note = f"Transferred from {old_school_name} to {target_school.name}"
+        if notes:
+            transfer_note += f": {notes}"
+
+        if item.notes:
+            item.notes = f"{item.notes}\n[{transfer_note}]"
+        else:
+            item.notes = f"[{transfer_note}]"
+
+        item.save()
+
+        return {
+            "success": True,
+            "message": f"Transferred '{item.name}' from {old_school_name} to {target_school.name}",
+            "data": {
+                "item_id": item.id,
+                "item_name": item.name,
+                "unique_id": item.unique_id,
+                "old_school": old_school_name,
+                "new_school": target_school.name,
+                "new_school_id": target_school.id
+            }
+        }
+
+    def _execute_assign_item(self, params: Dict) -> Dict:
+        """Assign or unassign an inventory item to a user."""
+        from inventory.models import InventoryItem
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        item_id = params.get('item_id')
+        user_id = params.get('user_id')  # None or empty to unassign
+        notes = params.get('notes', '')
+
+        # Get the item
+        try:
+            item = InventoryItem.objects.select_related('assigned_to').get(id=item_id)
+            old_assignee = None
+            if item.assigned_to:
+                old_assignee = f"{item.assigned_to.first_name} {item.assigned_to.last_name}".strip() or item.assigned_to.username
+        except InventoryItem.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Item #{item_id} not found",
+                "data": None,
+                "error": "Item not found"
+            }
+
+        if user_id:
+            # Assign to user
+            try:
+                user = User.objects.get(id=user_id)
+                new_assignee = f"{user.first_name} {user.last_name}".strip() or user.username
+            except User.DoesNotExist:
+                return {
+                    "success": False,
+                    "message": f"User #{user_id} not found",
+                    "data": None,
+                    "error": "User not found"
+                }
+
+            item.assigned_to = user
+            item.status = 'Assigned'
+
+            # Add assignment note
+            assign_note = f"Assigned to {new_assignee}"
+            if old_assignee:
+                assign_note = f"Reassigned from {old_assignee} to {new_assignee}"
+            if notes:
+                assign_note += f": {notes}"
+
+            message = f"Assigned '{item.name}' to {new_assignee}"
+            if old_assignee:
+                message = f"Reassigned '{item.name}' from {old_assignee} to {new_assignee}"
+        else:
+            # Unassign
+            new_assignee = None
+            item.assigned_to = None
+            item.status = 'Available'
+
+            assign_note = f"Unassigned from {old_assignee}" if old_assignee else "Marked as unassigned"
+            if notes:
+                assign_note += f": {notes}"
+
+            message = f"Unassigned '{item.name}'"
+            if old_assignee:
+                message += f" from {old_assignee}"
+
+        # Append note
+        if item.notes:
+            item.notes = f"{item.notes}\n[{assign_note}]"
+        else:
+            item.notes = f"[{assign_note}]"
+
+        item.save()
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "item_id": item.id,
+                "item_name": item.name,
+                "unique_id": item.unique_id,
+                "old_assignee": old_assignee,
+                "new_assignee": new_assignee,
+                "status": item.status
+            }
+        }
+
+    def _execute_get_item_details(self, params: Dict) -> Dict:
+        """Get full details of an inventory item."""
+        from inventory.views import InventoryItemViewSet
+
+        item_id = params.get('item_id')
+
+        request = self.factory.get(f'/api/inventory/items/{item_id}/')
+        request.user = self.user
+
+        viewset = InventoryItemViewSet.as_view({'get': 'retrieve'})
+        response = viewset(request, pk=item_id)
+        response.render()
+
+        if response.status_code == 200:
+            data = response.data
+            item_name = data.get('name', f'Item #{item_id}')
+            unique_id = data.get('unique_id', '')
+
+            return {
+                "success": True,
+                "message": f"Details for: {item_name} ({unique_id})",
+                "data": data
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Item #{item_id} not found",
+                "data": None,
+                "error": "Item not found"
+            }
+
+    def _execute_create_category(self, params: Dict) -> Dict:
+        """Create a new inventory category (Admin only)."""
+        from inventory.views import InventoryCategoryViewSet
+
+        # Check if user is admin
+        if not self.user.is_staff and not self.user.is_superuser:
+            return {
+                "success": False,
+                "message": "Only administrators can create categories",
+                "data": None,
+                "error": "Permission denied"
+            }
+
+        category_data = {
+            'name': params.get('name'),
+        }
+        if params.get('description'):
+            category_data['description'] = params.get('description')
+
+        request = self.factory.post(
+            '/api/inventory/categories/',
+            data=json.dumps(category_data),
+            content_type='application/json'
+        )
+        request.user = self.user
+
+        viewset = InventoryCategoryViewSet.as_view({'post': 'create'})
+        response = viewset(request)
+        response.render()
+
+        if response.status_code in [200, 201]:
+            data = response.data
+            return {
+                "success": True,
+                "message": f"Created category: {data.get('name')}",
+                "data": data
+            }
+        else:
+            error_msg = response.data.get('detail', str(response.data)) if hasattr(response, 'data') else 'Category creation failed'
+            # Check for duplicate name error
+            if 'unique' in str(error_msg).lower() or 'already exists' in str(error_msg).lower():
+                error_msg = f"Category '{params.get('name')}' already exists"
+            return {
+                "success": False,
+                "message": f"Failed to create category: {error_msg}",
+                "data": response.data if hasattr(response, 'data') else None,
+                "error": error_msg
+            }
+
+    def _execute_update_category(self, params: Dict) -> Dict:
+        """Update an inventory category (Admin only)."""
+        from inventory.views import InventoryCategoryViewSet
+        from inventory.models import InventoryCategory
+
+        # Check if user is admin
+        if not self.user.is_staff and not self.user.is_superuser:
+            return {
+                "success": False,
+                "message": "Only administrators can update categories",
+                "data": None,
+                "error": "Permission denied"
+            }
+
+        category_id = params.get('category_id')
+
+        # Verify category exists
+        try:
+            category = InventoryCategory.objects.get(id=category_id)
+            old_name = category.name
+        except InventoryCategory.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Category #{category_id} not found",
+                "data": None,
+                "error": "Category not found"
+            }
+
+        update_data = {}
+        if params.get('name'):
+            update_data['name'] = params.get('name')
+        if params.get('description') is not None:
+            update_data['description'] = params.get('description')
+
+        if not update_data:
+            return {
+                "success": False,
+                "message": "No fields to update provided",
+                "data": None,
+                "error": "No update data"
+            }
+
+        request = self.factory.patch(
+            f'/api/inventory/categories/{category_id}/',
+            data=json.dumps(update_data),
+            content_type='application/json'
+        )
+        request.user = self.user
+
+        viewset = InventoryCategoryViewSet.as_view({'patch': 'partial_update'})
+        response = viewset(request, pk=category_id)
+        response.render()
+
+        if response.status_code == 200:
+            data = response.data
+            new_name = data.get('name', old_name)
+            if old_name != new_name:
+                message = f"Renamed category '{old_name}' to '{new_name}'"
+            else:
+                message = f"Updated category: {new_name}"
+            return {
+                "success": True,
+                "message": message,
+                "data": data
+            }
+        else:
+            error_msg = response.data.get('detail', str(response.data)) if hasattr(response, 'data') else 'Update failed'
+            return {
+                "success": False,
+                "message": f"Failed to update category: {error_msg}",
+                "data": response.data if hasattr(response, 'data') else None,
+                "error": error_msg
+            }
+
+    def _execute_delete_category(self, params: Dict) -> Dict:
+        """Delete an inventory category (Admin only)."""
+        from inventory.views import InventoryCategoryViewSet
+        from inventory.models import InventoryCategory
+
+        # Check if user is admin
+        if not self.user.is_staff and not self.user.is_superuser:
+            return {
+                "success": False,
+                "message": "Only administrators can delete categories",
+                "data": None,
+                "error": "Permission denied"
+            }
+
+        category_id = params.get('category_id')
+
+        # Get category info for response
+        try:
+            category = InventoryCategory.objects.get(id=category_id)
+            category_name = category.name
+            item_count = category.items.count()
+        except InventoryCategory.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Category #{category_id} not found",
+                "data": None,
+                "error": "Category not found"
+            }
+
+        # Warn if category has items
+        if item_count > 0:
+            return {
+                "success": False,
+                "message": f"Cannot delete category '{category_name}' - it has {item_count} item(s). Move or delete items first.",
+                "data": {
+                    "category_id": category_id,
+                    "category_name": category_name,
+                    "item_count": item_count
+                },
+                "error": "Category has items"
+            }
+
+        request = self.factory.delete(f'/api/inventory/categories/{category_id}/')
+        request.user = self.user
+
+        viewset = InventoryCategoryViewSet.as_view({'delete': 'destroy'})
+        response = viewset(request, pk=category_id)
+
+        if response.status_code == 204:
+            return {
+                "success": True,
+                "message": f"Deleted category: {category_name}",
+                "data": {
+                    "category_id": category_id,
+                    "category_name": category_name
+                }
+            }
+        else:
+            error_msg = response.data.get('detail', 'Delete failed') if hasattr(response, 'data') else 'Delete failed'
+            return {
+                "success": False,
+                "message": f"Failed to delete category: {error_msg}",
+                "data": None,
+                "error": error_msg
+            }
 
     # ============================================
     # HR EXECUTORS

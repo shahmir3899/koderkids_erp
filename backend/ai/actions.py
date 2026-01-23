@@ -111,7 +111,7 @@ FEE_ACTIONS: Dict[str, ActionDefinition] = {
         required_params=["month"],
         optional_params=["school_id", "school_name"],
         handler="create_missing_fees",
-        requires_confirmation=False,
+        requires_confirmation=True,  # Preview before creating
         description="Create fees for schools without fee records AND for students added after monthly fees were created"
     ),
     "CREATE_FEES_MULTIPLE_SCHOOLS": ActionDefinition(
@@ -138,7 +138,7 @@ FEE_ACTIONS: Dict[str, ActionDefinition] = {
         required_params=[],  # Either fee_ids OR filter criteria required
         optional_params=["fee_ids", "school_id", "school_name", "class", "month", "status", "paid_amount"],
         handler="bulk_update_fees",
-        requires_confirmation=False,
+        requires_confirmation=True,  # Preview before bulk update
         description="Update multiple fee records at once"
     ),
 }
@@ -151,7 +151,7 @@ INVENTORY_ACTIONS: Dict[str, ActionDefinition] = {
         name="GET_ITEMS",
         action_type=ActionType.READ,
         required_params=[],
-        optional_params=["category", "status", "school_id", "search", "location"],
+        optional_params=["category", "status", "school_id", "search", "location", "assigned_to"],
         endpoint="/api/inventory/items/",
         requires_confirmation=False,
         description="Query inventory items"
@@ -191,6 +191,87 @@ INVENTORY_ACTIONS: Dict[str, ActionDefinition] = {
         endpoint="/api/inventory/items/bulk-delete/",
         requires_confirmation=True,
         description="Delete multiple inventory items"
+    ),
+    # ========== NEW ACTIONS ==========
+    "CREATE_ITEM": ActionDefinition(
+        name="CREATE_ITEM",
+        action_type=ActionType.WRITE,
+        required_params=["name", "purchase_value"],
+        optional_params=[
+            "category_id", "school_id", "location", "assigned_to_id",
+            "status", "description", "serial_number", "purchase_date",
+            "warranty_expiry", "notes"
+        ],
+        endpoint="/api/inventory/items/",
+        requires_confirmation=False,
+        description="Create new inventory item"
+    ),
+    "EDIT_ITEM": ActionDefinition(
+        name="EDIT_ITEM",
+        action_type=ActionType.WRITE,
+        required_params=["item_id"],
+        optional_params=[
+            "name", "category_id", "school_id", "location", "assigned_to_id",
+            "status", "description", "serial_number", "purchase_value",
+            "purchase_date", "warranty_expiry", "notes"
+        ],
+        endpoint="/api/inventory/items/{item_id}/",
+        requires_confirmation=False,
+        description="Edit inventory item details"
+    ),
+    "TRANSFER_ITEM": ActionDefinition(
+        name="TRANSFER_ITEM",
+        action_type=ActionType.WRITE,
+        required_params=["item_id", "target_school_id"],
+        optional_params=["notes"],
+        endpoint="/api/inventory/items/{item_id}/",
+        requires_confirmation=True,
+        description="Transfer item to different school"
+    ),
+    "ASSIGN_ITEM": ActionDefinition(
+        name="ASSIGN_ITEM",
+        action_type=ActionType.WRITE,
+        required_params=["item_id"],
+        optional_params=["user_id", "notes"],
+        endpoint="/api/inventory/items/{item_id}/",
+        requires_confirmation=False,
+        description="Assign or unassign item to user"
+    ),
+    "GET_ITEM_DETAILS": ActionDefinition(
+        name="GET_ITEM_DETAILS",
+        action_type=ActionType.READ,
+        required_params=["item_id"],
+        optional_params=[],
+        endpoint="/api/inventory/items/{item_id}/",
+        requires_confirmation=False,
+        description="Get full details of an item"
+    ),
+    "CREATE_CATEGORY": ActionDefinition(
+        name="CREATE_CATEGORY",
+        action_type=ActionType.WRITE,
+        required_params=["name"],
+        optional_params=["description"],
+        endpoint="/api/inventory/categories/",
+        requires_confirmation=False,
+        description="Create new inventory category (Admin only)"
+    ),
+    "UPDATE_CATEGORY": ActionDefinition(
+        name="UPDATE_CATEGORY",
+        action_type=ActionType.WRITE,
+        required_params=["category_id"],
+        optional_params=["name", "description"],
+        endpoint="/api/inventory/categories/{category_id}/",
+        requires_confirmation=False,
+        description="Update inventory category (Admin only)"
+    ),
+    "DELETE_CATEGORY": ActionDefinition(
+        name="DELETE_CATEGORY",
+        action_type=ActionType.DELETE,
+        required_params=["category_id"],
+        optional_params=[],
+        endpoint="/api/inventory/categories/{category_id}/",
+        requires_confirmation=True,
+        description="Delete inventory category (Admin only)"
     ),
 }
 

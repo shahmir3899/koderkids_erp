@@ -40,6 +40,9 @@ import CategoryManagementModal from '../components/inventory/CategoryManagementM
 import TransferModal from '../components/inventory/TransferModal';
 import InventoryReportModal from '../components/inventory/InventoryReportModal';
 
+// AI Agent
+import InventoryAgentChat from '../components/inventory/InventoryAgentChat';
+
 // Responsive Styles Generator
 const getStyles = (isMobile, isTablet) => ({
   pageContainer: {
@@ -123,6 +126,9 @@ const InventoryDashboard = () => {
     getStatusCount,
     categoryChartData,
     statusChartData,
+
+    // Refetch
+    refetchAll,
   } = useInventory();
 
   // ============================================
@@ -155,6 +161,23 @@ const InventoryDashboard = () => {
           categoryChartData={categoryChartData}
           statusChartData={statusChartData}
         />
+
+        {/* 3.5. AI Assistant */}
+        <CollapsibleSection
+          title="🤖 AI Assistant"
+          defaultOpen={false}
+        >
+          <div style={{ padding: SPACING.md }}>
+            <InventoryAgentChat
+              schools={schools}
+              categories={categories}
+              users={users}
+              currentUserId={userContext.userId}
+              onRefresh={refetchAll}
+              height="500px"
+            />
+          </div>
+        </CollapsibleSection>
 
         {/* 4 & 5. Filters + Table in one collapsible section */}
         <CollapsibleSection

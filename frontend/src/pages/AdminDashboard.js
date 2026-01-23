@@ -104,6 +104,16 @@ function AdminDashboard() {
     className: null,
   });
 
+  // Convert selectedMonth from "Jan-2026" to "2026-01" format for API
+  const selectedMonthForAPI = useMemo(() => {
+    if (!selectedMonth) return '';
+    // If already in YYYY-MM format, return as-is
+    if (/^\d{4}-\d{2}$/.test(selectedMonth)) return selectedMonth;
+    // Convert "Jan-2026" or "2026-01" to "YYYY-MM"
+    const parsed = moment(selectedMonth, ['MMM-YYYY', 'YYYY-MM', 'MMMM-YYYY']);
+    return parsed.isValid() ? parsed.format('YYYY-MM') : selectedMonth;
+  }, [selectedMonth]);
+
   // Student data - loaded when filters are set
   const {
     data: studentDataResult,
@@ -111,8 +121,8 @@ function AdminDashboard() {
   } = useStudentData(
     studentDataFilters.schoolId,
     studentDataFilters.className,
-    selectedMonth,
-    { enabled: !!studentDataFilters.schoolId && !!studentDataFilters.className && !!selectedMonth }
+    selectedMonthForAPI,
+    { enabled: !!studentDataFilters.schoolId && !!studentDataFilters.className && !!selectedMonthForAPI }
   );
 
   // Extract student data
@@ -199,7 +209,7 @@ function AdminDashboard() {
     }
   }, [availableMonths, selectedMonth]);
 
-  // Process fee data for chart (top 3 schools, last 3 months)
+  // Process fee data for chart - Top 3 schools PER MONTH (each month independently)
   const feePerMonth = useMemo(() => {
     if (!feePerMonthData || feePerMonthData.length === 0 || schools.length === 0) return [];
 
@@ -213,51 +223,39 @@ function AdminDashboard() {
     const uniqueMonths = Array.from(new Set(feePerMonthData.map(entry => entry.month)))
       .filter(month => month && month !== "Unknown")
       .sort((a, b) => {
-        const [monthA, yearA] = a.split('-');
-        const [monthB, yearB] = b.split('-');
-        if (yearA === yearB) {
-          return new Date(`${monthA} 1, ${yearA}`) - new Date(`${monthB} 1, ${yearB}`);
-        }
-        return yearA - yearB;
+        const dateA = new Date(a + '-01');
+        const dateB = new Date(b + '-01');
+        return dateA - dateB;
       });
 
     const last3Months = uniqueMonths.slice(-3);
 
-    // Aggregate total fees per school across all 3 months
-    const schoolTotals = {};
-    last3Months.forEach(month => {
-      const monthData = feePerMonthData.filter(entry => entry.month === month);
-      monthData.forEach(entry => {
-        const schoolId = entry.school;
-        const schoolName = schoolMap[schoolId] || `School ${schoolId}`;
-
-        if (!schoolTotals[schoolName]) {
-          schoolTotals[schoolName] = 0;
-        }
-        schoolTotals[schoolName] += entry.total_fee || 0;
-      });
-    });
-
-    // Get top 3 schools by total fees
-    const top3Schools = Object.entries(schoolTotals)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3)
-      .map(([name]) => name);
-
-    // Build chart data structure
+    // Build chart data - for each month, find TOP 3 schools for THAT specific month
     return last3Months.map(month => {
-      const monthEntry = { month };
+      // Get all school data for this month
+      const monthData = feePerMonthData
+        .filter(entry => entry.month === month)
+        .map(entry => ({
+          schoolName: schoolMap[entry.school] || `School ${entry.school}`,
+          totalFee: entry.total_fee || 0,
+        }))
+        .sort((a, b) => b.totalFee - a.totalFee) // Sort by fee descending
+        .slice(0, 3); // Take top 3 for THIS month
 
-      // Add data for each top 3 school
-      top3Schools.forEach(schoolName => {
-        const schoolData = feePerMonthData.find(
-          entry =>
-            entry.month === month &&
-            (schoolMap[entry.school] === schoolName)
-        );
-
-        monthEntry[schoolName] = schoolData ? (schoolData.total_fee || 0) : 0;
-      });
+      // Create entry with month and ranked schools
+      const monthEntry = {
+        month,
+        // Use generic keys for consistent chart bars
+        'Top 1': monthData[0]?.totalFee || 0,
+        'Top 2': monthData[1]?.totalFee || 0,
+        'Top 3': monthData[2]?.totalFee || 0,
+        // Store school names for tooltip
+        schoolNames: {
+          'Top 1': monthData[0]?.schoolName || '-',
+          'Top 2': monthData[1]?.schoolName || '-',
+          'Top 3': monthData[2]?.schoolName || '-',
+        },
+      };
 
       return monthEntry;
     });
@@ -297,12 +295,8 @@ function AdminDashboard() {
     }));
   }, [studentsPerSchoolData]);
 
-  // School names for fee chart
-  const schoolNamesInChart = useMemo(() => {
-    if (feePerMonth.length === 0) return [];
-    const firstMonth = feePerMonth[0];
-    return Object.keys(firstMonth).filter(key => key !== 'month');
-  }, [feePerMonth]);
+  // Bar keys for fee chart (now uses Top 1, Top 2, Top 3)
+  const feeChartBarKeys = ['Top 1', 'Top 2', 'Top 3'];
 
   // Fee totals for summary (use feeSummaryData from React Query)
   const feeTotals = useMemo(() => {
@@ -336,6 +330,12 @@ function AdminDashboard() {
       minHeight: '100vh',
       background: COLORS.background.gradient,
       padding: SPACING.xl,
+    },
+    chartsRow: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+      gap: SPACING.lg,
+      marginBottom: SPACING.lg,
     },
     chartContainer: {
       ...MIXINS.glassmorphicCard,
@@ -472,117 +472,125 @@ function AdminDashboard() {
         />
       </CollapsibleSection>
 
-      {/* Students per School */}
-      <CollapsibleSection
-        title="Students per School"
-        defaultOpen
-        key={`students-${studentsPerSchoolData.length}`}
-      >
-        
-        
-        {loading.students ? (
-          <LoadingSpinner size="medium" message="Loading students..." />
-        ) : studentsChartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={studentsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
-              <XAxis
-                dataKey="school"
-                tick={{ fontSize: 11, fill: '#FFFFFF' }}
-                axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                angle={-35}
-                textAnchor="end"
-                height={90}
-                interval={0}
-                tickFormatter={(value) => {
-                  return value.replace(/School|Campus|System/g, '').trim();
-                }}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: '#FFFFFF' }}
-                axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                label={{ value: 'No of Students', angle: -90, position: 'insideLeft', fill: '#FFFFFF', fontSize: 12 }}
-              />
-              <Tooltip
-                contentStyle={{ backgroundColor: 'rgba(30, 30, 46, 0.95)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', color: '#FFFFFF' }}
-                labelStyle={{ color: '#FBBF24' }}
-                itemStyle={{ color: '#FFFFFF' }}
-              />
-
-              <Bar
-                dataKey="count"
-                fill="#60A5FA"
-                name="Students"
-                radius={[4, 4, 4, 4]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <p style={pageStyles.emptyState}>No student data available</p>
-        )}
-      </CollapsibleSection>
-
-      {/* Fee Collection - Top 3 Schools (Last 3 Months) */}
-      <CollapsibleSection title="Fee Collection - Top 3 Schools (Last 3 Months)" defaultOpen>
-        {loading.fee ? (
-          <LoadingSpinner size="medium" message="Loading fee data..." />
-        ) : feePerMonth.length > 0 ? (
-          <>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={feePerMonth} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+      {/* Charts Row - Students per School & Fee Collection Side by Side */}
+      <div style={pageStyles.chartsRow}>
+        {/* Students per School */}
+        <CollapsibleSection
+          title="Students per School"
+          defaultOpen
+          key={`students-${studentsPerSchoolData.length}`}
+        >
+          {loading.students ? (
+            <LoadingSpinner size="medium" message="Loading students..." />
+          ) : studentsChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={studentsChartData} margin={{ top: 20, right: 20, left: 10, bottom: 80 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
                 <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 12, fill: '#FFFFFF' }}
+                  dataKey="school"
+                  tick={{ fontSize: 10, fill: '#FFFFFF' }}
                   axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
                   tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                  angle={-15}
+                  angle={-45}
                   textAnchor="end"
-                  height={60}
+                  height={90}
+                  interval={0}
+                  tickFormatter={(value) => {
+                    const short = value.replace(/School|Campus|System/g, '').trim();
+                    return short.length > 12 ? short.substring(0, 12) + '...' : short;
+                  }}
                 />
                 <YAxis
-                  tick={{ fontSize: 12, fill: '#FFFFFF' }}
+                  tick={{ fontSize: 10, fill: '#FFFFFF' }}
                   axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
                   tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                  width={40}
                 />
                 <Tooltip
-                  formatter={(value) => `PKR ${value.toLocaleString()}`}
                   contentStyle={{ backgroundColor: 'rgba(30, 30, 46, 0.95)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', color: '#FFFFFF' }}
                   labelStyle={{ color: '#FBBF24' }}
                   itemStyle={{ color: '#FFFFFF' }}
                 />
-                <Legend wrapperStyle={{ paddingTop: '10px', color: '#FFFFFF' }} formatter={(value) => <span style={{ color: '#FFFFFF' }}>{value}</span>} />
-                {schoolNamesInChart.map((schoolName, index) => (
-                  <Bar
-                    key={schoolName}
-                    dataKey={schoolName}
-                    fill={['#60A5FA', '#34D399', '#FBBF24'][index % 3]}
-                    radius={[4, 4, 0, 0]}
-                  />
-                ))}
+                <Bar
+                  dataKey="count"
+                  fill="#60A5FA"
+                  name="Students"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
+          ) : (
+            <p style={pageStyles.emptyState}>No student data available</p>
+          )}
+        </CollapsibleSection>
 
-            {/* Total Summary */}
-            <div style={pageStyles.summaryBox}>
-              <h4 style={pageStyles.summaryTitle}>3-Month Summary (Top 3 Schools):</h4>
-              {schoolNamesInChart.map(schoolName => {
-                const schoolTotal = feePerMonth.reduce((sum, month) => sum + (month[schoolName] || 0), 0);
-                return (
-                  <p key={schoolName} style={pageStyles.summaryText}>
-                    <strong>{schoolName}:</strong> PKR {schoolTotal.toLocaleString()}
-                  </p>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <p style={pageStyles.emptyState}>No fee data available</p>
-        )}
-      </CollapsibleSection>
+        {/* Fee Collection - Top 3 Schools Per Month (Last 3 Months) */}
+        <CollapsibleSection title="Fee Collection - Top 3 Per Month" defaultOpen>
+          {loading.fee ? (
+            <LoadingSpinner size="medium" message="Loading fee data..." />
+          ) : feePerMonth.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={feePerMonth} margin={{ top: 20, right: 20, left: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11, fill: '#FFFFFF' }}
+                    axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                    tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#FFFFFF' }}
+                    axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                    tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    width={45}
+                  />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const monthData = feePerMonth.find(d => d.month === label);
+                        return (
+                          <div style={{
+                            backgroundColor: 'rgba(30, 30, 46, 0.95)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            borderRadius: '8px',
+                            padding: '10px',
+                            color: '#FFFFFF',
+                            fontSize: '12px',
+                          }}>
+                            <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#FBBF24' }}>{label}</p>
+                            {payload.map((entry, index) => (
+                              <p key={index} style={{ margin: '4px 0', color: entry.color }}>
+                                {monthData?.schoolNames?.[entry.dataKey] || entry.dataKey}: PKR {entry.value?.toLocaleString()}
+                              </p>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ paddingTop: '5px' }}
+                    formatter={(value) => <span style={{ color: '#FFFFFF', fontSize: '11px' }}>{value}</span>}
+                  />
+                  {feeChartBarKeys.map((key, index) => (
+                    <Bar
+                      key={key}
+                      dataKey={key}
+                      fill={['#60A5FA', '#34D399', '#FBBF24'][index]}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          ) : (
+            <p style={pageStyles.emptyState}>No fee data available</p>
+          )}
+        </CollapsibleSection>
+      </div>
 
       {/* Fee Summary Table */}
       <CollapsibleSection
@@ -614,14 +622,18 @@ function AdminDashboard() {
               label: 'Total Fee',
               sortable: true,
               align: 'right',
-              render: (value) => `PKR ${value.toLocaleString()}`
+              render: (value) => `PKR ${value?.toLocaleString() || 0}`
             },
             {
               key: 'paid_amount',
               label: 'Paid Amount',
               sortable: true,
               align: 'right',
-              render: (value) => `PKR ${value.toLocaleString()}`
+              render: (value) => (
+                <span style={{ color: '#10B981' }}>
+                  PKR {value?.toLocaleString() || 0}
+                </span>
+              )
             },
             {
               key: 'balance_due',
@@ -630,25 +642,21 @@ function AdminDashboard() {
               align: 'right',
               render: (value) => (
                 <span style={{ color: value > 0 ? '#DC2626' : '#059669', fontWeight: '600' }}>
-                  PKR {value.toLocaleString()}
+                  PKR {value?.toLocaleString() || 0}
                 </span>
               )
             },
           ]}
+          footerRow={feeSummaryData.length > 0 ? {
+            school_name: 'TOTAL',
+            total_fee: feeTotals.total_fee,
+            paid_amount: feeTotals.paid_amount,
+            balance_due: feeTotals.balance_due,
+          } : null}
           emptyMessage={`No fee data for ${selectedMonth}`}
           striped
           hoverable
         />
-
-        {feeSummaryData.length > 0 && (
-          <FinancialSummaryCard
-            totalFee={feeTotals.total_fee}
-            paidAmount={feeTotals.paid_amount}
-            balanceDue={feeTotals.balance_due}
-            loading={false}
-            compact={true}
-          />
-        )}
       </CollapsibleSection>
 
       {/* New Registrations - LAZY LOADED */}

@@ -9,9 +9,14 @@ class StudentSerializer(serializers.ModelSerializer):
     # ✅ FIX: Use 'school' as the source for school_id field
     # This maps the incoming 'school' field to the model's 'school' ForeignKey
     school = serializers.PrimaryKeyRelatedField(queryset=School.objects.all())
-    
+
     # Read-only field to return school name in responses
     school_name = serializers.CharField(source='school.name', read_only=True)
+
+    # User ID for password reset functionality (teachers need this)
+    user_id = serializers.IntegerField(source='user.id', read_only=True, allow_null=True)
+    username = serializers.CharField(source='user.username', read_only=True, allow_null=True)
+    email = serializers.EmailField(source='user.email', read_only=True, allow_null=True)
 
     class Meta:
         model = Student
@@ -300,15 +305,29 @@ class SchoolSerializer(serializers.ModelSerializer):
     def get_total_classes(self, obj):
         """Count unique classes in this school"""
         return obj.students.filter(status='Active').values('student_class').distinct().count()
-    
+
     def get_monthly_revenue(self, obj):
-        """Sum of monthly fees for all active students"""
-        from django.db.models import Sum
-        total = obj.students.filter(status='Active').aggregate(
-            total=Sum('monthly_fee')
-        )['total']
+        """
+        Sum of total_fee from Fee records for the latest month available.
+        Finds the most recent month directly from database.
+        """
+        from django.db.models import Sum, Max
+        from .models import Fee
+
+        # Find the latest month that has fee records for this school
+        latest_month = Fee.objects.filter(school_id=obj.id).order_by('-id').values_list('month', flat=True).first()
+
+        if not latest_month:
+            return 0.0
+
+        # Sum total_fee for that month
+        total = Fee.objects.filter(
+            school_id=obj.id,
+            month=latest_month
+        ).aggregate(total=Sum('total_fee'))['total']
+
         return float(total) if total else 0.0
-    
+
     def get_capacity_utilization(self, obj):
         """Percentage of capacity filled"""
         if not obj.total_capacity:
@@ -340,37 +359,74 @@ class SchoolStatsSerializer(serializers.ModelSerializer):
     
     def get_total_students(self, obj):
         return obj.students.filter(status='Active').count()
-    
+
     def get_total_classes(self, obj):
         return obj.students.filter(status='Active').values('student_class').distinct().count()
-    
+
     def get_monthly_revenue(self, obj):
+        """
+        Sum of total_fee from Fee records for the latest month available.
+        Finds the most recent month directly from database.
+        """
         from django.db.models import Sum
-        total = obj.students.filter(status='Active').aggregate(
-            total=Sum('monthly_fee')
-        )['total']
+        from .models import Fee
+
+        # Find the latest month that has fee records for this school
+        latest_month = Fee.objects.filter(school_id=obj.id).order_by('-id').values_list('month', flat=True).first()
+
+        if not latest_month:
+            return 0.0
+
+        # Sum total_fee for that month
+        total = Fee.objects.filter(
+            school_id=obj.id,
+            month=latest_month
+        ).aggregate(total=Sum('total_fee'))['total']
+
         return float(total) if total else 0.0
-    
+
     def get_capacity_utilization(self, obj):
         if not obj.total_capacity:
             return None
         total_students = obj.students.filter(status='Active').count()
         return round((total_students / obj.total_capacity) * 100, 2)
-    
+
+    def _get_latest_fee_month(self, school_id):
+        """Helper: Find latest month with fee records for a school"""
+        from .models import Fee
+
+        # Get the latest month directly from database (by most recent record ID)
+        return Fee.objects.filter(school_id=school_id).order_by('-id').values_list('month', flat=True).first()
+
     def get_class_breakdown(self, obj):
-        """Returns list of classes with student count and revenue"""
+        """Returns list of classes with student count and revenue from Fee records"""
         from django.db.models import Count, Sum
-        
+        from .models import Fee
+
+        # Find latest month with fee records for this school
+        latest_month = self._get_latest_fee_month(obj.id)
+
+        # Get student counts per class
         classes = obj.students.filter(status='Active').values('student_class').annotate(
-            student_count=Count('id'),
-            class_revenue=Sum('monthly_fee')
+            student_count=Count('id')
         ).order_by('student_class')
-        
+
+        # Get revenue per class from Fee records (for latest month)
+        revenue_lookup = {}
+        if latest_month:
+            fee_by_class = Fee.objects.filter(
+                school_id=obj.id,
+                month=latest_month
+            ).values('student_class').annotate(
+                class_revenue=Sum('total_fee')
+            )
+            revenue_lookup = {f['student_class']: float(f['class_revenue'] or 0) for f in fee_by_class}
+
         return [
             {
                 'class_name': cls['student_class'],
                 'students': cls['student_count'],
-                'monthly_revenue': float(cls['class_revenue']) if cls['class_revenue'] else 0.0
+                'monthly_revenue': revenue_lookup.get(cls['student_class'], 0.0)
             }
             for cls in classes
         ]

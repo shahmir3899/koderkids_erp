@@ -23,12 +23,12 @@ import {
  */
 const parseToHTML = (text) => {
   if (!text) return '';
-  
+
   let html = text
     .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
     .replace(/~(.*?)~/g, '<s>$1</s>')
     .replace(/_(.*?)_/g, '<em>$1</em>')
-    .replace(/```(.*?)```/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px;font-size:0.85em;">$1</code>')
+    .replace(/```(.*?)```/g, '<code style="background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:3px;font-size:0.85em;font-family:monospace;">$1</code>')
     .replace(/\n/g, '<br>');
 
   return html;
@@ -107,15 +107,17 @@ export const CompactRichTextEditor = ({
     minHeight: isFocused ? '80px' : '40px',
     maxHeight: '150px',
     padding: SPACING.xs,
-    paddingTop: showToolbar ? SPACING.lg : SPACING.xs,
-    border: `1px solid ${isFocused ? COLORS.status.info : COLORS.border.light}`,
+    paddingTop: showToolbar ? '2rem' : SPACING.xs,
+    border: `1px solid ${isFocused ? COLORS.border.whiteMedium : COLORS.border.whiteTransparent}`,
     borderRadius: BORDER_RADIUS.sm,
     fontSize: FONT_SIZES.sm,
     fontFamily: 'inherit',
     resize: 'vertical',
     transition: `all ${TRANSITIONS.fast} ease`,
     outline: 'none',
-    boxShadow: isFocused ? `0 0 0 3px ${COLORS.status.infoLight}` : 'none',
+    boxShadow: isFocused ? `0 0 0 3px rgba(59, 130, 246, 0.3)` : 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
   };
 
   const toolbarStyle = {
@@ -126,8 +128,8 @@ export const CompactRichTextEditor = ({
     display: showToolbar ? 'flex' : 'none',
     gap: SPACING.xs,
     padding: SPACING.xs,
-    backgroundColor: COLORS.background.offWhite,
-    borderBottom: `1px solid ${COLORS.border.light}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
     borderRadius: `${BORDER_RADIUS.xs} ${BORDER_RADIUS.xs} 0 0`,
     zIndex: 10,
   };
@@ -140,7 +142,7 @@ export const CompactRichTextEditor = ({
     borderRadius: BORDER_RADIUS.xs,
     cursor: 'pointer',
     backgroundColor: 'transparent',
-    color: COLORS.text.secondary,
+    color: COLORS.text.whiteMedium,
     transition: `all ${TRANSITIONS.fast} ease`,
   };
 
@@ -149,27 +151,54 @@ export const CompactRichTextEditor = ({
     bottom: '-1.25rem',
     left: 0,
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.muted,
+    color: COLORS.text.whiteSubtle,
     display: isFocused ? 'block' : 'none',
   };
+
+  const previewStyle = {
+    width: '100%',
+    minHeight: '40px',
+    padding: SPACING.xs,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+    fontFamily: 'inherit',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    cursor: 'text',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  };
+
+  // Show preview when not focused and has value
+  const showPreview = !isFocused && value;
 
   return (
     <div style={containerStyle} className={className}>
       <div style={textareaContainerStyle}>
+        {/* Preview Mode - shows formatted text when not editing */}
+        {showPreview && (
+          <div
+            style={previewStyle}
+            onClick={() => textareaRef.current?.focus()}
+            dangerouslySetInnerHTML={{ __html: parseToHTML(value) }}
+          />
+        )}
+
         {/* Mini Toolbar */}
-        <div style={toolbarStyle}>
+        <div style={{ ...toolbarStyle, display: showToolbar && !showPreview ? 'flex' : 'none' }}>
           <button
             type="button"
             style={{ ...toolbarButtonStyle, fontWeight: 'bold' }}
             onClick={() => formatText('bold')}
             title="Bold (*text*)"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
-              e.currentTarget.style.color = COLORS.text.primary;
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.color = COLORS.text.white;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = COLORS.text.secondary;
+              e.currentTarget.style.color = COLORS.text.whiteMedium;
             }}
           >
             B
@@ -180,12 +209,12 @@ export const CompactRichTextEditor = ({
             onClick={() => formatText('italic')}
             title="Italic (_text_)"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
-              e.currentTarget.style.color = COLORS.text.primary;
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.color = COLORS.text.white;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = COLORS.text.secondary;
+              e.currentTarget.style.color = COLORS.text.whiteMedium;
             }}
           >
             I
@@ -196,12 +225,12 @@ export const CompactRichTextEditor = ({
             onClick={() => formatText('strike')}
             title="Strikethrough (~text~)"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
-              e.currentTarget.style.color = COLORS.text.primary;
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.color = COLORS.text.white;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = COLORS.text.secondary;
+              e.currentTarget.style.color = COLORS.text.whiteMedium;
             }}
           >
             S
@@ -212,26 +241,26 @@ export const CompactRichTextEditor = ({
             onClick={() => formatText('code')}
             title="Code (```text```)"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = COLORS.background.offWhite;
-              e.currentTarget.style.color = COLORS.text.primary;
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.color = COLORS.text.white;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = COLORS.text.secondary;
+              e.currentTarget.style.color = COLORS.text.whiteMedium;
             }}
           >
             {'</>'}
           </button>
         </div>
 
-        {/* Textarea */}
+        {/* Textarea - hidden when showing preview */}
         <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          style={textareaStyle}
+          style={{ ...textareaStyle, display: showPreview ? 'none' : 'block' }}
           onFocus={() => {
             setIsFocused(true);
             setShowToolbar(true);

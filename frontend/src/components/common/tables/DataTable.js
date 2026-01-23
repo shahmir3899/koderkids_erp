@@ -28,6 +28,7 @@ import {
  * @param {Function} props.onRowClick - Row click handler (optional)
  * @param {string} props.className - Additional CSS classes
  * @param {Object} props.initialSort - Initial sort config (optional)
+ * @param {Object} props.footerRow - Footer row data for totals { key: value } (optional)
  */
 export const DataTable = ({
   data = [],
@@ -40,6 +41,7 @@ export const DataTable = ({
   onRowClick = null,
   className = '',
   initialSort = { key: null, direction: 'asc' },
+  footerRow = null,
 }) => {
   const { sortedData, sortConfig, handleSort } = useTableSort(data, initialSort);
 
@@ -75,6 +77,16 @@ export const DataTable = ({
     padding: SPACING.sm,
     textAlign: align,
     color: COLORS.text.white,
+  });
+
+  // Footer cell style
+  const footerCellStyle = (align = 'left') => ({
+    padding: SPACING.md,
+    textAlign: align,
+    color: COLORS.text.white,
+    fontWeight: 'bold',
+    backgroundColor: COLORS.background.whiteStrong,
+    borderTop: `2px solid ${COLORS.accent.cyan}`,
   });
 
   // Loading state using design constants
@@ -154,6 +166,19 @@ export const DataTable = ({
             </tr>
           ))}
         </tbody>
+        {footerRow && (
+          <tfoot>
+            <tr>
+              {columns.map((column) => (
+                <td key={column.key} style={footerCellStyle(column.align)}>
+                  {column.render && footerRow[column.key] !== undefined
+                    ? column.render(footerRow[column.key], footerRow)
+                    : footerRow[column.key] ?? ''}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );

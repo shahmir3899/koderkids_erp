@@ -76,9 +76,14 @@ def resolve_school(params: Dict[str, Any], context: Dict[str, Any]) -> Tuple[Opt
     return None, f"Multiple schools match '{school_name}': {', '.join(match_names)}. Please specify which one."
 
 
-def resolve_school_from_db(school_name: str) -> Tuple[Optional[int], Optional[str]]:
+def resolve_school_from_db(school_name: str, accessible_school_ids: list = None) -> Tuple[Optional[int], Optional[str]]:
     """
     Resolve school from database using fuzzy matching.
+
+    Args:
+        school_name: The school name or number to resolve
+        accessible_school_ids: Optional list of school IDs the user can access (for teachers).
+                              If None, all active schools are searched (for admins).
 
     Returns:
         (school_id, error_message)
@@ -87,10 +92,17 @@ def resolve_school_from_db(school_name: str) -> Tuple[Optional[int], Optional[st
     import logging
     logger = logging.getLogger(__name__)
 
+    # Build base queryset - filter by accessible schools if provided
+    if accessible_school_ids is not None:
+        base_schools = School.objects.filter(is_active=True, id__in=accessible_school_ids)
+        logger.info(f"Filtering to {len(accessible_school_ids)} accessible schools for teacher")
+    else:
+        base_schools = School.objects.filter(is_active=True)
+
     # Check if input is a number (user selecting from previous list)
     if school_name.strip().isdigit():
         selection = int(school_name.strip())
-        schools = list(School.objects.filter(is_active=True).order_by('name')[:10])
+        schools = list(base_schools.order_by('name')[:10])
         if 1 <= selection <= len(schools):
             selected = schools[selection - 1]
             logger.info(f"User selected #{selection}: {selected.name} (ID: {selected.id})")
@@ -98,7 +110,7 @@ def resolve_school_from_db(school_name: str) -> Tuple[Optional[int], Optional[st
         else:
             return None, f"Invalid selection. Please enter a number between 1 and {len(schools)}."
 
-    schools = School.objects.filter(is_active=True)
+    schools = base_schools.all()
     logger.info(f"Resolving school name '{school_name}' from {schools.count()} schools")
 
     matches = []
@@ -113,8 +125,8 @@ def resolve_school_from_db(school_name: str) -> Tuple[Optional[int], Optional[st
     logger.info(f"Found {len(matches)} matches for '{school_name}'")
 
     if not matches:
-        # Show all schools with numbers for selection
-        all_schools = list(School.objects.filter(is_active=True).order_by('name')[:10])
+        # Show all accessible schools with numbers for selection
+        all_schools = list(base_schools.order_by('name')[:10])
         numbered_list = "\n".join([f"  {i+1}. {s.name}" for i, s in enumerate(all_schools)])
         return None, f"No school found matching '{school_name}'. Available schools:\n{numbered_list}\n\nReply with the number to select."
 
@@ -127,9 +139,9 @@ def resolve_school_from_db(school_name: str) -> Tuple[Optional[int], Optional[st
         logger.info(f"Best match: {matches[0][0].name} (ID: {matches[0][0].id}, score: {matches[0][1]})")
         return matches[0][0].id, None
 
-    # Multiple close matches - show ALL schools alphabetically for consistent numbering
+    # Multiple close matches - show ALL accessible schools alphabetically for consistent numbering
     # The number selection logic uses this same order
-    all_schools = list(School.objects.filter(is_active=True).order_by('name')[:10])
+    all_schools = list(base_schools.order_by('name')[:10])
     numbered_all = "\n".join([f"  {i+1}. {s.name}" for i, s in enumerate(all_schools)])
 
     # Also mention which ones matched
@@ -192,7 +204,7 @@ def resolve_fee_for_update(params: Dict[str, Any]) -> Tuple[Optional[int], Optio
         if school_id:
             students = students.filter(school_id=school_id)
         elif school_name:
-            resolved_school_id, err = resolve_school_from_db(school_name)
+            resolved_school_id, err = self._resolve_school(school_name)
             if err:
                 return None, err, None
             if resolved_school_id:
@@ -234,7 +246,7 @@ def resolve_fee_for_update(params: Dict[str, Any]) -> Tuple[Optional[int], Optio
         if school_id:
             students = students.filter(school_id=school_id)
         elif school_name:
-            resolved_school_id, err = resolve_school_from_db(school_name)
+            resolved_school_id, err = self._resolve_school(school_name)
             if err:
                 return None, err, None
             if resolved_school_id:
@@ -318,6 +330,22 @@ class ParameterResolver:
     def __init__(self, context: Dict[str, Any] = None):
         self.context = context or {}
 
+    def _get_accessible_school_ids(self) -> list:
+        """Get the list of school IDs the user can access (None for admins, list for teachers)."""
+        return self.context.get('_accessible_school_ids')
+
+    def _get_accessible_schools_queryset(self):
+        """Get queryset of schools the user can access."""
+        from students.models import School
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            return School.objects.filter(is_active=True, id__in=accessible_ids)
+        return School.objects.filter(is_active=True)
+
+    def _resolve_school(self, school_name: str) -> Tuple[Optional[int], Optional[str]]:
+        """Resolve school name with user's access restrictions."""
+        return resolve_school_from_db(school_name, self._get_accessible_school_ids())
+
     def resolve(self, action_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Resolve parameters for an action.
@@ -351,6 +379,24 @@ class ParameterResolver:
         if action_name == 'BULK_UPDATE_FEES':
             return self._resolve_bulk_update_fees(params)
 
+        if action_name == 'CREATE_MISSING_FEES':
+            return self._resolve_create_missing_fees(params)
+
+        # Inventory actions that need item resolution
+        if action_name in ['TRANSFER_ITEM', 'ASSIGN_ITEM', 'EDIT_ITEM',
+                          'UPDATE_ITEM_STATUS', 'GET_ITEM_DETAILS', 'DELETE_ITEM']:
+            return self._resolve_inventory_item(params, action_name)
+
+        if action_name == 'BULK_DELETE_ITEMS':
+            return self._resolve_bulk_inventory_items(params)
+
+        if action_name == 'CREATE_ITEM':
+            return self._resolve_create_item(params)
+
+        # Category actions
+        if action_name in ['UPDATE_CATEGORY', 'DELETE_CATEGORY']:
+            return self._resolve_category(params, action_name)
+
         # No resolution needed
         return {
             "success": True,
@@ -363,8 +409,8 @@ class ParameterResolver:
 
         # Need school_id or school_name
         if not params.get('school_id') and not params.get('school_name'):
-            # Generate school list for better UX
-            schools = list(School.objects.filter(is_active=True).order_by('name')[:10])
+            # Generate school list for better UX (filtered by user's access)
+            schools = list(self._get_accessible_schools_queryset().order_by('name')[:10])
             if schools:
                 numbered_list = "\n".join([f"  {i+1}. {s.name}" for i, s in enumerate(schools)])
                 return {
@@ -377,7 +423,7 @@ class ParameterResolver:
             }
 
         if params.get('school_name') and not params.get('school_id'):
-            school_id, error = resolve_school_from_db(params['school_name'])
+            school_id, error = self._resolve_school(params['school_name'])
             if error:
                 return {
                     "success": False,
@@ -421,7 +467,7 @@ class ParameterResolver:
 
         # Resolve school_name to school_id
         if params.get('school_name') and not params.get('school_id'):
-            school_id, error = resolve_school_from_db(params['school_name'])
+            school_id, error = self._resolve_school(params['school_name'])
             if error:
                 return {
                     "success": False,
@@ -508,7 +554,7 @@ class ParameterResolver:
         if school_id:
             students = students.filter(school_id=school_id)
         elif school_name:
-            resolved_school_id, err = resolve_school_from_db(school_name)
+            resolved_school_id, err = self._resolve_school(school_name)
             if err:
                 return {"success": False, "clarify": err}
             if resolved_school_id:
@@ -711,7 +757,7 @@ class ParameterResolver:
 
         # Resolve school
         if school_name and not school_id:
-            resolved_school_id, err = resolve_school_from_db(school_name)
+            resolved_school_id, err = self._resolve_school(school_name)
             if err:
                 return {"success": False, "clarify": err}
             school_id = resolved_school_id
@@ -746,6 +792,16 @@ class ParameterResolver:
         params['fee_ids'] = list(fees.values_list('id', flat=True)[:100])  # Limit to 100 at a time
         params['school_id'] = school_id
 
+        # Add preview data for confirmation modal
+        params['_preview_fees_count'] = min(fees_count, 100)
+        if school_id:
+            try:
+                from students.models import School
+                school = School.objects.get(id=school_id)
+                params['_preview_school_name'] = school.name
+            except School.DoesNotExist:
+                pass
+
         return {
             "success": True,
             "params": params,
@@ -753,6 +809,435 @@ class ParameterResolver:
                 "fees_count": fees_count,
                 "truncated": fees_count > 100
             }
+        }
+
+    def _resolve_create_missing_fees(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolve and gather preview data for CREATE_MISSING_FEES."""
+        from students.models import School, Fee, Student
+
+        month = params.get('month')
+        school_id = params.get('school_id')
+        school_name = params.get('school_name')
+
+        # Resolve school_name to school_id if provided
+        if school_name and not school_id:
+            resolved_school_id, err = self._resolve_school(school_name)
+            if err:
+                return {"success": False, "clarify": err}
+            school_id = resolved_school_id
+            params['school_id'] = school_id
+
+        # Get schools to check (filtered by user's access)
+        all_schools = self._get_accessible_schools_queryset()
+        if school_id:
+            all_schools = all_schools.filter(id=school_id)
+
+        # Find which schools have fees for this month
+        schools_with_fees_ids = set(
+            Fee.objects.filter(month=month).values_list('school_id', flat=True).distinct()
+        )
+
+        # PART 1: Schools without any fees
+        schools_without_fees = [s for s in all_schools if s.id not in schools_with_fees_ids]
+        schools_count = len(schools_without_fees)
+
+        # PART 2: Students WITHOUT fee records in schools that DO have fees
+        students_count = 0
+        schools_with_fees = [s for s in all_schools if s.id in schools_with_fees_ids]
+
+        for school in schools_with_fees:
+            active_students = Student.objects.filter(school=school, status='Active')
+            students_with_fees = set(
+                Fee.objects.filter(school=school, month=month).values_list('student_id', flat=True)
+            )
+            students_without_fees = [s for s in active_students if s.id not in students_with_fees]
+            students_count += len(students_without_fees)
+
+        # Add preview data for confirmation modal
+        params['_preview_schools_count'] = schools_count
+        params['_preview_students_count'] = students_count
+
+        if schools_count == 0 and students_count == 0:
+            return {
+                "success": False,
+                "clarify": f"All schools and students already have fee records for {month}. Nothing to create."
+            }
+
+        return {
+            "success": True,
+            "params": params,
+            "info": {
+                "schools_count": schools_count,
+                "students_count": students_count
+            }
+        }
+
+
+    def _resolve_inventory_item(self, params: Dict[str, Any], action_name: str) -> Dict[str, Any]:
+        """
+        Resolve inventory item from various parameters.
+
+        Supports:
+        - Direct item_id
+        - item_name (fuzzy match)
+        - category + school combination
+        - assigned_to (user name)
+        """
+        from inventory.models import InventoryItem, InventoryCategory
+        from students.models import School
+        from django.contrib.auth import get_user_model
+        from django.db.models import Q
+
+        User = get_user_model()
+
+        # If item_id already provided, validate it exists
+        if params.get('item_id'):
+            try:
+                item = InventoryItem.objects.select_related('school', 'category', 'assigned_to').get(id=params['item_id'])
+                return {
+                    "success": True,
+                    "params": params,
+                    "info": {
+                        "item_name": item.name,
+                        "unique_id": item.unique_id,
+                        "school": item.school.name if item.school else None,
+                        "category": item.category.name if item.category else None
+                    }
+                }
+            except InventoryItem.DoesNotExist:
+                return {
+                    "success": False,
+                    "clarify": f"Item #{params['item_id']} not found."
+                }
+
+        # Gather search criteria
+        item_name = params.get('item_name')
+        category_name = params.get('category_name') or params.get('category')
+        category_id = params.get('category_id')
+        school_name = params.get('school_name')
+        school_id = params.get('school_id')
+        assigned_to_name = params.get('assigned_to_name') or params.get('assigned_to')
+        assigned_to_id = params.get('assigned_to_id')
+
+        # Build query
+        items = InventoryItem.objects.select_related('school', 'category', 'assigned_to')
+
+        # Filter by school
+        if school_id:
+            items = items.filter(school_id=school_id)
+        elif school_name:
+            resolved_school_id, err = self._resolve_school(school_name)
+            if err:
+                return {"success": False, "clarify": err}
+            if resolved_school_id:
+                items = items.filter(school_id=resolved_school_id)
+                params['school_id'] = resolved_school_id
+
+        # Filter by category
+        if category_id:
+            items = items.filter(category_id=category_id)
+        elif category_name:
+            # Fuzzy match category
+            categories = InventoryCategory.objects.all()
+            cat_matches = []
+            for cat in categories:
+                score = fuzzy_match_score(str(category_name), cat.name)
+                if score >= 0.6:
+                    cat_matches.append((cat, score))
+            cat_matches.sort(key=lambda x: x[1], reverse=True)
+
+            if cat_matches:
+                items = items.filter(category_id=cat_matches[0][0].id)
+            else:
+                return {
+                    "success": False,
+                    "clarify": f"No category found matching '{category_name}'."
+                }
+
+        # Filter by assigned user
+        if assigned_to_id:
+            items = items.filter(assigned_to_id=assigned_to_id)
+        elif assigned_to_name:
+            # Fuzzy match user name
+            users = User.objects.all()
+            user_matches = []
+            for user in users:
+                full_name = f"{user.first_name} {user.last_name}".strip() or user.username
+                score = fuzzy_match_score(str(assigned_to_name), full_name)
+                if score >= 0.6:
+                    user_matches.append((user, score))
+            user_matches.sort(key=lambda x: x[1], reverse=True)
+
+            if user_matches:
+                items = items.filter(assigned_to_id=user_matches[0][0].id)
+            else:
+                return {
+                    "success": False,
+                    "clarify": f"No user found matching '{assigned_to_name}'."
+                }
+
+        # If item_name provided, fuzzy match
+        if item_name:
+            matches = []
+            for item in items:
+                score = fuzzy_match_score(item_name, item.name)
+                if score >= 0.5:  # Lower threshold for item names
+                    matches.append((item, score))
+
+            matches.sort(key=lambda x: x[1], reverse=True)
+
+            if not matches:
+                return {
+                    "success": False,
+                    "clarify": f"No item found matching '{item_name}'." +
+                              (f" Try specifying category or school." if not (category_name or school_name) else "")
+                }
+
+            if len(matches) == 1 or (matches[0][1] > 0.85):
+                # Single match or clear winner
+                item = matches[0][0]
+                params['item_id'] = item.id
+                return {
+                    "success": True,
+                    "params": params,
+                    "info": {
+                        "item_name": item.name,
+                        "unique_id": item.unique_id,
+                        "school": item.school.name if item.school else None,
+                        "category": item.category.name if item.category else None
+                    }
+                }
+
+            # Multiple matches - show list for selection
+            match_list = []
+            for i, (item, score) in enumerate(matches[:8]):
+                location = item.school.name if item.school else item.location
+                assignee = ""
+                if item.assigned_to:
+                    assignee = f" → {item.assigned_to.first_name} {item.assigned_to.last_name}".strip()
+                match_list.append(f"  {i+1}. {item.name} ({item.unique_id}) at {location}{assignee}")
+
+            return {
+                "success": False,
+                "clarify": f"Multiple items match '{item_name}':\n" + "\n".join(match_list) +
+                          "\n\nPlease specify more details (school, category, or person assigned)."
+            }
+
+        # No item_name but we have other filters - check what we found
+        item_count = items.count()
+
+        if item_count == 0:
+            filters_used = []
+            if school_name or school_id:
+                filters_used.append("school")
+            if category_name or category_id:
+                filters_used.append("category")
+            if assigned_to_name or assigned_to_id:
+                filters_used.append("assigned person")
+
+            return {
+                "success": False,
+                "clarify": f"No items found" + (f" matching {', '.join(filters_used)}" if filters_used else "") +
+                          ". Please provide the item name or check your filters."
+            }
+
+        if item_count == 1:
+            item = items.first()
+            params['item_id'] = item.id
+            return {
+                "success": True,
+                "params": params,
+                "info": {
+                    "item_name": item.name,
+                    "unique_id": item.unique_id,
+                    "school": item.school.name if item.school else None,
+                    "category": item.category.name if item.category else None
+                }
+            }
+
+        # Multiple items found - show list
+        match_list = []
+        for i, item in enumerate(items[:8]):
+            location = item.school.name if item.school else item.location
+            category = item.category.name if item.category else "Uncategorized"
+            match_list.append(f"  {i+1}. {item.name} ({category}) at {location}")
+
+        return {
+            "success": False,
+            "clarify": f"Found {item_count} items. Which one?\n" + "\n".join(match_list) +
+                      "\n\nPlease specify the item name."
+        }
+
+    def _resolve_bulk_inventory_items(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolve multiple inventory items for bulk operations."""
+        from inventory.models import InventoryItem
+
+        item_ids = params.get('item_ids', [])
+
+        # If item_ids provided, validate they exist
+        if item_ids:
+            if isinstance(item_ids, int):
+                item_ids = [item_ids]
+
+            existing_items = InventoryItem.objects.filter(id__in=item_ids)
+            if not existing_items.exists():
+                return {
+                    "success": False,
+                    "clarify": f"No items found with IDs: {item_ids}"
+                }
+
+            # Return item details for confirmation
+            item_details = [
+                f"  • {item.name} ({item.unique_id}) - {item.status}"
+                for item in existing_items
+            ]
+            params['item_ids'] = list(existing_items.values_list('id', flat=True))
+
+            return {
+                "success": True,
+                "params": params,
+                "info": {
+                    "items_to_delete": item_details,
+                    "count": existing_items.count()
+                }
+            }
+
+        return {
+            "success": False,
+            "clarify": "Please specify which items to delete. You can say 'delete items 1, 2, 3' or use filters like 'delete all damaged items at Main School'."
+        }
+
+    def _resolve_create_item(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolve parameters for CREATE_ITEM."""
+        from students.models import School
+        from inventory.models import InventoryCategory
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        # Required: name and purchase_value
+        if not params.get('name'):
+            return {
+                "success": False,
+                "clarify": "What is the name of the item you want to add?"
+            }
+
+        if not params.get('purchase_value'):
+            return {
+                "success": False,
+                "clarify": f"What is the purchase value of '{params['name']}'? (e.g., 50000 PKR)"
+            }
+
+        # Resolve school_name to school_id
+        if params.get('school_name') and not params.get('school_id'):
+            school_id, error = self._resolve_school(params['school_name'])
+            if error:
+                return {"success": False, "clarify": error}
+            params['school_id'] = school_id
+
+        # Resolve category_name to category_id
+        if params.get('category_name') and not params.get('category_id'):
+            categories = InventoryCategory.objects.all()
+            cat_matches = []
+            for cat in categories:
+                score = fuzzy_match_score(params['category_name'], cat.name)
+                if score >= 0.6:
+                    cat_matches.append((cat, score))
+            cat_matches.sort(key=lambda x: x[1], reverse=True)
+
+            if cat_matches:
+                params['category_id'] = cat_matches[0][0].id
+            else:
+                # Category doesn't exist - ask if they want to create or pick existing
+                existing_cats = ", ".join([c.name for c in categories[:5]])
+                return {
+                    "success": False,
+                    "clarify": f"Category '{params['category_name']}' not found. Available: {existing_cats}"
+                }
+
+        # Resolve assigned_to_name to assigned_to_id
+        if params.get('assigned_to_name') and not params.get('assigned_to_id'):
+            users = User.objects.all()
+            user_matches = []
+            for user in users:
+                full_name = f"{user.first_name} {user.last_name}".strip() or user.username
+                score = fuzzy_match_score(params['assigned_to_name'], full_name)
+                if score >= 0.6:
+                    user_matches.append((user, score))
+            user_matches.sort(key=lambda x: x[1], reverse=True)
+
+            if user_matches:
+                params['assigned_to_id'] = user_matches[0][0].id
+            else:
+                return {
+                    "success": False,
+                    "clarify": f"User '{params['assigned_to_name']}' not found."
+                }
+
+        return {
+            "success": True,
+            "params": params
+        }
+
+    def _resolve_category(self, params: Dict[str, Any], action_name: str) -> Dict[str, Any]:
+        """Resolve category for UPDATE_CATEGORY or DELETE_CATEGORY."""
+        from inventory.models import InventoryCategory
+
+        # If category_id provided, validate it exists
+        if params.get('category_id'):
+            try:
+                category = InventoryCategory.objects.get(id=params['category_id'])
+                return {
+                    "success": True,
+                    "params": params,
+                    "info": {"category_name": category.name}
+                }
+            except InventoryCategory.DoesNotExist:
+                return {
+                    "success": False,
+                    "clarify": f"Category #{params['category_id']} not found."
+                }
+
+        # Resolve by category_name
+        category_name = params.get('category_name')
+        if not category_name:
+            categories = InventoryCategory.objects.all()[:10]
+            cat_list = ", ".join([c.name for c in categories])
+            return {
+                "success": False,
+                "clarify": f"Which category? Available: {cat_list}"
+            }
+
+        # Fuzzy match
+        categories = InventoryCategory.objects.all()
+        matches = []
+        for cat in categories:
+            score = fuzzy_match_score(category_name, cat.name)
+            if score >= 0.6:
+                matches.append((cat, score))
+
+        matches.sort(key=lambda x: x[1], reverse=True)
+
+        if not matches:
+            cat_list = ", ".join([c.name for c in categories[:5]])
+            return {
+                "success": False,
+                "clarify": f"No category found matching '{category_name}'. Available: {cat_list}"
+            }
+
+        if len(matches) == 1 or matches[0][1] > 0.85:
+            params['category_id'] = matches[0][0].id
+            return {
+                "success": True,
+                "params": params,
+                "info": {"category_name": matches[0][0].name}
+            }
+
+        # Multiple matches
+        match_names = [m[0].name for m in matches[:3]]
+        return {
+            "success": False,
+            "clarify": f"Multiple categories match '{category_name}': {', '.join(match_names)}. Please be more specific."
         }
 
 

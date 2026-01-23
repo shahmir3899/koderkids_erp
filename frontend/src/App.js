@@ -30,7 +30,6 @@ import LessonsPage from "./pages/LessonsPage";
 import ReportsPage from "./pages/ReportsPage";
 import StudentDashboard from './pages/StudentDashboard';
 import StudentProgressPage from "./pages/StudentProgressPage";
-import TestComponents from "./pages/TestComponents"
 //import StudentReport from "./pages/StudentReport";
 //import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherDashboardFigma from "./pages/TeacherDashboardFigma";
@@ -42,6 +41,7 @@ import RobotChat from "./components/RobotChat";
 import InventoryPage from './pages/InventoryPage';
 import CSVUpload from './components/CSVUpload';
 import SettingsPage from './pages/SettingsPage';
+import SettingsRouter from './pages/SettingsRouter';
 import ERPLoader from './components/ERPLoader';
 
 // CRM Pages
@@ -135,15 +135,6 @@ function AppContent() {
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/lessons" element={<LessonsPage />} />
       <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Admin", "Teacher"]} />} />
-        <Route 
-  path="/test-components" 
-  element={
-    <ProtectedRoute 
-      element={<TestComponents />} 
-      allowedRoles={["Admin", "Teacher"]} 
-    />
-  } 
-/>
       <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboardFigma />} allowedRoles={["Teacher"]} />} />
       
@@ -155,12 +146,11 @@ function AppContent() {
       {/* ✅ Admin Only Routes */}
       <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin", "Teacher"]} />} />
-      <Route path="/settings" element={<ProtectedRoute element={<SettingsPage />} allowedRoles={["Admin"]} />} />
+      <Route path="/settings" element={<ProtectedRoute element={<SettingsRouter />} allowedRoles={["Admin"]} />} />
       <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />
       <Route path="/custom-report" element={<ProtectedRoute element={<CustomReport />}allowedRoles={["Admin"]}/>} />
       <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin"]} />} />
-      <Route path="/settings" element={<SettingsPage />} />
 
       {/* ✅ CRM Routes - Admin & BDM */}
       <Route path="/crm/admin-dashboard" element={<ProtectedRoute element={<AdminCRMDashboard />} allowedRoles={["Admin"]} />} />

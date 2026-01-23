@@ -29,7 +29,17 @@
       "Bash(python:*)",
       "Bash(ollama pull:*)",
       "Bash(ollama list:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(ls -la \"d:\\\\Personal\\\\school-management-system\\\\frontend\\\\src\\\\styles\"\" 2>/dev/null || echo \"No styles directory \")",
+      "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\frontend\\\\src\\\\pages\\\\TestProfilePhotoPage.js\")",
+      "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\TEST_PROFILE_PHOTO_INSTRUCTIONS.md\")",
+      "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\CHECK_AUTH_STATUS.md\")",
+      "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\MIGRATION_INSTRUCTIONS.md\")",
+      "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\MIGRATION_COMPLETE.md\")",
+      "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\profile_photo_url_usage_report.md\")",
+      "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\frontend\\\\src\\\\pages\\\\TeacherSettingsPage.js\")",
+      "Bash(powershell -Command:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

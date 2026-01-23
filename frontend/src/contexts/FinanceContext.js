@@ -54,7 +54,17 @@ export const FinanceProvider = ({ children }) => {
         return;
       }
 
-      console.log('💰 FinanceContext: Loading finance data...');
+      // Check user role - Only Admin needs finance data
+      const userRole = localStorage.getItem('role');
+      if (userRole !== 'Admin') {
+        console.log('⏸️ FinanceContext: Non-admin role detected, skipping finance data fetch');
+        if (isMounted) {
+          setLoading(false);
+        }
+        return;
+      }
+
+      console.log('💰 FinanceContext: Loading finance data for Admin...');
 
       // Try to load from cache first
       const cachedSummary = getCachedData(CACHE_KEYS.summary, CACHE_DURATION);

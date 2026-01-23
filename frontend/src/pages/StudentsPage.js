@@ -38,6 +38,10 @@ import { PageHeader } from '../components/common/PageHeader';
 import AddStudentPopup from './AddStudentPopup';
 import { StudentDetailsModal } from '../components/students/StudentDetailsModal';
 import { StudentStatsCards } from '../components/students/StudentStatsCards';
+import { ResetPasswordModal } from '../components/settings/ResetPasswordModal';
+
+// Services
+import { resetPassword } from '../services/userService';
 
 function StudentsPage() {
   // ============================================
@@ -84,6 +88,10 @@ function StudentsPage() {
 
   // Hover State for Buttons
   const [hoveredButton, setHoveredButton] = useState(null);
+
+  // Password Reset Modal State
+  const [passwordResetStudent, setPasswordResetStudent] = useState(null);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   // Derived loading states from React Query
   const loading = {
@@ -281,6 +289,40 @@ function StudentsPage() {
   };
 
   // ============================================
+  // PASSWORD RESET HANDLERS
+  // ============================================
+
+  const handleOpenPasswordReset = (student) => {
+    if (!student.user_id) {
+      toast.error('This student does not have a login account.');
+      return;
+    }
+    setPasswordResetStudent(student);
+  };
+
+  const handleClosePasswordReset = () => {
+    setPasswordResetStudent(null);
+  };
+
+  const handlePasswordResetSubmit = async (passwordData) => {
+    if (!passwordResetStudent?.user_id) return;
+
+    setIsResettingPassword(true);
+    try {
+      const result = await resetPassword(passwordResetStudent.user_id, passwordData);
+      toast.success('Password reset successfully!');
+      return result;
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      const errorMsg = error.response?.data?.error || 'Failed to reset password';
+      toast.error(errorMsg);
+      throw error;
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  // ============================================
   // FILTERED DATA - Client-side filtering
   // ============================================
 
@@ -457,6 +499,30 @@ function StudentsPage() {
             sortable: false,
           },
           {
+            key: 'user_id',
+            label: 'Account',
+            sortable: true,
+            align: 'center',
+            width: '100px',
+            render: (value) => (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  backgroundColor: value ? '#ECFDF5' : '#FEF2F2',
+                  color: value ? '#059669' : '#DC2626',
+                }}
+              >
+                {value ? '✓ Linked' : '✗ None'}
+              </span>
+            ),
+          },
+          {
             key: 'actions',
             label: 'Actions',
             sortable: false,
@@ -468,9 +534,21 @@ function StudentsPage() {
                   style={styles.viewButton(hoveredButton === `view-${student.id}`)}
                   onMouseEnter={() => setHoveredButton(`view-${student.id}`)}
                   onMouseLeave={() => setHoveredButton(null)}
+                  title="View Details"
                 >
-                  👁️ View
+                  👁️
                 </button>
+                {student.user_id && (
+                  <button
+                    onClick={() => handleOpenPasswordReset(student)}
+                    style={styles.passwordButton(hoveredButton === `pwd-${student.id}`)}
+                    onMouseEnter={() => setHoveredButton(`pwd-${student.id}`)}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    title="Reset Password"
+                  >
+                    🔑
+                  </button>
+                )}
                 <button
                   onClick={() => openDeleteConfirm(student)}
                   disabled={loading.delete}
@@ -480,8 +558,9 @@ function StudentsPage() {
                   )}
                   onMouseEnter={() => !loading.delete && setHoveredButton(`delete-${student.id}`)}
                   onMouseLeave={() => setHoveredButton(null)}
+                  title="Delete Student"
                 >
-                  🗑️ Delete
+                  🗑️
                 </button>
               </div>
             ),
@@ -538,6 +617,22 @@ function StudentsPage() {
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
       />
+
+      {/* Password Reset Modal */}
+      {passwordResetStudent && (
+        <ResetPasswordModal
+          user={{
+            id: passwordResetStudent.user_id,
+            username: passwordResetStudent.username || passwordResetStudent.name || passwordResetStudent.reg_num,
+            email: passwordResetStudent.email,
+            role: 'Student',
+          }}
+          onClose={handleClosePasswordReset}
+          onReset={handlePasswordResetSubmit}
+          isSubmitting={isResettingPassword}
+          isStudent={true}
+        />
+      )}
       </div>
     </div>
   );
@@ -571,11 +666,22 @@ const styles = {
   viewButton: (isHovered) => ({
     backgroundColor: isHovered ? COLORS.status.infoDark : COLORS.status.info,
     color: COLORS.text.white,
-    padding: `${SPACING.sm} ${SPACING.md}`,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
     borderRadius: BORDER_RADIUS.sm,
     border: 'none',
     cursor: 'pointer',
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
+    transition: `background-color ${TRANSITIONS.fast} ease`,
+  }),
+  passwordButton: (isHovered) => ({
+    backgroundColor: isHovered ? '#7C3AED' : '#8B5CF6',
+    color: COLORS.text.white,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.sm,
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.base,
     fontWeight: FONT_WEIGHTS.medium,
     transition: `background-color ${TRANSITIONS.fast} ease`,
   }),
@@ -584,11 +690,11 @@ const styles = {
       ? COLORS.interactive.disabled
       : (isHovered ? COLORS.status.errorDarker : COLORS.status.errorDark),
     color: COLORS.text.white,
-    padding: `${SPACING.sm} ${SPACING.md}`,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
     borderRadius: BORDER_RADIUS.sm,
     border: 'none',
     cursor: isDisabled ? 'not-allowed' : 'pointer',
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.base,
     fontWeight: FONT_WEIGHTS.medium,
     transition: `background-color ${TRANSITIONS.fast} ease`,
     opacity: isDisabled ? 0.6 : 1,

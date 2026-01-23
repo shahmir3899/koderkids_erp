@@ -38,6 +38,52 @@ class AIAgentService:
         """Check if AI service is available (any LLM provider)."""
         return self.llm.get_available_provider() is not None
 
+    def _filter_context_by_user_access(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Filter context data (schools, students) by user's role-based access.
+        - Admin: Access to all schools
+        - Teacher: Access only to assigned schools
+        - Student: No AI agent access (should be blocked at view level)
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if not self.user or not self.user.is_authenticated:
+            return context
+
+        # Admin has full access
+        if self.user.role == 'Admin':
+            logger.info(f"Admin user {self.user.username} - full access to all schools")
+            return context
+
+        # Teacher: filter by assigned_schools
+        if self.user.role == 'Teacher':
+            assigned_school_ids = list(self.user.assigned_schools.values_list('id', flat=True))
+            logger.info(f"Teacher {self.user.username} - filtering to assigned schools: {assigned_school_ids}")
+
+            # Filter schools in context
+            if 'schools' in context and isinstance(context['schools'], list):
+                original_count = len(context['schools'])
+                context['schools'] = [
+                    s for s in context['schools']
+                    if s.get('id') in assigned_school_ids
+                ]
+                logger.info(f"Filtered schools: {original_count} → {len(context['schools'])}")
+
+            # Filter students in context
+            if 'students' in context and isinstance(context['students'], list):
+                original_count = len(context['students'])
+                context['students'] = [
+                    s for s in context['students']
+                    if s.get('school_id') in assigned_school_ids or s.get('school', {}).get('id') in assigned_school_ids
+                ]
+                logger.info(f"Filtered students: {original_count} → {len(context['students'])}")
+
+            # Store accessible school IDs in context for resolver/executor
+            context['_accessible_school_ids'] = assigned_school_ids
+
+        return context
+
     def process_message(
         self,
         message: str,
@@ -66,6 +112,9 @@ class AIAgentService:
             }
         """
         start_time = time.time()
+
+        # Filter context by user's accessible schools (role-based access)
+        context = self._filter_context_by_user_access(context)
 
         # Create audit log
         audit_log = AIAuditLog.create_log(
@@ -628,7 +677,8 @@ Current user message: {message}"""
     ) -> Dict[str, Any]:
         """
         Merge parameters from previous conversation messages.
-        This preserves parameters like 'month' when user provides follow-up info like school name.
+        This preserves parameters like 'month', 'school_id', 'class', and 'fee_ids'
+        when user provides follow-up commands.
         """
         import re
         import logging
@@ -640,37 +690,73 @@ Current user message: {message}"""
         for msg in reversed(conversation_history):
             if msg.get('role') == 'assistant':
                 content = msg.get('content', '')
+                data = msg.get('data', {})
+
+                # Extract structured data from previous responses
+                if data:
+                    # Extract fee_ids from previous GET_FEES or similar results
+                    if 'fee_ids' in data and not previous_params.get('fee_ids'):
+                        previous_params['fee_ids'] = data['fee_ids']
+                        logger.info(f"Extracted {len(data['fee_ids'])} fee_ids from history data")
+
+                    # Extract school_id if present
+                    if 'school_id' in data and not previous_params.get('school_id'):
+                        previous_params['school_id'] = data['school_id']
+                        logger.info(f"Extracted school_id from history data: {data['school_id']}")
+
+                    # Extract class if present
+                    if 'class' in data and not previous_params.get('class'):
+                        previous_params['class'] = data['class']
+                        logger.info(f"Extracted class from history data: {data['class']}")
 
                 # Try to extract month from previous messages
                 # Look for patterns like "Jan-2026", "jan 2026", "January 2026"
-                month_patterns = [
-                    r'\b([A-Za-z]{3})-(\d{4})\b',  # Jan-2026
-                    r'\b([A-Za-z]+)\s+(\d{4})\b',   # January 2026
-                ]
-                for pattern in month_patterns:
-                    match = re.search(pattern, content)
-                    if match:
-                        month_str = f"{match.group(1)[:3].capitalize()}-{match.group(2)}"
-                        previous_params['month'] = month_str
-                        logger.info(f"Extracted month from history: {month_str}")
-                        break
+                if not previous_params.get('month'):
+                    month_patterns = [
+                        r'\b([A-Za-z]{3})-(\d{4})\b',  # Jan-2026
+                        r'\b([A-Za-z]+)\s+(\d{4})\b',   # January 2026
+                    ]
+                    for pattern in month_patterns:
+                        match = re.search(pattern, content)
+                        if match:
+                            month_str = f"{match.group(1)[:3].capitalize()}-{match.group(2)}"
+                            previous_params['month'] = month_str
+                            logger.info(f"Extracted month from history: {month_str}")
+                            break
+
+                # Extract fee IDs from text like "Fee IDs: 123, 456, 789"
+                if not previous_params.get('fee_ids'):
+                    fee_id_match = re.search(r'Fee IDs:\s*([\d,\s]+)', content)
+                    if fee_id_match:
+                        fee_ids_str = fee_id_match.group(1)
+                        fee_ids = [int(fid.strip()) for fid in fee_ids_str.split(',') if fid.strip().isdigit()]
+                        if fee_ids:
+                            previous_params['fee_ids'] = fee_ids
+                            logger.info(f"Extracted {len(fee_ids)} fee_ids from history text")
+
+                # Extract school name for context
+                school_match = re.search(r'for ([A-Za-z\s]+) for', content)
+                if school_match and not previous_params.get('school_name'):
+                    previous_params['school_name'] = school_match.group(1).strip()
+                    logger.info(f"Extracted school_name from history: {previous_params['school_name']}")
 
             elif msg.get('role') == 'user':
                 content = msg.get('content', '').lower()
 
                 # Extract month from user messages like "create fee for jan 2026"
-                month_patterns = [
-                    r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*[-]?\s*(\d{4})\b',
-                ]
-                for pattern in month_patterns:
-                    match = re.search(pattern, content, re.IGNORECASE)
-                    if match:
-                        month_abbr = match.group(1)[:3].capitalize()
-                        year = match.group(2)
-                        month_str = f"{month_abbr}-{year}"
-                        previous_params['month'] = month_str
-                        logger.info(f"Extracted month from user message: {month_str}")
-                        break
+                if not previous_params.get('month'):
+                    month_patterns = [
+                        r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*[-]?\s*(\d{4})\b',
+                    ]
+                    for pattern in month_patterns:
+                        match = re.search(pattern, content, re.IGNORECASE)
+                        if match:
+                            month_abbr = match.group(1)[:3].capitalize()
+                            year = match.group(2)
+                            month_str = f"{month_abbr}-{year}"
+                            previous_params['month'] = month_str
+                            logger.info(f"Extracted month from user message: {month_str}")
+                            break
 
         # Merge: current params take precedence, but fill in missing ones from history
         merged = dict(current_parsed)
@@ -715,6 +801,93 @@ Current user message: {message}"""
             return {
                 "message": f"Delete attendance record #{params.get('attendance_id')}?",
                 "items": [{"id": params.get('attendance_id')}]
+            }
+
+        if action_name == 'BULK_UPDATE_FEES':
+            fees_count = params.get('_preview_fees_count', 0)
+            school_name = params.get('_preview_school_name', '')
+            paid_amount = params.get('paid_amount', '')
+
+            if paid_amount == 'full':
+                amount_text = "mark as fully paid"
+            elif paid_amount == 'balance':
+                amount_text = "pay remaining balance"
+            else:
+                amount_text = f"update with PKR {paid_amount}"
+
+            scope = f" for {school_name}" if school_name else ""
+            return {
+                "message": f"Update {fees_count} fee record(s){scope} - {amount_text}?",
+                "items": []
+            }
+
+        if action_name == 'CREATE_MISSING_FEES':
+            schools_count = params.get('_preview_schools_count', 0)
+            students_count = params.get('_preview_students_count', 0)
+            month = params.get('month', '')
+
+            parts = []
+            if schools_count > 0:
+                parts.append(f"{schools_count} school(s)")
+            if students_count > 0:
+                parts.append(f"{students_count} student(s)")
+
+            scope = " and ".join(parts) if parts else "missing records"
+            return {
+                "message": f"Create fees for {scope} for {month}?",
+                "items": []
+            }
+
+        if action_name == 'TRANSFER_ITEM':
+            from inventory.models import InventoryItem
+            from students.models import School
+
+            item_id = params.get('item_id')
+            target_school_id = params.get('target_school_id')
+
+            item_name = f"Item #{item_id}"
+            target_school_name = f"School #{target_school_id}"
+            current_school_name = "Unknown"
+
+            try:
+                item = InventoryItem.objects.select_related('school').get(id=item_id)
+                item_name = f"{item.name} ({item.unique_id})"
+                current_school_name = item.school.name if item.school else "Unassigned"
+            except InventoryItem.DoesNotExist:
+                pass
+
+            try:
+                target_school = School.objects.get(id=target_school_id)
+                target_school_name = target_school.name
+            except School.DoesNotExist:
+                pass
+
+            return {
+                "message": f"Transfer '{item_name}' from {current_school_name} to {target_school_name}?",
+                "items": [{"id": item_id, "name": item_name, "from": current_school_name, "to": target_school_name}]
+            }
+
+        if action_name == 'DELETE_CATEGORY':
+            from inventory.models import InventoryCategory
+
+            category_id = params.get('category_id')
+            category_name = f"Category #{category_id}"
+            item_count = 0
+
+            try:
+                category = InventoryCategory.objects.get(id=category_id)
+                category_name = category.name
+                item_count = category.items.count()
+            except InventoryCategory.DoesNotExist:
+                pass
+
+            warning = ""
+            if item_count > 0:
+                warning = f" WARNING: This category has {item_count} item(s) that will become uncategorized."
+
+            return {
+                "message": f"Delete category '{category_name}'?{warning}",
+                "items": [{"id": category_id, "name": category_name, "item_count": item_count}]
             }
 
         return {

@@ -783,12 +783,22 @@ def get_students(request):
                     "school": student.school.name if student.school else "Unknown",
                     "student_class": student.student_class,
                     "monthly_fee": student.monthly_fee,
-                    "phone": student.phone
+                    "phone": student.phone,
+                    "status": student.status,
+                    # Additional fields for student details modal
+                    "gender": student.gender,
+                    "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else None,
+                    "date_of_registration": student.date_of_registration.isoformat() if student.date_of_registration else None,
+                    "address": student.address,
+                    # User account info for password reset
+                    "user_id": student.user.id if student.user else None,
+                    "username": student.user.username if student.user else None,
+                    "email": student.user.email if student.user else None,
                 }
                 for student in students
             ]
 
-            print(f"✅ Returning Students with School Names and Classes: {student_data}")
+            print(f"✅ Returning Students with School Names and Classes: {student_data[:3]}...")
             return Response(student_data)
 
         except Exception as e:
@@ -857,12 +867,41 @@ def update_student(request, pk):
     try:
         student = Student.objects.get(pk=pk)
         data = request.data
+
+        # Basic fields
         student.name = data.get('name', student.name)
         student.reg_num = data.get('reg_num', student.reg_num)
-        student.school = data.get('school', student.school)
         student.student_class = data.get('student_class', student.student_class)
         student.monthly_fee = data.get('monthly_fee', student.monthly_fee)
         student.phone = data.get('phone', student.phone)
+
+        # Handle school - can be ID or name
+        school_data = data.get('school')
+        if school_data is not None:
+            if isinstance(school_data, int) or (isinstance(school_data, str) and school_data.isdigit()):
+                # It's a school ID
+                try:
+                    student.school = School.objects.get(id=int(school_data))
+                except School.DoesNotExist:
+                    pass  # Keep existing school if invalid ID
+            elif isinstance(school_data, str):
+                # It's a school name - try to find by name
+                try:
+                    student.school = School.objects.get(name=school_data)
+                except School.DoesNotExist:
+                    pass  # Keep existing school if not found
+
+        # Additional fields
+        if 'gender' in data:
+            student.gender = data.get('gender', student.gender)
+        if 'status' in data:
+            student.status = data.get('status', student.status)
+        if 'address' in data:
+            student.address = data.get('address', student.address)
+        if 'date_of_birth' in data and data.get('date_of_birth'):
+            student.date_of_birth = data.get('date_of_birth')
+        # Note: date_of_registration is typically not editable after creation
+
         student.save()
         return Response({"message": "Student updated successfully"})
     except Student.DoesNotExist:
@@ -898,9 +937,22 @@ def students_per_school(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def update_fees(request):
-    """Updates total_fee, status, and paid_amount in the Fee table"""
-    
+    """
+    Updates total_fee, status, and paid_amount in the Fee table
+
+    Permission: Admin or Teacher only
+    """
+    from .permissions import IsAdminOrTeacher, check_school_access
+
+    # Check permissions
+    permission = IsAdminOrTeacher()
+    if not permission.has_permission(request, None):
+        return Response({
+            "error": "Only administrators and teachers can update fee records."
+        }, status=status.HTTP_403_FORBIDDEN)
+
     fees_data = request.data.get("fees", [])
 
     if not fees_data:
@@ -916,6 +968,13 @@ def update_fees(request):
 
             # Fetch the fee record from the database
             fee = Fee.objects.get(id=fee_data["id"])
+
+            # Check school access for teachers
+            if fee.school_id and not check_school_access(request.user, fee.school_id):
+                print(f"❌ Access denied for fee ID {fee.id} - user doesn't have access to school {fee.school_id}")
+                return Response({
+                    "error": f"You don't have permission to update fees for this school."
+                }, status=status.HTTP_403_FORBIDDEN)
 
             # Update total_fee if present
             if "total_fee" in fee_data:
@@ -1062,10 +1121,27 @@ def create_new_month_fees(request):
     Supports two payment modes:
     1. Per Student: Uses individual student.monthly_fee
     2. Monthly Subscription: Divides total subscription among active students
+
+    Permission: Admin or Teacher only
     """
+    from .permissions import IsAdminOrTeacher, check_school_access
+
+    # Check permissions
+    permission = IsAdminOrTeacher()
+    if not permission.has_permission(request, None):
+        return Response({
+            "error": "Only administrators and teachers can create fee records."
+        }, status=status.HTTP_403_FORBIDDEN)
+
     school_id = request.data.get("school_id")
     selected_month = request.data.get("month")
     force_overwrite = request.data.get("force_overwrite", False)
+
+    # Check school access for teachers
+    if school_id and not check_school_access(request.user, school_id):
+        return Response({
+            "error": "You don't have permission to create fees for this school."
+        }, status=status.HTTP_403_FORBIDDEN)
 
     # Validation
     if not school_id:
@@ -1856,9 +1932,9 @@ def my_student_data(request):
         "class": student.student_class,
         "phone": student.phone,             # <--- Now fetching from STUDENT table
         "address": student.address,         # <--- Now fetching from STUDENT table
-        
-        # Photo: Student table has priority, fallback to User table
-        "profile_photo_url": student.profile_photo_url or user.profile_photo_url,
+
+        # Photo: Retrieved from CustomUser via student.user property
+        "profile_photo_url": student.profile_photo_url,
 
         # --- EXTRAS (Fees/Attendance) ---
         "fees": list(
@@ -1885,9 +1961,11 @@ def create_single_fee(request):
     """
     Create a single fee record for a specific student.
     Auto-fetches monthly_fee from the Student model.
-    
+
     Endpoint: POST /api/fees/create-single/
-    
+
+    Permission: Admin or Teacher only
+
     Payload:
     {
         "student_id": 123,
@@ -1895,6 +1973,15 @@ def create_single_fee(request):
         "paid_amount": 0,  # optional, defaults to 0
     }
     """
+    from .permissions import IsAdminOrTeacher
+
+    # Check permissions
+    permission = IsAdminOrTeacher()
+    if not permission.has_permission(request, None):
+        return Response({
+            "error": "Only administrators and teachers can create fee records."
+        }, status=status.HTTP_403_FORBIDDEN)
+
     try:
         student_id = request.data.get('student_id')
         month = request.data.get('month')
@@ -1913,6 +2000,13 @@ def create_single_fee(request):
             return Response({
                 'error': 'Student not found'
             }, status=status.HTTP_404_NOT_FOUND)
+
+        # Check school access for teachers
+        from .permissions import check_school_access
+        if student.school_id and not check_school_access(request.user, student.school_id):
+            return Response({
+                "error": "You don't have permission to create fees for this student's school."
+            }, status=status.HTTP_403_FORBIDDEN)
 
         # Check for existing fee record for this student/month
         existing_fee = Fee.objects.filter(
@@ -1984,14 +2078,25 @@ def create_single_fee(request):
 def delete_fees(request):
     """
     Delete one or more fee records.
-    
+
     Endpoint: POST /api/fees/delete/
-    
+
+    Permission: Admin or Teacher only
+
     Payload:
     {
         "fee_ids": [1, 2, 3]
     }
     """
+    from .permissions import IsAdminOrTeacher, check_school_access
+
+    # Check permissions - Admins and Teachers can delete fees
+    permission = IsAdminOrTeacher()
+    if not permission.has_permission(request, None):
+        return Response({
+            "error": "Only administrators and teachers can delete fee records."
+        }, status=status.HTTP_403_FORBIDDEN)
+
     try:
         fee_ids = request.data.get('fee_ids', [])
 

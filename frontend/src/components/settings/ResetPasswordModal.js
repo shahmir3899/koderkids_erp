@@ -8,19 +8,21 @@ import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 
 /**
  * ResetPasswordModal Component
- * Modal for resetting user passwords (admin only)
- * 
+ * Modal for resetting user passwords (admin/teacher)
+ *
  * @param {Object} props
  * @param {Object} props.user - User object
  * @param {Function} props.onClose - Close modal callback
  * @param {Function} props.onReset - Reset password callback
  * @param {boolean} props.isSubmitting - Submitting state
+ * @param {boolean} props.isStudent - Whether the user is a student (enables simple password option)
  */
 export const ResetPasswordModal = ({
   user,
   onClose,
   onReset,
   isSubmitting = false,
+  isStudent = false,
 }) => {
   // ============================================
   // STATE
@@ -36,6 +38,7 @@ export const ResetPasswordModal = ({
   const [errors, setErrors] = useState({});
   const [newPassword, setNewPassword] = useState(null);
   const [sendEmail, setSendEmail] = useState(true); // Email checkbox
+  const [allowSimplePassword, setAllowSimplePassword] = useState(isStudent); // Default true for students
 
   // ============================================
   // HANDLERS
@@ -71,10 +74,13 @@ export const ResetPasswordModal = ({
     const newErrors = {};
 
     if (!autoGenerate) {
+      // Minimum length depends on whether simple password is allowed
+      const minLength = allowSimplePassword ? 4 : 8;
+
       if (!formData.password) {
         newErrors.password = 'Password is required';
-      } else if (formData.password.length < 8) {
-        newErrors.password = 'Password must be at least 8 characters';
+      } else if (formData.password.length < minLength) {
+        newErrors.password = `Password must be at least ${minLength} characters`;
       }
 
       if (!formData.confirm_password) {
@@ -95,12 +101,13 @@ export const ResetPasswordModal = ({
       return;
     }
 
-    const submitData = autoGenerate 
-      ? { send_email: sendEmail && user.email } 
-      : { password: formData.password, send_email: sendEmail && user.email };
+    const submitData = autoGenerate
+      ? { send_email: sendEmail && user.email, simple_password: allowSimplePassword }
+      : { password: formData.password, send_email: sendEmail && user.email, simple_password: allowSimplePassword };
 
     console.log('📤 Resetting password for:', user.username);
     console.log('📧 Send email:', sendEmail);
+    console.log('🔓 Simple password:', allowSimplePassword);
 
     if (onReset) {
       const result = await onReset(submitData);
@@ -331,7 +338,7 @@ export const ResetPasswordModal = ({
             </div>
 
             {/* Auto-Generate Toggle */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
@@ -344,6 +351,32 @@ export const ResetPasswordModal = ({
                 </span>
               </label>
             </div>
+
+            {/* Simple Password Option (Students Only) */}
+            {isStudent && (
+              <div style={{
+                marginBottom: '1.5rem',
+                padding: '0.75rem 1rem',
+                backgroundColor: '#F0FDF4',
+                border: '1px solid #86EFAC',
+                borderRadius: '0.5rem',
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={allowSimplePassword}
+                    onChange={(e) => setAllowSimplePassword(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10B981' }}
+                  />
+                  <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#166534' }}>
+                    Allow simple password (min 4 characters)
+                  </span>
+                </label>
+                <div style={{ fontSize: '0.75rem', color: '#15803D', marginTop: '0.25rem', marginLeft: '1.75rem' }}>
+                  Easier for students to remember (e.g., "1234", "abcd")
+                </div>
+              </div>
+            )}
 
             {/* Manual Password Fields */}
             {!autoGenerate && (

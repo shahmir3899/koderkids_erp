@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { redirectUser, getLoggedInUser } from "../api";
+import { redirectUser } from "../api";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { MdLock, MdPerson } from "react-icons/md";
 import { useLoading } from "../contexts/LoadingContext";
 import { useResponsive } from "../hooks/useResponsive";
+import { clearCacheOnLogout } from "../utils/cacheUtils";
 
 function LoginPage() {
   const [formData, setFormData] = useState({ username: "", password: "" });
@@ -87,6 +88,9 @@ function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
+        // Clear any cached data from previous user before storing new credentials
+        clearCacheOnLogout();
+
         localStorage.setItem("access", data.access);
         localStorage.setItem("refresh", data.refresh);
         localStorage.setItem("role", data.role);
@@ -98,21 +102,55 @@ function LoginPage() {
           localStorage.setItem("lastAttendance", JSON.stringify(data.attendance));
         }
 
-        // Fetch full name using the updated API
-        setLoading(true, "LOADING PROFILE");
-        const userDetails = await getLoggedInUser();
-        const fullName = userDetails.fullName || "Unknown";
+        // Use fullName from token response (no extra API call needed)
+        const fullName = data.fullName || "Unknown";
         localStorage.setItem("fullName", fullName);
 
         setMessage("✅ Login successful!");
         setLoading(false);
         redirectUser(); // Or navigate("/dashboard");
       } else {
-        setMessage(`⚠️ Error: ${data.detail || "Invalid credentials"}`);
+        // Handle specific backend error codes
+        const errorCode = data.error_code;
+        const errorDetail = data.detail;
+
+        let errorMessage = "Invalid credentials";
+
+        if (errorCode === 'USER_NOT_FOUND') {
+          errorMessage = "No account found with this username.";
+        } else if (errorCode === 'INVALID_PASSWORD') {
+          errorMessage = "Incorrect password. Please try again.";
+        } else if (errorCode === 'ACCOUNT_INACTIVE') {
+          errorMessage = "Your account has been deactivated. Contact administrator.";
+        } else if (errorCode === 'ACCOUNT_LOCKED') {
+          errorMessage = "Too many failed attempts. Please try again later.";
+        } else if (errorDetail) {
+          // Use backend message if no specific code matched
+          errorMessage = typeof errorDetail === 'string' ? errorDetail : JSON.stringify(errorDetail);
+        }
+
+        setMessage(`⚠️ ${errorMessage}`);
         setLoading(false);
       }
     } catch (error) {
-      setMessage("⚠️ Network error. Try again.");
+      // Detect specific network error types
+      let networkErrorMessage = "Network error. Please try again.";
+
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        networkErrorMessage = "Cannot connect to server. Please check your internet connection or verify the server is running.";
+      } else if (error.name === 'AbortError') {
+        networkErrorMessage = "Request timed out. The server may be slow or unavailable.";
+      } else if (error.message.includes('ERR_NAME_NOT_RESOLVED')) {
+        networkErrorMessage = "Server address not found. The backend server may be down.";
+      } else if (error.message.includes('ERR_CONNECTION_REFUSED')) {
+        networkErrorMessage = "Connection refused. The server is not accepting connections.";
+      } else if (error.message.includes('ERR_NETWORK')) {
+        networkErrorMessage = "Network error. Please check your internet connection.";
+      } else if (error.message) {
+        networkErrorMessage = `Connection failed: ${error.message}`;
+      }
+
+      setMessage(`⚠️ ${networkErrorMessage}`);
       setLoading(false);
     } finally {
       setIsLoading(false);

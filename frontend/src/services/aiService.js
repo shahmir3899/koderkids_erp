@@ -197,12 +197,17 @@ export const buildFeeContext = (schools = [], students = [], feeCategories = [])
  * Build context object for inventory agent
  * @param {Array} schools - List of schools
  * @param {Array} categories - Inventory categories
+ * @param {Array} users - List of users/teachers (optional)
+ * @param {Number} currentUserId - Current user's ID (optional)
+ * @param {Boolean} isAdmin - Whether current user is admin (optional)
  * @returns {Object} Context for AI
  */
-export const buildInventoryContext = (schools = [], categories = []) => {
+export const buildInventoryContext = (schools = [], categories = [], users = [], currentUserId = null, isAdmin = false) => {
     const now = new Date();
     return {
         current_date: now.toISOString().split('T')[0],
+        current_user_id: currentUserId,
+        is_admin: isAdmin,
         schools: schools.map(s => ({
             id: s.id,
             name: s.name
@@ -210,6 +215,10 @@ export const buildInventoryContext = (schools = [], categories = []) => {
         categories: categories.map(c => ({
             id: c.id,
             name: c.name
+        })),
+        users: users.map(u => ({
+            id: u.id,
+            name: u.name || u.username || `User ${u.id}`
         }))
     };
 };

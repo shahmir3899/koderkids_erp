@@ -181,44 +181,8 @@ export const useFees = (initialFilters = {}) => {
   }, [filters.schoolId, filters.month, fetchFees]);
 
   /**
-   * Create a single fee record
-   */
-  const createSingleFee = useCallback(async (feeData) => {
-    if (!isMounted.current) return { success: false };
-    
-    setLoading(prev => ({ ...prev, create: true }));
-    setError(null);
-
-    try {
-      const monthStr = feeService.formatMonthForAPI(feeData.month || filters.month);
-      await feeService.createSingleFee({
-        studentId: feeData.studentId,
-        month: monthStr,
-        totalFee: feeData.totalFee,
-        paidAmount: feeData.paidAmount || 0,
-        dateReceived: feeData.dateReceived,
-      });
-
-      if (!isMounted.current) return { success: false };
-
-      setSuccessMessage('Fee record created successfully.');
-      await fetchFees();
-      return { success: true };
-    } catch (err) {
-      if (!isMounted.current) return { success: false };
-      
-      const errorMsg = err.response?.data?.error || 'Failed to create fee record.';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      if (isMounted.current) {
-        setLoading(prev => ({ ...prev, create: false }));
-      }
-    }
-  }, [filters.month, fetchFees]);
-
-  /**
    * Update a single fee record
+   * NOTE: Must be defined before createSingleFee since it's used there
    */
   const updateFee = useCallback(async (feeId, updates) => {
     if (!isMounted.current) return { success: false };
@@ -270,6 +234,67 @@ export const useFees = (initialFilters = {}) => {
       }
     }
   }, []);
+
+  /**
+   * Create a single fee record
+   */
+  const createSingleFee = useCallback(async (feeData) => {
+    if (!isMounted.current) return { success: false };
+
+    setLoading(prev => ({ ...prev, create: true }));
+    setError(null);
+
+    try {
+      const monthStr = feeService.formatMonthForAPI(feeData.month || filters.month);
+      await feeService.createSingleFee({
+        studentId: feeData.studentId,
+        month: monthStr,
+        totalFee: feeData.totalFee,
+        paidAmount: feeData.paidAmount || 0,
+        dateReceived: feeData.dateReceived,
+      });
+
+      if (!isMounted.current) return { success: false };
+
+      setSuccessMessage('Fee record created successfully.');
+      await fetchFees();
+      return { success: true };
+    } catch (err) {
+      if (!isMounted.current) return { success: false };
+
+      // Handle 409 Conflict - fee already exists, update it instead
+      if (err.response?.status === 409) {
+        const existingFeeId = err.response?.data?.existing_fee_id;
+
+        if (existingFeeId) {
+          console.log('Fee already exists, updating instead...', existingFeeId);
+
+          // Update the existing fee record
+          const updateResult = await updateFee(existingFeeId, {
+            paidAmount: feeData.paidAmount || 0,
+            dateReceived: feeData.dateReceived,
+          });
+
+          if (updateResult.success) {
+            setSuccessMessage('Fee record updated (already existed).');
+            return { success: true, updated: true };
+          }
+        }
+
+        const errorMsg = err.response?.data?.error || 'Fee record already exists.';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
+      const errorMsg = err.response?.data?.error || 'Failed to create fee record.';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    } finally {
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, create: false }));
+      }
+    }
+  }, [filters.month, fetchFees, updateFee]);
 
   /**
    * Bulk update fees

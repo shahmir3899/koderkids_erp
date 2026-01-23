@@ -1,12 +1,13 @@
 // ============================================
-// STUDENT DETAILS MODAL - Full Screen Overlay
-// FIXED: Form dirty tracking + proper save button states
+// STUDENT DETAILS MODAL - Gradient Design System
+// Matches AddStudentPopup UI for consistency
 // ============================================
 
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Button } from '../common/ui/Button';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import { ClipLoader } from 'react-spinners';
 import {
   COLORS,
   SPACING,
@@ -17,6 +18,22 @@ import {
   TRANSITIONS,
   Z_INDEX,
 } from '../../utils/designConstants';
+
+// Status options for students
+const STATUS_OPTIONS = [
+  { value: 'Active', label: 'Active' },
+  { value: 'Pass Out', label: 'Pass Out' },
+  { value: 'Left', label: 'Left' },
+  { value: 'Suspended', label: 'Suspended' },
+  { value: 'Expelled', label: 'Expelled' },
+];
+
+// Gender options
+const GENDER_OPTIONS = [
+  { value: 'Male', label: 'Male' },
+  { value: 'Female', label: 'Female' },
+  { value: 'Other', label: 'Other' },
+];
 
 /**
  * StudentDetailsModal Component
@@ -49,7 +66,9 @@ export const StudentDetailsModal = ({
   const [formData, setFormData] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  
+  const [closeButtonHovered, setCloseButtonHovered] = useState(false);
+  const [cancelButtonHovered, setCancelButtonHovered] = useState(false);
+
   // Track the initial student and form data
   const initializedStudentIdRef = useRef(null);
   const originalFormDataRef = useRef({});
@@ -180,213 +199,117 @@ export const StudentDetailsModal = ({
     return 'N/A';
   };
 
-  // Styles
-  const overlayStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: COLORS.background.overlay,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: Z_INDEX.modal,
-    padding: SPACING.sm,
+  // Format date for display
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
-  const modalStyle = {
-    backgroundColor: COLORS.background.white,
-    borderRadius: BORDER_RADIUS.md,
-    maxWidth: '800px',
-    width: '100%',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-    boxShadow: SHADOWS.xl,
-  };
-
-  const headerStyle = {
-    padding: SPACING.lg,
-    borderBottom: `1px solid ${COLORS.border.light}`,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.background.lightGray,
-  };
-
-  const titleStyle = {
-    fontSize: FONT_SIZES['2xl'],
-    fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.primary,
-    margin: 0,
-  };
-
-  const closeButtonStyle = {
-    background: 'none',
-    border: 'none',
-    fontSize: FONT_SIZES['2xl'],
-    cursor: 'pointer',
-    color: COLORS.text.secondary,
-    padding: `${SPACING.xs} ${SPACING.xs}`,
-    borderRadius: BORDER_RADIUS.xs,
-    transition: `color ${TRANSITIONS.fast} ease`,
-  };
-
-  const contentStyle = {
-    padding: SPACING.lg,
-  };
-
-  const gridStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: SPACING.lg,
-  };
-
-  const fieldStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: SPACING.xs,
-  };
-
-  const labelStyle = {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.primary,
-  };
-
-  const inputStyle = {
-    padding: `${SPACING.xs} ${SPACING.sm}`,
-    border: `1px solid ${COLORS.border.default}`,
-    borderRadius: BORDER_RADIUS.sm,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text.primary,
-    backgroundColor: isEditing ? COLORS.background.white : COLORS.background.lightGray,
-    transition: `border-color ${TRANSITIONS.fast} ease, box-shadow ${TRANSITIONS.fast} ease`,
-  };
-
-  const selectStyle = {
-    ...inputStyle,
-    cursor: isEditing ? 'pointer' : 'not-allowed',
-  };
-
-  const valueStyle = {
-    padding: `${SPACING.xs} ${SPACING.sm}`,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text.primary,
-    backgroundColor: COLORS.background.lightGray,
-    borderRadius: BORDER_RADIUS.sm,
-  };
-
-  const footerStyle = {
-    padding: SPACING.lg,
-    borderTop: `1px solid ${COLORS.border.light}`,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.background.lightGray,
-  };
-
-  const buttonGroupStyle = {
-    display: 'flex',
-    gap: SPACING.sm,
-  };
-
-  const deleteConfirmStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: Z_INDEX.modalOverlay,
-  };
-
-  const deleteConfirmBoxStyle = {
-    backgroundColor: COLORS.background.white,
-    borderRadius: BORDER_RADIUS.sm,
-    padding: SPACING.xl,
-    maxWidth: '400px',
-    width: '90%',
-    boxShadow: SHADOWS.xl,
+  // Format date for input (YYYY-MM-DD)
+  const formatDateForInput = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      return date.toISOString().split('T')[0];
+    } catch {
+      return dateStr;
+    }
   };
 
   if (!student) return null;
 
   return ReactDOM.createPortal(
-    <div style={overlayStyle} onClick={onClose}>
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+    <div style={styles.overlay} onClick={onClose}>
+      <style>
+        {`
+          .student-modal-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+          .student-modal-input:focus {
+            border-color: rgba(16, 185, 129, 0.6) !important;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+          }
+          .student-modal-select option {
+            background-color: #1e293b;
+            color: white;
+          }
+        `}
+      </style>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div style={headerStyle}>
-          <h2 style={titleStyle}>
+        <div style={styles.header}>
+          <h2 style={styles.title}>
             {isEditing ? 'Edit Student' : 'Student Details'}
           </h2>
           <button
-            style={closeButtonStyle}
             onClick={onClose}
-            onMouseEnter={(e) => e.target.style.color = COLORS.text.primary}
-            onMouseLeave={(e) => e.target.style.color = COLORS.text.secondary}
+            style={{
+              ...styles.closeButton,
+              ...(closeButtonHovered ? styles.closeButtonHover : {}),
+            }}
+            onMouseEnter={() => setCloseButtonHovered(true)}
+            onMouseLeave={() => setCloseButtonHovered(false)}
+            title="Close (Esc)"
+            aria-label="Close modal"
           >
-            ✕
+            <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
         {/* Content */}
         <form onSubmit={handleSubmit}>
-          <div style={contentStyle}>
-            <div style={gridStyle}>
+          <div style={styles.content}>
+            <div style={styles.formGrid}>
               {/* Registration Number - NON-EDITABLE */}
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Registration Number</label>
-                <div style={valueStyle}>{formData.reg_num || 'N/A'}</div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Registration Number</label>
+                <div style={styles.valueDisplay}>{formData.reg_num || 'N/A'}</div>
               </div>
 
               {/* Student Name */}
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Student Name *</label>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Student Name {isEditing && <span style={styles.required}>*</span>}
+                </label>
                 {isEditing ? (
                   <input
                     type="text"
                     name="name"
                     value={formData.name || ''}
                     onChange={handleChange}
+                    placeholder="Enter student name"
                     required
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = COLORS.status.info;
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = COLORS.border.default;
-                      e.target.style.boxShadow = 'none';
-                    }}
+                    style={styles.input}
+                    className="student-modal-input"
                   />
                 ) : (
-                  <div style={valueStyle}>{formData.name || 'N/A'}</div>
+                  <div style={styles.valueDisplay}>{formData.name || 'N/A'}</div>
                 )}
               </div>
 
-              {/* School - Using school ID for the value */}
-              <div style={fieldStyle}>
-                <label style={labelStyle}>School *</label>
+              {/* School */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  School {isEditing && <span style={styles.required}>*</span>}
+                </label>
                 {isEditing ? (
                   <select
                     name="school"
                     value={formData.school || ''}
                     onChange={handleChange}
                     required
-                    style={selectStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = COLORS.status.info;
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = COLORS.border.default;
-                      e.target.style.boxShadow = 'none';
-                    }}
+                    style={styles.select}
+                    className="student-modal-select"
                   >
                     <option value="">Select School</option>
                     {schools.map((school) => (
@@ -396,28 +319,23 @@ export const StudentDetailsModal = ({
                     ))}
                   </select>
                 ) : (
-                  <div style={valueStyle}>{getSchoolDisplayName()}</div>
+                  <div style={styles.valueDisplay}>{getSchoolDisplayName()}</div>
                 )}
               </div>
 
               {/* Class */}
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Class *</label>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Class {isEditing && <span style={styles.required}>*</span>}
+                </label>
                 {isEditing ? (
                   <select
                     name="student_class"
                     value={formData.student_class || ''}
                     onChange={handleChange}
                     required
-                    style={selectStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = COLORS.status.info;
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = COLORS.border.default;
-                      e.target.style.boxShadow = 'none';
-                    }}
+                    style={styles.select}
+                    className="student-modal-select"
                   >
                     <option value="">Select Class</option>
                     {classes
@@ -429,128 +347,246 @@ export const StudentDetailsModal = ({
                       ))}
                   </select>
                 ) : (
-                  <div style={valueStyle}>{formData.student_class || 'N/A'}</div>
+                  <div style={styles.valueDisplay}>{formData.student_class || 'N/A'}</div>
                 )}
               </div>
 
               {/* Monthly Fee */}
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Monthly Fee</label>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Monthly Fee</label>
                 {isEditing ? (
                   <input
                     type="number"
                     name="monthly_fee"
                     value={formData.monthly_fee || ''}
                     onChange={handleChange}
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = COLORS.status.info;
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = COLORS.border.default;
-                      e.target.style.boxShadow = 'none';
-                    }}
+                    placeholder="Enter monthly fee"
+                    style={styles.input}
+                    className="student-modal-input"
                   />
                 ) : (
-                  <div style={valueStyle}>
+                  <div style={styles.valueDisplay}>
                     {formData.monthly_fee ? `PKR ${formData.monthly_fee}` : 'N/A'}
                   </div>
                 )}
               </div>
 
               {/* Phone */}
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Phone Number</label>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Phone Number</label>
                 {isEditing ? (
                   <input
                     type="tel"
                     name="phone"
                     value={formData.phone || ''}
                     onChange={handleChange}
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = COLORS.status.info;
-                      e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = COLORS.border.default;
-                      e.target.style.boxShadow = 'none';
-                    }}
+                    placeholder="e.g., 03001234567"
+                    style={styles.input}
+                    className="student-modal-input"
                   />
                 ) : (
-                  <div style={valueStyle}>{formData.phone || 'N/A'}</div>
+                  <div style={styles.valueDisplay}>{formData.phone || 'N/A'}</div>
+                )}
+                {isEditing && <small style={styles.helperText}>Parent/Guardian contact</small>}
+              </div>
+
+              {/* Gender */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Gender {isEditing && <span style={styles.required}>*</span>}
+                </label>
+                {isEditing ? (
+                  <select
+                    name="gender"
+                    value={formData.gender || ''}
+                    onChange={handleChange}
+                    required
+                    style={styles.select}
+                    className="student-modal-select"
+                  >
+                    <option value="">Select Gender</option>
+                    {GENDER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={styles.valueDisplay}>{formData.gender || 'N/A'}</div>
+                )}
+              </div>
+
+              {/* Date of Birth */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date of Birth</label>
+                {isEditing ? (
+                  <input
+                    type="date"
+                    name="date_of_birth"
+                    value={formatDateForInput(formData.date_of_birth)}
+                    onChange={handleChange}
+                    style={styles.input}
+                    className="student-modal-input"
+                  />
+                ) : (
+                  <div style={styles.valueDisplay}>{formatDate(formData.date_of_birth)}</div>
+                )}
+              </div>
+
+              {/* Date of Registration */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date of Registration</label>
+                {isEditing ? (
+                  <input
+                    type="date"
+                    name="date_of_registration"
+                    value={formatDateForInput(formData.date_of_registration)}
+                    onChange={handleChange}
+                    style={styles.input}
+                    className="student-modal-input"
+                  />
+                ) : (
+                  <div style={styles.valueDisplay}>{formatDate(formData.date_of_registration)}</div>
+                )}
+              </div>
+
+              {/* Status */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Status</label>
+                {isEditing ? (
+                  <select
+                    name="status"
+                    value={formData.status || 'Active'}
+                    onChange={handleChange}
+                    style={styles.select}
+                    className="student-modal-select"
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{
+                    ...styles.valueDisplay,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}>
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: formData.status === 'Active' ? '#22c55e' :
+                                       formData.status === 'Pass Out' ? '#3b82f6' :
+                                       formData.status === 'Left' ? '#f59e0b' : '#ef4444',
+                    }}></span>
+                    {formData.status || 'N/A'}
+                  </div>
+                )}
+              </div>
+
+              {/* Address - Full Width */}
+              <div style={{ ...styles.formGroup, gridColumn: 'span 2' }}>
+                <label style={styles.label}>Address</label>
+                {isEditing ? (
+                  <textarea
+                    name="address"
+                    value={formData.address || ''}
+                    onChange={handleChange}
+                    placeholder="Enter full address"
+                    rows={2}
+                    style={{
+                      ...styles.input,
+                      resize: 'vertical',
+                      minHeight: '60px',
+                    }}
+                    className="student-modal-input"
+                  />
+                ) : (
+                  <div style={styles.valueDisplay}>{formData.address || 'N/A'}</div>
                 )}
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div style={footerStyle}>
+          <div style={styles.footer}>
             {/* Delete Button (Left) */}
             {!isEditing && (
-              <Button
+              <button
                 type="button"
-                variant="danger"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={isDeleting}
+                style={styles.deleteButton}
               >
                 {isDeleting ? (
                   <>
-                    <LoadingSpinner size="small" />
-                    <span style={{ marginLeft: SPACING.xs }}>Deleting...</span>
+                    <ClipLoader color="#fff" size={14} />
+                    <span style={{ marginLeft: '6px' }}>Deleting...</span>
                   </>
                 ) : (
                   '🗑️ Delete Student'
                 )}
-              </Button>
+              </button>
             )}
 
+            {/* Spacer when not editing */}
+            {isEditing && <div></div>}
+
             {/* Action Buttons (Right) */}
-            <div style={buttonGroupStyle}>
+            <div style={styles.buttonGroup}>
               {isEditing ? (
                 <>
-                  <Button
+                  <button
                     type="button"
-                    variant="secondary"
                     onClick={handleCancelEdit}
                     disabled={isSubmitting}
+                    style={{
+                      ...styles.cancelButton,
+                      ...(cancelButtonHovered ? styles.cancelButtonHover : {}),
+                    }}
+                    onMouseEnter={() => setCancelButtonHovered(true)}
+                    onMouseLeave={() => setCancelButtonHovered(false)}
                   >
                     Cancel
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="submit"
-                    variant="primary"
                     disabled={!isDirty || isSubmitting}
-                    //style={{ minWidth: '150px' }}  // ADD THIS LINE
-
+                    style={{
+                      ...styles.submitButton,
+                      opacity: !isDirty || isSubmitting ? 0.6 : 1,
+                      cursor: !isDirty || isSubmitting ? 'not-allowed' : 'pointer',
+                    }}
                   >
                     {isSubmitting ? (
                       <>
-                        <LoadingSpinner size="small" />
-                        <span style={{ marginLeft: SPACING.xs }}>Saving...</span>
+                        <ClipLoader color="#fff" size={14} />
+                        <span style={{ marginLeft: '6px' }}>Saving...</span>
                       </>
                     ) : (
                       '💾 Save Changes'
                     )}
-                  </Button>
+                  </button>
                 </>
               ) : (
                 <>
-                  <Button
+                  <button
                     type="button"
-                    variant="secondary"
                     onClick={onClose}
+                    style={styles.secondaryButton}
                   >
                     Close
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="button"
-                    variant="primary"
                     onClick={onEdit}
+                    style={styles.primaryButton}
                   >
                     ✏️ Edit
-                  </Button>
+                  </button>
                 </>
               )}
             </div>
@@ -559,24 +595,23 @@ export const StudentDetailsModal = ({
 
         {/* Delete Confirmation Dialog */}
         {showDeleteConfirm && (
-          <div style={deleteConfirmStyle} onClick={() => setShowDeleteConfirm(false)}>
-            <div style={deleteConfirmBoxStyle} onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ margin: `0 0 ${SPACING.sm} 0`, fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.text.primary }}>
-                Confirm Delete
-              </h3>
-              <p style={{ margin: `0 0 ${SPACING.lg} 0`, color: COLORS.text.secondary }}>
-                Are you sure you want to delete <strong>{formData.name}</strong>? This action cannot be undone.
+          <div style={styles.deleteConfirmOverlay} onClick={() => setShowDeleteConfirm(false)}>
+            <div style={styles.deleteConfirmBox} onClick={(e) => e.stopPropagation()}>
+              <h3 style={styles.deleteConfirmTitle}>Confirm Delete</h3>
+              <p style={styles.deleteConfirmText}>
+                Are you sure you want to delete <strong style={{ color: COLORS.text.white }}>{formData.name}</strong>?
+                This action cannot be undone.
               </p>
-              <div style={{ display: 'flex', gap: SPACING.sm, justifyContent: 'flex-end' }}>
-                <Button
-                  variant="secondary"
+              <div style={styles.deleteConfirmButtons}>
+                <button
+                  style={styles.secondaryButton}
                   onClick={() => setShowDeleteConfirm(false)}
                   disabled={isDeleting}
                 >
                   Cancel
-                </Button>
-                <Button
-                  variant="danger"
+                </button>
+                <button
+                  style={styles.deleteButton}
                   onClick={() => {
                     handleDelete();
                     setShowDeleteConfirm(false);
@@ -584,7 +619,7 @@ export const StudentDetailsModal = ({
                   disabled={isDeleting}
                 >
                   {isDeleting ? 'Deleting...' : 'Delete'}
-                </Button>
+                </button>
               </div>
             </div>
           </div>
@@ -593,6 +628,249 @@ export const StudentDetailsModal = ({
     </div>,
     document.body
   );
+};
+
+// Styles - Gradient Design (matching AddStudentPopup)
+const styles = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.sm,
+    backdropFilter: 'blur(4px)',
+  },
+  modal: {
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
+    width: '100%',
+    maxWidth: '700px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+  },
+  title: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    margin: 0,
+  },
+  closeButton: {
+    padding: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: '50%',
+    cursor: 'pointer',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  closeButtonHover: {
+    background: 'rgba(239, 68, 68, 0.2)',
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    color: '#ef4444',
+    transform: 'scale(1.05)',
+  },
+  content: {
+    padding: SPACING.lg,
+  },
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: SPACING.md,
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.xs,
+  },
+  label: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+  required: {
+    color: '#f87171',
+  },
+  input: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+  },
+  select: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    outline: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 12px center',
+    backgroundSize: '16px',
+    appearance: 'none',
+    paddingRight: '40px',
+  },
+  valueDisplay: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+  },
+  helperText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
+  footer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.03)',
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: SPACING.sm,
+  },
+  cancelButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    color: '#f87171',
+    border: '1px solid rgba(239, 68, 68, 0.4)',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  cancelButtonHover: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+    color: '#fca5a5',
+    boxShadow: '0 0 15px rgba(239, 68, 68, 0.3)',
+    transform: 'translateY(-1px)',
+  },
+  submitButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.status.success,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
+  },
+  secondaryButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  deleteButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    color: '#f87171',
+    border: '1px solid rgba(239, 68, 68, 0.4)',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: Z_INDEX.modalOverlay,
+  },
+  deleteConfirmBox: {
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.xl,
+    maxWidth: '400px',
+    width: '90%',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.4)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  deleteConfirmTitle: {
+    margin: `0 0 ${SPACING.sm} 0`,
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+  },
+  deleteConfirmText: {
+    margin: `0 0 ${SPACING.lg} 0`,
+    color: COLORS.text.whiteSubtle,
+    lineHeight: 1.5,
+  },
+  deleteConfirmButtons: {
+    display: 'flex',
+    gap: SPACING.sm,
+    justifyContent: 'flex-end',
+  },
 };
 
 export default StudentDetailsModal;

@@ -211,15 +211,15 @@ export const useStudentData = (schoolId, className, month, options = {}) => {
     queryFn: () => fetchWithCache('student-data', { schoolId, className, month }, async () => {
       const [attendanceRes, topicsRes, imagesRes] = await Promise.all([
         axios.get(
-          `${API_BASE_URL}/api/student-attendance/?school=${schoolId}&class=${className}&month=${month}`,
+          `${API_BASE_URL}/api/attendance/student-counts/?school_id=${schoolId}&student_class=${className}&month=${month}`,
           { headers: getAuthHeaders() }
         ),
         axios.get(
-          `${API_BASE_URL}/api/student-topics-achieved/?school=${schoolId}&class=${className}&month=${month}`,
+          `${API_BASE_URL}/api/reports/student-achieved-topics-count/?school_id=${schoolId}&student_class=${className}&month=${month}`,
           { headers: getAuthHeaders() }
         ),
         axios.get(
-          `${API_BASE_URL}/api/student-images-uploaded/?school=${schoolId}&class=${className}&month=${month}`,
+          `${API_BASE_URL}/api/reports/student-image-uploads-count/?school_id=${schoolId}&student_class=${className}&month=${month}`,
           { headers: getAuthHeaders() }
         ),
       ]);
