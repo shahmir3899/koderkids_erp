@@ -64,6 +64,7 @@ urlpatterns = [
     path('api/tasks/', include('tasks.urls')),
     path('api/commands/', include('commands.urls')),
     path('api/ai/', include('ai.urls')),
+    path('api/courses/', include('courses.urls')),
 
 
 

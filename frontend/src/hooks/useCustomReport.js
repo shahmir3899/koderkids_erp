@@ -27,6 +27,7 @@ export const useCustomReport = () => {
   // RECIPIENT PICKER STATE
   // ============================================
   const [recipientType, setRecipientType] = useState('custom'); // 'custom' | 'school' | 'employee'
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(null); // Track selected employee ID for prefill
   const [schools, setSchools] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [showRecipientPicker, setShowRecipientPicker] = useState(false);
@@ -94,9 +95,10 @@ export const useCustomReport = () => {
   // ============================================
   // SELECT RECIPIENT FROM PICKER
   // ============================================
-  const selectRecipient = useCallback((type, value) => {
+  const selectRecipient = useCallback((type, value, employeeId = null) => {
     setTo(value);
     setRecipientType(type);
+    setSelectedEmployeeId(type === 'employee' ? employeeId : null);
     setShowRecipientPicker(false);
   }, []);
 
@@ -246,9 +248,24 @@ export const useCustomReport = () => {
   }, []);
 
   // ============================================
+  // PREFILL TEMPLATE WITH EMPLOYEE DATA
+  // ============================================
+  const prefillTemplateData = useCallback(async (templateBody, employeeId) => {
+    if (!templateBody || !employeeId) return templateBody;
+
+    try {
+      const result = await reportService.prefillTemplate(templateBody, employeeId);
+      return result.prefilled_body || templateBody;
+    } catch (err) {
+      console.error('Error prefilling template:', err);
+      return templateBody;
+    }
+  }, []);
+
+  // ============================================
   // APPLY TEMPLATE
   // ============================================
-  const applyTemplate = useCallback((templateKey) => {
+  const applyTemplate = useCallback(async (templateKey) => {
     if (!templateKey || templateKey === 'custom') {
       // Clear to custom/blank
       setTemplateType('custom');
@@ -257,13 +274,53 @@ export const useCustomReport = () => {
 
     const template = templates[templateKey];
     if (template) {
-      setSubject(template.default_subject || '');
-      setBodyText(template.default_body || '');
+      let body = template.default_body || '';
+      let subject = template.default_subject || '';
+
+      // If employee is selected, prefill the template with their data
+      if (selectedEmployeeId) {
+        setLoading(prev => ({ ...prev, templates: true }));
+        try {
+          body = await prefillTemplateData(body, selectedEmployeeId);
+          // Also prefill subject if it has placeholders
+          if (subject.includes('{')) {
+            subject = await prefillTemplateData(subject, selectedEmployeeId);
+          }
+        } finally {
+          setLoading(prev => ({ ...prev, templates: false }));
+        }
+      }
+
+      setSubject(subject);
+      setBodyText(body);
       setTemplateType(templateKey);
       setSelectedHistoryReport(null);
       toast.success(`Template "${template.name}" applied`);
     }
-  }, [templates]);
+  }, [templates, selectedEmployeeId, prefillTemplateData]);
+
+  // ============================================
+  // PREFILL CURRENT BODY WITH EMPLOYEE DATA
+  // ============================================
+  const prefillCurrentBody = useCallback(async (employeeId) => {
+    if (!bodyText || !employeeId) return;
+
+    setLoading(prev => ({ ...prev, templates: true }));
+    try {
+      const prefilledBody = await prefillTemplateData(bodyText, employeeId);
+      if (prefilledBody !== bodyText) {
+        setBodyText(prefilledBody);
+        // Also prefill subject if it has placeholders
+        if (subject.includes('{')) {
+          const prefilledSubject = await prefillTemplateData(subject, employeeId);
+          setSubject(prefilledSubject);
+        }
+        toast.success('Template prefilled with employee data');
+      }
+    } finally {
+      setLoading(prev => ({ ...prev, templates: false }));
+    }
+  }, [bodyText, subject, prefillTemplateData]);
 
   // ============================================
   // CLEAR FORM
@@ -275,6 +332,7 @@ export const useCustomReport = () => {
     setLineSpacing('single');
     setTemplateType('custom');
     setRecipientType('custom');
+    setSelectedEmployeeId(null);
     setSelectedHistoryReport(null);
     setError('');
   }, []);
@@ -357,6 +415,7 @@ export const useCustomReport = () => {
     // Recipient picker
     recipientType,
     setRecipientType,
+    selectedEmployeeId,
     schools,
     employees,
     showRecipientPicker,
@@ -365,6 +424,7 @@ export const useCustomReport = () => {
     selectRecipient,
     fetchSchools,
     fetchEmployees,
+    prefillCurrentBody,
 
     // History
     reportHistory,

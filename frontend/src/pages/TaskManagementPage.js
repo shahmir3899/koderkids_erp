@@ -12,6 +12,7 @@ import { toast } from 'react-toastify';
 import BulkTaskModal from '../components/tasks/BulkTaskModal';
 import CreateTaskModal from '../components/tasks/CreateTaskModal';
 import TaskActions from '../components/tasks/TaskActions';
+import TaskAgentChat from '../components/tasks/TaskAgentChat';
 
 // Design Constants
 import {
@@ -187,6 +188,7 @@ const TaskManagementPage = () => {
         pageSize: 10,
         totalPages: 1
     });
+    const [showTaskAgent, setShowTaskAgent] = useState(false);
 
     // Fetch all tasks
     const fetchTasks = async () => {
@@ -381,15 +383,75 @@ const TaskManagementPage = () => {
                     title="Task Management"
                     subtitle="Create, assign, and manage tasks for your team"
                     actions={
-                        <HoverButton
-                            variant="success"
-                            onClick={() => setShowBulkModal(true)}
-                            style={{ padding: `${SPACING.md} ${SPACING.xl}` }}
-                        >
-                            👥 Assign to All Employees
-                        </HoverButton>
+                        <div style={{ display: 'flex', gap: SPACING.md }}>
+                            <HoverButton
+                                variant={showTaskAgent ? 'primary' : 'secondary'}
+                                onClick={() => setShowTaskAgent(!showTaskAgent)}
+                                style={{ padding: `${SPACING.md} ${SPACING.xl}` }}
+                            >
+                                🤖 {showTaskAgent ? 'Hide' : 'Show'} Task Agent
+                            </HoverButton>
+                            <HoverButton
+                                variant="success"
+                                onClick={() => setShowBulkModal(true)}
+                                style={{ padding: `${SPACING.md} ${SPACING.xl}` }}
+                            >
+                                👥 Assign to All Employees
+                            </HoverButton>
+                        </div>
                     }
                 />
+
+                {/* Task Agent Panel */}
+                {showTaskAgent && (
+                    <div style={{
+                        ...MIXINS.glassmorphicCard,
+                        borderRadius: BORDER_RADIUS.xl,
+                        marginBottom: SPACING['2xl'],
+                        overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            padding: SPACING.lg,
+                            borderBottom: `1px solid ${COLORS.border.whiteSubtle}`,
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <div>
+                                <h3 style={{
+                                    fontSize: FONT_SIZES.lg,
+                                    fontWeight: FONT_WEIGHTS.semibold,
+                                    color: COLORS.text.white,
+                                    margin: 0
+                                }}>🤖 AI Task Agent</h3>
+                                <p style={{
+                                    fontSize: FONT_SIZES.sm,
+                                    color: COLORS.text.whiteSubtle,
+                                    margin: `${SPACING.xs} 0 0 0`
+                                }}>
+                                    Use natural language to quickly assign tasks to employees
+                                </p>
+                            </div>
+                            <HoverButton
+                                variant="secondary"
+                                onClick={() => setShowTaskAgent(false)}
+                            >
+                                ✕ Close
+                            </HoverButton>
+                        </div>
+                        <div style={{ padding: SPACING.lg }}>
+                            <TaskAgentChat
+                                employees={employeeList}
+                                onTaskCreated={() => {
+                                    fetchTasks();
+                                    fetchStats();
+                                }}
+                                height="400px"
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* Filters Section */}
                 <div style={styles.filtersSection}>

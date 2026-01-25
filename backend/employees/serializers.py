@@ -4,7 +4,7 @@
 # ============================================
 
 from rest_framework import serializers
-from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification
+from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification, SalarySlip
 from students.models import CustomUser, School
 
 
@@ -248,3 +248,119 @@ class ProfilePhotoUploadSerializer(serializers.Serializer):
     """
     profile_photo_url = serializers.URLField()
     message = serializers.CharField(default='Profile photo updated successfully')
+
+
+# ============================================
+# SALARY SLIP SERIALIZERS
+# ============================================
+
+class SalarySlipListSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for listing salary slips
+    """
+    teacher_name = serializers.SerializerMethodField()
+    period_display = serializers.ReadOnlyField()
+    month = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SalarySlip
+        fields = [
+            'id', 'teacher', 'teacher_name', 'employee_name',
+            'from_date', 'till_date', 'payment_date',
+            'period_display', 'month',
+            'net_pay', 'generated_at',
+        ]
+
+    def get_teacher_name(self, obj):
+        return obj.teacher.get_full_name() or obj.teacher.username
+
+    def get_month(self, obj):
+        return obj.from_date.strftime('%B %Y')
+
+
+class SalarySlipSerializer(serializers.ModelSerializer):
+    """
+    Full serializer for salary slip details
+    """
+    teacher_name = serializers.SerializerMethodField()
+    period_display = serializers.ReadOnlyField()
+    generated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SalarySlip
+        fields = [
+            'id', 'teacher', 'teacher_name',
+            # Period
+            'from_date', 'till_date', 'payment_date', 'period_display',
+            # Snapshot data
+            'company_name', 'employee_name', 'employee_id_snapshot',
+            'title', 'schools', 'date_of_joining',
+            'bank_name', 'account_number',
+            # Financial
+            'basic_salary', 'no_of_days', 'normalized_days', 'prorated_salary',
+            'earnings_snapshot', 'deductions_snapshot',
+            'total_earnings', 'total_deductions', 'net_pay',
+            # Formatting
+            'line_spacing',
+            # Metadata
+            'generated_by', 'generated_by_name', 'generated_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'generated_at', 'updated_at']
+
+    def get_teacher_name(self, obj):
+        return obj.teacher.get_full_name() or obj.teacher.username
+
+    def get_generated_by_name(self, obj):
+        if obj.generated_by:
+            return obj.generated_by.get_full_name() or obj.generated_by.username
+        return None
+
+
+class SalarySlipCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating/saving salary slips (Admin only)
+    """
+    class Meta:
+        model = SalarySlip
+        fields = [
+            'teacher',
+            # Period
+            'from_date', 'till_date', 'payment_date',
+            # Snapshot data
+            'company_name', 'employee_name', 'employee_id_snapshot',
+            'title', 'schools', 'date_of_joining',
+            'bank_name', 'account_number',
+            # Financial
+            'basic_salary', 'no_of_days', 'normalized_days', 'prorated_salary',
+            'earnings_snapshot', 'deductions_snapshot',
+            'total_earnings', 'total_deductions', 'net_pay',
+            # Formatting
+            'line_spacing',
+        ]
+
+    def create(self, validated_data):
+        # Set the generated_by to current user
+        validated_data['generated_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+    def validate(self, data):
+        """
+        Check if a slip already exists for this teacher and period.
+        If so, update instead of creating duplicate.
+        """
+        teacher = data.get('teacher')
+        from_date = data.get('from_date')
+        till_date = data.get('till_date')
+
+        if teacher and from_date and till_date:
+            existing = SalarySlip.objects.filter(
+                teacher=teacher,
+                from_date=from_date,
+                till_date=till_date
+            ).first()
+
+            if existing:
+                # Store existing instance for update in create method
+                self.instance = existing
+
+        return data

@@ -820,7 +820,7 @@ export class PDFGenerator {
       });
       yLeft -= lineHeight;
 
-      // Schools
+      // Schools - handle both newline and comma-separated
       page.drawText('Schools: ', {
         x: leftColumnX,
         y: yLeft,
@@ -830,9 +830,18 @@ export class PDFGenerator {
       });
       yLeft -= lineHeight;
 
-      const schoolsList = schools ? schools.split('\n').filter((s) => s.trim()) : ['None'];
+      // Parse schools: try newline first, then comma
+      const parseSchools = (schoolsStr) => {
+        if (!schoolsStr) return ['None'];
+        const byNewline = schoolsStr.split('\n').map(s => s.trim()).filter(s => s);
+        if (byNewline.length > 1) return byNewline;
+        const byComma = schoolsStr.split(',').map(s => s.trim()).filter(s => s);
+        return byComma.length > 0 ? byComma : ['None'];
+      };
+
+      const schoolsList = parseSchools(schools);
       schoolsList.forEach((school) => {
-        page.drawText(school.trim(), {
+        page.drawText(school, {
           x: leftColumnX + 20,
           y: yLeft,
           size: this.fontSize,

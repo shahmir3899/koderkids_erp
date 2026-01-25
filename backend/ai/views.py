@@ -174,9 +174,9 @@ class AIExecuteView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if agent not in ['fee', 'inventory', 'hr', 'broadcast']:
+        if agent not in ['fee', 'inventory', 'hr', 'broadcast', 'task']:
             return Response(
-                {"error": f"Invalid agent: {agent}. Must be one of: fee, inventory, hr, broadcast"},
+                {"error": f"Invalid agent: {agent}. Must be one of: fee, inventory, hr, broadcast, task"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -224,6 +224,7 @@ class AIConfirmView(APIView):
     def post(self, request):
         token = request.data.get('confirmation_token')
         confirmed = request.data.get('confirmed', False)
+        edited_params = request.data.get('edited_params')  # Optional edited values
 
         if not token:
             return Response(
@@ -234,7 +235,7 @@ class AIConfirmView(APIView):
         service = get_ai_service(request.user)
 
         if confirmed:
-            result = service.confirm_action(token)
+            result = service.confirm_action(token, edited_params)
         else:
             result = service.cancel_action(token)
 

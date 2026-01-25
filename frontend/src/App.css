@@ -495,3 +495,39 @@ input:focus, select:focus {
   border-radius: 6px !important;
 }
 
+/* ============================================
+   Book Management / Topic Editor - Glassmorphic Input Placeholders
+   ============================================ */
+
+/* Topic Editor specific placeholder styles - high contrast on dark backgrounds */
+.topic-editor-form input::placeholder,
+.topic-editor-form textarea::placeholder,
+.topic-editor-form select::placeholder {
+  color: rgba(180, 180, 200, 0.8) !important;
+  opacity: 1 !important;
+}
+
+/* Fix for webkit browsers */
+.topic-editor-form input::-webkit-input-placeholder,
+.topic-editor-form textarea::-webkit-input-placeholder {
+  color: rgba(180, 180, 200, 0.8) !important;
+}
+
+/* Fix for Firefox */
+.topic-editor-form input::-moz-placeholder,
+.topic-editor-form textarea::-moz-placeholder {
+  color: rgba(180, 180, 200, 0.8) !important;
+  opacity: 1 !important;
+}
+
+/* Fix for IE/Edge */
+.topic-editor-form input:-ms-input-placeholder,
+.topic-editor-form textarea:-ms-input-placeholder {
+  color: rgba(180, 180, 200, 0.8) !important;
+}
+
+/* Book Management Page glassmorphic inputs */
+.glassmorphic-input::placeholder {
+  color: rgba(180, 180, 200, 0.8) !important;
+}
+

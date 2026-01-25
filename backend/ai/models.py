@@ -19,6 +19,7 @@ class AIAuditLog(models.Model):
         ('inventory', 'Inventory Agent'),
         ('hr', 'HR Agent'),
         ('broadcast', 'Broadcast Agent'),
+        ('task', 'Task Agent'),
     ]
 
     STATUS_CHOICES = [

@@ -15,16 +15,21 @@ import uuid
 import os
 
 
-from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification
+from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification, SalarySlip
 from .serializers import (
     TeacherProfileSerializer,
     TeacherProfileUpdateSerializer,
     TeacherEarningSerializer,
     TeacherDeductionSerializer,
     NotificationSerializer,
-    
-    AdminProfileSerializer,              # ← ADD THIS
-    AdminProfileUpdateSerializer,        # ← ADD THIS
+
+    AdminProfileSerializer,
+    AdminProfileUpdateSerializer,
+
+    # Salary Slip serializers
+    SalarySlipSerializer,
+    SalarySlipListSerializer,
+    SalarySlipCreateSerializer,
 )
 from students.models import CustomUser, School
 
@@ -57,31 +62,35 @@ def get_supabase_client():
 
 class TeacherListView(APIView):
     """
-    GET: List all teachers (for admin notification dropdown)
+    GET: List all employees (Teachers, Admins, BDMs) for task assignment dropdown
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get list of all active teachers"""
-        teachers = CustomUser.objects.filter(role='Teacher', is_active=True).select_related()
+        """Get list of all active employees (Teachers, Admins, BDMs)"""
+        employees = CustomUser.objects.filter(
+            role__in=['Teacher', 'Admin', 'BDM'],
+            is_active=True
+        ).select_related()
 
-        teacher_list = []
-        for teacher in teachers:
+        employee_list = []
+        for employee in employees:
             # Get profile if exists
-            profile = getattr(teacher, 'teacher_profile', None)
+            profile = getattr(employee, 'teacher_profile', None)
 
-            teacher_list.append({
-                'id': teacher.id,
-                'username': teacher.username,
-                'email': teacher.email,
-                'name': teacher.get_full_name() or teacher.username,
-                'full_name': teacher.get_full_name() or teacher.username,
-                'first_name': teacher.first_name,
-                'last_name': teacher.last_name,
+            employee_list.append({
+                'id': employee.id,
+                'username': employee.username,
+                'email': employee.email,
+                'name': employee.get_full_name() or employee.username,
+                'full_name': employee.get_full_name() or employee.username,
+                'first_name': employee.first_name,
+                'last_name': employee.last_name,
+                'role': employee.role,
                 'employee_id': profile.employee_id if profile else None,
             })
 
-        return Response(teacher_list)
+        return Response(employee_list)
 
 
 # ============================================
@@ -506,6 +515,61 @@ def get_teacher_dashboard_data(request):
 
 
 # ============================================
+# SELF-SERVICE: My Salary Data (For Salary Slip)
+# ============================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_my_salary_data(request):
+    """
+    Get current user's salary data for salary slip self-service.
+    Returns profile, earnings, deductions, and assigned schools.
+    Available to: Teacher, BDM, Admin
+    """
+    user = request.user
+
+    # Only employees can access (not students)
+    if user.role not in ['Admin', 'Teacher', 'BDM']:
+        return Response(
+            {'error': 'Only employees can access salary data'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Get or create profile
+    profile, created = TeacherProfile.objects.get_or_create(user=user)
+
+    # Get earnings and deductions
+    earnings = TeacherEarning.objects.filter(teacher=user)
+    deductions = TeacherDeduction.objects.filter(teacher=user)
+
+    # Get assigned schools
+    schools = user.assigned_schools.all()
+    schools_list = ', '.join([school.name for school in schools]) if schools else 'N/A'
+
+    return Response({
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'name': user.get_full_name() or user.username,
+            'role': user.role,
+        },
+        'profile': {
+            'employee_id': profile.employee_id,
+            'title': profile.title,
+            'date_of_joining': profile.date_of_joining,
+            'basic_salary': str(profile.basic_salary) if profile.basic_salary else '0',
+            'bank_name': profile.bank_name or '',
+            'account_number': profile.account_number or '',
+            'phone': profile.phone or '',
+            'address': profile.address or '',
+        },
+        'schools': schools_list,
+        'earnings': TeacherEarningSerializer(earnings, many=True).data,
+        'deductions': TeacherDeductionSerializer(deductions, many=True).data,
+    })
+
+
+# ============================================
 # ADMIN PROFILE VIEWS (NEW)
 # ============================================
 
@@ -785,6 +849,135 @@ class BDMProfileView(APIView):
 
 
 # ============================================
-# THAT'S THE END OF NEW CODE
-# Continue with existing NOTIFICATION VIEWS section...
+# SALARY SLIP VIEWS
 # ============================================
+
+class SalarySlipListView(APIView):
+    """
+    GET: List salary slips
+    - Admin: See all or filter by teacher_id
+    - Teacher/BDM: See only their own slips
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Admin can see all or filter by teacher
+        if user.role == 'Admin':
+            queryset = SalarySlip.objects.all()
+
+            # Optional filter by teacher
+            teacher_id = request.query_params.get('teacher_id')
+            if teacher_id:
+                queryset = queryset.filter(teacher_id=teacher_id)
+        else:
+            # Non-admins can only see their own slips
+            queryset = SalarySlip.objects.filter(teacher=user)
+
+        # Date filters (optional)
+        from_date = request.query_params.get('from_date')
+        till_date = request.query_params.get('till_date')
+
+        if from_date:
+            queryset = queryset.filter(from_date__gte=from_date)
+        if till_date:
+            queryset = queryset.filter(till_date__lte=till_date)
+
+        # Order by most recent
+        queryset = queryset.order_by('-generated_at')
+
+        serializer = SalarySlipListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class SalarySlipCreateView(APIView):
+    """
+    POST: Create/save a salary slip (Admin only)
+    Updates existing slip if same teacher+period already exists.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Only admins can create salary slips
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can generate salary slips'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = SalarySlipCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            # Check if updating existing
+            if serializer.instance:
+                # Update existing slip
+                for attr, value in serializer.validated_data.items():
+                    setattr(serializer.instance, attr, value)
+                serializer.instance.generated_by = request.user
+                serializer.instance.save()
+                slip = serializer.instance
+            else:
+                # Create new slip
+                slip = serializer.save()
+
+            response_serializer = SalarySlipSerializer(slip)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SalarySlipDetailView(APIView):
+    """
+    GET: Retrieve a specific salary slip
+    DELETE: Delete a salary slip (Admin only)
+
+    - Admin: Can view/delete any slip
+    - Teacher/BDM: Can only view their own slips
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk, user):
+        """Get salary slip with permission check."""
+        slip = get_object_or_404(SalarySlip, pk=pk)
+
+        # Admin can access any slip
+        if user.role == 'Admin':
+            return slip
+
+        # Non-admins can only access their own slips
+        if slip.teacher != user:
+            return None
+
+        return slip
+
+    def get(self, request, pk):
+        slip = self.get_object(pk, request.user)
+
+        if slip is None:
+            return Response(
+                {'error': 'You can only view your own salary slips'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = SalarySlipSerializer(slip)
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        # Only admins can delete
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can delete salary slips'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        slip = get_object_or_404(SalarySlip, pk=pk)
+        slip.delete()
+
+        return Response(
+            {'message': 'Salary slip deleted successfully'},
+            status=status.HTTP_204_NO_CONTENT
+        )

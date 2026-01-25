@@ -4,11 +4,12 @@
 // ============================================
 // Location: frontend/src/components/common/UnifiedProfileHeader.js
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getRoleConfig, getDetailValue, getProfileName } from './profileHeaderConfig';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { NotificationPanel } from './ui/NotificationPanel';
+import { TaskPanel } from './ui/TaskPanel';
 import { logout } from '../../utils/authHelpers';
 import { clearCacheOnLogout } from '../../utils/cacheUtils';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -29,6 +30,10 @@ import { AdminSettingsModal } from '../admin/AdminSettingsModal';
 import { StudentSettingsModal } from '../students/StudentSettingsModal';
 import { BDMSettingsModal } from '../bdm/BDMSettingsModal';
 
+// Admin approval modal
+import { ApprovalModal } from '../admin/ApprovalModal';
+import { reportRequestService } from '../../services/reportRequestService';
+
 /**
  * UnifiedProfileHeader Component - FIXED VERSION
  * Prevents infinite loops and handles missing fields gracefully
@@ -42,7 +47,27 @@ export const UnifiedProfileHeader = ({
 }) => {
   const navigate = useNavigate();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
   const { isMobile, isTablet } = useResponsive();
+
+  // Fetch pending approval count for admins
+  useEffect(() => {
+    if (role === 'Admin') {
+      const fetchPendingCount = async () => {
+        try {
+          const data = await reportRequestService.fetchPendingRequests();
+          setPendingApprovals(data.count || data.results?.length || 0);
+        } catch (error) {
+          console.warn('Could not fetch pending approvals:', error.message);
+        }
+      };
+      fetchPendingCount();
+      // Refresh every 60 seconds
+      const interval = setInterval(fetchPendingCount, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [role]);
 
   console.log('🎨 UnifiedProfileHeader render:', { role, loading, hasProfile: !!profile });
 
@@ -259,6 +284,49 @@ export const UnifiedProfileHeader = ({
             </button>
           )}
 
+          {/* Tasks (Teachers & BDMs) */}
+          {config.features.showTasks && (
+            <TaskPanel />
+          )}
+
+          {/* Approvals (Admin Only) */}
+          {role === 'Admin' && (
+            <button
+              style={{
+                ...responsiveStyles.iconButton,
+                position: 'relative',
+              }}
+              aria-label="Pending Approvals"
+              title={`Pending Approvals${pendingApprovals > 0 ? ` (${pendingApprovals})` : ''}`}
+              onClick={() => setIsApprovalModalOpen(true)}
+              className="profile-icon-button"
+            >
+              <svg style={responsiveStyles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              {pendingApprovals > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  backgroundColor: COLORS.status.error,
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: isMobile ? '16px' : '20px',
+                  height: isMobile ? '16px' : '20px',
+                  fontSize: isMobile ? '10px' : '11px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '2px solid rgba(0,0,0,0.2)',
+                }}>
+                  {pendingApprovals > 9 ? '9+' : pendingApprovals}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Settings (All Roles) */}
           {config.features.showSettings && (
             <button
@@ -311,6 +379,20 @@ export const UnifiedProfileHeader = ({
 
       {/* Settings Modal - Role-specific */}
       {renderSettingsModal()}
+
+      {/* Approval Modal - Admin Only */}
+      {role === 'Admin' && (
+        <ApprovalModal
+          isOpen={isApprovalModalOpen}
+          onClose={() => setIsApprovalModalOpen(false)}
+          onApprovalComplete={() => {
+            // Refresh pending count after approval action
+            reportRequestService.fetchPendingRequests()
+              .then(data => setPendingApprovals(data.count || data.results?.length || 0))
+              .catch(() => {});
+          }}
+        />
+      )}
     </>
   );
 };

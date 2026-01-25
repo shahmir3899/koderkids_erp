@@ -268,10 +268,10 @@ export const Z_INDEX = {
   sidebar: 100,
   sidebarTooltip: 110,
   sidebarFlyout: 120,
-  modal: 2000,
-  modalOverlay: 1999,
-  popover: 2010,
-  tooltip: 2020,
+  modal: 9999,         // High value to always appear above sidebar
+  modalOverlay: 9998,
+  popover: 10010,
+  tooltip: 10020,
 };
 
 /**

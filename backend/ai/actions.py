@@ -351,6 +351,21 @@ BROADCAST_ACTIONS: Dict[str, ActionDefinition] = {
 }
 
 # ============================================
+# TASK AGENT ACTIONS
+# ============================================
+TASK_ACTIONS: Dict[str, ActionDefinition] = {
+    "CREATE_TASK": ActionDefinition(
+        name="CREATE_TASK",
+        action_type=ActionType.WRITE,
+        required_params=["employee_name", "task_description", "due_date"],
+        optional_params=["priority", "task_type", "title"],
+        endpoint="/api/tasks/",
+        requires_confirmation=True,  # Ask for completeness before creating
+        description="Create a new task and assign to an employee"
+    ),
+}
+
+# ============================================
 # SPECIAL ACTIONS (All Agents)
 # ============================================
 SPECIAL_ACTIONS: Dict[str, ActionDefinition] = {
@@ -380,6 +395,7 @@ AGENT_ACTIONS = {
     "inventory": {**INVENTORY_ACTIONS, **SPECIAL_ACTIONS},
     "hr": {**HR_ACTIONS, **SPECIAL_ACTIONS},
     "broadcast": {**BROADCAST_ACTIONS, **SPECIAL_ACTIONS},
+    "task": {**TASK_ACTIONS, **SPECIAL_ACTIONS},
 }
 
 

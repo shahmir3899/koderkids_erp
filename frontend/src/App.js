@@ -44,6 +44,10 @@ import SettingsPage from './pages/SettingsPage';
 import SettingsRouter from './pages/SettingsRouter';
 import ERPLoader from './components/ERPLoader';
 
+// Self Service Pages
+import SelfServicesPage from './pages/SelfServicesPage';
+import RequestReportPage from './pages/RequestReportPage';
+
 // CRM Pages
 import BDMDashboard from './pages/crm/BDMDashboard';
 import AdminCRMDashboard from './pages/crm/AdminDashboard';
@@ -53,6 +57,16 @@ import ActivitiesPage from './pages/crm/ActivitiesPage';
 // Task Pages
 import TaskManagementPage from './pages/TaskManagementPage';
 import MyTasksPage from './pages/MyTasksPage';
+
+// LMS Pages
+import MyCoursesPage from './pages/lms/MyCoursesPage';
+import CoursePlayerPage from './pages/lms/CoursePlayerPage';
+import QuizBuilderPage from './pages/lms/QuizBuilderPage';
+import QuizManagementPage from './pages/lms/QuizManagementPage';
+import { LMSProvider } from './contexts/LMSContext';
+
+// Book Management
+import BookManagementPage from './pages/BookManagementPage';
 
 import { logout } from "./api"; 
 
@@ -145,12 +159,13 @@ function AppContent() {
 
       {/* ✅ Admin Only Routes */}
       <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
+      <Route path="/book-management" element={<ProtectedRoute element={<BookManagementPage />} allowedRoles={["Admin"]} />} />
       <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/settings" element={<ProtectedRoute element={<SettingsRouter />} allowedRoles={["Admin"]} />} />
       <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />
       <Route path="/custom-report" element={<ProtectedRoute element={<CustomReport />}allowedRoles={["Admin"]}/>} />
-      <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin"]} />} />
+      <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin", "Teacher", "BDM"]} />} />
 
       {/* ✅ CRM Routes - Admin & BDM */}
       <Route path="/crm/admin-dashboard" element={<ProtectedRoute element={<AdminCRMDashboard />} allowedRoles={["Admin"]} />} />
@@ -162,6 +177,10 @@ function AppContent() {
       <Route path="/task-management" element={<ProtectedRoute element={<TaskManagementPage />} allowedRoles={["Admin"]} />} />
       <Route path="/my-tasks" element={<ProtectedRoute element={<MyTasksPage />} allowedRoles={["Admin", "Teacher", "BDM"]} />} />
 
+      {/* ✅ Self Service Routes - Teacher & BDM */}
+      <Route path="/self-services" element={<ProtectedRoute element={<SelfServicesPage />} allowedRoles={["Teacher", "BDM"]} />} />
+      <Route path="/self-services/request-report" element={<ProtectedRoute element={<RequestReportPage />} allowedRoles={["Teacher", "BDM"]} />} />
+
       {/* ✅ Teacher Specific Routes */}
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Teacher"]} />} />
       <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Teacher"]} />} />
@@ -169,6 +188,15 @@ function AppContent() {
       {/* ✅ Student Route */}
       <Route path="/student-dashboard" element={<ProtectedRoute element={<StudentDashboard />} allowedRoles={["Student"]} />} />
       <Route path="/student-progress" element={<StudentProgressPage />} />
+
+      {/* ✅ LMS Routes - Learning (Admin/Teacher can access for testing) */}
+      <Route path="/lms/my-courses" element={<ProtectedRoute element={<MyCoursesPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
+      <Route path="/lms/learn/:courseId/:topicId?" element={<ProtectedRoute element={<CoursePlayerPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
+
+      {/* ✅ LMS Routes - Quiz Builder (Admin/Teacher) */}
+      <Route path="/lms/quiz-manage" element={<ProtectedRoute element={<QuizManagementPage />} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/lms/quiz-builder" element={<ProtectedRoute element={<QuizBuilderPage />} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/lms/quiz-builder/:quizId" element={<ProtectedRoute element={<QuizBuilderPage />} allowedRoles={["Admin", "Teacher"]} />} />
 
         {/* NEW ROUTES: Add these two – protected */}
       <Route path="/books-tree" element={<ProtectedRoute element={<BookSelectPage/>} allowedRoles={["Admin", "Teacher"]} />} />
@@ -231,14 +259,16 @@ function App() {
           <FinanceProvider>
             <UserProvider>
               <BooksProvider>
-                <ClassesProvider>
-                  <LoadingProvider>
-                    <Router>
-                      <AutoLogout />
-                      <AppWithLoader />
-                    </Router>
-                  </LoadingProvider>
-                </ClassesProvider>
+                <LMSProvider>
+                  <ClassesProvider>
+                    <LoadingProvider>
+                      <Router>
+                        <AutoLogout />
+                        <AppWithLoader />
+                      </Router>
+                    </LoadingProvider>
+                  </ClassesProvider>
+                </LMSProvider>
               </BooksProvider>
             </UserProvider>
           </FinanceProvider>

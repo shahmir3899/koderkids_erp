@@ -101,4 +101,22 @@ export const reportService = {
     );
     return response.data;
   },
+
+  /**
+   * Prefill a template with employee data (for Custom Reports)
+   * @param {string} templateBody - The template body with placeholders
+   * @param {number} employeeId - Employee ID to fetch data from
+   * @returns {Promise<Object>} { prefilled_body, auto_filled, remaining_placeholders }
+   */
+  prefillTemplate: async (templateBody, employeeId) => {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/reports/custom-reports/prefill/`,
+      {
+        template_body: templateBody,
+        employee_id: employeeId,
+      },
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
 };

@@ -22,13 +22,26 @@ import {
  * @param {number} props.filteredCount - Number of filtered users (optional)
  * @param {boolean} props.hasSearched - Whether search has been performed
  * @param {boolean} props.isLoading - Loading state
+ * @param {number} props.totalSalaries - Total salaries of filtered users
  */
 export const UserStatsCards = ({
   stats,
   filteredCount,
   hasSearched = false,
-  isLoading = false
+  isLoading = false,
+  totalSalaries = 0,
 }) => {
+
+  // Format salary for display
+  const formatSalary = (amount) => {
+    if (amount >= 1000000) {
+      return `${(amount / 1000000).toFixed(1)}M`;
+    }
+    if (amount >= 1000) {
+      return `${(amount / 1000).toFixed(0)}K`;
+    }
+    return amount.toLocaleString();
+  };
   // If loading, show skeleton
   if (isLoading) {
     return (
@@ -100,6 +113,18 @@ export const UserStatsCards = ({
     });
   }
 
+  // Add total salaries card (shows filtered salaries if search performed)
+  if (totalSalaries > 0) {
+    cards.push({
+      label: 'Total Salaries',
+      value: formatSalary(totalSalaries),
+      icon: '💰',
+      color: '#10B981', // Green
+      bgColor: 'rgba(16, 185, 129, 0.2)',
+      isFormatted: true, // Flag to skip toLocaleString
+    });
+  }
+
   return (
     <div style={styles.container}>
       {cards.map((card, index) => (
@@ -107,7 +132,7 @@ export const UserStatsCards = ({
           <div style={styles.cardContent}>
             <div style={styles.label}>{card.label}</div>
             <div style={{ ...styles.value, color: card.color }}>
-              {card.value.toLocaleString()}
+              {card.isFormatted ? card.value : (typeof card.value === 'number' ? card.value.toLocaleString() : card.value)}
             </div>
           </div>
           <div style={{

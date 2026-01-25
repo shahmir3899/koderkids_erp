@@ -129,7 +129,7 @@ export function ConfirmationModal({
       <div
         style={{
           ...MIXINS.glassmorphicCard,
-          background: 'rgba(30, 30, 50, 0.95)',
+          background: COLORS.background.gradient,
           borderRadius: BORDER_RADIUS.xl,
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
           border: '1px solid rgba(255, 255, 255, 0.15)',

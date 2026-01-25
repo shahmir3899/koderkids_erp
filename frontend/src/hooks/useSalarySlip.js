@@ -1,5 +1,5 @@
 // ============================================
-// USE SALARY SLIP HOOK - Corrected Version
+// USE SALARY SLIP HOOK - With Self-Service Mode
 // ============================================
 // Location: src/hooks/useSalarySlip.js
 
@@ -13,6 +13,9 @@ import {
   calculateTotals,
 } from '../utils/salaryCalculations';
 import { PDFGenerator } from '../utils/pdfGenerator';
+
+// Get user role from localStorage
+const getUserRole = () => localStorage.getItem('role') || '';
 
 // ============================================
 // CONSTANTS
@@ -68,11 +71,16 @@ export function useSalarySlip() {
   // Cleanup effect
   useEffect(() => {
     isMounted.current = true;
-    
+
     return () => {
       isMounted.current = false;
     };
   }, []);
+
+  // Self-service mode detection
+  const userRole = getUserRole();
+  const isSelfServiceMode = userRole !== 'Admin';
+
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   
   // Dynamic lists
@@ -112,35 +120,50 @@ export function useSalarySlip() {
   // DATA FETCHING EFFECTS
   // ============================================
 
-  // Fetch teachers on mount
+  // Load data on mount - different behavior for Admin vs Self-Service
   useEffect(() => {
-    const loadTeachers = async () => {
-      // ✅ CHECK: Don't start if unmounted
+    const loadInitialData = async () => {
       if (!isMounted.current) return;
-      
-      setLoading(prev => ({ ...prev, teachers: true }));
-      try {
-        const data = await salaryService.fetchTeachers();
-        
-        // ✅ CHECK: Don't update state if unmounted
-        if (!isMounted.current) return;
-        
-        setTeachers(data);
-      } catch (err) {
-        // ✅ CHECK: Don't show errors if unmounted
-        if (!isMounted.current) return;
-        
-        console.error('Error fetching teachers:', err);
-        toast.error('Failed to load teacher list');
-      } finally {
-        // ✅ CHECK: Only clear loading if mounted
-        if (isMounted.current) {
-          setLoading(prev => ({ ...prev, teachers: false }));
+
+      if (isSelfServiceMode) {
+        // Self-Service Mode: Load saved salary slips only (no fresh calculations)
+        setLoading(prev => ({ ...prev, history: true }));
+        try {
+          // Fetch user's saved salary slips
+          const slips = await salaryService.fetchSalarySlips();
+          if (!isMounted.current) return;
+          setSalarySlipHistory(slips || []);
+        } catch (err) {
+          if (!isMounted.current) return;
+          console.error('Error fetching salary slips:', err);
+          setSalarySlipHistory([]);
+        } finally {
+          if (isMounted.current) {
+            setLoading(prev => ({ ...prev, history: false }));
+          }
+        }
+      } else {
+        // Admin Mode: Load teacher list for dropdown
+        setLoading(prev => ({ ...prev, teachers: true }));
+        try {
+          const data = await salaryService.fetchTeachers();
+
+          if (!isMounted.current) return;
+
+          setTeachers(data);
+        } catch (err) {
+          if (!isMounted.current) return;
+          console.error('Error fetching teachers:', err);
+          toast.error('Failed to load teacher list');
+        } finally {
+          if (isMounted.current) {
+            setLoading(prev => ({ ...prev, teachers: false }));
+          }
         }
       }
     };
-    loadTeachers();
-  }, []);
+    loadInitialData();
+  }, [isSelfServiceMode]);
 
   // Fetch teacher profile when selection changes (merged single effect)
   useEffect(() => {
@@ -354,6 +377,8 @@ export function useSalarySlip() {
 
   /**
    * Fetch salary slip history from API
+   * Admin: Fetch all or filter by teacher_id
+   * Self-Service: Fetch only own slips (backend filters automatically)
    * @param {Object} filters - Optional filters { teacher_id }
    */
   const fetchSalarySlipHistory = useCallback(async (filters = {}) => {
@@ -366,8 +391,9 @@ export function useSalarySlip() {
       setSalarySlipHistory(data);
     } catch (err) {
       if (!isMounted.current) return;
-      console.error('Error fetching salary slip history:', err);
-      toast.error('Failed to load salary slip history');
+      // Silently log error - backend may not have salary slip endpoints yet
+      console.warn('Salary slip history not available:', err.message);
+      setSalarySlipHistory([]);
     } finally {
       if (isMounted.current) {
         setLoading(prev => ({ ...prev, history: false }));
@@ -532,6 +558,10 @@ export function useSalarySlip() {
     loading,
     error,
     calculations,
+
+    // Self-Service Mode
+    isSelfServiceMode,
+    userRole,
 
     // History State
     salarySlipHistory,

@@ -1,7 +1,23 @@
 # books/serializers.py
+import re
 from rest_framework import serializers
 from .models import Book, Topic
 from django.db.models import Q
+
+
+def natural_sort_key(obj):
+    """
+    Natural sort key function for sorting topics.
+    Handles numeric parts in strings so "Chapter 10" comes after "Chapter 2".
+    """
+    code = getattr(obj, 'code', '') or ''
+    title = getattr(obj, 'title', '') or ''
+    text = f"{code} {title}"
+
+    # Split text into numeric and non-numeric parts
+    parts = re.split(r'(\d+)', text)
+    # Convert numeric parts to integers for proper sorting
+    return [int(part) if part.isdigit() else part.lower() for part in parts]
 
 class ActivityBlockSerializer(serializers.Serializer):
     type = serializers.CharField()
@@ -69,10 +85,14 @@ class TopicSerializer(serializers.ModelSerializer):
                 Q(title__icontains=q) | Q(code__icontains=q)
             )
 
+        # Apply natural sorting for proper numeric ordering (1, 2, 3...10 instead of 1, 10, 2)
+        children_list = list(children_qs)
+        children_list.sort(key=natural_sort_key)
+
         child_context = self.context.copy()
         child_context["depth"] = depth + 1
 
-        return TopicSerializer(children_qs, many=True, context=child_context).data
+        return TopicSerializer(children_list, many=True, context=child_context).data
 
 # books/serializers.py
 
@@ -92,7 +112,7 @@ class BookSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Book
-        fields = ["id", "title", "isbn", "school", "cover", "topics"]
+        fields = ["id", "title", "isbn", "school", "cover", "description", "is_published", "difficulty_level", "topics"]
 
     def get_topics(self, obj):
         q = self.context.get("q", "").lower()
@@ -125,3 +145,161 @@ class BookSerializer(serializers.ModelSerializer):
         ctx = self.context.copy()
         ctx["depth"] = 0
         return TopicSerializer(root_qs, many=True, context=ctx).data
+
+
+# ============================================
+# ADMIN SERIALIZERS - Full CRUD for Book Management
+# ============================================
+
+class AdminTopicListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for topic list in admin"""
+    children_count = serializers.SerializerMethodField()
+    has_content = serializers.SerializerMethodField()
+    has_video = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Topic
+        fields = [
+            'id', 'code', 'title', 'type', 'parent',
+            'estimated_time_minutes', 'is_required',
+            'children_count', 'has_content', 'has_video'
+        ]
+
+    def get_children_count(self, obj):
+        return obj.get_children().count()
+
+    def get_has_content(self, obj):
+        return bool(obj.content) or bool(obj.activity_blocks)
+
+    def get_has_video(self, obj):
+        return bool(obj.video_url)
+
+
+class AdminTopicDetailSerializer(serializers.ModelSerializer):
+    """Full serializer for editing a single topic"""
+    parent_title = serializers.CharField(source='parent.title', read_only=True, allow_null=True)
+    children = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Topic
+        fields = [
+            'id', 'book', 'parent', 'parent_title', 'code', 'title', 'type',
+            'content', 'thumbnail', 'activity_blocks',
+            'video_url', 'video_duration_seconds',
+            'estimated_time_minutes', 'is_required',
+            'children'
+        ]
+
+    def get_children(self, obj):
+        children = list(obj.get_children())
+        # Use natural sorting for proper numeric ordering (1, 2, 3...10 instead of 1, 10, 2)
+        children.sort(key=natural_sort_key)
+        return AdminTopicListSerializer(children, many=True).data
+
+
+class AdminTopicWriteSerializer(serializers.ModelSerializer):
+    """Serializer for creating/updating topics"""
+
+    class Meta:
+        model = Topic
+        fields = [
+            'id', 'book', 'parent', 'code', 'title', 'type',
+            'content', 'thumbnail', 'activity_blocks',
+            'video_url', 'video_duration_seconds',
+            'estimated_time_minutes', 'is_required'
+        ]
+
+    def validate_activity_blocks(self, value):
+        """Validate activity_blocks structure"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("activity_blocks must be a list")
+
+        for i, block in enumerate(value):
+            if not isinstance(block, dict):
+                raise serializers.ValidationError(f"Block {i} must be an object")
+            if 'type' not in block:
+                raise serializers.ValidationError(f"Block {i} must have a 'type' field")
+
+        return value
+
+
+class AdminBookListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for book list in admin"""
+    school_name = serializers.CharField(source='school.name', read_only=True, allow_null=True)
+    topics_count = serializers.SerializerMethodField()
+    chapters_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Book
+        fields = [
+            'id', 'title', 'isbn', 'school', 'school_name', 'cover',
+            'description', 'is_published', 'difficulty_level',
+            'topics_count', 'chapters_count'
+        ]
+
+    def get_topics_count(self, obj):
+        return obj.topics.filter(type='lesson').count()
+
+    def get_chapters_count(self, obj):
+        return obj.topics.filter(type='chapter', parent=None).count()
+
+
+class AdminBookDetailSerializer(serializers.ModelSerializer):
+    """Full serializer for viewing a single book with topic tree"""
+    school_name = serializers.CharField(source='school.name', read_only=True, allow_null=True)
+    topic_tree = serializers.SerializerMethodField()
+    total_topics = serializers.SerializerMethodField()
+    total_duration_minutes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Book
+        fields = [
+            'id', 'title', 'isbn', 'school', 'school_name', 'cover',
+            'description', 'is_published', 'difficulty_level',
+            'topic_tree', 'total_topics', 'total_duration_minutes'
+        ]
+
+    def get_topic_tree(self, obj):
+        """Get full topic tree structure"""
+        root_topics = list(obj.topics.filter(parent=None))
+        # Use natural sorting for proper numeric ordering (1, 2, 3...10 instead of 1, 10, 2)
+        root_topics.sort(key=natural_sort_key)
+        return self._serialize_topics(root_topics)
+
+    def _serialize_topics(self, topics):
+        result = []
+        for topic in topics:
+            children = list(topic.get_children())
+            # Use natural sorting for children too
+            children.sort(key=natural_sort_key)
+            item = {
+                'id': topic.id,
+                'code': topic.code,
+                'title': topic.title,
+                'type': topic.type,
+                'has_content': bool(topic.content) or bool(topic.activity_blocks),
+                'has_video': bool(topic.video_url),
+                'estimated_time_minutes': topic.estimated_time_minutes,
+                'is_required': topic.is_required,
+                'children': self._serialize_topics(children)
+            }
+            result.append(item)
+        return result
+
+    def get_total_topics(self, obj):
+        return obj.topics.filter(type='lesson').count()
+
+    def get_total_duration_minutes(self, obj):
+        from django.db.models import Sum
+        return obj.topics.aggregate(total=Sum('estimated_time_minutes'))['total'] or 0
+
+
+class AdminBookWriteSerializer(serializers.ModelSerializer):
+    """Serializer for creating/updating books"""
+
+    class Meta:
+        model = Book
+        fields = [
+            'id', 'title', 'isbn', 'school', 'cover',
+            'description', 'is_published', 'difficulty_level'
+        ]

@@ -245,6 +245,131 @@ class Notification(models.Model):
 
 
 # ============================================
+# SALARY SLIP MODEL - Stores generated salary slips
+# ============================================
+
+class SalarySlip(models.Model):
+    """
+    Stores salary slips generated for employees.
+    Snapshots all financial data at time of generation for audit trail.
+    """
+    LINE_SPACING_CHOICES = [
+        ('single', 'Single'),
+        ('1.5', '1.5'),
+        ('double', 'Double'),
+    ]
+
+    # Employee reference
+    teacher = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='salary_slips',
+        help_text="Employee for whom this salary slip was generated"
+    )
+
+    # Period information
+    from_date = models.DateField(help_text="Salary period start date")
+    till_date = models.DateField(help_text="Salary period end date")
+    payment_date = models.DateField(help_text="Date of payment")
+
+    # Snapshot data (frozen at generation time)
+    company_name = models.CharField(max_length=200, default='EARLY BIRD KODER KIDS PVT LTD')
+    employee_name = models.CharField(max_length=200)
+    employee_id_snapshot = models.CharField(max_length=20, blank=True, null=True)
+    title = models.CharField(max_length=100, blank=True, null=True)
+    schools = models.TextField(blank=True, null=True, help_text="Schools assigned (one per line)")
+    date_of_joining = models.DateField(blank=True, null=True)
+    bank_name = models.CharField(max_length=100, blank=True, null=True)
+    account_number = models.CharField(max_length=50, blank=True, null=True)
+
+    # Financial data
+    basic_salary = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))]
+    )
+    no_of_days = models.IntegerField(default=0, help_text="Actual days in period")
+    normalized_days = models.IntegerField(default=30, help_text="Normalized days (30-day month)")
+    prorated_salary = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))]
+    )
+
+    # Earnings and deductions (JSON snapshots)
+    earnings_snapshot = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="JSON array of earnings at time of generation"
+    )
+    deductions_snapshot = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="JSON array of deductions at time of generation"
+    )
+
+    # Totals
+    total_earnings = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))]
+    )
+    total_deductions = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))]
+    )
+    net_pay = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0'),
+        help_text="Final amount after earnings and deductions"
+    )
+
+    # Formatting
+    line_spacing = models.CharField(
+        max_length=10,
+        choices=LINE_SPACING_CHOICES,
+        default='1.5'
+    )
+
+    # Generation metadata
+    generated_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='generated_salary_slips',
+        help_text="Admin who generated this slip"
+    )
+    generated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Salary Slip"
+        verbose_name_plural = "Salary Slips"
+        ordering = ['-generated_at']
+        unique_together = [['teacher', 'from_date', 'till_date']]
+        indexes = [
+            models.Index(fields=['teacher']),
+            models.Index(fields=['from_date', 'till_date']),
+            models.Index(fields=['generated_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.employee_name} - {self.from_date} to {self.till_date}"
+
+    @property
+    def period_display(self):
+        """Return formatted period string."""
+        return f"{self.from_date.strftime('%b %d, %Y')} - {self.till_date.strftime('%b %d, %Y')}"
+
+
+# ============================================
 # SIGNALS - Auto-create TeacherProfile for both Teachers and Admins
 # ============================================
 

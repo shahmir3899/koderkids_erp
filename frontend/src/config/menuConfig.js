@@ -20,6 +20,10 @@ import {
   faTasks,
   faClipboardCheck,
   faRobot,
+  faBriefcase,
+  faBook,
+  faGraduationCap,
+  faClipboardQuestion,
 } from "@fortawesome/free-solid-svg-icons";
 
 /**
@@ -120,6 +124,13 @@ export const MENU_SECTIONS = {
         icon: faBoxesPacking,
         path: '/inventory-dashboard',
         roles: ['Admin', 'Teacher'],
+      },
+      {
+        id: 'book-management',
+        label: 'Book Management',
+        icon: faBook,
+        path: '/book-management',
+        roles: ['Admin'],
       },
     ],
   },
@@ -227,14 +238,14 @@ export const MENU_SECTIONS = {
   TASKS: {
     id: 'tasks',
     label: 'Tasks',
-    roles: ['Admin', 'Teacher', 'BDM'],
+    roles: ['Admin'],  // Teachers & BDMs access via header TaskPanel
     items: [
       {
         id: 'tasks-dropdown',
         label: 'Tasks',
         icon: faTasks,
         dropdown: true,
-        roles: ['Admin', 'Teacher', 'BDM'],
+        roles: ['Admin'],
         subItems: [
           {
             id: 'manage-tasks',
@@ -248,8 +259,24 @@ export const MENU_SECTIONS = {
             label: 'My Tasks',
             icon: faClipboardCheck,
             path: '/my-tasks',
+            roles: ['Admin'],
           },
         ],
+      },
+    ],
+  },
+
+  SELF_SERVICES: {
+    id: 'self-services',
+    label: 'Self Services',
+    roles: ['Teacher', 'BDM'],
+    items: [
+      {
+        id: 'self-services',
+        label: 'Self Services',
+        icon: faBriefcase,
+        path: '/self-services',
+        roles: ['Teacher', 'BDM'],
       },
     ],
   },
@@ -288,6 +315,36 @@ export const MENU_SECTIONS = {
         icon: faChartLine,
         path: '/student-progress',
         roles: ['Student'],
+      },
+    ],
+  },
+
+  // LMS - Learning Management System (Students see "My Lessons", Admin/Teacher for testing)
+  LMS: {
+    id: 'lms',
+    label: 'Learning',
+    roles: ['Student', 'Admin', 'Teacher'],
+    items: [
+      {
+        id: 'my-lessons',
+        label: 'My Lessons',
+        icon: faBook,
+        path: '/lms/my-courses',
+        roles: ['Student', 'Admin', 'Teacher'],
+      },
+      {
+        id: 'quiz-management',
+        label: 'Manage Quizzes',
+        icon: faClipboardQuestion,
+        path: '/lms/quiz-manage',
+        roles: ['Admin', 'Teacher'],
+      },
+      {
+        id: 'create-quiz',
+        label: 'Create Quiz',
+        icon: faClipboardCheck,
+        path: '/lms/quiz-builder',
+        roles: ['Admin', 'Teacher'],
       },
     ],
   },

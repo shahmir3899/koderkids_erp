@@ -1,6 +1,6 @@
 // ============================================
 // SETTINGS PAGE - User Management (Admin Only)
-// Glassmorphism Design System
+// Glassmorphism Design System - Cards Layout
 // ============================================
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -23,7 +23,6 @@ import { useSchools } from '../hooks/useSchools';
 import { useResponsive } from '../hooks/useResponsive';
 
 // Common Components
-import { DataTable } from '../components/common/tables/DataTable';
 import { ErrorDisplay } from '../components/common/ui/ErrorDisplay';
 import { Button } from '../components/common/ui/Button';
 import { ConfirmationModal } from '../components/common/modals/ConfirmationModal';
@@ -31,7 +30,7 @@ import { PageHeader } from '../components/common/PageHeader';
 
 // Page-Specific Components
 import { UserStatsCards } from '../components/settings/UserStatsCards';
-import { UserFilterBar } from '../components/settings/UserFilterBar';
+import { UserCard } from '../components/settings/UserCard';
 import { CreateUserModal } from '../components/settings/CreateUserModal';
 import { UserDetailsModal } from '../components/settings/UserDetailsModal';
 import { AssignSchoolsModal } from '../components/settings/AssignSchoolsModal';
@@ -60,6 +59,7 @@ function SettingsPage() {
     createUser,
     updateUser,
     deactivateUser,
+    reactivateUser,
     assignSchools,
     resetPassword,
     clearError,
@@ -68,20 +68,16 @@ function SettingsPage() {
   const { schools } = useSchools();
 
   // UI States
-  const [hasSearched, setHasSearched] = useState(false);
-  const [currentFilters, setCurrentFilters] = useState({
-    role: '',
-    school: '',
-    is_active: 'true',
-    search: '',
-  });
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'inactive'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState(''); // Quick filter chips
 
   // Modal States
   const [selectedUser, setSelectedUser] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isViewing, setIsViewing] = useState(false);
-  
+
   // Advanced Modal States
   const [isAssigningSchools, setIsAssigningSchools] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
@@ -93,65 +89,102 @@ function SettingsPage() {
     userName: '',
   });
 
+  // Reactivating State
+  const [reactivatingId, setReactivatingId] = useState(null);
+
   // ============================================
   // DATA FETCHING
   // ============================================
 
-  // Load stats, roles, and ALL users on mount (users cached but not displayed until Search)
+  // Load stats, roles, and ALL users on mount
   useEffect(() => {
-    console.log('📦 Page Mount: Loading stats, roles, and caching all users...');
+    console.log('📦 Page Mount: Loading stats, roles, and users...');
     fetchStats();
     fetchRoles();
-    // Fetch ALL users into cache (no filters) - they won't display until hasSearched is true
     fetchUsers({}).then(() => {
-      console.log('✅ All users cached and ready for client-side filtering');
+      console.log('✅ Users loaded');
     }).catch(err => {
-      console.error('❌ Failed to cache users:', err);
+      console.error('❌ Failed to load users:', err);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount
+  }, []);
 
   // ============================================
-  // FILTER HANDLERS
+  // FILTERED DATA
   // ============================================
 
-  const handleFilter = useCallback((filters) => {
-    console.log('🔍 Search clicked with filters:', filters);
+  const filteredUsers = useMemo(() => {
+    console.log('🔍 Filtering users...');
+    console.log('   Total users:', users.length);
+    console.log('   Active tab:', activeTab);
+    console.log('   Search:', searchQuery);
+    console.log('   Role filter:', roleFilter);
 
-    // Normalize filters - ensure is_active defaults to 'true'
-    const normalizedFilters = {
-      role: filters.role || '',
-      school: filters.school || '',
-      is_active: filters.is_active !== undefined ? filters.is_active : 'true', // Default active
-      search: filters.search || '',
+    return users.filter(user => {
+      // Exclude students (they have their own management page)
+      if (user.role === 'Student') {
+        return false;
+      }
+
+      // Tab filter (active/inactive)
+      const isActive = user.is_active;
+      if (activeTab === 'active' && !isActive) return false;
+      if (activeTab === 'inactive' && isActive) return false;
+
+      // Role quick filter
+      if (roleFilter && user.role !== roleFilter) {
+        return false;
+      }
+
+      // Search filter
+      if (searchQuery && searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          (user.username && user.username.toLowerCase().includes(query)) ||
+          (user.email && user.email.toLowerCase().includes(query)) ||
+          (user.first_name && user.first_name.toLowerCase().includes(query)) ||
+          (user.last_name && user.last_name.toLowerCase().includes(query));
+
+        if (!matchesSearch) return false;
+      }
+
+      return true;
+    });
+  }, [users, activeTab, searchQuery, roleFilter]);
+
+  // Count inactive users for tab badge
+  const inactiveCount = useMemo(() => {
+    return users.filter(u => !u.is_active && u.role !== 'Student').length;
+  }, [users]);
+
+  // Group users by role when "All" filter is selected
+  const groupedUsers = useMemo(() => {
+    if (roleFilter !== '') {
+      // If a specific role is selected, don't group
+      return null;
+    }
+
+    const groups = {
+      Admin: [],
+      Teacher: [],
+      BDM: [],
     };
 
-    console.log('🔍 Normalized filters:', normalizedFilters);
-
-    // Update filters and enable display (client-side filtering via useMemo)
-    setCurrentFilters(normalizedFilters);
-    setHasSearched(true);
-
-    console.log('🔍 Client-side filtering applied');
-  }, []);
-
-  // Reset handler - clears display but keeps cache
-  const handleReset = useCallback(() => {
-    console.log('🔄 Reset clicked - clearing display and filters');
-
-    // Reset filters to defaults
-    setCurrentFilters({
-      role: '',
-      school: '',
-      is_active: 'true',
-      search: '',
+    filteredUsers.forEach(user => {
+      if (groups[user.role]) {
+        groups[user.role].push(user);
+      }
     });
 
-    // Hide the results (cache remains intact)
-    setHasSearched(false);
+    return groups;
+  }, [filteredUsers, roleFilter]);
 
-    console.log('✅ Filters reset, display cleared');
-  }, []);
+  // Calculate total salaries for filtered users
+  const totalSalaries = useMemo(() => {
+    return filteredUsers.reduce((sum, user) => {
+      return sum + (user.basic_salary || 0);
+    }, 0);
+  }, [filteredUsers]);
 
   // ============================================
   // USER ACTIONS
@@ -164,13 +197,11 @@ function SettingsPage() {
   }, []);
 
   const handleEdit = useCallback((user) => {
-    // If user is passed, we're editing from the table
     if (user) {
       setSelectedUser(user);
       setIsViewing(true);
       setIsEditing(true);
     } else {
-      // If no user passed, we're switching from view to edit mode
       setIsEditing(true);
     }
   }, []);
@@ -202,102 +233,73 @@ function SettingsPage() {
 
       toast.success('✅ User updated successfully!');
 
-      // Update selectedUser state
       setSelectedUser(updatedUser);
       setIsEditing(false);
 
-      // Refresh the list if search has been performed
-      if (hasSearched) {
-        fetchUsers(currentFilters);
-      }
-
-      // Refresh stats
+      // Refresh users and stats
+      fetchUsers({});
       fetchStats();
     } catch (error) {
       console.error('❌ Error updating user:', error);
-      const errorMsg = error.response?.data?.error || 
-                      JSON.stringify(error.response?.data) || 
+      const errorMsg = error.response?.data?.error ||
+                      JSON.stringify(error.response?.data) ||
                       'Failed to update user';
       toast.error(`⚠️ ${errorMsg}`);
       throw error;
     }
-  }, [selectedUser, updateUser, hasSearched, currentFilters, fetchUsers, fetchStats]);
+  }, [selectedUser, updateUser, fetchUsers, fetchStats]);
 
   // ============================================
   // CREATE USER HANDLER
   // ============================================
 
-  // frontend/src/pages/SettingsPage.js
-// UPDATE YOUR handleCreateUser FUNCTION WITH THIS:
-
-  // ============================================
-// CORRECTED handleCreateUser FUNCTION
-// Place this INSIDE your SettingsPage component (after line 195)
-// ============================================
-
   const handleCreateUser = async (userData) => {
     try {
       console.log('📤 Creating user with data:', userData);
-      
+
       const result = await createUser(userData);
-      
+
       console.log('✅ User created successfully:', result);
-      
-      // Show success message
+
       toast.success('✅ User created successfully!');
-      
-      // Show email status if email was requested
+
       if (userData.send_email && result.email_sent) {
         toast.success(`📧 Welcome email sent to ${userData.email}`);
       } else if (userData.send_email && !result.email_sent) {
         toast.warning('⚠️ User created but email failed to send');
-        if (result.email_error) {
-          console.error('Email error:', result.email_error);
-        }
       }
-      
-      // Refresh users list
+
       await fetchUsers({});
-      
-      // Close modal - FIXED: was setIsCreatingUser, now setIsCreating
       setIsCreating(false);
-      
+
     } catch (error) {
       console.error('❌ Error creating user:', error);
-      
-      // Check if we have validation errors from backend
+
       if (error.response && error.response.data) {
         const errorData = error.response.data;
-        console.log('Backend validation errors:', errorData);
-        
-        // Display each field error to user
+
         if (typeof errorData === 'object' && !Array.isArray(errorData)) {
           Object.keys(errorData).forEach(fieldName => {
             const fieldErrors = errorData[fieldName];
-            
-            // Handle array of error messages
+
             if (Array.isArray(fieldErrors)) {
               fieldErrors.forEach(errorMsg => {
-                // Make field name user-friendly
                 const displayName = fieldName
                   .replace(/_/g, ' ')
                   .replace(/\b\w/g, l => l.toUpperCase());
-                
+
                 toast.error(`${displayName}: ${errorMsg}`);
               });
             } else {
-              // Single error message
               toast.error(`${fieldName}: ${fieldErrors}`);
             }
           });
         } else if (errorData.error) {
-          // Generic error message
           toast.error(errorData.error);
         } else {
           toast.error('Failed to create user');
         }
       } else {
-        // Network error or other error
         toast.error('Failed to create user. Please try again.');
       }
     }
@@ -325,25 +327,18 @@ function SettingsPage() {
 
       toast.success('✅ Schools assigned successfully!');
 
-      // Close modal
       setIsAssigningSchools(false);
       setSelectedUser(null);
 
-      // Refresh the list if search has been performed
-      if (hasSearched) {
-        fetchUsers(currentFilters);
-      }
-
-      // Refresh stats
+      fetchUsers({});
       fetchStats();
     } catch (error) {
       console.error('❌ Error assigning schools:', error);
-      const errorMsg = error.response?.data?.error || 
-                      'Failed to assign schools';
+      const errorMsg = error.response?.data?.error || 'Failed to assign schools';
       toast.error(`⚠️ ${errorMsg}`);
       throw error;
     }
-  }, [selectedUser, assignSchools, hasSearched, currentFilters, fetchUsers, fetchStats]);
+  }, [selectedUser, assignSchools, fetchUsers, fetchStats]);
 
   // ============================================
   // RESET PASSWORD HANDLER
@@ -363,19 +358,17 @@ function SettingsPage() {
 
       toast.success('✅ Password reset successfully!');
 
-      // Return the result (which contains new_password)
       return result;
     } catch (error) {
       console.error('❌ Error resetting password:', error);
-      const errorMsg = error.response?.data?.error || 
-                      'Failed to reset password';
+      const errorMsg = error.response?.data?.error || 'Failed to reset password';
       toast.error(`⚠️ ${errorMsg}`);
       throw error;
     }
   }, [selectedUser, resetPassword]);
 
   // ============================================
-  // DELETE HANDLERS
+  // DEACTIVATE/REACTIVATE HANDLERS
   // ============================================
 
   const openDeleteConfirm = useCallback((user) => {
@@ -396,16 +389,14 @@ function SettingsPage() {
       setDeleteConfirm({ isOpen: false, userId: null, userName: '' });
       toast.success('✅ User deactivated successfully!');
 
-      // Refresh the list
-      if (hasSearched) {
-        fetchUsers(currentFilters);
-      }
+      fetchUsers({});
+      fetchStats();
     } catch (error) {
       console.error('❌ Error deactivating user:', error);
       const errorMsg = error.response?.data?.error || 'Failed to deactivate user';
       toast.error(`⚠️ ${errorMsg}`);
     }
-  }, [deleteConfirm.userId, deactivateUser, hasSearched, currentFilters, fetchUsers]);
+  }, [deleteConfirm.userId, deactivateUser, fetchUsers, fetchStats]);
 
   const cancelDelete = useCallback(() => {
     if (!loading.delete) {
@@ -413,77 +404,28 @@ function SettingsPage() {
     }
   }, [loading.delete]);
 
-  // ============================================
-  // FILTERED DATA
-  // ============================================
+  const handleReactivate = useCallback(async (user) => {
+    setReactivatingId(user.id);
+    try {
+      if (reactivateUser) {
+        await reactivateUser(user.id);
+      } else {
+        // Fallback: use updateUser to set is_active to true
+        await updateUser(user.id, { is_active: true });
+      }
+      console.log('✅ User reactivated successfully');
+      toast.success('✅ User reactivated successfully!');
 
-  // ============================================
-  // CLIENT-SIDE FILTERING
-  // ============================================
-
-  const filteredUsers = useMemo(() => {
-    if (!hasSearched) {
-      return [];
+      fetchUsers({});
+      fetchStats();
+    } catch (error) {
+      console.error('❌ Error reactivating user:', error);
+      const errorMsg = error.response?.data?.error || 'Failed to reactivate user';
+      toast.error(`⚠️ ${errorMsg}`);
+    } finally {
+      setReactivatingId(null);
     }
-
-    console.log('🔍 Filtering users client-side...');
-    console.log('   Total users:', users.length);
-    console.log('   Filters:', currentFilters);
-
-    return users.filter(user => {
-      // ALWAYS exclude students (they have their own management page)
-      if (user.role === 'Student') {
-        return false;
-      }
-
-      // Role filter
-      if (currentFilters.role && currentFilters.role !== '') {
-        if (user.role !== currentFilters.role) {
-          return false;
-        }
-      }
-
-      // School filter (check if user has this school assigned)
-      if (currentFilters.school && currentFilters.school !== '') {
-        const schoolId = Number(currentFilters.school);
-        if (!user.assigned_schools || !Array.isArray(user.assigned_schools)) {
-          return false;
-        }
-        // Check if school ID is in assigned_schools
-        const hasSchool = user.assigned_schools.some(s => {
-          const sId = typeof s === 'object' ? s.id : s;
-          return Number(sId) === schoolId;
-        });
-        if (!hasSchool) {
-          return false;
-        }
-      }
-
-      // Status filter
-      if (currentFilters.is_active !== '' && currentFilters.is_active !== null && currentFilters.is_active !== undefined) {
-        const filterActive = currentFilters.is_active === 'true' || currentFilters.is_active === true;
-        if (user.is_active !== filterActive) {
-          return false;
-        }
-      }
-
-      // Search filter (username, email, first_name, last_name)
-      if (currentFilters.search && currentFilters.search !== '') {
-        const searchLower = currentFilters.search.toLowerCase();
-        const matchesSearch = 
-          (user.username && user.username.toLowerCase().includes(searchLower)) ||
-          (user.email && user.email.toLowerCase().includes(searchLower)) ||
-          (user.first_name && user.first_name.toLowerCase().includes(searchLower)) ||
-          (user.last_name && user.last_name.toLowerCase().includes(searchLower));
-        
-        if (!matchesSearch) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [users, hasSearched, currentFilters]);
+  }, [reactivateUser, updateUser, fetchUsers, fetchStats]);
 
   // ============================================
   // RENDER
@@ -505,242 +447,256 @@ function SettingsPage() {
         <UserStatsCards
           stats={stats}
           filteredCount={filteredUsers.length}
-          hasSearched={hasSearched}
+          hasSearched={true}
           isLoading={loading.stats}
+          totalSalaries={totalSalaries}
         />
 
         {/* Error Display */}
         {error && (
           <ErrorDisplay
             error={error}
-            onRetry={() => fetchUsers(currentFilters)}
+            onRetry={() => fetchUsers({})}
             isRetrying={loading.users}
             onDismiss={clearError}
           />
         )}
 
-        {/* Filter Bar */}
-        <UserFilterBar
-          onFilter={handleFilter}
-          onReset={handleReset}
-          roles={roles}
-          schools={schools}
-          additionalActions={
+        {/* Search and Tabs Section */}
+        <div style={pageStyles.filterSection}>
+          {/* Tabs */}
+          <div style={pageStyles.tabsContainer}>
+            <button
+              style={{
+                ...pageStyles.tab,
+                ...(activeTab === 'active' ? pageStyles.tabActive : {}),
+              }}
+              onClick={() => setActiveTab('active')}
+            >
+              Active Users
+            </button>
+            <button
+              style={{
+                ...pageStyles.tab,
+                ...(activeTab === 'inactive' ? pageStyles.tabActive : {}),
+              }}
+              onClick={() => setActiveTab('inactive')}
+            >
+              Inactive Users
+              {inactiveCount > 0 && (
+                <span style={pageStyles.tabBadge}>{inactiveCount}</span>
+              )}
+            </button>
+          </div>
+
+          {/* Search and Actions Row */}
+          <div style={pageStyles.searchRow}>
+            {/* Search Input */}
+            <div style={pageStyles.searchContainer}>
+              <span style={pageStyles.searchIcon}>🔍</span>
+              <input
+                type="text"
+                placeholder="Search by name, username, or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={pageStyles.searchInput}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  style={pageStyles.clearButton}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Role Filter Chips */}
+            <div style={pageStyles.filterChips}>
+              <button
+                style={{
+                  ...pageStyles.chip,
+                  ...(roleFilter === '' ? pageStyles.chipActive : {}),
+                }}
+                onClick={() => setRoleFilter('')}
+              >
+                All
+              </button>
+              <button
+                style={{
+                  ...pageStyles.chip,
+                  ...(roleFilter === 'Admin' ? pageStyles.chipActive : {}),
+                  ...(roleFilter === 'Admin' ? { backgroundColor: 'rgba(139, 92, 246, 0.3)', borderColor: 'rgba(139, 92, 246, 0.5)' } : {}),
+                }}
+                onClick={() => setRoleFilter(roleFilter === 'Admin' ? '' : 'Admin')}
+              >
+                👑 Admins
+              </button>
+              <button
+                style={{
+                  ...pageStyles.chip,
+                  ...(roleFilter === 'Teacher' ? pageStyles.chipActive : {}),
+                  ...(roleFilter === 'Teacher' ? { backgroundColor: 'rgba(245, 158, 11, 0.3)', borderColor: 'rgba(245, 158, 11, 0.5)' } : {}),
+                }}
+                onClick={() => setRoleFilter(roleFilter === 'Teacher' ? '' : 'Teacher')}
+              >
+                📚 Teachers
+              </button>
+              <button
+                style={{
+                  ...pageStyles.chip,
+                  ...(roleFilter === 'BDM' ? pageStyles.chipActive : {}),
+                  ...(roleFilter === 'BDM' ? { backgroundColor: 'rgba(16, 185, 129, 0.3)', borderColor: 'rgba(16, 185, 129, 0.5)' } : {}),
+                }}
+                onClick={() => setRoleFilter(roleFilter === 'BDM' ? '' : 'BDM')}
+              >
+                💼 BDM
+              </button>
+            </div>
+
+            {/* Add User Button */}
             <Button onClick={handleCreate} variant="primary">
               ➕ Add New User
             </Button>
-          }
-        />
+          </div>
+        </div>
 
-        {/* Users Table */}
-        <DataTable
-          data={filteredUsers}
-          loading={loading.users}
-          columns={[
-            {
-              key: 'id',
-              label: 'ID',
-              sortable: true,
-              width: '80px',
-            },
-            {
-              key: 'username',
-              label: 'Username',
-              sortable: true,
-            },
-            {
-              key: 'name',
-              label: 'Name',
-              sortable: true,
-              render: (_, user) => `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A',
-            },
-            {
-              key: 'email',
-              label: 'Email',
-              sortable: true,
-              render: (value) => value || 'N/A',
-            },
-            {
-              key: 'role',
-              label: 'Role',
-              sortable: true,
-              align: 'center',
-              render: (value) => {
-                const colors = {
-                  Admin: '#8B5CF6',
-                  Teacher: '#F59E0B',
-                  Student: '#3B82F6',
-                };
-                return (
-                  <span
-                    style={{
-                      backgroundColor: colors[value] || '#6B7280',
-                      color: 'white',
-                      padding: '0.25rem 0.75rem',
-                      borderRadius: '9999px',
-                      fontSize: '0.75rem',
-                      fontWeight: '600',
-                    }}
-                  >
-                    {value}
+        {/* Users Grid */}
+        {loading.users ? (
+          <div style={pageStyles.loadingContainer}>
+            <div style={pageStyles.loadingSpinner}>⏳</div>
+            <p style={pageStyles.loadingText}>Loading users...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div style={pageStyles.emptyContainer}>
+            <div style={pageStyles.emptyIcon}>
+              {activeTab === 'inactive' ? '👻' : '👤'}
+            </div>
+            <p style={pageStyles.emptyText}>
+              {searchQuery || roleFilter
+                ? 'No users found matching your filters.'
+                : activeTab === 'inactive'
+                  ? 'No inactive users.'
+                  : 'No users found.'}
+            </p>
+            {(searchQuery || roleFilter) && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSearchQuery('');
+                  setRoleFilter('');
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        ) : groupedUsers ? (
+          // Grouped view when "All" filter is selected
+          <div style={pageStyles.groupedContainer}>
+            {/* Admins Section */}
+            {groupedUsers.Admin.length > 0 && (
+              <div style={pageStyles.roleSection}>
+                <div style={pageStyles.roleSectionHeader}>
+                  <span style={{ ...pageStyles.roleSectionTitle, color: '#A78BFA' }}>
+                    👑 Admins ({groupedUsers.Admin.length})
                   </span>
-                );
-              },
-            },
-            {
-              key: 'assigned_schools_count',
-              label: 'Schools',
-              sortable: true,
-              align: 'center',
-              render: (value, user) => {
-                if (user.role !== 'Teacher') return '-';
-                return value || 0;
-              },
-            },
-            {
-              key: 'is_active',
-              label: 'Status',
-              sortable: true,
-              align: 'center',
-              render: (value) => (
-                <span
-                  style={{
-                    backgroundColor: value ? '#ECFDF5' : '#FEF2F2',
-                    color: value ? '#10B981' : '#EF4444',
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: '9999px',
-                    fontSize: '0.75rem',
-                    fontWeight: '600',
-                  }}
-                >
-                  {value ? 'Active' : 'Inactive'}
-                </span>
-              ),
-            },
-            {
-              key: 'actions',
-              label: 'Actions',
-              sortable: false,
-              align: 'center',
-              render: (_, user) => (
-                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => handleViewDetails(user)}
-                    style={{
-                      backgroundColor: '#3B82F6',
-                      color: 'white',
-                      padding: '0.375rem 0.75rem',
-                      borderRadius: '0.375rem',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.target.style.backgroundColor = '#2563EB')}
-                    onMouseLeave={(e) => (e.target.style.backgroundColor = '#3B82F6')}
-                    title="View Details"
-                  >
-                    👁️
-                  </button>
-                  <button
-                    onClick={() => handleEdit(user)}
-                    style={{
-                      backgroundColor: '#10B981',
-                      color: 'white',
-                      padding: '0.375rem 0.75rem',
-                      borderRadius: '0.375rem',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.target.style.backgroundColor = '#059669')}
-                    onMouseLeave={(e) => (e.target.style.backgroundColor = '#10B981')}
-                    title="Edit User"
-                  >
-                    ✏️
-                  </button>
-                  {user.role === 'Teacher' && (
-                    <button
-                      onClick={() => handleAssignSchools(user)}
-                      style={{
-                        backgroundColor: '#F59E0B',
-                        color: 'white',
-                        padding: '0.375rem 0.75rem',
-                        borderRadius: '0.375rem',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '0.875rem',
-                        fontWeight: '500',
-                        transition: 'background-color 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => (e.target.style.backgroundColor = '#D97706')}
-                      onMouseLeave={(e) => (e.target.style.backgroundColor = '#F59E0B')}
-                      title="Assign Schools"
-                    >
-                      🏫
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleResetPassword(user)}
-                    style={{
-                      backgroundColor: '#8B5CF6',
-                      color: 'white',
-                      padding: '0.375rem 0.75rem',
-                      borderRadius: '0.375rem',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.target.style.backgroundColor = '#7C3AED')}
-                    onMouseLeave={(e) => (e.target.style.backgroundColor = '#8B5CF6')}
-                    title="Reset Password"
-                  >
-                    🔑
-                  </button>
-                  {!user.is_super_admin && (
-                    <button
-                      onClick={() => openDeleteConfirm(user)}
-                      disabled={loading.delete}
-                      style={{
-                        backgroundColor: loading.delete ? '#9CA3AF' : '#DC2626',
-                        color: 'white',
-                        padding: '0.375rem 0.75rem',
-                        borderRadius: '0.375rem',
-                        border: 'none',
-                        cursor: loading.delete ? 'not-allowed' : 'pointer',
-                        fontSize: '0.875rem',
-                        fontWeight: '500',
-                        transition: 'background-color 0.15s ease',
-                        opacity: loading.delete ? 0.6 : 1,
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!loading.delete) e.target.style.backgroundColor = '#B91C1C';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!loading.delete) e.target.style.backgroundColor = '#DC2626';
-                      }}
-                      title="Deactivate User"
-                    >
-                      🗑️
-                    </button>
-                  )}
+                  <div style={{ ...pageStyles.roleSectionLine, backgroundColor: 'rgba(139, 92, 246, 0.3)' }} />
                 </div>
-              ),
-            },
-          ]}
-          emptyMessage={
-            hasSearched
-              ? 'No users found. Try adjusting your filters.'
-              : 'Select filters and click Search to view users.'
-          }
-          striped
-          hoverable
-        />
+                <div style={pageStyles.cardsGrid}>
+                  {groupedUsers.Admin.map(user => (
+                    <UserCard
+                      key={user.id}
+                      user={user}
+                      onView={handleViewDetails}
+                      onEdit={handleEdit}
+                      onAssignSchools={handleAssignSchools}
+                      onResetPassword={handleResetPassword}
+                      onDeactivate={openDeleteConfirm}
+                      onReactivate={handleReactivate}
+                      isInactive={activeTab === 'inactive'}
+                      isReactivating={reactivatingId === user.id}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Teachers Section */}
+            {groupedUsers.Teacher.length > 0 && (
+              <div style={pageStyles.roleSection}>
+                <div style={pageStyles.roleSectionHeader}>
+                  <span style={{ ...pageStyles.roleSectionTitle, color: '#FBBF24' }}>
+                    📚 Teachers ({groupedUsers.Teacher.length})
+                  </span>
+                  <div style={{ ...pageStyles.roleSectionLine, backgroundColor: 'rgba(245, 158, 11, 0.3)' }} />
+                </div>
+                <div style={pageStyles.cardsGrid}>
+                  {groupedUsers.Teacher.map(user => (
+                    <UserCard
+                      key={user.id}
+                      user={user}
+                      onView={handleViewDetails}
+                      onEdit={handleEdit}
+                      onAssignSchools={handleAssignSchools}
+                      onResetPassword={handleResetPassword}
+                      onDeactivate={openDeleteConfirm}
+                      onReactivate={handleReactivate}
+                      isInactive={activeTab === 'inactive'}
+                      isReactivating={reactivatingId === user.id}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* BDM Section */}
+            {groupedUsers.BDM.length > 0 && (
+              <div style={pageStyles.roleSection}>
+                <div style={pageStyles.roleSectionHeader}>
+                  <span style={{ ...pageStyles.roleSectionTitle, color: '#34D399' }}>
+                    💼 BDM ({groupedUsers.BDM.length})
+                  </span>
+                  <div style={{ ...pageStyles.roleSectionLine, backgroundColor: 'rgba(16, 185, 129, 0.3)' }} />
+                </div>
+                <div style={pageStyles.cardsGrid}>
+                  {groupedUsers.BDM.map(user => (
+                    <UserCard
+                      key={user.id}
+                      user={user}
+                      onView={handleViewDetails}
+                      onEdit={handleEdit}
+                      onAssignSchools={handleAssignSchools}
+                      onResetPassword={handleResetPassword}
+                      onDeactivate={openDeleteConfirm}
+                      onReactivate={handleReactivate}
+                      isInactive={activeTab === 'inactive'}
+                      isReactivating={reactivatingId === user.id}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Flat view when a specific role filter is selected
+          <div style={pageStyles.cardsGrid}>
+            {filteredUsers.map(user => (
+              <UserCard
+                key={user.id}
+                user={user}
+                onView={handleViewDetails}
+                onEdit={handleEdit}
+                onAssignSchools={handleAssignSchools}
+                onResetPassword={handleResetPassword}
+                onDeactivate={openDeleteConfirm}
+                onReactivate={handleReactivate}
+                isInactive={activeTab === 'inactive'}
+                isReactivating={reactivatingId === user.id}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Delete Confirmation Modal */}
         <ConfirmationModal
@@ -832,20 +788,182 @@ const getPageStyles = (isMobile) => ({
     borderRadius: BORDER_RADIUS.xl,
     transition: `all ${TRANSITIONS.normal}`,
   },
-  pageHeader: {
-    marginBottom: SPACING['2xl'],
+
+  // Filter Section
+  filterSection: {
+    marginBottom: SPACING.xl,
+  },
+
+  // Tabs
+  tabsContainer: {
+    display: 'flex',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    paddingBottom: SPACING.md,
+  },
+  tab: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    borderRadius: BORDER_RADIUS.md,
+    transition: `all ${TRANSITIONS.fast}`,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+  },
+  tabBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.3)',
+    color: '#f87171',
+    padding: `2px ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.full,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+
+  // Search Row
+  searchRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+    alignItems: 'center',
+  },
+  searchContainer: {
+    flex: 1,
+    minWidth: isMobile ? '100%' : '280px',
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: SPACING.md,
+    fontSize: FONT_SIZES.md,
+    pointerEvents: 'none',
+  },
+  searchInput: {
+    width: '100%',
+    padding: `${SPACING.md} ${SPACING.xl}`,
+    paddingLeft: '44px',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.lg,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    outline: 'none',
+    transition: `all ${TRANSITIONS.fast}`,
+  },
+  clearButton: {
+    position: 'absolute',
+    right: SPACING.md,
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: COLORS.text.whiteSubtle,
+    cursor: 'pointer',
+    padding: SPACING.xs,
+    fontSize: FONT_SIZES.sm,
+  },
+
+  // Filter Chips
+  filterChips: {
+    display: 'flex',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+  chip: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.full,
+    color: COLORS.text.whiteMedium,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast}`,
+  },
+  chipActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    color: COLORS.text.white,
+  },
+
+  // Cards Grid
+  cardsGrid: {
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: isMobile ? SPACING.md : SPACING.xl,
+  },
+
+  // Grouped Container (when All filter is selected)
+  groupedContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING['2xl'],
+  },
+  roleSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.lg,
+  },
+  roleSectionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  roleSectionTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    whiteSpace: 'nowrap',
+  },
+  roleSectionLine: {
+    flex: 1,
+    height: '1px',
+  },
+
+  // Loading State
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING['3xl'],
+  },
+  loadingSpinner: {
+    fontSize: '48px',
+    animation: 'spin 1s linear infinite',
+  },
+  loadingText: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.md,
+    marginTop: SPACING.md,
+  },
+
+  // Empty State
+  emptyContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING['3xl'],
     textAlign: 'center',
   },
-  pageTitle: {
-    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
-    fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.text.white,
-    marginBottom: SPACING.sm,
+  emptyIcon: {
+    fontSize: '64px',
+    marginBottom: SPACING.lg,
+    opacity: 0.5,
   },
-  pageSubtitle: {
-    fontSize: isMobile ? FONT_SIZES.md : FONT_SIZES.lg,
+  emptyText: {
     color: COLORS.text.whiteSubtle,
-    margin: 0,
+    fontSize: FONT_SIZES.md,
+    marginBottom: SPACING.lg,
   },
 });
 

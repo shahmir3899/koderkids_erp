@@ -414,7 +414,9 @@ useEffect(() => {
     teacherName={teacherName}
   />
 </CollapsibleSection>
-         <HoverCard style={styles.monthSelectorWrapper}>
+        {/* Student Reports */}
+        <CollapsibleSection title="👨‍🎓 Student Reports">
+          <HoverCard style={styles.monthSelectorWrapper}>
             <span style={styles.monthLabel}>Select Month</span>
             <MonthFilter
               value={selectedMonth}
@@ -422,8 +424,6 @@ useEffect(() => {
               defaultToCurrent
             />
           </HoverCard>
-        {/* Student Reports */}
-        <CollapsibleSection title="👨‍🎓 Student Reports">
           <FilterBar
             onFilter={(data) => fetchStudentData({ 
               ...data, 
@@ -520,13 +520,13 @@ const getStyles = (isMobile) => ({
   completionSection: {
     display: 'flex',
     flexDirection: isMobile ? 'column' : 'row',
-    justifyContent: isMobile ? 'center' : 'space-between',
+    justifyContent: isMobile ? 'center' : 'space-around',
     alignItems: 'center',
-    gap: isMobile ? SPACING.lg : 0,
+    gap: isMobile ? SPACING.lg : SPACING.xl,
     padding: isMobile ? SPACING.lg : SPACING.xl,
     ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.lg,
-    maxWidth: '900px',
+    width: '100%',
     marginBottom: isMobile ? SPACING.lg : SPACING.xl,
   },
   lessonScheduleHeader: {

@@ -75,6 +75,7 @@ export const PROFILE_HEADER_CONFIG = {
     features: {
       showNotifications: true,
       showMessages: true,
+      showTasks: true,  // Task dropdown in header
       showSettings: true,
       showLogout: true,
       showSmallAvatar: true,
@@ -154,11 +155,12 @@ export const PROFILE_HEADER_CONFIG = {
     features: {
       showNotifications: false,
       showMessages: false,
+      showTasks: false,  // Admin accesses tasks from sidebar
       showSettings: true,
       showLogout: true,
       showSmallAvatar: true,
     },
-    
+
     // Theme
     colors: {
       accent: '#FBBF24', // Golden Yellow for name
@@ -169,7 +171,7 @@ export const PROFILE_HEADER_CONFIG = {
     // Avatar
     avatarSize: 101,
     avatarFallback: '/images/admin-avatar.jpg',
-    
+
     // Modal
     settingsModal: 'AdminSettingsModal',
   },
@@ -227,11 +229,12 @@ export const PROFILE_HEADER_CONFIG = {
     features: {
       showNotifications: false,
       showMessages: false,
+      showTasks: false,  // Students don't have tasks
       showSettings: true,
       showLogout: true,
       showSmallAvatar: true,
     },
-    
+
     // Theme
     colors: {
       accent: '#FBBF24', // Golden Yellow for name
@@ -242,7 +245,7 @@ export const PROFILE_HEADER_CONFIG = {
     // Avatar
     avatarSize: 101,
     avatarFallback: '/images/student-avatar.jpg',
-    
+
     // Modal
     settingsModal: 'StudentSettingsModal',
   },
@@ -306,6 +309,7 @@ export const PROFILE_HEADER_CONFIG = {
     features: {
       showNotifications: false,
       showMessages: false,
+      showTasks: true,  // Task dropdown in header
       showSettings: true,
       showLogout: true,
       showSmallAvatar: true,

@@ -251,12 +251,31 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         Filter queryset based on query parameters
         """
-        # Get Admins, Teachers, and BDMs (excluding Students)
-        queryset = CustomUser.objects.filter(
-            role__in=['Admin', 'Teacher', 'BDM']
-        ).select_related(
-            'created_by', 'updated_by'
-        ).prefetch_related('assigned_schools')
+        # Import here to avoid circular imports
+        from django.db.models import Prefetch
+        try:
+            from employees.models import TeacherProfile
+            # Get Admins, Teachers, and BDMs (excluding Students)
+            # Prefetch TeacherProfile to avoid N+1 queries
+            queryset = CustomUser.objects.filter(
+                role__in=['Admin', 'Teacher', 'BDM']
+            ).select_related(
+                'created_by', 'updated_by'
+            ).prefetch_related(
+                'assigned_schools',
+                Prefetch(
+                    'teacher_profile',
+                    queryset=TeacherProfile.objects.all(),
+                    to_attr='_prefetched_profile'
+                )
+            )
+        except ImportError:
+            # Fallback if TeacherProfile not available
+            queryset = CustomUser.objects.filter(
+                role__in=['Admin', 'Teacher', 'BDM']
+            ).select_related(
+                'created_by', 'updated_by'
+            ).prefetch_related('assigned_schools')
 
         # Filter by role
         role = self.request.query_params.get('role', None)

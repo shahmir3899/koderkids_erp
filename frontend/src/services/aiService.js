@@ -73,11 +73,21 @@ export const executeAICommand = async ({ message, agent, context = {}, conversat
  * @param {boolean} confirmed - true to confirm, false to cancel
  * @returns {Promise<Object>} Confirmation result
  */
-export const confirmAIAction = async (confirmationToken, confirmed = true) => {
+export const confirmAIAction = async (confirmationToken, confirmed = true, editedParams = null) => {
     try {
+        const payload = {
+            confirmation_token: confirmationToken,
+            confirmed
+        };
+
+        // Include edited params if provided (for task editing before confirm)
+        if (editedParams && Object.keys(editedParams).length > 0) {
+            payload.edited_params = editedParams;
+        }
+
         const response = await silentAxios.post(
             '/api/ai/confirm/',
-            { confirmation_token: confirmationToken, confirmed },
+            payload,
             { headers: getAuthHeaders() }
         );
         return response.data;
@@ -268,6 +278,24 @@ export const buildBroadcastContext = (schools = [], groups = []) => {
     };
 };
 
+/**
+ * Build context object for task agent
+ * @param {Array} employees - List of employees (teachers + admins)
+ * @returns {Object} Context for AI
+ */
+export const buildTaskContext = (employees = []) => {
+    const now = new Date();
+    return {
+        current_date: now.toISOString().split('T')[0],
+        employees: employees.slice(0, 50).map(e => ({
+            id: e.id,
+            name: e.name || e.username || `Employee ${e.id}`,
+            role: e.role || 'Employee',
+            employee_id: e.employee_id
+        }))
+    };
+};
+
 export default {
     checkAIHealth,
     executeAICommand,
@@ -278,5 +306,6 @@ export default {
     buildFeeContext,
     buildInventoryContext,
     buildHRContext,
-    buildBroadcastContext
+    buildBroadcastContext,
+    buildTaskContext
 };

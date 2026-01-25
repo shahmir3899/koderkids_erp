@@ -129,6 +129,9 @@ class ActionExecutor:
             'SEND_TO_CLASS_PARENTS': self._execute_broadcast_class,
             'SEND_TO_ALL_PARENTS': self._execute_broadcast_all_parents,
             'SEND_TO_TEACHERS': self._execute_broadcast_teachers,
+
+            # Task actions
+            'CREATE_TASK': self._execute_create_task,
         }
 
         executor_fn = executors.get(action_name)
@@ -2273,3 +2276,110 @@ class ActionExecutor:
             'message': params.get('message'),
             'school_id': params.get('school_id')
         }, {})
+
+    # ============================================
+    # TASK EXECUTORS
+    # ============================================
+
+    def _execute_create_task(self, params: Dict) -> Dict:
+        """Create a task and assign to an employee."""
+        import logging
+        from datetime import datetime
+        from django.contrib.auth import get_user_model
+        from tasks.models import Task
+
+        logger = logging.getLogger(__name__)
+        User = get_user_model()
+
+        logger.info(f"Executing CREATE_TASK with params: {params}")
+
+        employee_id = params.get('employee_id')
+        task_description = params.get('task_description')
+        due_date_str = params.get('due_date')
+        priority = params.get('priority', 'medium')
+        task_type = params.get('task_type', 'administrative')
+        title = params.get('title')
+
+        # Validate employee exists
+        try:
+            employee = User.objects.get(id=employee_id, is_active=True)
+        except User.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Employee with ID {employee_id} not found.",
+                "data": None,
+                "error": "Employee not found"
+            }
+
+        # Parse due date
+        try:
+            if isinstance(due_date_str, str):
+                # Try parsing common formats
+                for fmt in ['%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M']:
+                    try:
+                        due_date = datetime.strptime(due_date_str.split('T')[0], '%Y-%m-%d')
+                        break
+                    except ValueError:
+                        continue
+                else:
+                    due_date = datetime.now()
+            else:
+                due_date = due_date_str
+        except Exception as e:
+            logger.error(f"Error parsing due_date: {e}")
+            due_date = datetime.now()
+
+        # Generate title from description if not provided
+        if not title:
+            # Take first 50 chars or first sentence
+            title = task_description[:50]
+            if '.' in title:
+                title = title.split('.')[0]
+            if len(task_description) > 50:
+                title += '...'
+
+        # Validate priority and task_type
+        valid_priorities = ['low', 'medium', 'high', 'urgent']
+        valid_types = ['general', 'academic', 'administrative']
+
+        if priority not in valid_priorities:
+            priority = 'medium'
+        if task_type not in valid_types:
+            task_type = 'administrative'
+
+        try:
+            task = Task.objects.create(
+                title=title,
+                description=task_description,
+                assigned_to=employee,
+                assigned_by=self.user,
+                due_date=due_date,
+                priority=priority,
+                task_type=task_type,
+                status='pending'
+            )
+
+            employee_name = employee.get_full_name() or employee.username
+
+            return {
+                "success": True,
+                "message": f"Task created and assigned to {employee_name}.\n\n📋 **{title}**\n📅 Due: {due_date.strftime('%b %d, %Y')}\n⚡ Priority: {priority.capitalize()}",
+                "data": {
+                    "task_id": task.id,
+                    "title": task.title,
+                    "description": task.description,
+                    "assigned_to": employee_name,
+                    "assigned_to_id": employee.id,
+                    "due_date": due_date.strftime('%Y-%m-%d'),
+                    "priority": priority,
+                    "task_type": task_type
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error creating task: {e}")
+            return {
+                "success": False,
+                "message": f"Failed to create task: {str(e)}",
+                "data": None,
+                "error": str(e)
+            }

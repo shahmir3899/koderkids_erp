@@ -1,5 +1,6 @@
 // ============================================
 // USE USERS HOOK - STATE MANAGEMENT FOR USER MANAGEMENT
+// With localStorage caching for performance
 // ============================================
 
 import { useState, useCallback, useEffect } from 'react';
@@ -14,6 +15,12 @@ import {
   fetchUserStats as fetchUserStatsAPI,
   fetchAvailableRoles as fetchAvailableRolesAPI,
 } from '../services/userService';
+import { getCachedData, setCachedData, clearCache } from '../utils/cacheUtils';
+
+// Cache configuration
+const USERS_CACHE_KEY = 'users_list';
+const STATS_CACHE_KEY = 'users_stats';
+const USERS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes (users change more frequently than schools)
 
 /**
  * Custom hook for user management
@@ -52,22 +59,40 @@ export const useUsers = (options = {}) => {
   const [hasLoaded, setHasLoaded] = useState(false);
 
   // ============================================
-  // FETCH USERS
+  // FETCH USERS (with caching)
   // ============================================
 
-  const fetchUsers = useCallback(async (filterParams = {}) => {
+  const fetchUsers = useCallback(async (filterParams = {}, bypassCache = false) => {
     setLoading(prev => ({ ...prev, users: true }));
     setError(null);
 
     try {
       const mergedFilters = { ...filters, ...filterParams };
-      console.log('🔄 Fetching users with filters:', mergedFilters);
+      const hasFilters = Object.keys(mergedFilters).some(k => mergedFilters[k]);
 
+      // Only use cache for unfiltered requests
+      if (!hasFilters && !bypassCache) {
+        const cachedUsers = getCachedData(USERS_CACHE_KEY, USERS_CACHE_DURATION);
+        if (cachedUsers !== null) {
+          console.log('⚡ Using cached users data');
+          setUsers(cachedUsers);
+          setHasLoaded(true);
+          setLoading(prev => ({ ...prev, users: false }));
+          return cachedUsers;
+        }
+      }
+
+      console.log('🔄 Fetching users from API...');
       const data = await fetchUsersAPI(mergedFilters);
-      
+
       setUsers(data);
       setHasLoaded(true);
-      
+
+      // Cache only unfiltered results
+      if (!hasFilters) {
+        setCachedData(USERS_CACHE_KEY, data);
+      }
+
       console.log('✅ Users loaded:', data.length);
       return data;
     } catch (err) {
@@ -115,18 +140,22 @@ export const useUsers = (options = {}) => {
 
     try {
       console.log('🔄 Creating user:', userData.username);
-      
+
       const newUser = await createUserAPI(userData);
-      
+
+      // Clear cache since data changed
+      clearCache(USERS_CACHE_KEY);
+      clearCache(STATS_CACHE_KEY);
+
       // Add new user to the list
       setUsers(prev => [newUser, ...prev]);
-      
+
       console.log('✅ User created successfully');
       return newUser;
     } catch (err) {
       console.error('❌ Error creating user:', err);
-      const errorMessage = err.response?.data?.error || 
-                          JSON.stringify(err.response?.data) || 
+      const errorMessage = err.response?.data?.error ||
+                          JSON.stringify(err.response?.data) ||
                           'Failed to create user';
       setError(errorMessage);
       throw err;
@@ -145,25 +174,28 @@ export const useUsers = (options = {}) => {
 
     try {
       console.log('🔄 Updating user:', userId);
-      
+
       const updatedUser = await updateUserAPI(userId, userData);
-      
+
+      // Clear cache since data changed
+      clearCache(USERS_CACHE_KEY);
+
       // Update user in the list
       setUsers(prev =>
         prev.map(user => (user.id === userId ? updatedUser : user))
       );
-      
+
       // Update selected user if it's the one being updated
       if (selectedUser?.id === userId) {
         setSelectedUser(updatedUser);
       }
-      
+
       console.log('✅ User updated successfully');
       return updatedUser;
     } catch (err) {
       console.error('❌ Error updating user:', err);
-      const errorMessage = err.response?.data?.error || 
-                          JSON.stringify(err.response?.data) || 
+      const errorMessage = err.response?.data?.error ||
+                          JSON.stringify(err.response?.data) ||
                           'Failed to update user';
       setError(errorMessage);
       throw err;
@@ -182,21 +214,25 @@ export const useUsers = (options = {}) => {
 
     try {
       console.log('🔄 Deactivating user:', userId);
-      
+
       await deactivateUserAPI(userId);
-      
+
+      // Clear cache since data changed
+      clearCache(USERS_CACHE_KEY);
+      clearCache(STATS_CACHE_KEY);
+
       // Update user in the list (set is_active to false)
       setUsers(prev =>
         prev.map(user =>
           user.id === userId ? { ...user, is_active: false } : user
         )
       );
-      
+
       // Clear selected user if it was deleted
       if (selectedUser?.id === userId) {
         setSelectedUser(null);
       }
-      
+
       console.log('✅ User deactivated successfully');
     } catch (err) {
       console.error('❌ Error deactivating user:', err);
@@ -218,19 +254,22 @@ export const useUsers = (options = {}) => {
 
     try {
       console.log('🔄 Assigning schools to user:', userId);
-      
+
       const updatedUser = await assignSchoolsAPI(userId, schoolIds);
-      
+
+      // Clear cache since data changed
+      clearCache(USERS_CACHE_KEY);
+
       // Update user in the list
       setUsers(prev =>
         prev.map(user => (user.id === userId ? updatedUser : user))
       );
-      
+
       // Update selected user if it's the one being updated
       if (selectedUser?.id === userId) {
         setSelectedUser(updatedUser);
       }
-      
+
       console.log('✅ Schools assigned successfully');
       return updatedUser;
     } catch (err) {
@@ -272,15 +311,27 @@ export const useUsers = (options = {}) => {
   // FETCH STATISTICS
   // ============================================
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (bypassCache = false) => {
     setLoading(prev => ({ ...prev, stats: true }));
 
     try {
-      console.log('🔄 Fetching user statistics');
-      
+      // Check cache first
+      if (!bypassCache) {
+        const cachedStats = getCachedData(STATS_CACHE_KEY, USERS_CACHE_DURATION);
+        if (cachedStats !== null) {
+          console.log('⚡ Using cached stats data');
+          setStats(cachedStats);
+          setLoading(prev => ({ ...prev, stats: false }));
+          return cachedStats;
+        }
+      }
+
+      console.log('🔄 Fetching user statistics from API...');
       const data = await fetchUserStatsAPI();
-      
+
       setStats(data);
+      setCachedData(STATS_CACHE_KEY, data);
+
       console.log('✅ Statistics loaded');
       return data;
     } catch (err) {
@@ -348,8 +399,15 @@ export const useUsers = (options = {}) => {
   }, []);
 
   const refreshUsers = useCallback(() => {
-    return fetchUsers(filters);
+    // Bypass cache when explicitly refreshing
+    return fetchUsers(filters, true);
   }, [fetchUsers, filters]);
+
+  const clearUsersCache = useCallback(() => {
+    clearCache(USERS_CACHE_KEY);
+    clearCache(STATS_CACHE_KEY);
+    console.log('🗑️ Users cache cleared');
+  }, []);
 
   // ============================================
   // EFFECTS
@@ -401,6 +459,7 @@ export const useUsers = (options = {}) => {
     clearSelectedUser,
     refreshUsers,
     setSelectedUser,
+    clearUsersCache,
   };
 };
 

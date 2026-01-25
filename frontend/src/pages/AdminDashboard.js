@@ -418,6 +418,7 @@ function AdminDashboard() {
         loading={loading.profile}
         onProfileUpdate={handleProfileUpdate}
       />
+
       <div>
 
       {/* Login Activity Widget - Shows login counts per school */}

@@ -13,10 +13,23 @@ export const salaryService = {
   // TEACHER/EMPLOYEE DATA
   // ============================================
 
-  // Fetch all teachers for dropdown
+  // Fetch all teachers for dropdown (Admin only)
   fetchTeachers: async () => {
     const response = await axios.get(
       `${API_BASE_URL}/employees/teachers/`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  /**
+   * Fetch current user's salary data (Self-Service)
+   * Available to: Teacher, BDM, Admin
+   * @returns {Promise<Object>} { user, profile, schools, earnings, deductions }
+   */
+  fetchMySalaryData: async () => {
+    const response = await axios.get(
+      `${API_BASE_URL}/employees/my-salary-data/`,
       { headers: getAuthHeaders() }
     );
     return response.data;
@@ -76,14 +89,14 @@ export const salaryService = {
   },
 
   /**
-   * Save salary slip to database
+   * Save salary slip to database (Admin only)
    * Creates new or updates existing slip for same teacher/period
    * @param {Object} slipData - Complete salary slip data
    * @returns {Promise<Object>} Saved salary slip
    */
   saveSalarySlip: async (slipData) => {
     const response = await axios.post(
-      `${API_BASE_URL}/employees/salary-slips/`,
+      `${API_BASE_URL}/employees/salary-slips/create/`,
       slipData,
       { headers: getAuthHeaders() }
     );

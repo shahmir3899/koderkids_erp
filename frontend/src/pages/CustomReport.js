@@ -885,12 +885,14 @@ const CustomReport = () => {
     setError,
     // Recipient picker
     recipientType,
+    selectedEmployeeId,
     schools,
     employees,
     showRecipientPicker,
     openRecipientPicker,
     closeRecipientPicker,
     selectRecipient,
+    prefillCurrentBody,
   } = useCustomReport();
 
   const [adminName, setAdminName] = useState("");
@@ -1307,7 +1309,13 @@ const CustomReport = () => {
                           <div
                             key={employee.id}
                             style={styles.pickerItem}
-                            onClick={() => selectRecipient('employee', formattedRecipient)}
+                            onClick={() => {
+                              selectRecipient('employee', formattedRecipient, employee.id);
+                              // Prefill template if body already has content with placeholders
+                              if (bodyText && bodyText.includes('{')) {
+                                setTimeout(() => prefillCurrentBody(employee.id), 100);
+                              }
+                            }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                           >

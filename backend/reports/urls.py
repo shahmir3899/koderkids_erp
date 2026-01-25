@@ -9,13 +9,17 @@ from .views import (
     get_student_image_uploads_count,
     get_student_progress_images,
     CustomReportViewSet,
+    ReportTemplateViewSet,
+    ReportRequestViewSet,
 )
 
 app_name = 'reports'
 
-# Router for CustomReport ViewSet
+# Router for ViewSets
 router = DefaultRouter()
 router.register(r'custom-reports', CustomReportViewSet, basename='custom-report')
+router.register(r'templates', ReportTemplateViewSet, basename='report-template')
+router.register(r'requests', ReportRequestViewSet, basename='report-request')
 
 urlpatterns = [
     # Existing routes
@@ -36,5 +40,27 @@ urlpatterns = [
     #   PATCH  /custom-reports/{id}/      - partial_update
     #   DELETE /custom-reports/{id}/      - destroy
     #   GET    /custom-reports/templates/ - templates action
+    #
+    # Self-Service Report Templates:
+    #   GET    /templates/                - list available templates
+    #   GET    /templates/{id}/           - get template details
+    #   GET    /templates/available/      - get templates for current user
+    #   POST   /templates/                - create template (admin only)
+    #   PUT    /templates/{id}/           - update template (admin only)
+    #   DELETE /templates/{id}/           - delete template (admin only)
+    #
+    # Self-Service Report Requests:
+    #   GET    /requests/                 - list requests
+    #   POST   /requests/                 - create request (DRAFT)
+    #   GET    /requests/{id}/            - get request details
+    #   PUT    /requests/{id}/            - update draft request
+    #   DELETE /requests/{id}/            - delete request
+    #   POST   /requests/{id}/submit/     - submit for approval
+    #   POST   /requests/{id}/approve/    - approve (admin only)
+    #   POST   /requests/{id}/reject/     - reject (admin only)
+    #   POST   /requests/{id}/cancel/     - cancel request
+    #   GET    /requests/pending/         - list pending (admin only)
+    #   GET    /requests/my-requests/     - list user's own requests
+    #   GET    /requests/stats/           - statistics (admin only)
     path('', include(router.urls)),
 ]

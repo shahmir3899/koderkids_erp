@@ -26,12 +26,28 @@ from django.http import JsonResponse
 from datetime import datetime, timedelta
 
 from lessons.serializers import LessonPlanSerializer
-from .models import CustomReport
+from .models import CustomReport, ReportTemplate, ReportRequest, RequestStatusLog, GeneratedReport
 from .serializers import (
     CustomReportSerializer,
     CustomReportListSerializer,
     CustomReportCreateSerializer,
+    ReportTemplateSerializer,
+    ReportTemplateListSerializer,
+    ReportRequestSerializer,
+    ReportRequestListSerializer,
+    ReportRequestCreateSerializer,
+    ReportRequestUpdateSerializer,
+    ApproveRequestSerializer,
+    RejectRequestSerializer,
+    GeneratedReportSerializer,
 )
+from authentication.permissions import (
+    IsAdminUser,
+    IsRequestOwnerOrAdmin,
+    IsRequestOwnerAndDraft,
+)
+from .utils import prefill_template, get_remaining_placeholders, get_template_required_fields
+from employees.models import Notification
 
 logger = logging.getLogger(__name__)
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
@@ -43,6 +59,244 @@ handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
+
+
+# ============================================
+# SHARED PDF GENERATION - Unified format for all reports
+# ============================================
+
+def generate_report_pdf(
+    subject,
+    body_text,
+    recipient_text='TO WHOM IT MAY CONCERN',
+    line_spacing='single',
+    signer_name='Admin',
+    signer_title='Administrator',
+    reference_number=None,
+    approved_date=None,
+):
+    """
+    Generate a professional PDF report with letterhead.
+    Used by both CustomReport and ReportRequest.
+
+    Args:
+        subject: Report subject line
+        body_text: Main content of the report
+        recipient_text: The "To:" field text
+        line_spacing: 'single', '1.5', or 'double'
+        signer_name: Name of the person signing
+        signer_title: Title of the person signing
+        reference_number: Optional reference number for footer
+        approved_date: Optional approval date for footer
+
+    Returns:
+        BytesIO buffer containing the PDF
+    """
+    # Line spacing CSS
+    line_height_css = {
+        'single': '1.5',
+        '1.5': '1.8',
+        'double': '2.0',
+    }.get(line_spacing, '1.5')
+
+    # Load background/letterhead image
+    bg_image_css = ""
+    letterhead_path = os.path.join(settings.BASE_DIR, 'static', 'letterhead.png')
+    bg_path = os.path.join(settings.BASE_DIR, 'static', 'bg.png')
+
+    # Try letterhead first, then bg.png
+    image_path = letterhead_path if os.path.exists(letterhead_path) else (bg_path if os.path.exists(bg_path) else None)
+
+    if image_path and os.path.exists(image_path):
+        with open(image_path, 'rb') as f:
+            bg_data = base64.b64encode(f.read()).decode('utf-8')
+        bg_image_css = f"background: url('data:image/png;base64,{bg_data}') no-repeat top left / 210mm 297mm;"
+        logger.info(f"Letterhead/background loaded from {image_path}")
+
+    # Build footer text
+    footer_parts = ['<span class="footer-brand">Koder Kids</span>']
+    if reference_number:
+        footer_parts.append(f'Ref: {reference_number}')
+    if approved_date:
+        footer_parts.append(f'Date: {approved_date}')
+    footer_parts.append('This document is computer generated and valid without physical signature.')
+    footer_text = ' | '.join(footer_parts)
+
+    # Generate HTML
+    html_content = f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{
+                size: A4;
+                margin: 0;
+                {bg_image_css}
+            }}
+
+            * {{
+                box-sizing: border-box;
+            }}
+
+            html, body {{
+                margin: 0;
+                padding: 0;
+                font-family: "Times New Roman", Georgia, serif;
+                font-size: 12pt;
+                line-height: {line_height_css};
+                color: #000;
+                background: none !important;
+                background-color: transparent !important;
+            }}
+
+            .page-content {{
+                padding: 50mm 25mm 40mm 25mm;
+                min-height: 297mm;
+            }}
+
+            .header {{
+                text-align: right;
+                font-size: 10pt;
+                color: #333;
+                margin-bottom: 30px;
+                padding-bottom: 15px;
+                border-bottom: 2px solid #8B5CF6;
+            }}
+
+            .company {{
+                font-weight: bold;
+                font-size: 18pt;
+                color: #8B5CF6;
+                margin-bottom: 5px;
+            }}
+
+            .company-details {{
+                font-size: 10pt;
+                color: #555;
+                line-height: 1.4;
+            }}
+
+            .date {{
+                margin-top: 10px;
+                font-style: italic;
+            }}
+
+            .to {{
+                margin: 25px 0 15px 0;
+            }}
+
+            .subject {{
+                font-weight: bold;
+                margin: 20px 0;
+                padding: 8px 0;
+                border-bottom: 1px solid #ddd;
+            }}
+
+            .body {{
+                text-align: justify;
+                white-space: pre-wrap;
+                margin: 25px 0 40px 0;
+                min-height: 150px;
+            }}
+
+            .signature-section {{
+                margin-top: 60px;
+                page-break-inside: avoid;
+            }}
+
+            .signature-block {{
+                display: inline-block;
+                text-align: left;
+            }}
+
+            .signature-line {{
+                width: 200px;
+                border-bottom: 1px solid #000;
+                margin-bottom: 5px;
+                height: 40px;
+            }}
+
+            .signature-name {{
+                font-weight: bold;
+                font-size: 11pt;
+            }}
+
+            .signature-title {{
+                font-size: 10pt;
+                color: #555;
+            }}
+
+            .footer {{
+                position: fixed;
+                bottom: 15mm;
+                left: 25mm;
+                right: 25mm;
+                text-align: center;
+                font-size: 8pt;
+                color: #888;
+                border-top: 1px solid #ddd;
+                padding-top: 10px;
+            }}
+
+            .footer-brand {{
+                color: #8B5CF6;
+                font-weight: bold;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="page-content">
+            <!-- Header with Company Details -->
+            <div class="header">
+                <div class="company">Koder Kids</div>
+                <div class="company-details">
+                    Office # 8, First Floor, Khyber III<br>
+                    G-15 Markaz Islamabad, Pakistan<br>
+                    Phone: 0316-7394390
+                </div>
+                <div class="date">Date: {now().strftime('%B %d, %Y')}</div>
+            </div>
+
+            <!-- Recipient -->
+            <div class="to">
+                <strong>To:</strong> {html.escape(recipient_text)}
+            </div>
+
+            <!-- Subject -->
+            <div class="subject">
+                <strong>Subject:</strong> {html.escape(subject)}
+            </div>
+
+            <!-- Body Content -->
+            <div class="body">{html.escape(body_text)}</div>
+
+            <!-- Signature Section -->
+            <div class="signature-section">
+                <div class="signature-block">
+                    <strong>Regards,</strong><br><br>
+                    <div class="signature-line"></div>
+                    <div class="signature-name">{html.escape(signer_name)}</div>
+                    <div class="signature-title">{html.escape(signer_title)}</div>
+                    <div class="signature-title">Koder Kids</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            {footer_text}
+        </div>
+    </body>
+    </html>
+    '''
+
+    # Generate PDF using WeasyPrint
+    pdf_buffer = BytesIO()
+    HTML(string=html_content).write_pdf(pdf_buffer)
+    pdf_buffer.seek(0)
+
+    return pdf_buffer
 
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
@@ -1133,3 +1387,640 @@ Sincerely,
         }
 
         return Response(templates)
+
+    @action(detail=False, methods=['post'])
+    def prefill(self, request):
+        """
+        Prefill a template with employee data.
+        POST /api/reports/custom-reports/prefill/
+
+        Request body:
+        {
+            "template_body": "Dear {employee_name}, ...",
+            "employee_id": 123
+        }
+
+        Response:
+        {
+            "prefilled_body": "Dear John Doe, ...",
+            "auto_filled": {"employee_name": "John Doe", ...},
+            "remaining_placeholders": ["purpose", ...]
+        }
+        """
+        from authentication.models import CustomUser
+
+        template_body = request.data.get('template_body', '')
+        employee_id = request.data.get('employee_id')
+
+        if not template_body:
+            return Response(
+                {'error': 'template_body is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get target employee
+        target_employee = None
+        if employee_id:
+            try:
+                target_employee = CustomUser.objects.get(id=employee_id)
+            except CustomUser.DoesNotExist:
+                return Response(
+                    {'error': 'Employee not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Prefill the template
+        prefilled_body = prefill_template(
+            template_body,
+            target_employee=target_employee,
+            sender=request.user,
+            custom_fields={}
+        )
+
+        # Get auto-filled data
+        from .utils import get_employee_data, get_sender_data
+        auto_filled = {}
+        if target_employee:
+            auto_filled.update(get_employee_data(target_employee))
+        auto_filled.update(get_sender_data(request.user))
+
+        # Find remaining placeholders
+        remaining = get_remaining_placeholders(prefilled_body)
+
+        return Response({
+            'prefilled_body': prefilled_body,
+            'auto_filled': auto_filled,
+            'remaining_placeholders': remaining,
+        })
+
+    @action(detail=True, methods=['get'])
+    def download(self, request, pk=None):
+        """
+        Download/generate PDF for a custom report.
+        GET /api/reports/custom-reports/{id}/download/
+        Uses the unified PDF format.
+        """
+        try:
+            report = self.get_object()
+
+            # Get signer info from the admin who generated the report
+            signer_name = report.generated_by_name or "Admin"
+            signer_title = "Administrator"
+
+            if report.generated_by:
+                try:
+                    if hasattr(report.generated_by, 'teacher_profile') and report.generated_by.teacher_profile:
+                        signer_title = report.generated_by.teacher_profile.title or "Administrator"
+                except Exception:
+                    pass
+
+            # Generate PDF using shared function
+            pdf_buffer = generate_report_pdf(
+                subject=report.subject,
+                body_text=report.body_text,
+                recipient_text=report.recipient,
+                line_spacing=report.line_spacing,
+                signer_name=signer_name,
+                signer_title=signer_title,
+                reference_number=f"CR-{report.id}",
+                approved_date=report.created_at.strftime('%B %d, %Y') if report.created_at else None,
+            )
+
+            # Return PDF response
+            response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
+            safe_subject = report.subject.replace(' ', '_')[:30]
+            response['Content-Disposition'] = f'attachment; filename="CustomReport-{report.id}-{safe_subject}.pdf"'
+            return response
+
+        except Exception as e:
+            logger.error(f"Error generating CustomReport PDF: {str(e)}")
+            return Response(
+                {'error': f'Failed to generate PDF: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# =============================================================================
+# SELF-SERVICE REPORTS - REPORT TEMPLATE VIEWSET
+# =============================================================================
+class ReportTemplateViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing report templates.
+    - List/retrieve: All authenticated users (filtered by role)
+    - Create/update/delete: Admin only
+    """
+    queryset = ReportTemplate.objects.filter(is_active=True)
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsAdminUser()]
+        return [IsAuthenticated()]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ReportTemplateListSerializer
+        return ReportTemplateSerializer
+
+    def get_queryset(self):
+        queryset = ReportTemplate.objects.filter(is_active=True)
+        user = self.request.user
+
+        # Filter templates by user's role
+        if user.role != 'Admin':
+            # Non-admins only see templates their role can use
+            queryset = queryset.filter(allowed_roles__contains=user.role)
+
+        # Filter by category
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+
+        return queryset
+
+    @action(detail=False, methods=['get'])
+    def available(self, request):
+        """
+        Get templates available for the current user.
+        GET /api/reports/templates/available/
+        """
+        queryset = self.get_queryset()
+        serializer = ReportTemplateListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get', 'post'])
+    def prefill(self, request, pk=None):
+        """
+        Get template with placeholders pre-filled with employee data.
+
+        GET /api/reports/templates/{id}/prefill/
+            - Returns template pre-filled with current user's data (self-service)
+
+        POST /api/reports/templates/{id}/prefill/
+            - Accepts { target_employee_id: int, custom_fields: {} }
+            - Admin only: Can prefill for any employee
+            - Returns template pre-filled with target employee's data
+
+        Response:
+        {
+            "template_id": 1,
+            "template_name": "Salary Certificate",
+            "prefilled_subject": "Salary Certificate for John Doe",
+            "prefilled_body": "This is to certify that John Doe...",
+            "remaining_placeholders": ["purpose"],
+            "required_fields": ["purpose"],
+            "auto_filled": {"employee_name": "John Doe", "employee_id": "EMP001", ...}
+        }
+        """
+        from authentication.models import CustomUser
+
+        template = self.get_object()
+        user = request.user
+
+        # Determine target employee
+        target_employee = None
+        custom_fields = {}
+
+        if request.method == 'POST':
+            # Admin can prefill for any employee
+            target_employee_id = request.data.get('target_employee_id')
+            custom_fields = request.data.get('custom_fields', {})
+
+            if target_employee_id:
+                if user.role != 'Admin':
+                    return Response(
+                        {'error': 'Only admins can prefill templates for other employees'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                try:
+                    target_employee = CustomUser.objects.get(id=target_employee_id)
+                except CustomUser.DoesNotExist:
+                    return Response(
+                        {'error': 'Employee not found'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            else:
+                # Admin submitting for self
+                target_employee = user
+        else:
+            # GET request - prefill for current user (self-service)
+            target_employee = user
+
+        # Prefill the template
+        prefilled_body = prefill_template(
+            template.body_template,
+            target_employee=target_employee,
+            sender=user if user.role == 'Admin' else None,
+            custom_fields=custom_fields
+        )
+
+        prefilled_subject = prefill_template(
+            template.name,  # Use template name as subject base
+            target_employee=target_employee,
+            sender=user if user.role == 'Admin' else None,
+            custom_fields=custom_fields
+        )
+
+        # Find remaining placeholders
+        remaining = get_remaining_placeholders(prefilled_body)
+
+        # Get required fields for this template
+        required_fields = get_template_required_fields(template.code)
+
+        # Build auto_filled dict to show what was replaced
+        from .utils import get_employee_data, get_sender_data
+        auto_filled = get_employee_data(target_employee)
+        if user.role == 'Admin':
+            auto_filled.update(get_sender_data(user))
+        if custom_fields:
+            auto_filled.update(custom_fields)
+
+        return Response({
+            'template_id': template.id,
+            'template_name': template.name,
+            'template_code': template.code,
+            'prefilled_subject': f"{template.name} for {target_employee.get_full_name() or target_employee.username}",
+            'prefilled_body': prefilled_body,
+            'remaining_placeholders': remaining,
+            'required_fields': required_fields,
+            'auto_filled': auto_filled,
+            'target_employee': {
+                'id': target_employee.id,
+                'name': target_employee.get_full_name() or target_employee.username,
+            } if target_employee else None
+        })
+
+
+# =============================================================================
+# SELF-SERVICE REPORTS - REPORT REQUEST VIEWSET
+# =============================================================================
+class ReportRequestViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing report requests with approval workflow.
+
+    Endpoints:
+    - GET /api/reports/requests/ - List requests (filtered by ownership/role)
+    - POST /api/reports/requests/ - Create new request (DRAFT)
+    - GET /api/reports/requests/{id}/ - Get request details
+    - PUT /api/reports/requests/{id}/ - Update draft request
+    - DELETE /api/reports/requests/{id}/ - Delete/cancel request
+    - POST /api/reports/requests/{id}/submit/ - Submit for approval
+    - POST /api/reports/requests/{id}/approve/ - Approve (admin only)
+    - POST /api/reports/requests/{id}/reject/ - Reject (admin only)
+    - POST /api/reports/requests/{id}/cancel/ - Cancel request
+    - GET /api/reports/requests/pending/ - List pending approvals (admin only)
+    - GET /api/reports/requests/my-requests/ - List user's own requests
+    """
+    queryset = ReportRequest.objects.all()
+
+    def get_permissions(self):
+        if self.action in ['approve', 'reject', 'pending', 'stats']:
+            return [IsAuthenticated(), IsAdminUser()]
+        if self.action in ['update', 'partial_update']:
+            return [IsAuthenticated(), IsRequestOwnerAndDraft()]
+        if self.action in ['retrieve', 'destroy', 'cancel', 'download']:
+            return [IsAuthenticated(), IsRequestOwnerOrAdmin()]
+        return [IsAuthenticated()]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ReportRequestListSerializer
+        if self.action == 'create':
+            return ReportRequestCreateSerializer
+        if self.action in ['update', 'partial_update']:
+            return ReportRequestUpdateSerializer
+        if self.action == 'approve':
+            return ApproveRequestSerializer
+        if self.action == 'reject':
+            return RejectRequestSerializer
+        return ReportRequestSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = ReportRequest.objects.all()
+
+        # Admin sees all, others see only their own
+        if user.role != 'Admin':
+            queryset = queryset.filter(requested_by=user)
+
+        # Filter by status (supports comma-separated: ?status=APPROVED,REJECTED,GENERATED)
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            statuses = [s.strip() for s in status_filter.split(',')]
+            queryset = queryset.filter(status__in=statuses)
+
+        # Filter by template
+        template_code = self.request.query_params.get('template')
+        if template_code:
+            queryset = queryset.filter(template__code=template_code)
+
+        # Filter by priority
+        priority = self.request.query_params.get('priority')
+        if priority:
+            queryset = queryset.filter(priority=priority)
+
+        queryset = queryset.select_related(
+            'requested_by', 'target_employee', 'template', 'approved_by'
+        )
+
+        # Limit results
+        limit = self.request.query_params.get('limit')
+        if limit:
+            try:
+                queryset = queryset[:int(limit)]
+            except ValueError:
+                pass
+
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        """
+        Submit a draft request for approval.
+        POST /api/reports/requests/{id}/submit/
+        """
+        report_request = self.get_object()
+
+        # Check ownership
+        if report_request.requested_by != request.user and request.user.role != 'Admin':
+            return Response(
+                {'error': 'You can only submit your own requests.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            report_request.submit(request.user)
+
+            # Notify admins about new pending request
+            from authentication.models import CustomUser
+            template_name = report_request.template.name if report_request.template else 'Report'
+            requester_name = request.user.get_full_name() or request.user.username
+
+            admins = CustomUser.objects.filter(role='Admin', is_active=True)
+            for admin in admins:
+                Notification.objects.create(
+                    recipient=admin,
+                    sender=request.user,
+                    title='New Report Request',
+                    message=f'{requester_name} submitted a {template_name} request for approval.',
+                    notification_type='info',
+                )
+
+            serializer = ReportRequestSerializer(report_request)
+            return Response(serializer.data)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """
+        Approve a submitted request (admin only).
+        POST /api/reports/requests/{id}/approve/
+        Optionally update body_text before approval.
+        """
+        report_request = self.get_object()
+
+        serializer = ApproveRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            notes = serializer.validated_data.get('admin_notes', '')
+            priority = serializer.validated_data.get('priority')
+            body_text = serializer.validated_data.get('body_text')
+
+            if priority:
+                report_request.priority = priority
+
+            # If body_text is provided, update it in the request and snapshot
+            if body_text:
+                report_request.body_text = body_text
+                # Update the snapshot as well
+                if report_request.content_snapshot:
+                    report_request.content_snapshot['body_text'] = body_text
+                    report_request.content_snapshot['admin_edited'] = True
+                report_request.save()
+
+            report_request.approve(request.user, notes)
+
+            # Send notification to requester
+            template_name = report_request.template.name if report_request.template else 'Report'
+            Notification.objects.create(
+                recipient=report_request.requested_by,
+                sender=request.user,
+                title='Request Approved',
+                message=f'Your {template_name} request has been approved and is ready for download.',
+                notification_type='success',
+            )
+
+            response_serializer = ReportRequestSerializer(report_request)
+            return Response(response_serializer.data)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """
+        Reject a submitted request with a reason (admin only).
+        POST /api/reports/requests/{id}/reject/
+        """
+        report_request = self.get_object()
+
+        serializer = RejectRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            reason = serializer.validated_data['rejection_reason']
+            notes = serializer.validated_data.get('admin_notes', '')
+            report_request.reject(request.user, reason, notes)
+
+            # Send notification to requester
+            template_name = report_request.template.name if report_request.template else 'Report'
+            Notification.objects.create(
+                recipient=report_request.requested_by,
+                sender=request.user,
+                title='Request Rejected',
+                message=f'Your {template_name} request was rejected. Reason: {reason}',
+                notification_type='error',
+            )
+
+            response_serializer = ReportRequestSerializer(report_request)
+            return Response(response_serializer.data)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """
+        Cancel a request.
+        POST /api/reports/requests/{id}/cancel/
+        """
+        report_request = self.get_object()
+
+        # Check ownership
+        if report_request.requested_by != request.user and request.user.role != 'Admin':
+            return Response(
+                {'error': 'You can only cancel your own requests.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        reason = request.data.get('reason', '')
+
+        try:
+            report_request.cancel(request.user, reason)
+            serializer = ReportRequestSerializer(report_request)
+            return Response(serializer.data)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'])
+    def pending(self, request):
+        """
+        List pending approval requests (admin only).
+        GET /api/reports/requests/pending/
+        """
+        queryset = ReportRequest.objects.filter(
+            status='SUBMITTED'
+        ).select_related(
+            'requested_by', 'target_employee', 'template'
+        ).order_by('-created_at')
+
+        # Filter by priority
+        priority = request.query_params.get('priority')
+        if priority:
+            queryset = queryset.filter(priority=priority)
+
+        serializer = ReportRequestListSerializer(queryset, many=True)
+        return Response({
+            'count': queryset.count(),
+            'results': serializer.data
+        })
+
+    @action(detail=False, methods=['get'], url_path='my-requests')
+    def my_requests(self, request):
+        """
+        List current user's requests.
+        GET /api/reports/requests/my-requests/
+        """
+        queryset = ReportRequest.objects.filter(
+            requested_by=request.user
+        ).select_related(
+            'template', 'target_employee'
+        ).order_by('-created_at')
+
+        # Filter by status
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        serializer = ReportRequestListSerializer(queryset, many=True)
+        return Response({
+            'count': queryset.count(),
+            'results': serializer.data
+        })
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """
+        Get request statistics (admin only).
+        GET /api/reports/requests/stats/
+        """
+        total = ReportRequest.objects.count()
+        by_status = dict(
+            ReportRequest.objects.values('status')
+            .annotate(count=Count('id'))
+            .values_list('status', 'count')
+        )
+
+        return Response({
+            'total': total,
+            'pending': by_status.get('SUBMITTED', 0),
+            'approved': by_status.get('APPROVED', 0),
+            'rejected': by_status.get('REJECTED', 0),
+            'generated': by_status.get('GENERATED', 0),
+            'draft': by_status.get('DRAFT', 0),
+        })
+
+    @action(detail=True, methods=['get'])
+    def download(self, request, pk=None):
+        """
+        Download/generate PDF for an approved request.
+        GET /api/reports/requests/{id}/download/
+        Uses the unified PDF format.
+        """
+        report_request = self.get_object()
+
+        # Check ownership or admin
+        if report_request.requested_by != request.user and request.user.role != 'Admin':
+            return Response(
+                {'error': 'You can only download your own reports.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Only approved or generated requests can be downloaded
+        if report_request.status not in ['APPROVED', 'GENERATED']:
+            return Response(
+                {'error': 'Only approved reports can be downloaded.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Get content from snapshot (frozen at submission time)
+            content = report_request.content_snapshot or {}
+            subject = content.get('subject', report_request.subject)
+            body_text = content.get('body_text', report_request.body_text)
+            recipient_text = content.get('recipient_text', report_request.recipient_text or 'TO WHOM IT MAY CONCERN')
+            line_spacing = content.get('line_spacing', 'single')
+
+            # Get approving admin info
+            approving_admin_name = "Admin"
+            approving_admin_title = "Administrator"
+            if report_request.approved_by:
+                admin = report_request.approved_by
+                approving_admin_name = f"{admin.first_name} {admin.last_name}".strip() or admin.username
+                try:
+                    if hasattr(admin, 'teacher_profile') and admin.teacher_profile:
+                        approving_admin_title = admin.teacher_profile.title or "Administrator"
+                except Exception:
+                    pass
+
+            # Generate PDF using shared function
+            pdf_buffer = generate_report_pdf(
+                subject=subject,
+                body_text=body_text,
+                recipient_text=recipient_text,
+                line_spacing=line_spacing,
+                signer_name=approving_admin_name,
+                signer_title=approving_admin_title,
+                reference_number=report_request.request_number,
+                approved_date=report_request.approved_at.strftime('%B %d, %Y') if report_request.approved_at else None,
+            )
+
+            # Mark as generated if not already
+            if report_request.status == 'APPROVED':
+                report_request.mark_generated(request.user)
+
+            # Return PDF response
+            response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{report_request.request_number}.pdf"'
+            return response
+
+        except Exception as e:
+            logger.error(f"Error generating PDF: {str(e)}")
+            return Response(
+                {'error': f'Failed to generate PDF: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -13,6 +13,9 @@ from .views import (
     TeacherProfilePhotoDeleteView,
     get_teacher_dashboard_data,
 
+    # Self-Service Salary Data
+    get_my_salary_data,
+
     # Admin Profile (NEW)
     AdminProfileView,
     AdminProfilePhotoUploadView,
@@ -32,14 +35,20 @@ from .views import (
     # Earnings & Deductions
     TeacherEarningsView,
     TeacherDeductionsView,
+
+    # Salary Slips
+    SalarySlipListView,
+    SalarySlipCreateView,
+    SalarySlipDetailView,
 )
 
 app_name = 'employees'
 
 urlpatterns = [
     # ============================================
-    # Teacher List (For Admin Dropdown)
+    # Employee List (For Task Assignment Dropdown)
     # URL: /employees/teachers/
+    # Returns: Teachers, Admins, BDMs with role field
     # ============================================
     path('teachers/', TeacherListView.as_view(), name='teacher-list'),
     
@@ -113,4 +122,26 @@ urlpatterns = [
     # ============================================
     path('teacher/earnings/', TeacherEarningsView.as_view(), name='teacher-earnings'),
     path('teacher/deductions/', TeacherDeductionsView.as_view(), name='teacher-deductions'),
+
+    # ============================================
+    # Self-Service: My Salary Data (For Salary Slip)
+    # URL: /employees/my-salary-data/
+    # Available to: Teacher, BDM, Admin
+    # ============================================
+    path('my-salary-data/', get_my_salary_data, name='my-salary-data'),
+
+    # ============================================
+    # Salary Slips
+    # Admin: Generate, view all, delete
+    # Teacher/BDM: View own only (read-only)
+    # ============================================
+
+    # GET - List salary slips (Admin: all or filtered, Others: own only)
+    # POST - Create/save salary slip (Admin only)
+    path('salary-slips/', SalarySlipListView.as_view(), name='salary-slip-list'),
+    path('salary-slips/create/', SalarySlipCreateView.as_view(), name='salary-slip-create'),
+
+    # GET - Retrieve specific slip (own only for non-admins)
+    # DELETE - Delete slip (Admin only)
+    path('salary-slips/<int:pk>/', SalarySlipDetailView.as_view(), name='salary-slip-detail'),
 ]

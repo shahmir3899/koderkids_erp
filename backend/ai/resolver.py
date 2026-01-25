@@ -397,6 +397,10 @@ class ParameterResolver:
         if action_name in ['UPDATE_CATEGORY', 'DELETE_CATEGORY']:
             return self._resolve_category(params, action_name)
 
+        # Task agent actions
+        if action_name == 'CREATE_TASK':
+            return self._resolve_create_task(params)
+
         # No resolution needed
         return {
             "success": True,
@@ -1239,6 +1243,297 @@ class ParameterResolver:
             "success": False,
             "clarify": f"Multiple categories match '{category_name}': {', '.join(match_names)}. Please be more specific."
         }
+
+    def _resolve_create_task(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolve employee for CREATE_TASK action."""
+        from datetime import datetime, date
+        import re
+
+        employee_name = params.get('employee_name')
+        task_description = params.get('task_description')
+        due_date = params.get('due_date')
+
+        # Need employee name
+        if not employee_name:
+            return {
+                "success": False,
+                "clarify": "Who should this task be assigned to? Please provide the employee name."
+            }
+
+        # Need task description
+        if not task_description:
+            return {
+                "success": False,
+                "clarify": "What should the task description be?"
+            }
+
+        # Need due date
+        if not due_date:
+            return {
+                "success": False,
+                "clarify": "When should this task be completed? Please provide a due date (e.g., 'Friday', 'next Monday', 'Jan 30')."
+            }
+
+        # Resolve employee name
+        employee_id, error, employee_info = resolve_employee(employee_name)
+
+        if error:
+            return {
+                "success": False,
+                "clarify": error
+            }
+
+        params['employee_id'] = employee_id
+
+        # Parse relative dates
+        due_date_parsed = self._parse_relative_date(due_date)
+        if due_date_parsed:
+            params['due_date'] = due_date_parsed
+
+        return {
+            "success": True,
+            "params": params,
+            "info": employee_info
+        }
+
+    def _parse_relative_date(self, date_str: str) -> str:
+        """Parse relative date strings like 'Friday', 'next Monday', 'tomorrow'."""
+        from datetime import datetime, timedelta
+        import re
+
+        date_str = date_str.lower().strip()
+        today = datetime.now()
+
+        # Already in YYYY-MM-DD format
+        if re.match(r'\d{4}-\d{2}-\d{2}', date_str):
+            return date_str
+
+        # Parse common relative terms
+        if date_str == 'today':
+            return today.strftime('%Y-%m-%d')
+
+        if date_str == 'tomorrow':
+            return (today + timedelta(days=1)).strftime('%Y-%m-%d')
+
+        # Day names
+        days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        for i, day in enumerate(days):
+            if day in date_str:
+                current_day = today.weekday()
+                days_ahead = i - current_day
+                if days_ahead <= 0:  # Target day already happened this week
+                    days_ahead += 7
+                if 'next' in date_str:
+                    days_ahead += 7
+                target = today + timedelta(days=days_ahead)
+                return target.strftime('%Y-%m-%d')
+
+        # Month day format (e.g., "Jan 30", "January 30")
+        months = {
+            'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3,
+            'apr': 4, 'april': 4, 'may': 5, 'jun': 6, 'june': 6, 'jul': 7, 'july': 7,
+            'aug': 8, 'august': 8, 'sep': 9, 'september': 9, 'oct': 10, 'october': 10,
+            'nov': 11, 'november': 11, 'dec': 12, 'december': 12
+        }
+        for month_name, month_num in months.items():
+            if month_name in date_str:
+                day_match = re.search(r'\d+', date_str)
+                if day_match:
+                    day = int(day_match.group())
+                    year = today.year
+                    if month_num < today.month or (month_num == today.month and day < today.day):
+                        year += 1
+                    try:
+                        target = datetime(year, month_num, day)
+                        return target.strftime('%Y-%m-%d')
+                    except ValueError:
+                        pass
+
+        # "in X days"
+        days_match = re.search(r'in\s+(\d+)\s+days?', date_str)
+        if days_match:
+            days = int(days_match.group(1))
+            return (today + timedelta(days=days)).strftime('%Y-%m-%d')
+
+        # "next week"
+        if 'next week' in date_str:
+            return (today + timedelta(days=7)).strftime('%Y-%m-%d')
+
+        # Return as-is if can't parse (let the executor handle it)
+        return date_str
+
+
+def resolve_employee(employee_name: str) -> Tuple[Optional[int], Optional[str], Optional[Dict]]:
+    """
+    Fuzzy match employee_name against database employees (Teachers, Admins, BDMs).
+
+    Args:
+        employee_name: The name or number to resolve
+
+    Returns:
+        (employee_id, error_message, employee_info)
+        - If resolved: (id, None, {name, employee_id, role})
+        - If ambiguous: (None, "Multiple matches: ...", None)
+        - If not found: (None, "Employee not found", None)
+    """
+    from django.contrib.auth import get_user_model
+    import logging
+    logger = logging.getLogger(__name__)
+
+    User = get_user_model()
+
+    # Get all active employees (Teachers, Admins, BDMs)
+    employees = User.objects.filter(
+        role__in=['Teacher', 'Admin', 'BDM'],
+        is_active=True
+    ).select_related('teacher_profile')
+
+    employee_name_clean = employee_name.strip()
+
+    # Check if input contains role clarification (e.g., "Ahmed (Teacher)" or "Ahmed the admin")
+    role_in_name = None
+    name_only = employee_name_clean
+
+    # Check for pattern like "Name (Role)" or "Name - Role"
+    import re
+    role_pattern = re.match(r'^(.+?)\s*[\(\-]\s*(teacher|admin|bdm)\s*[\)]?\s*$', employee_name_clean, re.IGNORECASE)
+    if role_pattern:
+        name_only = role_pattern.group(1).strip()
+        role_in_name = role_pattern.group(2).upper() if role_pattern.group(2).lower() == 'bdm' else role_pattern.group(2).capitalize()
+        logger.info(f"Detected role clarification: name='{name_only}', role='{role_in_name}'")
+
+    # Also check for "Name the teacher" or "Name who is admin"
+    role_suffix = re.match(r'^(.+?)\s+(?:the|who\s+is\s+(?:a|an)?)\s*(teacher|admin|bdm)\s*$', employee_name_clean, re.IGNORECASE)
+    if role_suffix:
+        name_only = role_suffix.group(1).strip()
+        role_in_name = role_suffix.group(2).upper() if role_suffix.group(2).lower() == 'bdm' else role_suffix.group(2).capitalize()
+        logger.info(f"Detected role suffix: name='{name_only}', role='{role_in_name}'")
+
+    logger.info(f"Resolving employee name '{name_only}' from {employees.count()} employees")
+
+    # Fuzzy match
+    matches = []
+    for emp in employees:
+        full_name = emp.get_full_name() or emp.username
+        score = fuzzy_match_score(name_only, full_name)
+        # Also check username
+        username_score = fuzzy_match_score(name_only, emp.username)
+        # Check first name only
+        first_name_score = fuzzy_match_score(name_only, emp.first_name) if emp.first_name else 0
+        best_score = max(score, username_score, first_name_score)
+
+        if best_score >= 0.5:
+            matches.append((emp, best_score))
+
+    matches.sort(key=lambda x: x[1], reverse=True)
+    logger.info(f"Found {len(matches)} matches for '{name_only}'")
+
+    # If role was specified, filter matches by role
+    if role_in_name and matches:
+        role_filtered = [(emp, score) for emp, score in matches if emp.role == role_in_name]
+        if len(role_filtered) == 1:
+            # Role clarification resolved the ambiguity
+            emp = role_filtered[0][0]
+            full_name = emp.get_full_name() or emp.username
+            employee_id_str = getattr(emp.teacher_profile, 'employee_id', None) if hasattr(emp, 'teacher_profile') else None
+            logger.info(f"Role clarification resolved to: {full_name} (ID: {emp.id})")
+            return emp.id, None, {
+                'name': full_name,
+                'employee_id': employee_id_str,
+                'role': emp.role
+            }
+        elif role_filtered:
+            # Multiple matches even with role filter - use filtered list
+            matches = role_filtered
+
+    if not matches:
+        # No matches found - ask for full name
+        return None, f"I couldn't find anyone named '{name_only}'. Please provide the employee's full name.", None
+
+    # Check for multiple high-scoring matches (people with same/similar names)
+    high_score_matches = [m for m in matches if m[1] >= 0.8]
+
+    if len(matches) == 1:
+        # Single match - use it
+        emp = matches[0][0]
+        full_name = emp.get_full_name() or emp.username
+        employee_id_str = getattr(emp.teacher_profile, 'employee_id', None) if hasattr(emp, 'teacher_profile') else None
+        logger.info(f"Best match: {full_name} (ID: {emp.id}, score: {matches[0][1]})")
+        return emp.id, None, {
+            'name': full_name,
+            'employee_id': employee_id_str,
+            'role': emp.role
+        }
+
+    # If multiple high-scoring matches exist, need clarification even if top score > 0.85
+    if len(high_score_matches) > 1:
+        # Multiple people with similar names - check their roles
+        roles_in_high_matches = set(emp.role for emp, _ in high_score_matches)
+
+        if len(roles_in_high_matches) > 1:
+            # Different roles - ask for role clarification
+            match_details = []
+            for emp, score in high_score_matches[:4]:
+                full_name = emp.get_full_name() or emp.username
+                match_details.append(f"  - {full_name} ({emp.role})")
+
+            clarification = f"I found multiple people named '{name_only}':\n"
+            clarification += "\n".join(match_details)
+            clarification += "\n\nWhich one? Please specify the role, e.g., \"{} (Teacher)\" or \"{} the BDM\"".format(name_only, name_only)
+
+            return None, clarification, None
+        else:
+            # Same role - ask for more details
+            match_details = []
+            for emp, score in high_score_matches[:4]:
+                full_name = emp.get_full_name() or emp.username
+                match_details.append(f"  - {full_name}")
+
+            clarification = f"I found multiple {high_score_matches[0][0].role}s matching '{name_only}':\n"
+            clarification += "\n".join(match_details)
+            clarification += "\n\nPlease provide more details to specify which one."
+
+            return None, clarification, None
+
+    # Single high-scoring match or clear winner (top score much higher than others)
+    if matches[0][1] > 0.85:
+        emp = matches[0][0]
+        full_name = emp.get_full_name() or emp.username
+        employee_id_str = getattr(emp.teacher_profile, 'employee_id', None) if hasattr(emp, 'teacher_profile') else None
+        logger.info(f"Best match: {full_name} (ID: {emp.id}, score: {matches[0][1]})")
+        return emp.id, None, {
+            'name': full_name,
+            'employee_id': employee_id_str,
+            'role': emp.role
+        }
+
+    # Multiple close matches - check if they have different roles
+    roles_in_matches = set(emp.role for emp, _ in matches)
+
+    if len(roles_in_matches) > 1:
+        # Different roles - ask for role clarification
+        match_details = []
+        for emp, score in matches[:4]:
+            full_name = emp.get_full_name() or emp.username
+            match_details.append(f"  - {full_name} ({emp.role})")
+
+        clarification = f"I found multiple people named '{name_only}':\n"
+        clarification += "\n".join(match_details)
+        clarification += "\n\nWhich one? Please specify the role, e.g., \"{} (Teacher)\" or \"{} the Admin\"".format(name_only, name_only)
+
+        return None, clarification, None
+    else:
+        # Same role - ask for full name
+        match_details = []
+        for emp, score in matches[:4]:
+            full_name = emp.get_full_name() or emp.username
+            match_details.append(f"  - {full_name}")
+
+        clarification = f"I found multiple {matches[0][0].role}s matching '{name_only}':\n"
+        clarification += "\n".join(match_details)
+        clarification += "\n\nPlease provide the full name to specify which one."
+
+        return None, clarification, None
 
 
 def get_resolver(context: Dict[str, Any] = None) -> ParameterResolver:

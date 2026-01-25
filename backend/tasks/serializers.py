@@ -78,15 +78,17 @@ class TaskStatusUpdateSerializer(serializers.ModelSerializer):
 
 class TaskListSerializer(serializers.ModelSerializer):
     assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
+    assigned_to_role = serializers.CharField(source='assigned_to.role', read_only=True)
     assigned_by_name = serializers.CharField(source='assigned_by.get_full_name', read_only=True)
+    assigned_by_role = serializers.CharField(source='assigned_by.role', read_only=True)
     is_overdue = serializers.BooleanField(read_only=True)
     priority_color = serializers.CharField(read_only=True)
     status_color = serializers.CharField(read_only=True)
-    
+
     class Meta:
         model = Task
         fields = [
-            'id', 'title', 'assigned_to_name', 'assigned_by_name', 
-            'priority', 'status', 'due_date', 'created_at', 
-            'is_overdue', 'priority_color', 'status_color'
+            'id', 'title', 'description', 'assigned_to_name', 'assigned_to_role',
+            'assigned_by_name', 'assigned_by_role', 'priority', 'task_type', 'status',
+            'due_date', 'created_at', 'is_overdue', 'priority_color', 'status_color'
         ]

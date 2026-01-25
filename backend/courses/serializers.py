@@ -1,0 +1,573 @@
+# courses/serializers.py
+import re
+from rest_framework import serializers
+from .models import (
+    CourseEnrollment, TopicProgress,
+    Quiz, QuizQuestion, QuizChoice, QuizAttempt
+)
+from books.models import Book, Topic
+
+
+def natural_sort_key(obj):
+    """
+    Natural sort key for topics.
+    Handles numeric parts so "Chapter 10" comes after "Chapter 2".
+    """
+    code = getattr(obj, 'code', '') or ''
+    title = getattr(obj, 'title', '') or ''
+    text = f"{code} {title}"
+    parts = re.split(r'(\d+)', text)
+    return [int(part) if part.isdigit() else part.lower() for part in parts]
+
+
+# =============================================
+# Topic Serializers (Extended for LMS)
+# =============================================
+
+class TopicContentSerializer(serializers.ModelSerializer):
+    """Full topic content for the course player."""
+    display_title = serializers.SerializerMethodField()
+    has_quiz = serializers.SerializerMethodField()
+    activity_blocks = serializers.SerializerMethodField()
+    children = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Topic
+        fields = [
+            'id', 'code', 'display_title', 'title', 'type',
+            'content', 'activity_blocks', 'video_url', 'video_duration_seconds',
+            'estimated_time_minutes', 'is_required', 'has_quiz', 'children'
+        ]
+
+    def get_display_title(self, obj):
+        return obj.display_title
+
+    def get_has_quiz(self, obj):
+        return obj.quizzes.filter(is_active=True).exists()
+
+    def get_activity_blocks(self, obj):
+        """Return activity_blocks, aggregating from descendants if topic has none."""
+        # If topic has its own activity_blocks, return them
+        if obj.activity_blocks:
+            blocks = obj.activity_blocks
+            # Ensure it's a list
+            if isinstance(blocks, dict):
+                return [blocks]
+            return blocks
+
+        # For chapters: DON'T aggregate from descendants - only show chapter content
+        # Chapters should display their own 'content' field, not child activities
+        if obj.type == 'chapter':
+            return []
+
+        # For lessons/activities: aggregate from descendants (recursive)
+        def collect_blocks(topic, depth=0, max_depth=3):
+            """Recursively collect activity_blocks from descendants."""
+            blocks = []
+            children = topic.get_children()
+
+            for child in children:
+                if child.activity_blocks:
+                    block = child.activity_blocks
+                    # Add child info to block
+                    if isinstance(block, dict):
+                        block = {
+                            **block,
+                            'child_id': child.id,
+                            'child_title': child.display_title,
+                            'child_type': child.type,
+                        }
+                        blocks.append(block)
+                    elif isinstance(block, list):
+                        for b in block:
+                            b['child_id'] = child.id
+                            b['child_title'] = child.display_title
+                            b['child_type'] = child.type
+                        blocks.extend(block)
+                elif depth < max_depth:
+                    # Recurse into grandchildren
+                    blocks.extend(collect_blocks(child, depth + 1, max_depth))
+
+            return blocks
+
+        return collect_blocks(obj)
+
+    def get_children(self, obj):
+        """Return basic info about children for navigation."""
+        children = list(obj.get_children())
+        # Natural sorting for proper numeric ordering
+        children.sort(key=natural_sort_key)
+        return [
+            {
+                'id': c.id,
+                'code': c.code,
+                'title': c.display_title,
+                'type': c.type,
+                'has_content': bool(c.activity_blocks),
+            }
+            for c in children
+        ]
+
+
+class TopicProgressSerializer(serializers.ModelSerializer):
+    """Topic progress for a student."""
+    topic_id = serializers.IntegerField(source='topic.id', read_only=True)
+    topic_title = serializers.CharField(source='topic.display_title', read_only=True)
+    is_unlocked = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TopicProgress
+        fields = [
+            'id', 'topic_id', 'topic_title', 'status',
+            'started_at', 'completed_at', 'time_spent_seconds',
+            'last_position', 'is_unlocked'
+        ]
+
+    def get_is_unlocked(self, obj):
+        return obj.is_unlocked()
+
+
+class TopicWithProgressSerializer(serializers.ModelSerializer):
+    """Topic with student progress data."""
+    display_title = serializers.SerializerMethodField()
+    progress = serializers.SerializerMethodField()
+    children = serializers.SerializerMethodField()
+    has_quiz = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Topic
+        fields = [
+            'id', 'code', 'display_title', 'type',
+            'video_url', 'estimated_time_minutes', 'is_required',
+            'progress', 'children', 'has_quiz'
+        ]
+
+    def get_display_title(self, obj):
+        return obj.display_title
+
+    def get_progress(self, obj):
+        enrollment = self.context.get('enrollment')
+        user = self.context.get('user')
+
+        # For Admin/Teacher, always return unlocked (no enrollment needed)
+        if user and user.role in ['Admin', 'Teacher']:
+            return {
+                'status': 'not_started',
+                'is_unlocked': True
+            }
+
+        if not enrollment:
+            return None
+
+        try:
+            progress = TopicProgress.objects.get(
+                enrollment=enrollment,
+                topic=obj
+            )
+            return TopicProgressSerializer(progress).data
+        except TopicProgress.DoesNotExist:
+            # Return default unlocked state
+            return {
+                'status': 'not_started',
+                'is_unlocked': self._check_unlocked(obj, enrollment)
+            }
+
+    def _check_unlocked(self, topic, enrollment):
+        """Check if topic is unlocked without existing progress record."""
+        previous = topic.get_previous_sibling()
+        if not previous:
+            return True
+        return TopicProgress.objects.filter(
+            enrollment=enrollment,
+            topic=previous,
+            status='completed'
+        ).exists()
+
+    def get_children(self, obj):
+        children = list(obj.get_children())
+        # Natural sorting for proper numeric ordering (1, 2, 3...10 instead of 1, 10, 2)
+        children.sort(key=natural_sort_key)
+        return TopicWithProgressSerializer(
+            children, many=True, context=self.context
+        ).data
+
+    def get_has_quiz(self, obj):
+        return obj.quizzes.filter(is_active=True).exists()
+
+
+# =============================================
+# Course Enrollment Serializers
+# =============================================
+
+class CourseEnrollmentSerializer(serializers.ModelSerializer):
+    """Course enrollment details."""
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    course_cover = serializers.ImageField(source='course.cover', read_only=True)
+    student_name = serializers.CharField(source='student.name', read_only=True)
+    progress_percentage = serializers.SerializerMethodField()
+    last_topic_title = serializers.CharField(source='last_topic.display_title', read_only=True)
+
+    class Meta:
+        model = CourseEnrollment
+        fields = [
+            'id', 'student', 'course', 'course_title', 'course_cover',
+            'student_name', 'enrolled_at', 'completed_at', 'status',
+            'last_accessed_at', 'last_topic', 'last_topic_title',
+            'progress_percentage'
+        ]
+        read_only_fields = ['enrolled_at', 'completed_at', 'last_accessed_at']
+
+    def get_progress_percentage(self, obj):
+        return obj.get_progress_percentage()
+
+
+class CourseEnrollmentCreateSerializer(serializers.ModelSerializer):
+    """Serializer for enrolling in a course."""
+
+    class Meta:
+        model = CourseEnrollment
+        fields = ['course']
+
+    def validate_course(self, value):
+        student = self.context['student']
+        if CourseEnrollment.objects.filter(student=student, course=value).exists():
+            raise serializers.ValidationError("Already enrolled in this course.")
+        return value
+
+    def create(self, validated_data):
+        validated_data['student'] = self.context['student']
+        return super().create(validated_data)
+
+
+# =============================================
+# Course Listing Serializers
+# =============================================
+
+class CourseListSerializer(serializers.ModelSerializer):
+    """Course list for browsing."""
+    total_topics = serializers.SerializerMethodField()
+    total_duration_minutes = serializers.SerializerMethodField()
+    enrollment_count = serializers.SerializerMethodField()
+    is_enrolled = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Book
+        fields = [
+            'id', 'title', 'isbn', 'cover',
+            'total_topics', 'total_duration_minutes',
+            'enrollment_count', 'is_enrolled'
+        ]
+
+    def get_total_topics(self, obj):
+        return obj.topics.filter(is_required=True).count()
+
+    def get_total_duration_minutes(self, obj):
+        return sum(
+            t.estimated_time_minutes
+            for t in obj.topics.filter(is_required=True)
+        )
+
+    def get_enrollment_count(self, obj):
+        return obj.enrollments.filter(status='active').count()
+
+    def get_is_enrolled(self, obj):
+        student = self.context.get('student')
+        if not student:
+            return False
+        return obj.enrollments.filter(student=student).exists()
+
+
+class CourseDetailSerializer(serializers.ModelSerializer):
+    """Full course details with topic tree."""
+    topics = serializers.SerializerMethodField()
+    total_topics = serializers.SerializerMethodField()
+    total_duration_minutes = serializers.SerializerMethodField()
+    enrollment = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Book
+        fields = [
+            'id', 'title', 'isbn', 'cover',
+            'total_topics', 'total_duration_minutes',
+            'topics', 'enrollment'
+        ]
+
+    def get_topics(self, obj):
+        enrollment = self.context.get('enrollment')
+        user = self.context.get('user')
+        root_topics = list(obj.topics.filter(parent=None))
+        # Natural sorting for proper numeric ordering (1, 2, 3...10 instead of 1, 10, 2)
+        root_topics.sort(key=natural_sort_key)
+        return TopicWithProgressSerializer(
+            root_topics, many=True,
+            context={'enrollment': enrollment, 'user': user}
+        ).data
+
+    def get_total_topics(self, obj):
+        return obj.topics.filter(is_required=True).count()
+
+    def get_total_duration_minutes(self, obj):
+        return sum(
+            t.estimated_time_minutes
+            for t in obj.topics.filter(is_required=True)
+        )
+
+    def get_enrollment(self, obj):
+        enrollment = self.context.get('enrollment')
+        if enrollment:
+            return CourseEnrollmentSerializer(enrollment).data
+        return None
+
+
+# =============================================
+# Quiz Serializers
+# =============================================
+
+class QuizChoiceSerializer(serializers.ModelSerializer):
+    """Quiz choice (answer option)."""
+
+    class Meta:
+        model = QuizChoice
+        fields = ['id', 'choice_text', 'is_correct', 'order']
+        extra_kwargs = {
+            'is_correct': {'write_only': True}  # Hide correct answer when taking quiz
+        }
+
+
+class QuizChoiceWithAnswerSerializer(serializers.ModelSerializer):
+    """Quiz choice with correct answer revealed (for results)."""
+
+    class Meta:
+        model = QuizChoice
+        fields = ['id', 'choice_text', 'is_correct', 'order']
+
+
+class QuizQuestionSerializer(serializers.ModelSerializer):
+    """Quiz question for taking quiz."""
+    choices = QuizChoiceSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = QuizQuestion
+        fields = [
+            'id', 'question_type', 'question_text', 'question_media',
+            'points', 'order', 'choices'
+        ]
+
+
+class QuizQuestionWithAnswerSerializer(serializers.ModelSerializer):
+    """Quiz question with correct answers (for results)."""
+    choices = QuizChoiceWithAnswerSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = QuizQuestion
+        fields = [
+            'id', 'question_type', 'question_text', 'question_media',
+            'explanation', 'points', 'order', 'choices'
+        ]
+
+
+class QuizSerializer(serializers.ModelSerializer):
+    """Quiz for taking."""
+    questions = serializers.SerializerMethodField()
+    topic_title = serializers.CharField(source='topic.display_title', read_only=True)
+    total_points = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Quiz
+        fields = [
+            'id', 'title', 'description', 'topic', 'topic_title',
+            'passing_score', 'time_limit_minutes', 'max_attempts',
+            'shuffle_questions', 'total_points', 'questions'
+        ]
+
+    def get_questions(self, obj):
+        questions = obj.questions.all()
+        if obj.shuffle_questions:
+            questions = questions.order_by('?')
+        return QuizQuestionSerializer(questions, many=True).data
+
+    def get_total_points(self, obj):
+        return obj.get_total_points()
+
+
+class QuizAttemptSerializer(serializers.ModelSerializer):
+    """Quiz attempt result."""
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    attempt_number = serializers.SerializerMethodField()
+    can_retry = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            'id', 'quiz', 'quiz_title', 'started_at', 'completed_at',
+            'score', 'points_earned', 'passed', 'time_taken_seconds',
+            'answers', 'attempt_number', 'can_retry'
+        ]
+
+    def get_attempt_number(self, obj):
+        return obj.get_attempt_number()
+
+    def get_can_retry(self, obj):
+        return obj.can_retry()
+
+
+class QuizSubmissionSerializer(serializers.Serializer):
+    """Serializer for quiz submission."""
+    answers = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="List of {question_id: int, selected_choices: [choice_ids]}"
+    )
+
+    def validate_answers(self, value):
+        for answer in value:
+            if 'question_id' not in answer:
+                raise serializers.ValidationError("Each answer must have question_id")
+            if 'selected_choices' not in answer:
+                raise serializers.ValidationError("Each answer must have selected_choices")
+        return value
+
+
+# =============================================
+# Quiz Builder Serializers (Admin/Teacher)
+# =============================================
+
+class QuizChoiceCreateSerializer(serializers.ModelSerializer):
+    """Create/update quiz choice."""
+
+    class Meta:
+        model = QuizChoice
+        fields = ['id', 'choice_text', 'is_correct', 'order']
+
+
+class QuizQuestionCreateSerializer(serializers.ModelSerializer):
+    """Create/update quiz question with choices."""
+    choices = QuizChoiceCreateSerializer(many=True)
+
+    class Meta:
+        model = QuizQuestion
+        fields = [
+            'id', 'question_type', 'question_text', 'question_media',
+            'explanation', 'points', 'order', 'choices'
+        ]
+
+    def create(self, validated_data):
+        choices_data = validated_data.pop('choices', [])
+        question = QuizQuestion.objects.create(**validated_data)
+
+        for choice_data in choices_data:
+            QuizChoice.objects.create(question=question, **choice_data)
+
+        return question
+
+    def update(self, instance, validated_data):
+        choices_data = validated_data.pop('choices', [])
+
+        # Update question fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update choices
+        existing_ids = set(instance.choices.values_list('id', flat=True))
+        updated_ids = set()
+
+        for choice_data in choices_data:
+            choice_id = choice_data.get('id')
+            if choice_id and choice_id in existing_ids:
+                # Update existing choice
+                choice = QuizChoice.objects.get(id=choice_id)
+                for attr, value in choice_data.items():
+                    if attr != 'id':
+                        setattr(choice, attr, value)
+                choice.save()
+                updated_ids.add(choice_id)
+            else:
+                # Create new choice
+                QuizChoice.objects.create(question=instance, **choice_data)
+
+        # Delete removed choices
+        instance.choices.exclude(id__in=updated_ids).delete()
+
+        return instance
+
+
+class QuizCreateSerializer(serializers.ModelSerializer):
+    """Create/update quiz with questions."""
+    questions = QuizQuestionCreateSerializer(many=True, required=False)
+    topic_title = serializers.CharField(source='topic.display_title', read_only=True)
+
+    class Meta:
+        model = Quiz
+        fields = [
+            'id', 'topic', 'topic_title', 'title', 'description',
+            'passing_score', 'time_limit_minutes', 'max_attempts',
+            'shuffle_questions', 'show_correct_answers', 'is_active',
+            'questions'
+        ]
+
+    def create(self, validated_data):
+        questions_data = validated_data.pop('questions', [])
+        validated_data['created_by'] = self.context['request'].user
+        quiz = Quiz.objects.create(**validated_data)
+
+        for q_order, question_data in enumerate(questions_data):
+            choices_data = question_data.pop('choices', [])
+            question_data['order'] = q_order
+            question = QuizQuestion.objects.create(quiz=quiz, **question_data)
+
+            for c_order, choice_data in enumerate(choices_data):
+                choice_data['order'] = c_order
+                QuizChoice.objects.create(question=question, **choice_data)
+
+        return quiz
+
+    def update(self, instance, validated_data):
+        questions_data = validated_data.pop('questions', None)
+
+        # Update quiz fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # If questions provided, update them
+        if questions_data is not None:
+            # For simplicity, delete and recreate questions
+            instance.questions.all().delete()
+
+            for q_order, question_data in enumerate(questions_data):
+                choices_data = question_data.pop('choices', [])
+                question_data['order'] = q_order
+                question = QuizQuestion.objects.create(quiz=instance, **question_data)
+
+                for c_order, choice_data in enumerate(choices_data):
+                    choice_data['order'] = c_order
+                    QuizChoice.objects.create(question=question, **choice_data)
+
+        return instance
+
+
+# =============================================
+# Progress Dashboard Serializers
+# =============================================
+
+class ProgressDashboardSerializer(serializers.Serializer):
+    """Student progress dashboard data."""
+    total_courses = serializers.IntegerField()
+    completed_courses = serializers.IntegerField()
+    in_progress_courses = serializers.IntegerField()
+    total_time_spent_seconds = serializers.IntegerField()
+    total_topics_completed = serializers.IntegerField()
+    total_quizzes_passed = serializers.IntegerField()
+    average_quiz_score = serializers.FloatField()
+    recent_activity = serializers.ListField()
+
+
+class ContinueLearningSerializer(serializers.Serializer):
+    """Continue learning data."""
+    course_id = serializers.IntegerField()
+    course_title = serializers.CharField()
+    course_cover = serializers.ImageField(allow_null=True)
+    topic_id = serializers.IntegerField(allow_null=True)
+    topic_title = serializers.CharField(allow_null=True)
+    progress_percentage = serializers.FloatField()
+    last_accessed_at = serializers.DateTimeField()

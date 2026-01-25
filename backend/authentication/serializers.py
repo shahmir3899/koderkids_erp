@@ -16,29 +16,89 @@ class UserListSerializer(serializers.ModelSerializer):
     assigned_schools_count = serializers.SerializerMethodField()
     assigned_schools_names = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
-    
+    date_of_joining = serializers.SerializerMethodField()
+    basic_salary = serializers.SerializerMethodField()
+    employee_id = serializers.SerializerMethodField()
+    profile_photo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomUser
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'role', 'is_active', 'is_super_admin',
             'assigned_schools_count', 'assigned_schools_names',
-            'last_login', 'created_at', 'created_by_name'
+            'last_login', 'created_at', 'created_by_name',
+            'date_of_joining', 'basic_salary', 'employee_id',
+            'profile_photo_url'
         ]
-    
+
     def get_assigned_schools_count(self, obj):
         return obj.assigned_schools.count()
-    
+
     def get_assigned_schools_names(self, obj):
         names = list(obj.assigned_schools.values_list('name', flat=True))
         if len(names) == 1:
             return names[0]  # Return string for single school
         return names  # Return array for multiple schools
-    
+
     def get_created_by_name(self, obj):
         if obj.created_by:
             return f"{obj.created_by.first_name} {obj.created_by.last_name}".strip() or obj.created_by.username
         return "System"
+
+    def _get_profile(self, obj):
+        """Get TeacherProfile from prefetch cache or query (cached per serializer call)"""
+        # Check if profile is already cached on this serializer instance
+        cache_key = f'_profile_cache_{obj.id}'
+        if hasattr(self, cache_key):
+            return getattr(self, cache_key)
+
+        profile = None
+        try:
+            # First try prefetched data (set by view's Prefetch)
+            if hasattr(obj, '_prefetched_profile'):
+                profile = obj._prefetched_profile
+            else:
+                # Fallback: try reverse relation (if exists)
+                profile = getattr(obj, 'teacher_profile', None)
+        except Exception:
+            pass
+
+        # Cache on serializer instance
+        setattr(self, cache_key, profile)
+        return profile
+
+    def get_date_of_joining(self, obj):
+        """Get date_of_joining from TeacherProfile if exists"""
+        profile = self._get_profile(obj)
+        if profile and profile.date_of_joining:
+            return profile.date_of_joining.isoformat()
+        return None
+
+    def get_basic_salary(self, obj):
+        """Get basic_salary from TeacherProfile if exists"""
+        profile = self._get_profile(obj)
+        if profile and profile.basic_salary:
+            return float(profile.basic_salary)
+        return None
+
+    def get_employee_id(self, obj):
+        """Get employee_id from TeacherProfile if exists"""
+        profile = self._get_profile(obj)
+        if profile and profile.employee_id:
+            return profile.employee_id
+        return None
+
+    def get_profile_photo_url(self, obj):
+        """Get profile_photo_url from CustomUser or TeacherProfile"""
+        # First check CustomUser's profile_photo_url
+        if obj.profile_photo_url:
+            return obj.profile_photo_url
+        # Fallback to TeacherProfile's profile_photo_url
+        profile = self._get_profile(obj)
+        if profile and hasattr(profile, 'profile_photo_url') and profile.profile_photo_url:
+            return profile.profile_photo_url
+        return None
 
 
 class UserDetailSerializer(serializers.ModelSerializer):

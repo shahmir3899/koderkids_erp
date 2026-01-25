@@ -16,6 +16,8 @@ const CACHE_DURATIONS = {
   lessons: 5 * 60 * 1000,         // 5 minutes (lessons change more frequently)
   inventory: 10 * 60 * 1000,      // 10 minutes
   notifications: 2 * 60 * 1000,   // 2 minutes (check frequently)
+  users_list: 5 * 60 * 1000,      // 5 minutes (users change occasionally)
+  users_stats: 5 * 60 * 1000,     // 5 minutes (stats change with users)
 };
 
 /**

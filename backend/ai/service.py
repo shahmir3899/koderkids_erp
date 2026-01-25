@@ -478,6 +478,11 @@ Current user message: {message}"""
             if is_delete_action(action_def):
                 # Generate confirmation token
                 token = secrets.token_urlsafe(32)
+
+                # Store action details in audit log BEFORE setting pending confirmation
+                # This is required so confirm_action() can retrieve them later
+                audit_log.action_name = action_name
+                audit_log.action_params = params
                 audit_log.set_pending_confirmation(token)
 
                 # Get details for confirmation modal
@@ -554,12 +559,13 @@ Current user message: {message}"""
                 "audit_log_id": audit_log.id
             }
 
-    def confirm_action(self, confirmation_token: str) -> Dict[str, Any]:
+    def confirm_action(self, confirmation_token: str, edited_params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Execute a previously confirmed action.
 
         Args:
             confirmation_token: Token from needs_confirmation response
+            edited_params: Optional dict of edited parameters (e.g., edited task description, due_date)
 
         Returns:
             Execution result
@@ -584,11 +590,24 @@ Current user message: {message}"""
                 "message": "Action no longer available"
             }
 
-        # Execute the action
+        # Merge edited params with stored params (edited takes precedence)
+        final_params = dict(audit_log.action_params or {})
+        if edited_params:
+            # Map frontend field names to backend param names
+            param_mapping = {
+                'description': 'task_description',
+                'due_date': 'due_date',
+                'priority': 'priority'
+            }
+            for frontend_key, backend_key in param_mapping.items():
+                if frontend_key in edited_params and edited_params[frontend_key]:
+                    final_params[backend_key] = edited_params[frontend_key]
+
+        # Execute the action with final params
         result = self._execute_action(
             audit_log.agent,
             action_def,
-            audit_log.action_params
+            final_params
         )
 
         # Update audit log
@@ -888,6 +907,40 @@ Current user message: {message}"""
             return {
                 "message": f"Delete category '{category_name}'?{warning}",
                 "items": [{"id": category_id, "name": category_name, "item_count": item_count}]
+            }
+
+        if action_name == 'CREATE_TASK':
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            employee_id = params.get('employee_id')
+            task_description = params.get('task_description', '')
+            due_date = params.get('due_date', '')
+            priority = params.get('priority', 'medium')
+
+            employee_name = f"Employee #{employee_id}"
+            employee_role = None
+            try:
+                employee = User.objects.get(id=employee_id)
+                employee_name = employee.get_full_name() or employee.username
+                employee_role = employee.role
+            except User.DoesNotExist:
+                pass
+
+            # Truncate description for preview
+            preview_desc = task_description[:150] + '...' if len(task_description) > 150 else task_description
+
+            return {
+                "message": f"Create task for {employee_name}?",
+                "items": [{
+                    "employee_name": employee_name,
+                    "employee_id": employee_id,
+                    "employee_role": employee_role,
+                    "description": preview_desc,
+                    "full_description": task_description,
+                    "due_date": due_date,
+                    "priority": priority
+                }]
             }
 
         return {

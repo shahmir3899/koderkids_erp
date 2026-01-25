@@ -139,13 +139,13 @@ const TaskActions = ({ task, onUpdate, onShowBulkModal, onShowEditModal }) => {
                 {task.assigned_to_name && (
                     <div style={styles.detailItem}>
                         <span style={styles.detailIcon}>👤</span>
-                        <span><strong>Assigned to:</strong> {task.assigned_to_name}</span>
+                        <span><strong>Assigned to:</strong> {task.assigned_to_name}{task.assigned_to_role && ` (${task.assigned_to_role})`}</span>
                     </div>
                 )}
                 {task.assigned_by_name && (
                     <div style={styles.detailItem}>
                         <span style={styles.detailIcon}>👨‍💼</span>
-                        <span><strong>Created by:</strong> {task.assigned_by_name}</span>
+                        <span><strong>Created by:</strong> {task.assigned_by_name}{task.assigned_by_role && ` (${task.assigned_by_role})`}</span>
                     </div>
                 )}
                 {task.task_type && (
@@ -317,15 +317,17 @@ const TaskActions = ({ task, onUpdate, onShowBulkModal, onShowEditModal }) => {
 // STYLES - Glassmorphism Design System
 // ============================================
 const styles = {
-    // Task Card
+    // Task Card - Glassmorphic
     taskCard: {
         position: 'relative',
-        border: `1px solid ${COLORS.border.default}`,
+        border: '1px solid rgba(255, 255, 255, 0.2)',
         borderRadius: BORDER_RADIUS.lg,
         padding: SPACING.lg,
-        background: COLORS.background.white,
-        boxShadow: SHADOWS.sm,
-        marginBottom: SPACING.sm,
+        background: 'rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+        marginBottom: SPACING.md,
     },
 
     // Task Header
@@ -338,18 +340,27 @@ const styles = {
     },
     taskTitleSection: {
         flex: 1,
+        minWidth: 0,
+        overflow: 'visible',
     },
     taskTitle: {
         margin: `0 0 ${SPACING.sm} 0`,
-        fontSize: FONT_SIZES.lg,
-        fontWeight: FONT_WEIGHTS.semibold,
-        color: COLORS.text.primary,
+        fontSize: FONT_SIZES.xl,
+        fontWeight: FONT_WEIGHTS.bold,
+        color: COLORS.text.white,
+        wordBreak: 'break-word',
+        overflow: 'visible',
+        textOverflow: 'clip',
+        whiteSpace: 'normal',
     },
     taskDescription: {
         margin: 0,
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.text.secondary,
-        lineHeight: 1.5,
+        fontSize: FONT_SIZES.base,
+        color: 'rgba(255, 255, 255, 0.85)',
+        lineHeight: 1.6,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        overflow: 'visible',
     },
 
     // Badges
@@ -357,7 +368,7 @@ const styles = {
         display: 'flex',
         gap: SPACING.sm,
         flexWrap: 'wrap',
-        marginLeft: SPACING.md,
+        flexShrink: 0,
     },
     badge: {
         padding: `${SPACING.xs} ${SPACING.md}`,
@@ -365,16 +376,17 @@ const styles = {
         fontSize: FONT_SIZES.xs,
         fontWeight: FONT_WEIGHTS.semibold,
         textTransform: 'capitalize',
+        whiteSpace: 'nowrap',
     },
 
     // Task Details
     taskDetails: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: SPACING.md,
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: SPACING.lg,
         marginBottom: SPACING.lg,
         fontSize: FONT_SIZES.sm,
-        color: COLORS.text.secondary,
+        color: 'rgba(255, 255, 255, 0.8)',
     },
     detailItem: {
         display: 'flex',
@@ -382,7 +394,7 @@ const styles = {
         gap: SPACING.sm,
     },
     detailIcon: {
-        color: COLORS.text.muted,
+        fontSize: FONT_SIZES.base,
     },
 
     // Actions
@@ -425,15 +437,18 @@ const styles = {
     loadingOverlay: {
         position: 'absolute',
         inset: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.75)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: BORDER_RADIUS.lg,
     },
     loadingText: {
-        color: COLORS.text.secondary,
+        color: COLORS.text.white,
         fontSize: FONT_SIZES.sm,
+        fontWeight: FONT_WEIGHTS.medium,
     },
 
     // Modal
