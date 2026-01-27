@@ -464,18 +464,30 @@ export const getTransactions = async () => {
 
 /**
  * Send message to robot chat
+ * Uses fetch instead of axios to bypass ERPLoader interceptors
  * @param {string} message - Message to send
  * @returns {Promise<string>} Robot reply
  */
 export const sendMessageToRobot = async (message) => {
     try {
-        const response = await axios.post(`${API_URL}/api/robot-reply/`, {
-            message: message,
+        const response = await fetch(`${API_URL}/api/robot-reply/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message }),
         });
-        return response.data.reply;
+
+        if (!response.ok) {
+            console.error(`Robot chat API error: ${response.status}`);
+            return "Hmm, I'm having trouble connecting right now. Try again in a moment!";
+        }
+
+        const data = await response.json();
+        return data.reply || "I didn't quite catch that. Could you ask again?";
     } catch (error) {
         console.error("❌ Error sending message:", error);
-        return "Sorry, something went wrong.";
+        return "Oops! I couldn't connect. Please check your internet and try again!";
     }
 };
 

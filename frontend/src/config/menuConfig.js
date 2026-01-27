@@ -24,6 +24,8 @@ import {
   faBook,
   faGraduationCap,
   faClipboardQuestion,
+  faStar,
+  faImages,
 } from "@fortawesome/free-solid-svg-icons";
 
 /**
@@ -61,7 +63,7 @@ export const MENU_SECTIONS = {
   STUDENTS_FEE: {
     id: 'students-fee',
     label: 'Students & Fee',
-    roles: ['Admin', 'Teacher'],
+    roles: ['Admin', 'Teacher', 'BDM'],
     items: [
       {
         id: 'students-dropdown',
@@ -89,7 +91,7 @@ export const MENU_SECTIONS = {
         label: 'School Data',
         icon: faSchool,
         path: '/schools',
-        roles: ['Admin', 'Teacher'],
+        roles: ['Admin', 'Teacher', 'BDM'],
       },
       {
         id: 'students-data-dropdown',
@@ -123,7 +125,7 @@ export const MENU_SECTIONS = {
         label: 'Inventory Dashboard',
         icon: faBoxesPacking,
         path: '/inventory-dashboard',
-        roles: ['Admin', 'Teacher'],
+        roles: ['Admin', 'Teacher', 'BDM'],
       },
       {
         id: 'book-management',
@@ -166,7 +168,7 @@ export const MENU_SECTIONS = {
         label: 'Custom',
         icon: faFileAlt,
         dropdown: true,
-        roles: ['Admin'],
+        roles: ['Admin', 'BDM'],
         subItems: [
           {
             id: 'salary-slip',
@@ -284,7 +286,7 @@ export const MENU_SECTIONS = {
   SUPPORT: {
     id: 'support',
     label: 'Support',
-    roles: ['Admin', 'Teacher', 'Student', 'BDM'],
+    roles: ['Admin', 'Teacher', 'BDM'],
     items: [
       {
         id: 'settings',
@@ -298,7 +300,7 @@ export const MENU_SECTIONS = {
         label: 'Robot Chat',
         icon: faRobot,
         path: '/robot-chat',
-        roles: ['Admin', 'Teacher', 'Student', 'BDM'],
+        roles: ['Admin', 'Teacher', 'BDM'],
       },
     ],
   },
@@ -344,6 +346,29 @@ export const MENU_SECTIONS = {
         label: 'Create Quiz',
         icon: faClipboardCheck,
         path: '/lms/quiz-builder',
+        roles: ['Admin', 'Teacher'],
+      },
+    ],
+  },
+
+  // AI Gala - Monthly creative AI projects with voting
+  AI_GALA: {
+    id: 'ai-gala',
+    label: 'AI Gala',
+    roles: ['Student', 'Admin', 'Teacher'],
+    items: [
+      {
+        id: 'ai-gala-gallery',
+        label: 'AI Gala',
+        icon: faStar,
+        path: '/ai-gala',
+        roles: ['Student', 'Admin', 'Teacher'],
+      },
+      {
+        id: 'ai-gala-manage',
+        label: 'Manage Contests',
+        icon: faImages,
+        path: '/ai-gala/manage',
         roles: ['Admin', 'Teacher'],
       },
     ],

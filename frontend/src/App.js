@@ -20,6 +20,7 @@ import { LoadingProvider, useLoading } from './contexts/LoadingContext';
 import { InventoryProvider } from './contexts/InventoryContext';
 import { FinanceProvider } from './contexts/FinanceContext';
 import ProtectedRoute from "./components/ProtectedRoute";
+import AuthGate from "./components/AuthGate";
 import InventoryDashboard from './pages/InventoryDashboard';
 import Sidebar from "./components/sidebar";
 import ProgressPage from "./pages/ProgressPage";
@@ -67,6 +68,10 @@ import { LMSProvider } from './contexts/LMSContext';
 
 // Book Management
 import BookManagementPage from './pages/BookManagementPage';
+
+// AI Gala
+import AiGalaPage from './pages/AiGalaPage';
+import AiGalaManagePage from './pages/AiGalaManagePage';
 
 import { logout } from "./api"; 
 
@@ -149,13 +154,13 @@ function AppContent() {
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/lessons" element={<LessonsPage />} />
       <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Admin", "Teacher"]} />} />
-      <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} allowedRoles={["Admin", "Teacher"]} />} />
+      <Route path="/schools" element={<ProtectedRoute element={<SchoolsPage />} allowedRoles={["Admin", "Teacher", "BDM"]} />} />
       <Route path="/teacherDashboard" element={<ProtectedRoute element={<TeacherDashboardFigma />} allowedRoles={["Teacher"]} />} />
       
 
-      <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} allowedRoles={["Admin", "Teacher"]} />} />
-      <Route path="/inventory-dashboard" element={<ProtectedRoute element= {<InventoryDashboard/>}allowedRoles={["Admin", "Teacher"]} />} />
-      <Route path="/inventory" element={<ProtectedRoute element={<InventoryPage />} allowedRoles={["Admin", "Teacher"]}/>}/>
+      <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} allowedRoles={["Admin", "Teacher", "Student"]} />} />
+      <Route path="/inventory-dashboard" element={<ProtectedRoute element= {<InventoryDashboard/>}allowedRoles={["Admin", "Teacher", "BDM"]} />} />
+      <Route path="/inventory" element={<ProtectedRoute element={<InventoryPage />} allowedRoles={["Admin", "Teacher", "BDM"]}/>}/>
 
       {/* ✅ Admin Only Routes */}
       <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
@@ -164,7 +169,7 @@ function AppContent() {
       <Route path="/settings" element={<ProtectedRoute element={<SettingsRouter />} allowedRoles={["Admin"]} />} />
       <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />
-      <Route path="/custom-report" element={<ProtectedRoute element={<CustomReport />}allowedRoles={["Admin"]}/>} />
+      <Route path="/custom-report" element={<ProtectedRoute element={<CustomReport />}allowedRoles={["Admin", "BDM"]}/>} />
       <Route path="/salary-slip" element={<ProtectedRoute element={<SalarySlip />} allowedRoles={["Admin", "Teacher", "BDM"]} />} />
 
       {/* ✅ CRM Routes - Admin & BDM */}
@@ -197,6 +202,10 @@ function AppContent() {
       <Route path="/lms/quiz-manage" element={<ProtectedRoute element={<QuizManagementPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/lms/quiz-builder" element={<ProtectedRoute element={<QuizBuilderPage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/lms/quiz-builder/:quizId" element={<ProtectedRoute element={<QuizBuilderPage />} allowedRoles={["Admin", "Teacher"]} />} />
+
+      {/* ✅ AI Gala Routes */}
+      <Route path="/ai-gala" element={<ProtectedRoute element={<AiGalaPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
+      <Route path="/ai-gala/manage" element={<ProtectedRoute element={<AiGalaManagePage />} allowedRoles={["Admin", "Teacher"]} />} />
 
         {/* NEW ROUTES: Add these two – protected */}
       <Route path="/books-tree" element={<ProtectedRoute element={<BookSelectPage/>} allowedRoles={["Admin", "Teacher"]} />} />
@@ -253,28 +262,30 @@ function AppWithLoader() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <SchoolsProvider>
-        <InventoryProvider>
-          <FinanceProvider>
-            <UserProvider>
-              <BooksProvider>
-                <LMSProvider>
-                  <ClassesProvider>
-                    <LoadingProvider>
-                      <Router>
-                        <AutoLogout />
-                        <AppWithLoader />
-                      </Router>
-                    </LoadingProvider>
-                  </ClassesProvider>
-                </LMSProvider>
-              </BooksProvider>
-            </UserProvider>
-          </FinanceProvider>
-        </InventoryProvider>
-      </SchoolsProvider>
-    </QueryClientProvider>
+    <AuthGate>
+      <QueryClientProvider client={queryClient}>
+        <SchoolsProvider>
+          <InventoryProvider>
+            <FinanceProvider>
+              <UserProvider>
+                <BooksProvider>
+                  <LMSProvider>
+                    <ClassesProvider>
+                      <LoadingProvider>
+                        <Router>
+                          <AutoLogout />
+                          <AppWithLoader />
+                        </Router>
+                      </LoadingProvider>
+                    </ClassesProvider>
+                  </LMSProvider>
+                </BooksProvider>
+              </UserProvider>
+            </FinanceProvider>
+          </InventoryProvider>
+        </SchoolsProvider>
+      </QueryClientProvider>
+    </AuthGate>
   );
 }
 

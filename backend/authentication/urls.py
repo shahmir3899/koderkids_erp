@@ -9,6 +9,7 @@ from .views import (
     CustomTokenObtainPairView,
     register_user,
     get_logged_in_user,
+    get_my_assigned_schools,
     UserViewSet,
     password_reset_request,      # ← NEW
     password_reset_confirm,       # ← NEW

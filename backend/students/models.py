@@ -376,3 +376,65 @@ class TeacherAttendance(models.Model):
 
     def __str__(self):
         return f"{self.teacher.username} - {self.school.name} - {self.date} ({self.status})"
+
+
+class Badge(models.Model):
+    """
+    Achievement badges that students can earn based on attendance streaks and AI Gala participation.
+    """
+    BADGE_TYPES = [
+        # Attendance Streaks
+        ('streak_5', '5 Day Streak'),
+        ('streak_10', '10 Day Streak'),
+        ('streak_30', '30 Day Streak'),
+        ('perfect_week', 'Perfect Week'),
+        ('first_month', 'First Month Complete'),
+        # AI Gala Badges
+        ('gala_champion', 'AI Gala Champion'),      # 1st place winner
+        ('gala_innovator', 'AI Gala Innovator'),    # 2nd place winner
+        ('gala_creator', 'AI Gala Creator'),        # 3rd place winner
+        ('gala_participant', 'Gala Participant'),   # Participated in a gala
+        ('gala_veteran', 'Gala Veteran'),           # Participated in 5+ galas
+        ('gala_superstar', 'Gala Superstar'),       # Won 3+ gala competitions
+    ]
+
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    icon = models.CharField(max_length=50, help_text="Emoji or icon identifier (e.g., '⭐', 'star', 'trophy')")
+    badge_type = models.CharField(max_length=50, choices=BADGE_TYPES, unique=True)
+    criteria_value = models.IntegerField(help_text="Number required to earn badge (e.g., 5 for 5-day streak)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['criteria_value']
+        verbose_name = "Badge"
+        verbose_name_plural = "Badges"
+
+    def __str__(self):
+        return f"{self.icon} {self.name}"
+
+
+class StudentBadge(models.Model):
+    """
+    Tracks which badges each student has earned.
+    """
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='earned_badges'
+    )
+    badge = models.ForeignKey(
+        Badge,
+        on_delete=models.CASCADE,
+        related_name='student_badges'
+    )
+    earned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('student', 'badge')
+        ordering = ['-earned_at']
+        verbose_name = "Student Badge"
+        verbose_name_plural = "Student Badges"
+
+    def __str__(self):
+        return f"{self.student.name} - {self.badge.name}"

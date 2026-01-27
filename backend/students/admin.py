@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, School, Student, Fee, Attendance, LessonPlan    # ✅ Import the models
+from .models import CustomUser, School, Student, Fee, Attendance, LessonPlan, Badge, StudentBadge
 
 
 class CustomUserAdmin(UserAdmin):
@@ -58,3 +58,20 @@ admin.site.register(Student)
 admin.site.register(Fee)
 admin.site.register(Attendance)
 admin.site.register(LessonPlan)
+
+
+@admin.register(Badge)
+class BadgeAdmin(admin.ModelAdmin):
+    list_display = ('icon', 'name', 'badge_type', 'criteria_value', 'created_at')
+    list_filter = ('badge_type',)
+    search_fields = ('name', 'description')
+    ordering = ('criteria_value',)
+
+
+@admin.register(StudentBadge)
+class StudentBadgeAdmin(admin.ModelAdmin):
+    list_display = ('student', 'badge', 'earned_at')
+    list_filter = ('badge', 'earned_at')
+    search_fields = ('student__name', 'badge__name')
+    ordering = ('-earned_at',)
+    raw_id_fields = ['student']  # Use raw_id instead of autocomplete

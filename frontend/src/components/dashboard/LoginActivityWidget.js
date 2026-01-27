@@ -1,10 +1,11 @@
 // ============================================
-// LOGIN ACTIVITY WIDGET - Horizontal Scrollable Cards
-// Shows student and teacher login counts per school (last 3 working days)
-// Working day = day where LessonPlan exists for that school
+// LOGIN ACTIVITY WIDGET - Daily Login Stats with School Breakdown
+// Shows student and teacher login counts for last 3 days
+// Today (top), Yesterday (middle), Previous (bottom)
+// Each day shows school-wise breakdown
 // ============================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useLoginActivity } from '../../hooks/queries/useDashboardQuery';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 import {
@@ -17,13 +18,13 @@ import {
 } from '../../utils/designConstants';
 
 const LoginActivityWidget = () => {
-  const { data: loginData = [], isLoading, error } = useLoginActivity();
+  const { data: loginData, isLoading, error } = useLoginActivity();
 
   if (isLoading) {
     return (
       <div style={styles.container}>
         <div style={styles.header}>
-          <h3 style={styles.title}>Login Activity (Last 3 Working Days)</h3>
+          <h3 style={styles.title}>Login Activity (Last 3 Days)</h3>
         </div>
         <div style={styles.loadingContainer}>
           <LoadingSpinner size="small" message="Loading login activity..." />
@@ -36,7 +37,7 @@ const LoginActivityWidget = () => {
     return (
       <div style={styles.container}>
         <div style={styles.header}>
-          <h3 style={styles.title}>Login Activity (Last 3 Working Days)</h3>
+          <h3 style={styles.title}>Login Activity (Last 3 Days)</h3>
         </div>
         <div style={styles.errorContainer}>
           <span style={styles.errorIcon}>!</span>
@@ -46,28 +47,21 @@ const LoginActivityWidget = () => {
     );
   }
 
-  if (!loginData || loginData.length === 0) {
+  if (!loginData || !loginData.totals) {
     return (
       <div style={styles.container}>
         <div style={styles.header}>
-          <h3 style={styles.title}>Login Activity (Last 3 Working Days)</h3>
+          <h3 style={styles.title}>Login Activity (Last 3 Days)</h3>
         </div>
         <div style={styles.emptyContainer}>
           <span style={styles.emptyIcon}>-</span>
-          <span>No active schools found</span>
+          <span>No login data available</span>
         </div>
       </div>
     );
   }
 
-  // Calculate totals
-  const totals = loginData.reduce(
-    (acc, school) => ({
-      students: acc.students + (school.student_logins_3d || 0),
-      teachers: acc.teachers + (school.teacher_logins_3d || 0),
-    }),
-    { students: 0, teachers: 0 }
-  );
+  const { today, yesterday, previous, totals } = loginData;
 
   return (
     <div style={styles.container}>
@@ -75,79 +69,175 @@ const LoginActivityWidget = () => {
         <h3 style={styles.title}>Login Activity (Last 3 Days)</h3>
         <div style={styles.totalBadge}>
           <span style={styles.totalItem}>
-            <span style={styles.studentIcon}>S</span>
-            <span>{totals.students}</span>
+            <span style={styles.studentIconSmall}>S</span>
+            <span>{totals.student_logins}</span>
           </span>
           <span style={styles.divider}>|</span>
           <span style={styles.totalItem}>
-            <span style={styles.teacherIcon}>T</span>
-            <span>{totals.teachers}</span>
+            <span style={styles.teacherIconSmall}>T</span>
+            <span>{totals.teacher_logins}</span>
           </span>
         </div>
       </div>
 
-      <div style={styles.scrollContainer}>
-        <div style={styles.cardsRow}>
-          {loginData.map((school) => (
-            <SchoolLoginCard
-              key={school.school_id}
-              schoolName={school.school_name}
-              studentLogins={school.student_logins_3d}
-              teacherLogins={school.teacher_logins_3d}
-              isWorkingToday={school.is_working_today}
-            />
-          ))}
-        </div>
+      <div style={styles.rowsContainer}>
+        {/* Today Row */}
+        <DayRow
+          label={today.label}
+          date={today.date}
+          studentLogins={today.student_logins}
+          teacherLogins={today.teacher_logins}
+          schools={today.schools || []}
+          isToday={true}
+          defaultExpanded={true}
+        />
+
+        {/* Yesterday Row */}
+        <DayRow
+          label={yesterday.label}
+          date={yesterday.date}
+          studentLogins={yesterday.student_logins}
+          teacherLogins={yesterday.teacher_logins}
+          schools={yesterday.schools || []}
+          isToday={false}
+          defaultExpanded={false}
+        />
+
+        {/* Previous Day Row */}
+        <DayRow
+          label={previous.label}
+          date={previous.date}
+          studentLogins={previous.student_logins}
+          teacherLogins={previous.teacher_logins}
+          schools={previous.schools || []}
+          isToday={false}
+          defaultExpanded={false}
+        />
       </div>
     </div>
   );
 };
 
-// Individual school card component
-const SchoolLoginCard = ({ schoolName, studentLogins, teacherLogins, isWorkingToday }) => {
-  // Shorten school name for display
-  const displayName = schoolName
-    .replace(/School|Campus|System|Branch/gi, '')
-    .trim()
-    .substring(0, 15);
-
+// Individual day row component with expandable school breakdown
+const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, defaultExpanded }) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const hasActivity = studentLogins > 0 || teacherLogins > 0;
+  const total = studentLogins + teacherLogins;
+  const hasSchools = schools && schools.length > 0;
+
+  // Format date for display (e.g., "Mon, Jan 27")
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  // Shorten school name for display
+  const shortenSchoolName = (name) => {
+    return name
+      .replace(/School|Campus|System|Branch/gi, '')
+      .trim()
+      .substring(0, 18) || name.substring(0, 18);
+  };
 
   return (
     <div style={{
-      ...styles.card,
-      ...(isWorkingToday ? styles.cardGlowing : (hasActivity ? styles.cardActive : styles.cardInactive)),
-    }} className={isWorkingToday ? 'glowing-card' : ''}>
-      {isWorkingToday && (
-        <div style={styles.todayBadge}>TODAY</div>
+      ...styles.dayRowWrapper,
+      ...(isToday ? styles.dayRowWrapperToday : (hasActivity ? styles.dayRowWrapperActive : styles.dayRowWrapperInactive)),
+    }}>
+      {/* Main Row - Clickable to expand */}
+      <div
+        style={styles.dayRow}
+        onClick={() => hasSchools && setIsExpanded(!isExpanded)}
+      >
+        {/* Day Label */}
+        <div style={styles.dayLabelContainer}>
+          <div style={styles.dayLabelRow}>
+            {hasSchools && (
+              <span style={{
+                ...styles.expandIcon,
+                transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+              }}>
+                ▶
+              </span>
+            )}
+            <span style={{
+              ...styles.dayLabel,
+              ...(isToday ? styles.dayLabelToday : {}),
+            }}>
+              {label}
+            </span>
+          </div>
+          <span style={styles.dayDate}>{formattedDate}</span>
+        </div>
+
+        {/* Stats */}
+        <div style={styles.statsRow}>
+          {/* Students */}
+          <div style={styles.statBox}>
+            <span style={styles.studentIcon}>S</span>
+            <span style={{
+              ...styles.statValue,
+              color: studentLogins > 0 ? COLORS.accent.cyan : COLORS.text.whiteSubtle,
+            }}>
+              {studentLogins}
+            </span>
+          </div>
+
+          {/* Teachers */}
+          <div style={styles.statBox}>
+            <span style={styles.teacherIcon}>T</span>
+            <span style={{
+              ...styles.statValue,
+              color: teacherLogins > 0 ? COLORS.accent.purple : COLORS.text.whiteSubtle,
+            }}>
+              {teacherLogins}
+            </span>
+          </div>
+
+          {/* Total */}
+          <div style={styles.statBoxTotal}>
+            <span style={{
+              ...styles.totalValue,
+              color: total > 0 ? COLORS.text.white : COLORS.text.whiteSubtle,
+            }}>
+              {total}
+            </span>
+            <span style={styles.statLabel}>Total</span>
+          </div>
+        </div>
+      </div>
+
+      {/* School Breakdown - Expandable */}
+      {isExpanded && hasSchools && (
+        <div style={styles.schoolsContainer}>
+          {schools.map((school) => (
+            <div key={school.school_id} style={styles.schoolRow}>
+              <span style={styles.schoolName} title={school.school_name}>
+                {shortenSchoolName(school.school_name)}
+              </span>
+              <div style={styles.schoolStats}>
+                <span style={styles.schoolStatItem}>
+                  <span style={styles.studentIconTiny}>S</span>
+                  <span style={{
+                    color: school.student_logins > 0 ? COLORS.accent.cyan : COLORS.text.whiteSubtle,
+                  }}>
+                    {school.student_logins}
+                  </span>
+                </span>
+                <span style={styles.schoolStatItem}>
+                  <span style={styles.teacherIconTiny}>T</span>
+                  <span style={{
+                    color: school.teacher_logins > 0 ? COLORS.accent.purple : COLORS.text.whiteSubtle,
+                  }}>
+                    {school.teacher_logins}
+                  </span>
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
-      <div style={styles.cardHeader}>
-        <span style={styles.schoolName} title={schoolName}>
-          {displayName || schoolName.substring(0, 12)}
-        </span>
-      </div>
-
-      <div style={styles.statsContainer}>
-        <div style={styles.statItem}>
-          <span style={styles.studentIcon}>S</span>
-          <span style={{
-            ...styles.statValue,
-            color: studentLogins > 0 ? COLORS.accent.cyan : COLORS.text.whiteSubtle,
-          }}>
-            {studentLogins}
-          </span>
-        </div>
-
-        <div style={styles.statItem}>
-          <span style={styles.teacherIcon}>T</span>
-          <span style={{
-            ...styles.statValue,
-            color: teacherLogins > 0 ? COLORS.accent.purple : COLORS.text.whiteSubtle,
-          }}>
-            {teacherLogins}
-          </span>
-        </div>
-      </div>
     </div>
   );
 };
@@ -192,95 +282,151 @@ const styles = {
   divider: {
     color: COLORS.text.whiteSubtle,
   },
-  scrollContainer: {
-    overflowX: 'auto',
-    overflowY: 'hidden',
-    marginLeft: `-${SPACING.sm}`,
-    marginRight: `-${SPACING.sm}`,
-    paddingLeft: SPACING.sm,
-    paddingRight: SPACING.sm,
-    paddingBottom: SPACING.sm,
-    // Hide scrollbar but allow scrolling
-    scrollbarWidth: 'thin',
-    scrollbarColor: `${COLORS.text.whiteSubtle} transparent`,
-  },
-  cardsRow: {
+  rowsContainer: {
     display: 'flex',
-    gap: SPACING.md,
-    paddingTop: SPACING.xs,
-    paddingBottom: SPACING.xs,
-  },
-  card: {
-    minWidth: '120px',
-    maxWidth: '140px',
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-    cursor: 'default',
-    flexShrink: 0,
-  },
-  cardActive: {
-    ...MIXINS.glassmorphicSubtle,
-    border: `1px solid rgba(96, 165, 250, 0.3)`,
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-  },
-  cardInactive: {
-    ...MIXINS.glassmorphicSubtle,
-    opacity: 0.6,
-    border: `1px solid rgba(255, 255, 255, 0.1)`,
-  },
-  cardGlowing: {
-    ...MIXINS.glassmorphicSubtle,
-    border: `2px solid rgba(34, 211, 238, 0.6)`,
-    boxShadow: '0 0 20px rgba(34, 211, 238, 0.4), 0 0 40px rgba(34, 211, 238, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2)',
-    animation: 'glow-pulse 2s ease-in-out infinite',
-    position: 'relative',
-  },
-  todayBadge: {
-    position: 'absolute',
-    top: '-8px',
-    right: '-8px',
-    backgroundColor: COLORS.accent.cyan,
-    color: '#0f172a',
-    fontSize: '9px',
-    fontWeight: FONT_WEIGHTS.bold,
-    padding: '2px 6px',
-    borderRadius: BORDER_RADIUS.full,
-    letterSpacing: '0.5px',
-    boxShadow: '0 2px 8px rgba(34, 211, 238, 0.5)',
-  },
-  cardHeader: {
-    marginBottom: SPACING.sm,
-    borderBottom: `1px solid rgba(255, 255, 255, 0.1)`,
-    paddingBottom: SPACING.xs,
-  },
-  schoolName: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.text.white,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    display: 'block',
-  },
-  statsContainer: {
-    display: 'flex',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    flexDirection: 'column',
     gap: SPACING.sm,
   },
-  statItem: {
+  dayRowWrapper: {
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    transition: 'all 0.2s ease',
+  },
+  dayRowWrapperToday: {
+    ...MIXINS.glassmorphicSubtle,
+    border: `2px solid rgba(34, 211, 238, 0.5)`,
+    boxShadow: '0 0 15px rgba(34, 211, 238, 0.3)',
+  },
+  dayRowWrapperActive: {
+    ...MIXINS.glassmorphicSubtle,
+    border: `1px solid rgba(96, 165, 250, 0.3)`,
+  },
+  dayRowWrapperInactive: {
+    ...MIXINS.glassmorphicSubtle,
+    opacity: 0.7,
+    border: `1px solid rgba(255, 255, 255, 0.1)`,
+  },
+  dayRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.md,
+    cursor: 'pointer',
+    transition: 'background 0.2s ease',
+  },
+  dayLabelContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    minWidth: '120px',
+  },
+  dayLabelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  expandIcon: {
+    fontSize: '10px',
+    color: COLORS.text.whiteSubtle,
+    transition: 'transform 0.2s ease',
+  },
+  dayLabel: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+  },
+  dayLabelToday: {
+    color: COLORS.accent.cyan,
+  },
+  dayDate: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    marginLeft: '18px',
+  },
+  statsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.lg,
+  },
+  statBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  statBoxTotal: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '2px',
+    minWidth: '50px',
+    paddingLeft: SPACING.md,
+    borderLeft: `1px solid rgba(255, 255, 255, 0.1)`,
   },
   statValue: {
     fontSize: FONT_SIZES.xl,
     fontWeight: FONT_WEIGHTS.bold,
     fontFamily: 'Inter, sans-serif',
+    minWidth: '30px',
+    textAlign: 'center',
   },
+  totalValue: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    fontFamily: 'Inter, sans-serif',
+  },
+  statLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
+  // School breakdown styles
+  schoolsContainer: {
+    borderTop: `1px solid rgba(255, 255, 255, 0.1)`,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  schoolRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.sm,
+  },
+  schoolName: {
+    color: COLORS.text.whiteMedium,
+    maxWidth: '150px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  schoolStats: {
+    display: 'flex',
+    gap: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  schoolStatItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '3px',
+  },
+  // Icons
   studentIcon: {
+    width: '24px',
+    height: '24px',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: 'rgba(34, 211, 238, 0.2)',
+    color: COLORS.accent.cyan,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+  },
+  studentIconSmall: {
     width: '20px',
     height: '20px',
     borderRadius: BORDER_RADIUS.full,
@@ -292,7 +438,31 @@ const styles = {
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.bold,
   },
+  studentIconTiny: {
+    width: '16px',
+    height: '16px',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: 'rgba(34, 211, 238, 0.15)',
+    color: COLORS.accent.cyan,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '9px',
+    fontWeight: FONT_WEIGHTS.bold,
+  },
   teacherIcon: {
+    width: '24px',
+    height: '24px',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+    color: COLORS.accent.purple,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+  },
+  teacherIconSmall: {
     width: '20px',
     height: '20px',
     borderRadius: BORDER_RADIUS.full,
@@ -304,6 +474,19 @@ const styles = {
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.bold,
   },
+  teacherIconTiny: {
+    width: '16px',
+    height: '16px',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    color: COLORS.accent.purple,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '9px',
+    fontWeight: FONT_WEIGHTS.bold,
+  },
+  // Loading/Error/Empty states
   loadingContainer: {
     display: 'flex',
     justifyContent: 'center',
@@ -346,24 +529,5 @@ const styles = {
     justifyContent: 'center',
   },
 };
-
-// Add keyframes for glowing animation
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @keyframes glow-pulse {
-    0%, 100% {
-      box-shadow: 0 0 20px rgba(34, 211, 238, 0.4), 0 0 40px rgba(34, 211, 238, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
-      border-color: rgba(34, 211, 238, 0.6);
-    }
-    50% {
-      box-shadow: 0 0 30px rgba(34, 211, 238, 0.6), 0 0 60px rgba(34, 211, 238, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
-      border-color: rgba(34, 211, 238, 0.8);
-    }
-  }
-`;
-if (typeof document !== 'undefined' && !document.querySelector('[data-login-activity-styles]')) {
-  styleSheet.setAttribute('data-login-activity-styles', '');
-  document.head.appendChild(styleSheet);
-}
 
 export default LoginActivityWidget;

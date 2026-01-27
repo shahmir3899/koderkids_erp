@@ -28,6 +28,9 @@ import {
     formatMonthForAPI
 } from '../../services/feeService';
 
+// Shared Agent Chat Components
+import { AgentChatInput, useSpeechSynthesis } from '../agentChat';
+
 // ============================================
 // QUICK ACTION TEMPLATES (Fallback)
 // ============================================
@@ -110,6 +113,33 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
     // Refs
     const chatContainerRef = useRef(null);
     const inputRef = useRef(null);
+
+    // ========== Speech Synthesis (Auto-play bot responses) ==========
+    const { speak, stop: stopSpeaking, isSupported: speechSupported } = useSpeechSynthesis();
+    const lastBotMessageRef = useRef(null);
+
+    // Auto-speak bot messages
+    useEffect(() => {
+        if (!speechSupported || chatHistory.length === 0) return;
+
+        const lastMessage = chatHistory[chatHistory.length - 1];
+        // Only speak new bot messages (not user, error, or system)
+        if (lastMessage.type === 'bot' && lastMessage.id !== lastBotMessageRef.current) {
+            lastBotMessageRef.current = lastMessage.id;
+            // Extract plain text from content (remove emojis for cleaner speech)
+            const textToSpeak = lastMessage.content.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+            if (textToSpeak) {
+                speak(textToSpeak);
+            }
+        }
+    }, [chatHistory, speechSupported, speak]);
+
+    // Stop speaking when user starts typing or sends a message
+    useEffect(() => {
+        if (inputMessage.length > 0) {
+            stopSpeaking();
+        }
+    }, [inputMessage, stopSpeaking]);
 
     // ========== Check AI Health on Mount ==========
     useEffect(() => {
@@ -1442,33 +1472,16 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                 </div>
             )}
 
-            {/* Natural Language Input (AI Mode) */}
+            {/* Natural Language Input (AI Mode) with Voice Support */}
             {!activeTemplate && !pendingConfirmation && !pendingOverwrite && aiAvailable && (
-                <div style={styles.inputSection}>
-                    <div style={styles.inputRow}>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            style={styles.textInput}
-                            value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            placeholder="Ask me to create fees, check recovery, find missing records..."
-                            disabled={isProcessing}
-                        />
-                        <button
-                            onClick={handleSendMessage}
-                            disabled={isProcessing || !inputMessage.trim()}
-                            style={{
-                                ...styles.sendButton,
-                                opacity: isProcessing || !inputMessage.trim() ? 0.6 : 1
-                            }}
-                        >
-                            <span>Send</span>
-                            <span>→</span>
-                        </button>
-                    </div>
-                </div>
+                <AgentChatInput
+                    value={inputMessage}
+                    onChange={setInputMessage}
+                    onSend={handleSendMessage}
+                    isProcessing={isProcessing}
+                    placeholder="Ask me to create fees, check recovery, find missing records..."
+                    showMicButton={true}
+                />
             )}
 
             {/* Quick Actions Footer - Always visible at bottom when no template active */}

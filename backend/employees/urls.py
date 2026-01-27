@@ -31,6 +31,7 @@ from .views import (
     MarkAllNotificationsReadView,
     CreateNotificationView,
     SendNotificationToAllView,
+    SendNotificationToStudentsView,
 
     # Earnings & Deductions
     TeacherEarningsView,
@@ -116,7 +117,10 @@ urlpatterns = [
     
     # POST - Send notification to all teachers (Admin only)
     path('notifications/send-to-all/', SendNotificationToAllView.as_view(), name='notification-send-to-all'),
-    
+
+    # POST - Send notification to students (Admin only, with optional school/class filter)
+    path('notifications/send-to-students/', SendNotificationToStudentsView.as_view(), name='notification-send-to-students'),
+
     # ============================================
     # Earnings & Deductions Endpoints
     # ============================================

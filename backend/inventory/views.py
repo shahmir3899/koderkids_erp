@@ -31,30 +31,41 @@ User = get_user_model()
 # ============================================
 
 def is_admin_user(user):
-    """Check if user has admin privileges"""
+    """Check if user has admin privileges (Admin only - for destructive operations)"""
     return (
-        user.is_superuser or 
-        user.is_staff or 
+        user.is_superuser or
+        user.is_staff or
         getattr(user, 'role', None) == 'Admin'
+    )
+
+
+def is_admin_or_bdm(user):
+    """Check if user has admin or BDM privileges (for non-destructive operations)"""
+    role = getattr(user, 'role', None)
+    return (
+        user.is_superuser or
+        user.is_staff or
+        role == 'Admin' or
+        role == 'BDM'
     )
 
 
 def get_user_allowed_schools(user):
     """Get list of school IDs the user can access"""
-    if is_admin_user(user):
-        return None  # None means all schools
-    
+    if is_admin_or_bdm(user):
+        return None  # None means all schools (Admin and BDM)
+
     # For teachers, get their assigned schools
     if hasattr(user, 'assigned_schools'):
         return list(user.assigned_schools.values_list('id', flat=True))
-    
+
     return []  # No access if no assigned schools
 
 
 def filter_items_by_role(queryset, user):
     """Filter inventory items based on user role"""
-    if is_admin_user(user):
-        return queryset  # Admin sees everything
+    if is_admin_or_bdm(user):
+        return queryset  # Admin and BDM see everything
     
     # Teachers see only items at their assigned schools
     allowed_schools = get_user_allowed_schools(user)
@@ -189,12 +200,12 @@ class InventoryItemViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         """
         Create item with role validation
-        - Admin: Can create anywhere
+        - Admin/BDM: Can create anywhere
         - Teacher: Can only create at their assigned schools
         """
         user = request.user
-        
-        if not is_admin_user(user):
+
+        if not is_admin_or_bdm(user):
             location = request.data.get('location')
             school_id = request.data.get('school')
             
@@ -218,13 +229,13 @@ class InventoryItemViewSet(ModelViewSet):
     def update(self, request, *args, **kwargs):
         """
         Update item with role validation
-        - Admin: Can update any item
+        - Admin/BDM: Can update any item
         - Teacher: Can only update items at their assigned schools
         """
         user = request.user
         item = self.get_object()
-        
-        if not is_admin_user(user):
+
+        if not is_admin_or_bdm(user):
             allowed_schools = get_user_allowed_schools(user)
             
             # Check if current item is at allowed school
@@ -403,40 +414,50 @@ def inventory_summary(request):
 def get_user_inventory_context(request):
     """
     Get current user's inventory access context
-    
+
     Returns:
-    - role: 'admin' or 'teacher'
-    - is_admin: boolean
-    - allowed_schools: list of school IDs (null for admin = all)
-    - can_delete: boolean
-    - can_manage_categories: boolean
+    - role: 'admin', 'bdm', or 'teacher'
+    - is_admin: boolean (true for Admin or BDM)
+    - allowed_schools: list of school IDs (null for admin/bdm = all)
+    - can_delete: boolean (Admin only)
+    - can_manage_categories: boolean (Admin only)
     """
     user = request.user
-    admin = is_admin_user(user)
+    is_strict_admin = is_admin_user(user)  # Admin only (for delete, categories)
+    has_full_access = is_admin_or_bdm(user)  # Admin or BDM (for view/add/edit)
     allowed_schools = get_user_allowed_schools(user)
-    
-    # Get school details for teachers
+    user_role = getattr(user, 'role', None)
+
+    # Get school details for teachers (not admin/bdm)
     allowed_school_details = []
-    if not admin and allowed_schools:
+    if not has_full_access and allowed_schools:
         from students.models import School
         schools = School.objects.filter(id__in=allowed_schools)
         allowed_school_details = [
             {"id": s.id, "name": s.name}
             for s in schools
         ]
-    
+
+    # Determine role string
+    if user_role == 'BDM':
+        role_str = "bdm"
+    elif is_strict_admin:
+        role_str = "admin"
+    else:
+        role_str = "teacher"
+
     return Response({
         "user_id": user.id,
         "username": user.username,
         "name": f"{user.first_name} {user.last_name}".strip() or user.username,
-        "role": "admin" if admin else "teacher",
-        "is_admin": admin,
-        "allowed_schools": allowed_schools,  # None for admin, list for teacher
+        "role": role_str,
+        "is_admin": has_full_access,  # True for Admin or BDM (full inventory access)
+        "allowed_schools": allowed_schools,  # None for admin/bdm, list for teacher
         "allowed_school_details": allowed_school_details,
-        "can_delete": admin,
-        "can_manage_categories": admin,
-        "can_access_headquarters": admin,
-        "can_access_unassigned": admin,
+        "can_delete": is_strict_admin,  # Only Admin can delete
+        "can_manage_categories": is_strict_admin,  # Only Admin can manage categories
+        "can_access_headquarters": has_full_access,  # Admin and BDM
+        "can_access_unassigned": has_full_access,  # Admin and BDM
     })
 
 
@@ -449,16 +470,16 @@ def get_user_inventory_context(request):
 def users_assigned_to_school(request):
     """
     GET /api/inventory/assigned-users/
-    
+
     Role-based user list for assignment dropdown:
-    - Admin: See all Teachers (exclude Students)
+    - Admin/BDM: See all Teachers (exclude Students)
     - Teacher: See only themselves
     """
     user = request.user
 
     try:
-        if is_admin_user(user):
-            # Admin sees only Teachers (not Students)
+        if is_admin_or_bdm(user):
+            # Admin/BDM sees only Teachers (not Students)
             # Filter by role if the field exists, otherwise get all non-students
             if hasattr(User, 'role'):
                 users = User.objects.filter(
@@ -510,15 +531,15 @@ get_assigned_users = users_assigned_to_school
 def get_allowed_schools(request):
     """
     Get schools the current user can access
-    
-    - Admin: All schools
+
+    - Admin/BDM: All schools
     - Teacher: Only assigned schools
     """
     from students.models import School
-    
+
     user = request.user
-    
-    if is_admin_user(user):
+
+    if is_admin_or_bdm(user):
         schools = School.objects.all().order_by('name')
     else:
         allowed_ids = get_user_allowed_schools(user)
@@ -572,15 +593,15 @@ def bulk_assign(request):
     current_user = request.user
     item_ids = request.data.get('item_ids', [])
     user_id = request.data.get('assigned_to')
-    
+
     if not item_ids:
         return Response(
             {"detail": "item_ids is required"},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
-    # Teachers can only assign to themselves
-    if not is_admin_user(current_user):
+
+    # Teachers can only assign to themselves (Admin/BDM can assign to anyone)
+    if not is_admin_or_bdm(current_user):
         if user_id and int(user_id) != current_user.id:
             return Response(
                 {"detail": "You can only assign items to yourself"},
@@ -621,19 +642,19 @@ def bulk_assign(request):
 def bulk_create_items(request):
     """
     Create multiple identical items at once.
-    
+
     Access Control:
-    - Admin: Can create anywhere
+    - Admin/BDM: Can create anywhere
     - Teacher: Can only create at assigned schools
     """
     import logging
     logger = logging.getLogger(__name__)
-    
+
     user = request.user
     logger.info(f"Bulk create request by {user.username}: {request.data}")
-    
-    # Role validation for teachers
-    if not is_admin_user(user):
+
+    # Role validation for teachers (Admin/BDM bypass)
+    if not is_admin_or_bdm(user):
         location = request.data.get('location')
         school_id = request.data.get('school')
         

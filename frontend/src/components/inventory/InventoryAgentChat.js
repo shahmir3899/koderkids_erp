@@ -20,6 +20,9 @@ import {
     buildInventoryContext
 } from '../../services/aiService';
 
+// Shared Agent Chat Components
+import { AgentChatInput, useSpeechSynthesis } from '../agentChat';
+
 // ============================================
 // QUICK ACTION TEMPLATES (Fallback)
 // ============================================
@@ -145,6 +148,31 @@ const InventoryAgentChat = ({ schools = [], categories = [], users = [], current
     // Refs
     const chatContainerRef = useRef(null);
     const inputRef = useRef(null);
+
+    // ========== Speech Synthesis (Auto-play bot responses) ==========
+    const { speak, stop: stopSpeaking, isSupported: speechSupported } = useSpeechSynthesis();
+    const lastBotMessageRef = useRef(null);
+
+    // Auto-speak bot messages
+    useEffect(() => {
+        if (!speechSupported || chatHistory.length === 0) return;
+
+        const lastMessage = chatHistory[chatHistory.length - 1];
+        if (lastMessage.type === 'bot' && lastMessage.id !== lastBotMessageRef.current) {
+            lastBotMessageRef.current = lastMessage.id;
+            const textToSpeak = lastMessage.content.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+            if (textToSpeak) {
+                speak(textToSpeak);
+            }
+        }
+    }, [chatHistory, speechSupported, speak]);
+
+    // Stop speaking when user starts typing
+    useEffect(() => {
+        if (inputMessage.length > 0) {
+            stopSpeaking();
+        }
+    }, [inputMessage, stopSpeaking]);
 
     // ========== Check AI Health on Mount ==========
     useEffect(() => {
@@ -1077,33 +1105,16 @@ const InventoryAgentChat = ({ schools = [], categories = [], users = [], current
                 </div>
             )}
 
-            {/* Natural Language Input (AI Mode) */}
+            {/* Natural Language Input (AI Mode) with Voice Support */}
             {!activeTemplate && !pendingConfirmation && aiAvailable && (
-                <div style={styles.inputSection}>
-                    <div style={styles.inputRow}>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            style={styles.textInput}
-                            value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            placeholder="Ask me to view items, update status, search inventory..."
-                            disabled={isProcessing}
-                        />
-                        <button
-                            onClick={handleSendMessage}
-                            disabled={isProcessing || !inputMessage.trim()}
-                            style={{
-                                ...styles.sendButton,
-                                opacity: isProcessing || !inputMessage.trim() ? 0.6 : 1
-                            }}
-                        >
-                            <span>Send</span>
-                            <span>→</span>
-                        </button>
-                    </div>
-                </div>
+                <AgentChatInput
+                    value={inputMessage}
+                    onChange={setInputMessage}
+                    onSend={handleSendMessage}
+                    isProcessing={isProcessing}
+                    placeholder="Ask me to view items, update status, search inventory..."
+                    showMicButton={true}
+                />
             )}
 
             {/* Quick Actions Footer - Always visible at bottom when no template active */}

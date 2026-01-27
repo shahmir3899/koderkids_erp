@@ -11,7 +11,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from supabase import create_client
 from django.contrib.auth import get_user_model
-from .models import Student, Fee, School, Attendance,  CustomUser
+from .models import Student, Fee, School, Attendance, CustomUser, LessonPlan, Badge, StudentBadge
 from .serializers import StudentSerializer, SchoolSerializer,  FeeSummarySerializer, StudentProfileSerializer, StudentProfileDetailSerializer
 from django.shortcuts import render
 from rest_framework import viewsets, status
@@ -733,11 +733,19 @@ def get_students(request):
         school_name = request.GET.get("school", "")
         student_class = request.GET.get("class", "")
 
+        # Pagination parameters
+        page = request.GET.get("page", None)
+        page_size = int(request.GET.get("page_size", 50))
+
         print(f"🔍 Backend Request: School={school_name}, Class={student_class}, User={user.username}, Role={user.role}")
 
         try:
+            # Base queryset with select_related to prevent N+1 queries
+            # This fetches school and user in a single query instead of 500+ queries
+            base_queryset = Student.objects.select_related("school", "user")
+
             if user.role == "Admin":
-                students = Student.objects.filter(status="Active").select_related("school").all()  # ✅ Fetch only Active students
+                students = base_queryset.filter(status="Active")
 
             elif user.role == "Teacher":
                 # Teacher can access only their assigned schools
@@ -753,7 +761,7 @@ def get_students(request):
                         return Response([])  # silently return empty (security)
 
                     # Filter by the requested school name
-                    queryset = Student.objects.filter(school__name=school_name, status="Active")
+                    students = base_queryset.filter(school__name=school_name, status="Active")
 
                 # CASE 2: No school_name sent → AUTO-FILTER to teacher's schools
                 else:
@@ -762,18 +770,35 @@ def get_students(request):
                         return Response([])
 
                     print(f"Auto-filtering to teacher's assigned schools: {list(assigned_school_names)}")
-                    queryset = Student.objects.filter(school_id__in=assigned_school_ids, status="Active")
+                    students = base_queryset.filter(school_id__in=assigned_school_ids, status="Active")
 
                 # Apply class filter if provided
                 if student_class:
-                    queryset = queryset.filter(student_class=student_class)
+                    students = students.filter(student_class=student_class)
 
-                students = queryset
             else:
                 print("❌ Unauthorized access attempt by:", user.username)
                 return Response({"error": "Unauthorized"}, status=403)
 
-            print(f"✅ Found {students.count()} students for {user.username}")
+            # Order by name for consistent results
+            students = students.order_by("name")
+
+            # Get total count before pagination (single COUNT query)
+            total_count = students.count()
+            print(f"✅ Found {total_count} students for {user.username}")
+
+            # Apply pagination if requested
+            if page is not None:
+                from django.core.paginator import Paginator, EmptyPage
+                paginator = Paginator(students, page_size)
+                try:
+                    page_obj = paginator.page(int(page))
+                    students = page_obj.object_list
+                except EmptyPage:
+                    students = []
+
+            # Convert to list (evaluates queryset once)
+            student_list = list(students)
 
             student_data = [
                 {
@@ -795,10 +820,22 @@ def get_students(request):
                     "username": student.user.username if student.user else None,
                     "email": student.user.email if student.user else None,
                 }
-                for student in students
+                for student in student_list
             ]
 
-            print(f"✅ Returning Students with School Names and Classes: {student_data[:3]}...")
+            print(f"✅ Returning {len(student_data)} students")
+
+            # Return paginated response if pagination was requested
+            if page is not None:
+                return Response({
+                    "results": student_data,
+                    "count": total_count,
+                    "page": int(page),
+                    "page_size": page_size,
+                    "total_pages": (total_count + page_size - 1) // page_size,
+                })
+
+            # Return simple list for backwards compatibility
             return Response(student_data)
 
         except Exception as e:
@@ -1893,13 +1930,329 @@ def my_student_data(request):
 logger = logging.getLogger(__name__)
 
 
+# ============================================
+# STUDENT DASHBOARD HELPER FUNCTIONS
+# ============================================
+
+def calculate_learning_streak(student):
+    """
+    Calculate consecutive days of attendance (Present status).
+    Counts backwards from the most recent attendance date.
+    """
+    from datetime import timedelta
+
+    attendances = Attendance.objects.filter(
+        student=student,
+        status='Present'
+    ).order_by('-session_date').values_list('session_date', flat=True)
+
+    if not attendances:
+        return 0
+
+    streak = 0
+    dates_list = list(attendances)
+
+    if not dates_list:
+        return 0
+
+    # Start from the most recent attendance
+    expected_date = dates_list[0]
+
+    for att_date in dates_list:
+        if att_date == expected_date:
+            streak += 1
+            expected_date = att_date - timedelta(days=1)
+        elif att_date < expected_date:
+            # Allow for gaps (weekends/holidays) - just count consecutive present days
+            streak += 1
+            expected_date = att_date - timedelta(days=1)
+        else:
+            break
+
+    return streak
+
+
+def calculate_monthly_attendance(student):
+    """
+    Calculate attendance percentage for the current month.
+    Returns percentage (0-100).
+    """
+    from django.utils import timezone
+
+    today = timezone.now().date()
+    first_of_month = today.replace(day=1)
+
+    total_days = Attendance.objects.filter(
+        student=student,
+        session_date__gte=first_of_month,
+        session_date__lte=today
+    ).count()
+
+    present_days = Attendance.objects.filter(
+        student=student,
+        session_date__gte=first_of_month,
+        session_date__lte=today,
+        status='Present'
+    ).count()
+
+    if total_days == 0:
+        return 0
+
+    return round((present_days / total_days) * 100)
+
+
+def get_weekly_attendance(student):
+    """
+    Get attendance data for the current week (Monday to Sunday).
+    Returns dict with days_attended, total_school_days, and daily breakdown.
+    """
+    from datetime import timedelta
+    from django.utils import timezone
+
+    today = timezone.now().date()
+    # Get Monday of current week
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+
+    # Get school's assigned days
+    school = student.school
+    assigned_days = school.assigned_days if school.assigned_days else [0, 1, 2, 3, 4]  # Default Mon-Fri
+
+    # Get attendance records for this week
+    week_attendance = Attendance.objects.filter(
+        student=student,
+        session_date__gte=monday,
+        session_date__lte=today
+    ).values('session_date', 'status')
+
+    attendance_dict = {att['session_date']: att['status'] for att in week_attendance}
+
+    # Count days
+    days_attended = sum(1 for att in week_attendance if att['status'] == 'Present')
+
+    # Calculate total school days up to today
+    total_school_days = sum(
+        1 for i in range(min((today - monday).days + 1, 7))
+        if (monday + timedelta(days=i)).weekday() in assigned_days
+    )
+
+    # Build daily breakdown
+    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    daily = []
+    for i in range(7):
+        day_date = monday + timedelta(days=i)
+        if day_date.weekday() in assigned_days:
+            status = attendance_dict.get(day_date, 'upcoming' if day_date > today else 'no_record')
+            daily.append({
+                'day': day_names[i],
+                'date': day_date.isoformat(),
+                'status': status,
+                'is_school_day': True
+            })
+
+    return {
+        'days_attended': days_attended,
+        'total_school_days': total_school_days,
+        'percentage': round((days_attended / total_school_days * 100) if total_school_days > 0 else 0),
+        'daily': daily
+    }
+
+
+def get_today_topics(student):
+    """
+    Get topics learned today from the lesson plan.
+    Returns list of topic strings.
+    """
+    from django.utils import timezone
+
+    today = timezone.now().date()
+
+    # Get today's attendance record with lesson plan
+    attendance = Attendance.objects.filter(
+        student=student,
+        session_date=today
+    ).select_related('lesson_plan').first()
+
+    topics = []
+
+    if attendance and attendance.lesson_plan:
+        lesson_plan = attendance.lesson_plan
+        # Get planned topics from the lesson plan
+        if lesson_plan.planned_topic:
+            # Split by common delimiters
+            for line in lesson_plan.planned_topic.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('---'):
+                    topics.append(line)
+
+        # Also get from M2M relationship if available
+        planned_topics_qs = lesson_plan.planned_topics.all()
+        for topic in planned_topics_qs:
+            topics.append(topic.title)
+
+    # Limit to 5 topics
+    return topics[:5] if topics else []
+
+
+def get_latest_teacher_note(student):
+    """
+    Get the most recent achieved_topic note from attendance (used as teacher's note).
+    """
+    attendance = Attendance.objects.filter(
+        student=student,
+        achieved_topic__isnull=False
+    ).exclude(achieved_topic='').order_by('-session_date').first()
+
+    if attendance and attendance.achieved_topic:
+        return attendance.achieved_topic
+    return None
+
+
+def get_next_class_info(student):
+    """
+    Get information about the next scheduled class.
+    Returns dict with date, time, and countdown info.
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+
+    today = timezone.now().date()
+
+    # Find next lesson plan for this student's class
+    next_lesson = LessonPlan.objects.filter(
+        school=student.school,
+        student_class=student.student_class,
+        session_date__gt=today
+    ).order_by('session_date').first()
+
+    if not next_lesson:
+        return None
+
+    # Calculate days until next class
+    days_until = (next_lesson.session_date - today).days
+
+    return {
+        'date': next_lesson.session_date.isoformat(),
+        'days_until': days_until,
+        'topic': next_lesson.planned_topic[:100] if next_lesson.planned_topic else None
+    }
+
+
+def count_activities_completed(student):
+    """
+    Count total attendance sessions marked as Present (activities completed).
+    """
+    return Attendance.objects.filter(
+        student=student,
+        status='Present'
+    ).count()
+
+
+def get_total_activities(student):
+    """
+    Get total number of attendance records (all sessions).
+    """
+    return Attendance.objects.filter(student=student).count()
+
+
+def get_this_week_learning(student):
+    """
+    Get learning topics for each day of the current week.
+    """
+    from datetime import timedelta
+    from django.utils import timezone
+
+    today = timezone.now().date()
+    monday = today - timedelta(days=today.weekday())
+
+    week_learning = []
+    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+    for i in range(7):
+        day_date = monday + timedelta(days=i)
+
+        attendance = Attendance.objects.filter(
+            student=student,
+            session_date=day_date
+        ).select_related('lesson_plan').first()
+
+        topic = None
+        completed = False
+
+        if attendance:
+            completed = attendance.status == 'Present'
+            if attendance.lesson_plan and attendance.lesson_plan.planned_topic:
+                # Get first line of topic
+                topic = attendance.lesson_plan.planned_topic.split('\n')[0].strip()[:50]
+
+        if day_date <= today and day_date.weekday() in (student.school.assigned_days or [0, 1, 2, 3, 4]):
+            week_learning.append({
+                'day': day_names[i],
+                'date': day_date.isoformat(),
+                'topic': topic,
+                'completed': completed
+            })
+
+    return week_learning
+
+
+def get_student_badges(student):
+    """
+    Get all badges earned by the student.
+    """
+    from .models import StudentBadge
+
+    badges = StudentBadge.objects.filter(
+        student=student
+    ).select_related('badge').values(
+        'badge__name',
+        'badge__icon',
+        'badge__description',
+        'badge__badge_type',
+        'earned_at'
+    )
+
+    return list(badges)
+
+
+def check_and_award_badges(student):
+    """
+    Check if student qualifies for any new badges and award them.
+    Called after attendance is marked.
+    """
+    from .models import Badge, StudentBadge
+
+    streak = calculate_learning_streak(student)
+
+    # Get all badges the student doesn't have yet
+    existing_badge_types = StudentBadge.objects.filter(
+        student=student
+    ).values_list('badge__badge_type', flat=True)
+
+    # Check streak badges
+    streak_badges = [
+        ('streak_5', 5),
+        ('streak_10', 10),
+        ('streak_30', 30),
+    ]
+
+    for badge_type, required_streak in streak_badges:
+        if badge_type not in existing_badge_types and streak >= required_streak:
+            badge = Badge.objects.filter(badge_type=badge_type).first()
+            if badge:
+                StudentBadge.objects.create(student=student, badge=badge)
+
+
+# ============================================
+# STUDENT DASHBOARD ENDPOINT
+# ============================================
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_student_data(request):
     """
-    Returns the logged-in student's FULL profile.
-    Merges User (Identity) and Student (Contact/Academic) tables.
+    Returns the logged-in student's FULL profile with dashboard data.
+    Includes learning streak, badges, attendance stats, and more.
     """
     # 1. Role Check
     if request.user.role != 'Student':
@@ -1922,21 +2275,53 @@ def my_student_data(request):
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        # fallback for full name
         "full_name": f"{user.first_name} {user.last_name}".strip() or user.username,
 
         # --- FROM STUDENT TABLE (students_student) ---
-        "id": student.id,                   # Student ID (for updates)
+        "id": student.id,
         "reg_num": student.reg_num,
-        "school": student.school.name,      # Assuming school is a Foreign Key
+        "school": student.school.name,
+        "school_id": student.school.id,
         "class": student.student_class,
-        "phone": student.phone,             # <--- Now fetching from STUDENT table
-        "address": student.address,         # <--- Now fetching from STUDENT table
+        "phone": student.phone,
+        "address": student.address,
+        "status": student.status,
+        "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else None,
 
-        # Photo: Retrieved from CustomUser via student.user property
+        # Photo
         "profile_photo_url": student.profile_photo_url,
 
-        # --- EXTRAS (Fees/Attendance) ---
+        # --- DASHBOARD DATA ---
+        # Learning streak (consecutive present days)
+        "learning_streak": calculate_learning_streak(student),
+
+        # Attendance percentage this month
+        "attendance_percentage": calculate_monthly_attendance(student),
+
+        # Weekly attendance (for weekly goal card)
+        "weekly_attendance": get_weekly_attendance(student),
+
+        # Badges earned
+        "badges": get_student_badges(student),
+        "badges_count": len(get_student_badges(student)),
+
+        # Today's topics learned
+        "today_learned": get_today_topics(student),
+
+        # Teacher's latest note
+        "teacher_note": get_latest_teacher_note(student),
+
+        # Next class info
+        "next_class": get_next_class_info(student),
+
+        # Activity progress (attendance sessions)
+        "activities_completed": count_activities_completed(student),
+        "total_activities": get_total_activities(student),
+
+        # This week's learning breakdown
+        "this_week_learning": get_this_week_learning(student),
+
+        # --- LEGACY DATA (for backward compatibility) ---
         "fees": list(
             Fee.objects.filter(student_id=student.id)
             .values("month", "balance_due", "status")

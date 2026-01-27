@@ -434,6 +434,68 @@ class SendNotificationToAllView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class SendNotificationToStudentsView(APIView):
+    """
+    POST: Send notification to students (Admin only)
+    Optionally filter by school_id and/or student_class
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Only admins can send bulk notifications
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can send notifications to students'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        title = request.data.get('title')
+        message = request.data.get('message')
+        notification_type = request.data.get('notification_type', 'info')
+        related_url = request.data.get('related_url')
+        school_id = request.data.get('school_id')
+        student_class = request.data.get('student_class')
+
+        if not title or not message:
+            return Response(
+                {'error': 'Title and message are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get students - filter by school and/or class if provided
+        from students.models import Student
+        students = Student.objects.filter(status='Active')
+
+        if school_id:
+            students = students.filter(school_id=school_id)
+        if student_class:
+            students = students.filter(student_class=student_class)
+
+        # Get the CustomUser objects linked to these students
+        student_user_ids = students.values_list('user_id', flat=True)
+        recipients = CustomUser.objects.filter(id__in=student_user_ids)
+
+        # Create notifications in bulk
+        notifications = []
+        for recipient in recipients:
+            notifications.append(Notification(
+                recipient=recipient,
+                sender=request.user,
+                title=title,
+                message=message,
+                notification_type=notification_type,
+                related_url=related_url,
+            ))
+
+        if notifications:
+            Notification.objects.bulk_create(notifications)
+
+        return Response({
+            'message': f'Notification sent to {len(notifications)} students',
+            'count': len(notifications)
+        }, status=status.HTTP_201_CREATED)
+
+
 # ============================================
 # EARNINGS & DEDUCTIONS VIEWS
 # ============================================

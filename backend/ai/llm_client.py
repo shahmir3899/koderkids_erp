@@ -27,7 +27,7 @@ def get_config():
         'OLLAMA_MODEL': getattr(settings, 'OLLAMA_MODEL', 'deepseek-coder:6.7b'),
         'OLLAMA_TIMEOUT': getattr(settings, 'OLLAMA_TIMEOUT', 180),
         'GROQ_API_KEY': getattr(settings, 'GROQ_API_KEY', ''),
-        'GROQ_MODEL': getattr(settings, 'GROQ_MODEL', 'llama-3.1-8b-instant'),
+        'GROQ_MODEL': getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile'),
         'LLM_PROVIDER': getattr(settings, 'LLM_PROVIDER', 'ollama,groq'),
     }
 
@@ -286,6 +286,23 @@ class LLMClient:
                 }
 
             data = response.json()
+
+            # Check if Groq returned an error object (sometimes returns 200 with error)
+            if 'error' in data:
+                error_msg = data.get('error', {})
+                if isinstance(error_msg, dict):
+                    error_text = error_msg.get('message', str(error_msg))
+                else:
+                    error_text = str(error_msg)
+                logger.error(f"Groq API error in response: {error_text}")
+                return {
+                    "success": False,
+                    "response": None,
+                    "parsed": None,
+                    "error": f"Groq API error: {error_text}",
+                    "response_time_ms": response_time_ms
+                }
+
             raw_response = data.get('choices', [{}])[0].get('message', {}).get('content', '')
             logger.info(f"Groq response (first 200 chars): {raw_response[:200]}")
 

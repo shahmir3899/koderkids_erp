@@ -222,6 +222,19 @@ class AdminTopicWriteSerializer(serializers.ModelSerializer):
 
         return value
 
+    def validate(self, data):
+        """
+        Clear activity_blocks for non-activity types.
+        Only activity-type topics should have activity_blocks.
+        """
+        topic_type = data.get('type', 'lesson')
+
+        # For chapters and lessons, clear activity_blocks
+        if topic_type in ['chapter', 'lesson']:
+            data['activity_blocks'] = []
+
+        return data
+
 
 class AdminBookListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for book list in admin"""

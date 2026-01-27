@@ -198,8 +198,9 @@ function SchoolsPage() {
   const userRole = localStorage.getItem('role') || 'Teacher';
   const isAdmin = userRole === 'Admin';
   const isTeacher = userRole === 'Teacher';
-  // Teachers can edit their assigned schools
-  const canEdit = isAdmin || isTeacher;
+  const isBDM = userRole === 'BDM';
+  // Teachers can edit their assigned schools, BDM can edit all schools
+  const canEdit = isAdmin || isTeacher || isBDM;
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -213,8 +214,8 @@ function SchoolsPage() {
 
   useEffect(() => {
     const fetchAssignedSchools = async () => {
-      if (isAdmin) {
-        console.log('Admin user detected - no need to fetch assigned schools');
+      if (isAdmin || isBDM) {
+        console.log('Admin/BDM user detected - no need to fetch assigned schools');
         return;
       }
 
@@ -277,7 +278,7 @@ function SchoolsPage() {
   // ============================================
 
   const stats = useMemo(() => {
-    const sourceSchools = !isAdmin && assignedSchoolNames.length > 0
+    const sourceSchools = !isAdmin && !isBDM && assignedSchoolNames.length > 0
       ? schools.filter(s => {
           const schoolName = String(s.name || '').trim().toLowerCase();
           return assignedSchoolNames.some(assigned =>
@@ -286,7 +287,7 @@ function SchoolsPage() {
         })
       : schools;
 
-    if (overview && isAdmin) {
+    if (overview && (isAdmin || isBDM)) {
       return {
         totalSchools: overview.total_schools || 0,
         totalStudents: overview.total_students || 0,
@@ -309,7 +310,7 @@ function SchoolsPage() {
           )
         : 0,
     };
-  }, [schools, overview, isAdmin, assignedSchoolNames]);
+  }, [schools, overview, isAdmin, isBDM, assignedSchoolNames]);
 
   const filteredSchools = useMemo(() => {
     // For deactivated view, use deactivatedSchools
@@ -328,14 +329,14 @@ function SchoolsPage() {
     // For active view
     let schoolsList = schools;
 
-    if (!isAdmin && assignedSchoolNames.length > 0) {
+    if (!isAdmin && !isBDM && assignedSchoolNames.length > 0) {
       schoolsList = schools.filter(school => {
         const schoolName = String(school.name || '').trim().toLowerCase();
         return assignedSchoolNames.some(assigned =>
           String(assigned).trim().toLowerCase() === schoolName
         );
       });
-    } else if (!isAdmin && !profileLoading) {
+    } else if (!isAdmin && !isBDM && !profileLoading) {
       schoolsList = [];
     }
 
@@ -348,7 +349,7 @@ function SchoolsPage() {
         school.address?.toLowerCase().includes(query) ||
         school.location?.toLowerCase().includes(query)
     );
-  }, [schools, deactivatedSchools, searchQuery, isAdmin, assignedSchoolNames, profileLoading, viewMode]);
+  }, [schools, deactivatedSchools, searchQuery, isAdmin, isBDM, assignedSchoolNames, profileLoading, viewMode]);
 
   // ============================================
   // HANDLERS

@@ -39,7 +39,13 @@
       "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\profile_photo_url_usage_report.md\")",
       "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\frontend\\\\src\\\\pages\\\\TeacherSettingsPage.js\")",
       "Bash(powershell -Command:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(git reset:*)",
+      "Bash(find:*)",
+      "Bash(pip show:*)",
+      "Bash(powershell:*)",
+      "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\read_docx.ps1\")",
+      "Bash(cmd /c \"cd /d d:\\\\Personal\\\\school-management-system\\\\backend && python manage.py shell -c \"\"from books.models import Topic; print\\(''TREE ACTIVITIES:'', Topic.objects.filter\\(type=''activity''\\).count\\(\\)\\); print\\(''WITH JSON BLOCKS:'', Topic.objects.exclude\\(activity_blocks=[]\\).count\\(\\)\\)\"\"\")"
     ]
   }
 }

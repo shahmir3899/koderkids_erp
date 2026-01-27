@@ -32,6 +32,9 @@ DATABASES = {
         'OPTIONS': {
             'sslmode': 'require',
         },
+        # Connection pooling settings for Supabase
+        'CONN_MAX_AGE': 60,  # Keep connections alive for 60 seconds
+        'CONN_HEALTH_CHECKS': True,  # Check connection health before use
     }
 }
 
@@ -98,6 +101,7 @@ INSTALLED_APPS = [
     'commands',
     'ai',
     'courses',
+    'aigala',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]
@@ -216,7 +220,7 @@ OLLAMA_TIMEOUT = int(os.getenv('OLLAMA_TIMEOUT', '180'))  # 3 minutes
 # Groq (cloud LLM - for production, free tier available)
 # Get your free API key at: https://console.groq.com/keys
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
-GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.1-8b-instant')  # Fast, free model
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')  # Groq's latest model
 
 # AI Agent Settings
 AI_CONFIRMATION_EXPIRY = 300  # 5 minutes for delete confirmations

@@ -124,11 +124,16 @@ const TopicEditor = ({ topic, bookId, onSave, onCancel, saving }) => {
   // Initialize form data when topic changes
   useEffect(() => {
     if (topic) {
-      const activityBlocks = parseActivityBlocks(topic.activity_blocks);
+      // Only load activity_blocks for activity-type topics
+      const topicType = topic.type || 'lesson';
+      const activityBlocks = topicType === 'activity'
+        ? parseActivityBlocks(topic.activity_blocks)
+        : [];
+
       setFormData({
         code: topic.code || '',
         title: topic.title || '',
-        type: topic.type || 'lesson',
+        type: topicType,
         content: topic.content || '',
         video_url: topic.video_url || '',
         video_duration_seconds: topic.video_duration_seconds || '',
@@ -293,6 +298,8 @@ const TopicEditor = ({ topic, bookId, onSave, onCancel, saving }) => {
         ? parseInt(formData.video_duration_seconds)
         : null,
       estimated_time_minutes: parseInt(formData.estimated_time_minutes) || 10,
+      // Only include activity_blocks for activity-type topics
+      activity_blocks: formData.type === 'activity' ? formData.activity_blocks : [],
     };
 
     if (topic.id) {
@@ -456,8 +463,8 @@ const TopicEditor = ({ topic, bookId, onSave, onCancel, saving }) => {
         </p>
       </div>
 
-      {/* Activity Blocks Section - Only show for lessons/activities, not chapters */}
-      {formData.type !== 'chapter' && (
+      {/* Activity Blocks Section - Only show for activity type (not chapters or lessons) */}
+      {formData.type === 'activity' && (
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <h4 style={styles.sectionTitle}>Activity Blocks</h4>

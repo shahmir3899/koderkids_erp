@@ -80,6 +80,22 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
   axios.interceptors.request.use(
     (config) => {
       // ============================================
+      // SILENT MODE - Skip loader for background/polling requests
+      // ============================================
+      // Usage: axios.get(url, { silent: true })
+      // This prevents the ERPLoader from showing for background polling
+      const isSilent = config.silent === true;
+      config._isSilent = isSilent; // Store for response interceptor
+
+      if (isSilent) {
+        logDebug('🔇 Silent request (no loader)', {
+          url: config.url,
+          method: config.method,
+        });
+        return config; // Skip all loader logic
+      }
+
+      // ============================================
       // REQUEST DEDUPLICATION (DISABLED)
       // ============================================
       // NOTE: Simple deduplication by cancelling duplicates causes issues
@@ -159,6 +175,14 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
   axios.interceptors.response.use(
     // SUCCESS HANDLER
     (response) => {
+      // Skip loader logic for silent requests
+      if (response.config._isSilent) {
+        logDebug('🔇 Silent request completed (no loader update)', {
+          url: response.config.url,
+        });
+        return response;
+      }
+
       // Clean up deduplication tracking
       if (response.config._requestKey) {
         const count = pendingRequests.get(response.config._requestKey) || 1;
@@ -201,6 +225,14 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
 
     // ERROR HANDLER
     (error) => {
+      // Skip loader logic for silent requests
+      if (error.config?._isSilent) {
+        logDebug('🔇 Silent request failed (no loader update)', {
+          url: error.config?.url,
+        });
+        return Promise.reject(error);
+      }
+
       // Clean up deduplication tracking (even on error)
       if (error.config?._requestKey) {
         const count = pendingRequests.get(error.config._requestKey) || 1;

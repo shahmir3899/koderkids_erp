@@ -184,17 +184,19 @@ export const reportRequestService = {
 
   /**
    * Fetch pending approval requests (Admin only)
-   * @param {Object} filters - Optional filters: { priority }
+   * @param {Object} filters - Optional filters: { priority, silent }
+   * @param {boolean} filters.silent - If true, skip showing loader (for background polling)
    * @returns {Promise<Object>} { count, results }
    */
   fetchPendingRequests: async (filters = {}) => {
+    const { priority, silent = false } = filters;
     const params = new URLSearchParams();
-    if (filters.priority) params.append('priority', filters.priority);
+    if (priority) params.append('priority', priority);
 
     const queryString = params.toString();
     const url = `${API_BASE_URL}/api/reports/requests/pending/${queryString ? `?${queryString}` : ''}`;
 
-    const response = await axios.get(url, { headers: getAuthHeaders() });
+    const response = await axios.get(url, { headers: getAuthHeaders(), silent });
     return response.data;
   },
 
@@ -248,12 +250,15 @@ export const reportRequestService = {
 
   /**
    * Fetch request statistics (Admin only)
+   * @param {Object} options - Optional: { silent }
+   * @param {boolean} options.silent - If true, skip showing loader (for background polling)
    * @returns {Promise<Object>} { total, pending, approved, rejected, generated, draft }
    */
-  fetchStats: async () => {
+  fetchStats: async (options = {}) => {
+    const { silent = false } = options;
     const response = await axios.get(
       `${API_BASE_URL}/api/reports/requests/stats/`,
-      { headers: getAuthHeaders() }
+      { headers: getAuthHeaders(), silent }
     );
     return response.data;
   },

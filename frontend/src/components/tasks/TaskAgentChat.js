@@ -20,6 +20,9 @@ import {
     buildTaskContext
 } from '../../services/aiService';
 
+// Shared Agent Chat Components
+import { AgentChatInput, useSpeechSynthesis } from '../agentChat';
+
 // Example prompts for users
 const EXAMPLE_PROMPTS = [
     "Tell Ahmed to submit reports by Friday",
@@ -39,16 +42,45 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
     const [aiAvailable, setAiAvailable] = useState(null);
     const [pendingConfirmation, setPendingConfirmation] = useState(null);
 
-    // Editable task fields for confirmation modal
+    // Editable task fields for confirmation modal (single task)
     const [editableTask, setEditableTask] = useState({
         description: '',
         due_date: '',
         priority: 'medium'
     });
 
+    // Bulk task slideshow state
+    const [bulkSlideIndex, setBulkSlideIndex] = useState(0);
+    const [bulkTaskEdits, setBulkTaskEdits] = useState([]); // Array of edits for each employee
+
     // Refs
     const chatContainerRef = useRef(null);
     const inputRef = useRef(null);
+
+    // ========== Speech Synthesis (Auto-play bot responses) ==========
+    const { speak, stop: stopSpeaking, isSupported: speechSupported } = useSpeechSynthesis();
+    const lastBotMessageRef = useRef(null);
+
+    // Auto-speak bot messages
+    useEffect(() => {
+        if (!speechSupported || chatHistory.length === 0) return;
+
+        const lastMessage = chatHistory[chatHistory.length - 1];
+        if (lastMessage.type === 'bot' && lastMessage.id !== lastBotMessageRef.current) {
+            lastBotMessageRef.current = lastMessage.id;
+            const textToSpeak = lastMessage.content.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+            if (textToSpeak) {
+                speak(textToSpeak);
+            }
+        }
+    }, [chatHistory, speechSupported, speak]);
+
+    // Stop speaking when user starts typing
+    useEffect(() => {
+        if (inputMessage.length > 0) {
+            stopSpeaking();
+        }
+    }, [inputMessage, stopSpeaking]);
 
     // ========== Check AI Health on Mount ==========
     useEffect(() => {
@@ -122,12 +154,33 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
                 // Extract task data for editable fields
                 const taskData = result.data?.details?.[0] || result.data?.items?.[0] || {};
 
-                // Initialize editable fields with AI-generated values
-                setEditableTask({
-                    description: taskData.full_description || taskData.description || '',
-                    due_date: taskData.due_date || '',
-                    priority: taskData.priority || 'medium'
-                });
+                // Check if this is a bulk task
+                if (taskData.is_bulk && taskData.employees) {
+                    // Initialize edits for each employee with the same base values
+                    const baseDescription = taskData.full_description || taskData.description || '';
+                    const baseDueDate = taskData.due_date || '';
+                    const basePriority = taskData.priority || 'medium';
+
+                    const initialEdits = taskData.employees.map(emp => ({
+                        employee_id: emp.id,
+                        employee_name: emp.name,
+                        employee_role: emp.role,
+                        description: baseDescription,
+                        due_date: baseDueDate,
+                        priority: basePriority,
+                        included: true  // Can be toggled to exclude
+                    }));
+
+                    setBulkTaskEdits(initialEdits);
+                    setBulkSlideIndex(0);
+                } else {
+                    // Single task - use existing editableTask state
+                    setEditableTask({
+                        description: taskData.full_description || taskData.description || '',
+                        due_date: taskData.due_date || '',
+                        priority: taskData.priority || 'medium'
+                    });
+                }
 
                 // Show task preview for confirmation
                 setPendingConfirmation({
@@ -161,14 +214,34 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
     const handleConfirm = async (confirmed) => {
         if (!pendingConfirmation) return;
 
+        const taskData = pendingConfirmation.data?.details?.[0] || pendingConfirmation.data?.items?.[0] || {};
+        const isBulk = taskData.is_bulk;
+
         setIsProcessing(true);
         try {
-            // Pass edited params when confirming
-            const editedParams = confirmed ? {
-                description: editableTask.description,
-                due_date: editableTask.due_date,
-                priority: editableTask.priority
-            } : null;
+            let editedParams = null;
+
+            if (confirmed) {
+                if (isBulk) {
+                    // For bulk tasks, pass the array of task edits (only included ones)
+                    const includedTasks = bulkTaskEdits.filter(t => t.included);
+                    editedParams = {
+                        bulk_edits: includedTasks.map(t => ({
+                            employee_id: t.employee_id,
+                            description: t.description,
+                            due_date: t.due_date,
+                            priority: t.priority
+                        }))
+                    };
+                } else {
+                    // Single task - use existing editableTask
+                    editedParams = {
+                        description: editableTask.description,
+                        due_date: editableTask.due_date,
+                        priority: editableTask.priority
+                    };
+                }
+            }
 
             const result = await confirmAIAction(pendingConfirmation.token, confirmed, editedParams);
 
@@ -186,6 +259,8 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
             addMessage('error', 'Confirmation failed');
         } finally {
             setPendingConfirmation(null);
+            setBulkSlideIndex(0);
+            setBulkTaskEdits([]);
             setIsProcessing(false);
         }
     };
@@ -198,12 +273,193 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
         }
     };
 
+    // ========== Update bulk task edit ==========
+    const updateBulkTaskEdit = (index, field, value) => {
+        setBulkTaskEdits(prev => {
+            const updated = [...prev];
+            updated[index] = { ...updated[index], [field]: value };
+            return updated;
+        });
+    };
+
     // ========== Render Confirmation Modal ==========
     const renderConfirmation = () => {
         if (!pendingConfirmation) return null;
 
         const taskData = pendingConfirmation.data?.details?.[0] || pendingConfirmation.data?.items?.[0] || {};
+        const isBulk = taskData.is_bulk && bulkTaskEdits.length > 0;
 
+        // For bulk tasks, render slideshow
+        if (isBulk) {
+            const currentTask = bulkTaskEdits[bulkSlideIndex];
+            const includedCount = bulkTaskEdits.filter(t => t.included).length;
+            const totalCount = bulkTaskEdits.length;
+
+            return (
+                <div style={styles.confirmationOverlay}>
+                    <div style={{ ...styles.confirmationBox, maxWidth: '550px' }}>
+                        {/* Header with slide indicator */}
+                        <div style={styles.confirmationHeader}>
+                            <span style={{ fontSize: '1.5rem' }}>📋</span>
+                            <span style={{ fontWeight: 600 }}>Task {bulkSlideIndex + 1} of {totalCount}</span>
+                            <span style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle, marginLeft: 'auto' }}>
+                                {includedCount} tasks selected
+                            </span>
+                        </div>
+
+                        {/* Progress dots */}
+                        <div style={styles.slideProgress}>
+                            {bulkTaskEdits.map((task, idx) => (
+                                <div
+                                    key={idx}
+                                    onClick={() => setBulkSlideIndex(idx)}
+                                    style={{
+                                        ...styles.progressDot,
+                                        backgroundColor: idx === bulkSlideIndex
+                                            ? COLORS.primary
+                                            : task.included
+                                                ? 'rgba(34, 197, 94, 0.6)'
+                                                : 'rgba(255,255,255,0.2)',
+                                        cursor: 'pointer',
+                                        transform: idx === bulkSlideIndex ? 'scale(1.3)' : 'scale(1)'
+                                    }}
+                                    title={`${task.employee_name} ${task.included ? '✓' : '(excluded)'}`}
+                                />
+                            ))}
+                        </div>
+
+                        <div style={styles.confirmationBody}>
+                            {/* Include/Exclude toggle */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: SPACING.sm,
+                                marginBottom: SPACING.md,
+                                padding: SPACING.sm,
+                                backgroundColor: currentTask.included ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                borderRadius: BORDER_RADIUS.md,
+                                border: `1px solid ${currentTask.included ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={currentTask.included}
+                                    onChange={(e) => updateBulkTaskEdit(bulkSlideIndex, 'included', e.target.checked)}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                />
+                                <span style={{ color: COLORS.text.white, fontSize: FONT_SIZES.sm }}>
+                                    {currentTask.included ? 'Include this task' : 'Task excluded'}
+                                </span>
+                            </div>
+
+                            <div style={{ ...styles.taskPreview, opacity: currentTask.included ? 1 : 0.5 }}>
+                                {/* Employee Name & Role */}
+                                <div style={styles.previewRow}>
+                                    <span style={styles.previewLabel}>Assign To:</span>
+                                    <span style={styles.previewValue}>
+                                        {currentTask.employee_name}
+                                        <span style={styles.roleBadge}>{currentTask.employee_role}</span>
+                                    </span>
+                                </div>
+
+                                {/* Due Date */}
+                                <div style={styles.previewRow}>
+                                    <span style={styles.previewLabel}>Due Date:</span>
+                                    <input
+                                        type="date"
+                                        value={currentTask.due_date}
+                                        onChange={(e) => updateBulkTaskEdit(bulkSlideIndex, 'due_date', e.target.value)}
+                                        style={styles.editableInput}
+                                        disabled={!currentTask.included}
+                                    />
+                                </div>
+
+                                {/* Priority */}
+                                <div style={styles.previewRow}>
+                                    <span style={styles.previewLabel}>Priority:</span>
+                                    <select
+                                        value={currentTask.priority}
+                                        onChange={(e) => updateBulkTaskEdit(bulkSlideIndex, 'priority', e.target.value)}
+                                        disabled={!currentTask.included}
+                                        style={{
+                                            ...styles.editableInput,
+                                            backgroundColor: getPriorityColor(currentTask.priority),
+                                            color: '#fff',
+                                            fontWeight: 600,
+                                            cursor: currentTask.included ? 'pointer' : 'not-allowed'
+                                        }}
+                                    >
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                        <option value="urgent">Urgent</option>
+                                    </select>
+                                </div>
+
+                                {/* Description */}
+                                <div style={{ ...styles.previewRow, flexDirection: 'column', alignItems: 'flex-start', gap: SPACING.xs }}>
+                                    <span style={styles.previewLabel}>Task Description:</span>
+                                    <textarea
+                                        value={currentTask.description}
+                                        onChange={(e) => updateBulkTaskEdit(bulkSlideIndex, 'description', e.target.value)}
+                                        style={styles.editableTextarea}
+                                        rows={4}
+                                        disabled={!currentTask.included}
+                                        placeholder="Enter task description..."
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Navigation and Actions */}
+                        <div style={styles.slideNavigation}>
+                            <button
+                                style={{
+                                    ...styles.navButton,
+                                    opacity: bulkSlideIndex > 0 ? 1 : 0.3
+                                }}
+                                onClick={() => setBulkSlideIndex(prev => Math.max(0, prev - 1))}
+                                disabled={bulkSlideIndex === 0}
+                            >
+                                ← Previous
+                            </button>
+
+                            <div style={{ display: 'flex', gap: SPACING.sm }}>
+                                <button
+                                    style={styles.cancelButton}
+                                    onClick={() => handleConfirm(false)}
+                                    disabled={isProcessing}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    style={{
+                                        ...styles.confirmButton,
+                                        opacity: includedCount === 0 ? 0.5 : 1
+                                    }}
+                                    onClick={() => handleConfirm(true)}
+                                    disabled={isProcessing || includedCount === 0}
+                                >
+                                    {isProcessing ? 'Creating...' : `Create ${includedCount} Task${includedCount !== 1 ? 's' : ''}`}
+                                </button>
+                            </div>
+
+                            <button
+                                style={{
+                                    ...styles.navButton,
+                                    opacity: bulkSlideIndex < totalCount - 1 ? 1 : 0.3
+                                }}
+                                onClick={() => setBulkSlideIndex(prev => Math.min(totalCount - 1, prev + 1))}
+                                disabled={bulkSlideIndex === totalCount - 1}
+                            >
+                                Next →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Single task confirmation (original behavior)
         return (
             <div style={styles.confirmationOverlay}>
                 <div style={styles.confirmationBox}>
@@ -217,7 +473,7 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
 
                     <div style={styles.confirmationBody}>
                         <div style={styles.taskPreview}>
-                            {/* Assign To - Read Only (shows name and role) */}
+                            {/* Assign To */}
                             <div style={styles.previewRow}>
                                 <span style={styles.previewLabel}>Assign To:</span>
                                 <span style={styles.previewValue}>
@@ -230,7 +486,7 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
                                 </span>
                             </div>
 
-                            {/* Due Date - Editable */}
+                            {/* Due Date */}
                             <div style={styles.previewRow}>
                                 <span style={styles.previewLabel}>Due Date:</span>
                                 <input
@@ -241,7 +497,7 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
                                 />
                             </div>
 
-                            {/* Priority - Editable */}
+                            {/* Priority */}
                             <div style={styles.previewRow}>
                                 <span style={styles.previewLabel}>Priority:</span>
                                 <select
@@ -262,7 +518,7 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
                                 </select>
                             </div>
 
-                            {/* Task Description - Editable */}
+                            {/* Description */}
                             <div style={{ ...styles.previewRow, flexDirection: 'column', alignItems: 'flex-start', gap: SPACING.xs }}>
                                 <span style={styles.previewLabel}>Task Description:</span>
                                 <textarea
@@ -317,26 +573,20 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
         const isUser = msg.type === 'user';
         const isError = msg.type === 'error';
         const isSystem = msg.type === 'system';
+        const isBot = msg.type === 'bot';
+
+        // Get the appropriate style based on message type
+        const getMessageStyle = () => {
+            if (isUser) return { ...styles.message, ...styles.userMessage };
+            if (isError) return { ...styles.message, ...styles.errorMessage };
+            if (isSystem) return { ...styles.message, ...styles.systemMessage };
+            return { ...styles.message, ...styles.botMessage };
+        };
 
         return (
-            <div
-                key={msg.id}
-                style={{
-                    ...styles.message,
-                    ...(isUser ? styles.userMessage : {}),
-                    ...(isError ? styles.errorMessage : {}),
-                    ...(isSystem ? styles.systemMessage : {})
-                }}
-            >
-                {!isUser && (
-                    <span style={styles.messageIcon}>
-                        {isError ? '❌' : isSystem ? '⚙️' : '🤖'}
-                    </span>
-                )}
-                <div style={styles.messageContent}>
-                    {msg.content.split('\n').map((line, i) => (
-                        <div key={i}>{line}</div>
-                    ))}
+            <div key={msg.id} style={getMessageStyle()}>
+                <div>
+                    {msg.content}
                     {msg.data && msg.data.task_id && (
                         <div style={styles.taskCreatedBadge}>
                             Task #{msg.data.task_id} created
@@ -390,7 +640,9 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
         chatArea: {
             flex: 1,
             overflowY: 'auto',
-            padding: SPACING.md
+            padding: SPACING.md,
+            display: 'flex',
+            flexDirection: 'column'
         },
         welcomeSection: {
             textAlign: 'center',
@@ -426,35 +678,42 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
                 backgroundColor: 'rgba(255,255,255,0.15)'
             }
         },
+        // Message styles matching FeeAgentChat bubble pattern
         message: {
-            display: 'flex',
-            gap: SPACING.sm,
-            marginBottom: SPACING.md,
-            padding: SPACING.md,
-            borderRadius: BORDER_RADIUS.md,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            color: COLORS.text.white,
-            fontSize: FONT_SIZES.sm
+            maxWidth: '85%',
+            padding: SPACING.sm,
+            borderRadius: BORDER_RADIUS.lg,
+            fontSize: FONT_SIZES.sm,
+            lineHeight: 1.5,
+            marginBottom: SPACING.sm,
+            whiteSpace: 'pre-line'
         },
         userMessage: {
-            backgroundColor: 'rgba(59, 130, 246, 0.2)',
-            marginLeft: SPACING.xl,
-            flexDirection: 'row-reverse'
+            alignSelf: 'flex-end',
+            marginLeft: 'auto',
+            backgroundColor: COLORS.primary,
+            color: COLORS.text.white,
+            borderBottomRightRadius: BORDER_RADIUS.xs
+        },
+        botMessage: {
+            alignSelf: 'flex-start',
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            color: COLORS.text.white,
+            borderBottomLeftRadius: BORDER_RADIUS.xs
         },
         errorMessage: {
+            alignSelf: 'flex-start',
             backgroundColor: 'rgba(239, 68, 68, 0.2)',
-            borderLeft: '3px solid #EF4444'
+            color: '#FCA5A5',
+            borderBottomLeftRadius: BORDER_RADIUS.xs
         },
         systemMessage: {
-            backgroundColor: 'rgba(107, 114, 128, 0.2)',
-            fontStyle: 'italic'
-        },
-        messageIcon: {
-            fontSize: '1.2rem',
-            flexShrink: 0
-        },
-        messageContent: {
-            flex: 1
+            alignSelf: 'center',
+            backgroundColor: 'rgba(251, 191, 36, 0.2)',
+            color: '#FCD34D',
+            borderRadius: BORDER_RADIUS.md,
+            fontSize: FONT_SIZES.xs,
+            textAlign: 'center'
         },
         taskCreatedBadge: {
             display: 'inline-block',
@@ -564,6 +823,46 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
             color: '#A5B4FC',
             fontWeight: 500
         },
+        employeeList: {
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: SPACING.xs,
+            maxHeight: '120px',
+            overflowY: 'auto',
+            width: '100%',
+            padding: SPACING.sm,
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            borderRadius: BORDER_RADIUS.md,
+            border: '1px solid rgba(255,255,255,0.1)'
+        },
+        employeeChip: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: `${SPACING.xs} ${SPACING.sm}`,
+            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
+            borderRadius: BORDER_RADIUS.full,
+            fontSize: FONT_SIZES.xs,
+            color: COLORS.text.white
+        },
+        roleChipSmall: {
+            padding: '1px 4px',
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            borderRadius: BORDER_RADIUS.sm,
+            fontSize: '10px',
+            color: COLORS.text.whiteSubtle
+        },
+        moreChip: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: `${SPACING.xs} ${SPACING.sm}`,
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            borderRadius: BORDER_RADIUS.full,
+            fontSize: FONT_SIZES.xs,
+            color: COLORS.text.whiteSubtle,
+            fontStyle: 'italic'
+        },
         priorityBadge: {
             padding: `${SPACING.xs} ${SPACING.sm}`,
             borderRadius: BORDER_RADIUS.full,
@@ -621,6 +920,42 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
             gap: SPACING.md,
             padding: SPACING.lg,
             borderTop: '1px solid rgba(255,255,255,0.1)'
+        },
+        // Slideshow styles for bulk tasks
+        slideProgress: {
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '6px',
+            padding: `${SPACING.sm} ${SPACING.lg}`,
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            flexWrap: 'wrap'
+        },
+        progressDot: {
+            width: '10px',
+            height: '10px',
+            borderRadius: '50%',
+            transition: `all ${TRANSITIONS.fast}`
+        },
+        slideNavigation: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: SPACING.md,
+            padding: SPACING.lg,
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            flexWrap: 'wrap'
+        },
+        navButton: {
+            padding: `${SPACING.sm} ${SPACING.md}`,
+            fontSize: FONT_SIZES.sm,
+            fontWeight: 500,
+            color: COLORS.text.white,
+            backgroundColor: 'transparent',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: BORDER_RADIUS.md,
+            cursor: 'pointer',
+            transition: `all ${TRANSITIONS.fast}`,
+            minWidth: '90px'
         },
         cancelButton: {
             flex: 1,
@@ -702,25 +1037,18 @@ const TaskAgentChat = ({ employees = [], onTaskCreated, height = '450px' }) => {
             </div>
 
             {/* Input Area */}
-            <div style={styles.inputArea}>
-                <input
-                    ref={inputRef}
-                    type="text"
+            {/* Input Section with Voice Support */}
+            {aiAvailable && (
+                <AgentChatInput
                     value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onChange={setInputMessage}
+                    onSend={handleSendMessage}
+                    isProcessing={isProcessing}
+                    disabled={!aiAvailable}
                     placeholder="e.g., Tell Ahmed to submit the report by Friday..."
-                    style={styles.input}
-                    disabled={isProcessing || !aiAvailable}
+                    showMicButton={true}
                 />
-                <button
-                    onClick={handleSendMessage}
-                    style={styles.sendButton}
-                    disabled={isProcessing || !inputMessage.trim() || !aiAvailable}
-                >
-                    {isProcessing ? '...' : 'Send'}
-                </button>
-            </div>
+            )}
 
             {/* Confirmation Modal */}
             {renderConfirmation()}

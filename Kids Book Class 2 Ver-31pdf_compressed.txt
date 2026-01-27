@@ -1,0 +1,4167 @@
+Book
+Coding Explorations
+www.koderkids.pk
+Authors
+Syed Shah Mir Ul Hassan
+MS Computer Science, NUST Islamabad.
+
+Khayyam Bahadur
+PhD Scholar
+CASE University Islamabad
+Supervised By:
+Dr. Ali Hassan
+Head of Department
+College of Computer engineering, NUST
+Design & Illustrations
+Syed Murtaza Mehdi
+Senior Graphic Designer
+Taiq Mohsin
+Graphic Designer
+Powered by:
+www.koderkids.pk
+KoderKids
+Preface
+Welcome again to Koder Kids Book 2!
+Building on the foundational skills you developed in Book 1—such as exploring
+computers and hardware, introductory Scratch Jr coding, basic VEXcode VR
+movements,
+simple
+Python
+programs,
+PowerPoint
+presentations,
+web
+browsing, Canva designs, AI concepts, and electronics—this book takes you
+deeper into creative digital tools, advanced coding, robotics, and artificial
+intelligence. You will master pixel art with Pixilart, train AI models using Google
+Teachable Machine, create interactive games in Scratch, navigate obstacle
+courses with VEXcode VR, program with Python variables and input, generate AI
+images and audio, organize files in Google Drive, enhance designs in advanced
+Canva, build basic Arduino projects, automate tasks with n8n, and control
+physical robots using Scratch.
+In Book 2, you will learn to plan and execute more interactive and complex
+projects, such as animated pixel stories, AI-trained recognition models, multiscene games, sensor-based robot challenges, and automated workflows. You will
+practice problem-solving, logical thinking, and creativity, gaining the confidence
+to innovate and iterate on ideas. Each chapter includes class activities, home
+tasks, and mini-projects that empower you to bring concepts to life in engaging,
+hands-on ways.
+We are thrilled to guide you through this next phase of your tech adventure.
+Prepare for stimulating challenges and imaginative discoveries as you expand
+your expertise in coding, robotics, AI, and digital creation!
+
+Table of Contents
+Chapter 1: Mastering Pixel Art
+Chapter 2: Teaching AI with
+with Pixel Art
+Google Teachable Machine
+1.1 Understanding Pixel Art Basics
+2.1 Understanding How AI "Learns"
+Class Activity 1 - Draw a Pixel Festival Icon
+Class Activity 1 - Collect Examples for AI
+Home Activity 1
+Home Activity 1
+1.2 Making Pixel Art Move: Simple Animations
+2.2 Training and Testing Your AI
+Class Activity 2 - Animate Your Pixel Icon
+Class Activity 2 - Train and Test Your AI Model
+Home Activity 2
+Home Activity 2
+1.3 Building Pixel Scenes and Characters
+Class Activity 3 - Create a Pixel Scene
+1.4 Designing a 5-Panel Pixel Story
+Class Activity 4 - Build a 5-Frame Pixel Story
+Chapter 1 Summary and Pixel Art Challenge!
+
+2.3 Using Sound and Pose for AI
+Class Activity 3 - Create a Sound or Pose Model
+2.4 Building Your Own AI Invention Plan
+Class Activity 4 - Plan Your AI Invention
+Chapter 2 Summary and AI Challenge!
+
+Chapter 3: Scratch: Beginning to Chapter 4: VEXcode VR: Exploring
+Code
+Obstacle Courses
+3.1 Introduction to Scratch Interface
+4.1 Navigating an Obstacle Course
+Class Activity 1 - Move the Scratch Cat
+Class Activity 1 - Program a Robot Path
+Home Activity 1
+Home Activity 1
+3.2 Creating Simple Animations
+4.2 Using Loops to Repeat Actions
+Class Activity 2 - Make the Cat Dance
+Class Activity 2 - Loop a Robot Movement
+Home Activity 2
+Home Activity 2
+3.3 Adding Interactions with Events
+4.3 Using Sensors to Avoid Obstacles
+Class Activity 3 - Build a Clickable Greeting Card
+Class Activity 3 - Avoid Obstacles with Sensors
+Home Activity 3
+Home Activity 3
+3.4 Building a Mini-Game
+Class Activity 4 - Create a “Catch the Mango”
+Game
+Chapter 3 Summary and Final Home Activity
+4.4 Creating a Robot Challenge
+Class Activity 4 - Code a Maze Challenge
+Chapter 4 Summary and Final Home Activity
+Table of Contents
+Chapter 5: Python: Variables and
+Chapter 6: AI for Image Creation
+6.1 Exploring AI Image Tools
+Input
+Class Activity 1 - Create a Camel Image
+5.1 Introduction to Variables in Python
+Class Activity 1 - Create a Number Variable
+Home Activity 1
+5.2 Using input() to Get User Input
+Class Activity 2 - Ask for a Name
+Home Activity 2
+5.3 Writing Programs with Variables and Input
+Class Activity 3 - Create a Food Program
+Home Activity 3
+5.4 Creating a Simple Quiz Program
+Class Activity 4 - Build a Quiz Game
+Home Activity 1
+6.2 Adding Details to Prompts
+Class Activity 2 - Create a Bird Image
+Home Activity 2
+6.3 Creating Scenes with AI
+Class Activity 3 - Create a Festival Scene
+Home Activity 3
+6.4 Complex Prompts for Big Ideas
+Class Activity 4 - Create a Superhero Scene
+Home Activity 4
+Chapter 6 Summary and Final Home Activity
+Home Activity 4
+Chapter 5 Summary and Final Home Activity
+Chapter 7: Getting Started with
+Chapter 8: Advanced Digital
+Google Drive
+Art with Canva
+7.1 Exploring Google Drive
+Class Activity 1 - Create a School Folder
+Home Activity 1
+7.2 Creating File in Google Drive
+Class Activity 2 - Make a Story File
+Home Activity 2
+7.3 Organizing File in Folders
+Class Activity 3 - Organize a File
+Home Activity 3
+7.4 Editing Files in Google Drive
+Class Activity 4 - Edit Your Story File
+Home Activity 4
+7.5 Deleting Files Safely
+Class Activity 5 - Delete a Test File
+Home Activity 5
+Class Activity 6 - Delete and Restore a file
+Home Activity 6
+Chapter 7 Summary and Final Home Activity
+8.1 Revisiting Canva Basics
+Class Activity 1 - Create an Art Show Poster
+Home Activity 1
+8.2 Exploring Advanced Canva Features
+Class Activity 2 - Create an Invitation Card
+Home Activity 2
+8.3 Creating Animations in Canva
+Class Activity 3 - Design an Animated Post
+Home Activity 3
+8.4 Designing Presentations
+Class Activity 4 - Create a 3-Slide Presentation
+Home Activity 4
+8.5 Collaborative Design Projects
+Class Activity 5 - Design a Newsletter
+Chapter 8 Summary and Final Home Activity
+Table of Contents
+Chapter 09: Introduction to
+Chapter 10: AI for Audio
+Arduino Basics
+Creation
+9.1 Exploring Arduino Hardware
+10.1 Exploring AI Audio Tools
+Class Activity 1 - Create a Simple Melody
+Home Activity 1
+10.2 Designing Sound Effects
+Class Activity 2 - Create a Kite Sound Effect
+Home Activity 2
+10.3 Creating a Short Song with AI
+Class Activity 3 - Create a Festival Song
+Home Activity 3
+10.4 Building an Audio Project
+Class Activity 4 - Create a Market Sound Story
+Home Activity 4
+10.5 Create a Podcast Intro
+Class Activity 5 - Design a Podcast Intro
+Home Activity 5
+Chapter 10 Summary and Final Home Activity
+Class Activity 1 - Explore the Arduino Kit
+Home Activity 1
+9.2 Setting Up the Arduino Software
+Class Activity 2 - Setup the Software
+Home Activity 2
+9.3 Making an LED Blink
+Class Activity 3 - Blink an LED
+Home Activity 3
+9.4 Building a Simple Circuit
+Class Activity 4 - Build an LED Circuit
+Home Activity 4
+Chapter 09 Summary
+Chapter 11: Making Computers Work Together with n8n
+11.1 Understanding "Triggers" and "Actions"
+Class Activity 1 - Identify Triggers and Actions
+Home Activity 1
+11.2 Building Simple Computer Chains (Workflows)
+Class Activity 2 - Draw Your First Computer Chain
+Home Activity 2
+11.3 Connecting Different Computer "Tools" (Apps)
+Class Activity 3 - Imagine Connecting Your Favorite Apps
+11.4 Planning a 5-Step Computer Automation Project
+Class Activity 4 - Plan Your Automation Invention
+Chapter 11 Summary and Automation Challenge!
+
+Chapter 12: Getting Started with M3D GO Robotics
+12.1: Exploring the M3D GO Kit
+Class Activity 1: Unpack, Identify, and Attach Kit Parts
+Home Activity 1
+12.2: Setting Up and Connecting the Robot
+Class Activity 2 - Connect and Verify Your Robot Setup
+Home Activity 2
+12.3 Introduction to Basic Robot Activities
+Class Activity 3: Free Robot Movements and Exploration
+Home Activity 3
+Chapter 12 Summary and Final Home Activity
+Chapter 1:
+Mastering Pixel Art with
+Pixilart
+Welcome to Pixel Art Magic!
+Get ready to create awesome digital art!
+In Book 1, you learned simple drawing using paint.
+Now, you’ll learn how to make amazing pictures and even animations using
+tiny colored squares called pixels. We’ll use a cool website called Pixilart to
+make your art shine.
+Let’s get started!
+What is Pixel Art?
+It’s a special kind of digital drawing where you use tiny squares of color.
+
+Why Learn Pixel Art?
+You can make fun characters, cool scenes, and even
+animations, just like in your favorite video games
+Chapter Preview:
+You’ll draw with pixels, make art move, create scenes, and tell a story with your pixel art.
+
+Instructions:
+Ask an adult to open www.pixilart.com in a web browser on your computer.
+
+7
+1.1 Understanding Pixel Art Basics
+Great pixel art looks neat and clear! You’ll learn about pixels (the tiny squares!), choose
+your drawing size, and pick colors to make your art pop, just like the bold designs on a
+Pakistani truck art painting. Understanding these basics helps people understand your pixel
+art ideas
+Why Focus on Pixel Basics?
+It makes your art interesting and easy to see.
+
+Key Tip
+Start with a small drawing area.
+Choose bright, clear colors.
+Every tiny square matters!
+
+Fun Fact:
+Many classic video games, like Super
+Mario were made with pixel art!
+
+Class Activity Preview:
+You’ll create your first pixel drawing next.
+
+8
+Class Activity 1 : Draw a Pixel Festival Icon
+Let’s make a tiny pixel drawing for a Pakistani festival! You’ll choose a small drawing area
+and use colors to create a simple pixel icon.
+
+1
+Step
+Open Pixilart: Go to www.pixilart.com
+and click "Start Drawing" at the top
+of the page.
+
+3
+Step
+Find Your Tools:
+Look for the Pencil tool on the left side.
+Choose a color from the right side (the
+color palette) similar to Paint.
+
+2
+Step
+Start a New Drawing: On the pop-up, choose a
+small size like 64x64 pixels (or a similar small
+size if 64x64 isn't a direct option, e.g., 50x50
+or 32x32), then click "New Drawing."
+44
+Step
+Step
+Draw Your Icon: Carefully click
+tiny squares to draw a simple
+picture of a kite. Remember, it’s
+pixel art, so it will look blocky!
+
+9
+5
+5
+Step
+Step
+6
+4
+Color It In: Select the Paint
+Bucket tool (it looks like a spilling
+bucket) and click inside your kite
+drawing to fill it with color.
+
+Step
+Step
+Save: Click the "File" menu (usually
+at the top left, a small floppy disk
+icon or similar) and select "Save
+As .pixil". Name it "MyKite.pixil" and
+save it to your computer.
+
+Challenge:
+Change the color of your kite, or add a tiny
+string to it.
+
+Home Activity 1:
+Design a pixel art icon for your favorite food (e.g., a small pixel biryani plate, a pixel
+samosa) with custom colors.
+
+10
+1.2 Making Pixel Art Move: Simple Animations
+Animations make your pixel art come alive, like a dancing kite! In Pixilart, you create a
+series of drawings called frames, each slightly different. When you play them fast, it
+looks like movement! These tricks make your pixel art fun, like coding animations in
+Scratch (Chapter 3).
+
+What’s Frame?
+It’s one single picture in a sequence
+that makes up an animation.
+
+What’s Animation in Pixilart?
+Drawing a little bit differently on
+each frame to show something
+moving or changing.
+
+Class Activity Preview:
+You’ll animate your pixel art next.
+
+Parent Tip:
+Watch your child’s pixel animations and cheer them on!
+
+11
+Class Activity 2: Animate Your Pixel Icon
+Let’s make your pixel kite dance! You’ll add frames and make small changes to create a
+simple animation, building on your festival icon.
+
+1
+Step
+2
+Step
+Open your Pixilart project: Go to
+Go to the Gif Frames file at bottom
+www.pixilart.com. Click "File" > "Open .pixil"
+of the screen
+and open your "MyKite.pixil" file.
+
+3
+Step
+Duplicate Frames: You'll see "Frame 1."
+Click the "+" button or "Duplicate
+Frame" icon to add "Frame 2" that
+looks exactly like Frame 1. Do this a
+few times until you have 3 or 4
+frames.
+
+44
+Step
+Step
+Make Changes:
+Click on Frame 2. Use the Pencil tool
+or Eraser to make a tiny change to
+your kite (e.g., make the string wiggle
+a little, or change a color slightly).
+Click on Frame 3. Make another tiny
+change.
+
+12
+5
+5
+Step
+Step
+6
+4
+Play Animation: Click the "Preview"
+button” to see your kite move!
+
+75
+Step
+Step
+Adjust Speed: If it’s too fast or too slow,
+change the "FPS" (Frames Per Second)
+number bottom of the frame A smaller
+number (like 100ms) makes it slower.
+
+Step
+Step
+Save as GIF: Click the "File" menu
+again, then "Export". Choose "Animated
+GIF" and click "Download." Name it
+"AnimatedKite.gif" and save it.
+
+Challenge:
+Make your kite animation loop
+smoothly by making the last frame
+almost match the first frame.
+
+Home Activity 2
+Copy a paint drawing file to a new folder called “My Art.”
+13
+1.3 Building Pixel Scenes and Characters
+Keyboard shortcuts make organizing faster, like a magic trick! Instead of right-clicking,
+use keys to cut, copy, or undo, speeding up your work like in PowerPoint (Chapter 1).
+
+Why Build Scenes/Characters?
+It makes your pixel art lively and fun, like
+designing your own game world!
+
+Example:
+You can draw a pixelated version of your school,
+or a tiny pixel robot exploring a city.
+
+Class Activity Preview:
+You’ll draw a small pixel scene or character next.
+
+DIY Idea:
+Draw a pixelated version of your own house or favorite street of village.
+
+14
+Class Activity 3 - Create a Pixel Scene
+Let’s make your pixel art world bigger! You’ll draw a small scene or a simple character,
+combining different pixel art elements.
+
+1
+Step
+2
+Step
+Open Pixilart: Go to www.pixilart.com
+Start a New Drawing: Choose a
+and click "Start Drawing."
+slightly larger canvas size, like
+128x128 pixels. Click "New Drawing."
+3
+Step
+Draw a Background: Use the Pencil
+and Paint Bucket tools to create a
+simple background, like a blue sky
+and green grass.
+
+4
+4
+Step
+Step
+1.Add Elements:
+Draw a pixelated tree (a brown
+trunk and green leaves).
+Draw a small pixel cloud in the sky.
+Try drawing a simple pixel
+character (like a stick figure or a
+small robot).
+
+15
+5
+5
+Step
+Step
+6
+4
+Use Different Colors: Experiment
+with different colors from the
+palette to make your scene vibrant.
+
+Step
+Step
+Save: Click "File" > "Save As .pixil"
+and name it "MyPixelScene.pixil."
+Challenge:
+Can you add your animated pixel kite from Activity 2
+into this scene? (You might need to copy and paste
+parts of your kite or redraw it here!)
+16
+1.4 Designing a 5-Frame Pixel Story
+Now combine all your amazing pixel art skills to tell a short story! You’ll create 5
+different pixel art pictures, like a mini-comic book or storybook, using your designs and
+maybe even little animations. This is like planning a whole story..
+
+What’s a Pixel Story
+It’s a series of pixel art drawings that tell a simple tale
+or show a sequence of events.
+
+Example:
+A story about a pixel character meeting a
+friend, or a day at a pixel festival!
+
+Class Activity Preview:
+You’ll build a 5-panel pixel story next.
+
+Parent Tip:
+Tell a pixel story with your child at home!
+
+17
+Class Activity 4 - Build a 5-Panel Pixel Story
+Let’s create a 5-panel story about a topic you like! You’ll use all your Pixilart skills to make it
+awesome.
+
+1
+Step
+2
+Step
+Open Pixilart: Go to www.pixilart.com
+Start a New Drawing: Choose a
+and click "Start Drawing."
+canvas size like 160x160 pixels.
+
+3
+Step
+Plan Your Story: Think of a simple
+story with a beginning, middle, and
+end.
+
+18
+44
+Step
+Step
+1.Create Your Panels:
+Panel 1 (Frame 1): Draw the beginning
+of your story (e.g., a character
+standing in a field).
+Panel 2 (Frame 2): Click the "copy
+frame" button in the animation section
+to duplicate the frame. Draw the next
+part of your story (e.g., the
+character starting to walk).
+Panel 3 (Frame 3): copy frame. Draw
+the middle part (e.g., the character
+sees something interesting).
+Panel 4 (Frame 4): Copy frame. Draw
+a new event or a challenge (e.g., a pixel
+monster appears!).
+Panel 5 (Frame 5): Copy frame. Draw
+the ending (e.g., the character runs
+away or solves the problem).
+
+5
+5
+6
+4
+Step
+Step
+Play Your Story: Click the "Play" button in
+the animation section to see your story
+unfold! Adjust the FPS if needed.
+
+Step
+Step
+Save as GIF: Click "File" > "Export"
+> "Animated GIF." Name it
+"MyPixelStory.gif" and save it.
+
+Challenge:
+Add a tiny pixel detail related to Pakistan
+in your story, like a small pixel flag or a
+pixel chai cup.
+
+19
+Chapter 1 Summary and Pixel Art Challenge!
+You’re a Pixel Art Pro! You:
+1.1
+Understood pixel art basics and
+drew your first icon.
+
+Added animations to make your
+1.2
+1.3
+pixel art move.
+
+Built pixel art scenes and characters.
+
+1.4
+Created a 5-panel pixel story!
+
+Home Activity 3: Make a Festival Folder
+Create a pixel art picture about your family or a pixelated scene of your favorite family
+activity (e.g., a pixel picnic, a pixel game night, or a pixel picture of your family in traditional
+Pakistani clothes). Save it as a .pixil file or export it as a .png image.
+
+Homework:
+Present your family pixel art to your parents and tell them the story behind it!
+
+20
+Chapter 2:
+Teaching AI with Google
+Teachable Machine
+Welcome to AI Magic!
+Get ready to meet Artificial Intelligence (AI)!
+In Book 1, you learned how to code simple games. Now, you’ll learn how to teach
+computers to be smart using a tool called Google Teachable Machine.
+You’ll teach machine to recognize things, sounds, or even your movements, just like a
+smart robot!
+
+What is AI?
+
+It’s like making computers smart so they can learn and do amazing things, like
+recognize faces or understand your voice..
+
+Why Learn AI?
+
+Create exciting projects, like a festival story!
+
+Chapter Preview:
+You’ll collect examples, train AI, try different types of AI, and plan your own AI
+project
+Instructions:
+Ask an adult to open Google Teachable Machine in a web browser on your
+computer. (Search for "Google Teachable Machine").`
+21
+2.1 Understanding How AI "Learns"
+Great AI models learn from good examples! Imagine teaching a new trick to a pet – you show
+them what to do clearly. AI works similarly: you give it many examples so it can learn patterns.
+We call these examples "data." The better your examples, the smarter your AI will be, like
+preparing all the right ingredients for a delicious Pakistani dish! Good examples help AI
+understand your ideas.
+Great slides look neat and professional! You’ll customize layouts, add colors, and choose fonts
+to make your slides pop, like a poster for a festival. Good design helps people understand your
+ideas.
+
+Why Focus on Examples?
+
+2
+.It makes your AI smart and accurate.
+
+Step
+1
+Key Tips:
+Use clear, different examples for what you want the AI to learn.
+
+Fun Fact:
+AI helps recommend videos or
+songs you might like online!
+
+4
+Class Activity Preview:
+You’ll You’ll collect examples for AI next.
+
+Step
+22
+Class Activity 1 - Collect Examples for AI
+Let’s teach our AI to recognize something! You’ll collect different examples to help your AI
+understand what you want it to learn, just like teaching it new words.
+
+1
+Step
+2
+Open Teachable Machine: In your web browser,
+go to teachablemachine.withgoogle.com and click
+"Get Started."
+3
+Step
+Create Classes: You’ll see "Class 1" and
+"Class 2." Rename "Class 1" to "Happy
+Face" and "Class 2" to "Sad Face."
+Step
+Start a New Project: Click
+"Image Project."
+Select Standard Image Model.
+
+4
+Step
+Add Examples:
+Click "Webcam" under "Happy Face." Make a
+happy face and click "Hold to Record"
+many times to capture at least 20 pictures.
+Click "Webcam" under "Sad Face." Make a
+sad face and click "Hold to Record" many
+times to capture at least 20 pictures.
+
+23
+5
+Step
+Save: Click the "File" menu (usually a small
+icon like three lines or a gear) and then
+"Download project." Name it "MyFacesAI" and
+save it. (You'll load it next time!)
+Challenge:
+Add a third class called "Surprised
+Face" and collect examples for it!
+
+Home Activity 1:
+Open your model, Add a third class called "Surprised Face" and collect examples for it!
+
+24
+2.2 Training and Testing Your AI
+Once you have examples, it’s time to train your AI! Training is when the computer
+looks at all your examples and learns from them. It’s like studying for a big test!
+Then, you test your AI to see if it understood correctly. These steps make your
+AI smart and fun, just like practicing your coding in Scratch (Chapter 3).
+
+What’s Training?
+AI looks at your examples again and again to find patterns and learn.AI
+looks at your examples again and again to find patterns and learn.
+What’s Testing?
+You show new things to your AI to see if it can guess what they are
+based on what it learned.
+Class Activity Preview:
+You’ll train your AI and test it next.
+
+Parent Tip:
+Watch your child train their AI and help them test it with different
+examples!
+
+25
+Class Activity 2: Train and Test Your AI Model
+Let’s make your AI smart! You’ll train the model you created and then test it to see if it
+can guess correctly.
+
+1
+Step
+Open your project: Go to
+teachablemachine.withgoogle.com, click "Get
+Started," then "Image Project." Click the "File"
+menu (top left) and "Open project from
+2
+Step
+Train your AI: Click the big blue button
+that says "Train Model." Wait for it to
+finish – it might take a minute!
+
+computer" to load your "MyFacesAI" file.
+
+3
+Step
+Test your AI:
+Once training is done, look at the "Preview"
+section on the right. Make a happy face.
+Does the "Happy Face" bar go up?
+Now make a sad face. Does the "Sad Face"
+bar go up?
+Try a silly face! What does the AI guess?
+
+26
+4
+Step
+Save: Remember to save your project
+again by clicking "File" > "Download project"
+to update your changes.
+
+Challenge:
+Test your AI with a very serious face or a confused face.
+What does it guess? Can you make it guess wrong on purpose?
+
+Home Activity 2:
+Use your "MyFacesAI" project from before. Can you train it even better by adding
+more examples of happy and sad faces? Test it with new family members!
+
+27
+2.3 Using Sound and Pose for AI
+AI isn't just about pictures! It can also learn from sounds and body movements (called
+"poses"). Adding different types of information makes your AI super exciting and engaging,
+like adding sounds in Scratch (Chapter 3) or Tynker (Chapter 9)! You’ll try this next!
+
+Why Add Different Media?
+AI can understand and react to different kinds
+of information around us.
+
+Example:
+Make an AI that recognizes if you clap
+your hands or if your arms are raised.
+
+Class Activity Preview:
+You’ll create a sound or pose model next.
+
+DIY Idea:
+Record your own short sound, like a "hello" or a funny noise, for the AI to recognize!
+
+28
+Class Activity 3- Create a Sound or Pose Model
+Let’s make your AI listen or watch your movements! You’ll add an audio clip or teach a pose
+to your AI, building on your learning.
+
+1
+Step
+Open Teachable Machine: Go to
+teachablemachine.withgoogle.com
+and click "Get Started."
+2
+Step
+Choose a New Project Type:
+Sound: Click "Audio Project." Rename "Class 1" to "Clap" and "Class
+2" to "No Sound." Record many claps for "Clap" and record quiet
+sounds for "No Sound."
+Pose: Click "Pose Project." Rename "Class 1" to "Arms Up" and
+"Class 2" to "Arms Down." Stand up and use your webcam to
+capture pictures with your arms up and arms down.
+
+For Pose
+For Sound
+29
+Step
+3
+Train Model: Click "Train Model."
+5
+5
+44
+Step
+Step
+1.Test Model:
+If Audio: Clap your hands! Does the
+"Clap" bar go up?
+If Pose: Put your arms up or down!
+Does the AI guess correctly?
+
+Step
+Step
+Save: Click "File" > "Download project."
+Name it "MySoundAI" or "MyPoseAI."
+Challenge:
+Add a third sound (e.g., a "Whistle")
+or a third pose (e.g., "Sitting") to
+your project.
+
+30
+2.4 Building Your Own AI Invention Plan
+Now it’s time to combine your skills and plan your own AI invention! You’ll create a simple
+plan for an AI project about a topic you love, using ideas about examples, training, and
+different types of AI data. This is like outlining a story before you write it, especially for
+sharing your ideas on Google Drive (Chapter 7).
+
+What’s an AI Project?
+It's a creative way to use AI to solve a small problem or make something fun and interactive.
+
+Example:
+An AI that guesses if you’re holding a fruit or a vegetable, or an AI that
+reacts to a specific sound you make!
+
+Class Activity Preview:
+You’ll build a 5-step plan for your own AI invention next.
+
+Parent Tip:
+Brainstorm cool AI ideas with your child at home!
+
+31
+Class Activity 4 : Plan Your AI Invention
+Let’s create a 5-step plan for an amazing AI invention you can build! You’ll use all your
+Teachable Machine skills to make it awesome.
+
+Get Ready:
+Open a blank document (like Google Docs or a simple text editor) or grab a piece of paper
+and a pencil.
+
+1
+Step
+The Idea! What will your AI guess or do? Write
+down your cool idea!
+Example: My AI will guess if I am holding
+2
+The Examples! What examples (pictures,
+sounds, or poses) will you give your AI
+so it can learn?
+Example: I will show it many red
+a red object or a blue object.
+
+3
+Step
+The Teach! How will you teach your AI? (Hint:
+Think about "Train Model"!)
+Example: I will click "Train Model" and
+wait for it to learn!
+
+Step
+toys and many blue toys.
+
+4
+4
+Step
+Step
+The Test! How will you know if your
+AI is smart and guesses correctly?
+Example: I will show it new
+red and blue things that it
+has never seen before!
+
+32
+5
+5
+Step
+Step
+6
+4
+The Fun! What cool thing can your
+AI do once it’s smart?
+
+Step
+Step
+Save your document as
+"MyAIPlan.txt" or keep your paper
+safe!
+
+Challenge:
+Add a detail about how your AI could help someone or
+make a game even more fun! Example: "My AI could help
+sort recycling by guessing if an item is plastic or
+paper!"6.
+
+Home Activity 3:
+Create a simple Teachable Machine project to recognize something fun related to
+your family!
+Idea 1: An AI that guesses if it sees a picture of a "Toy Car" or a "Book" from
+your house.
+Idea 2: An AI that recognizes two different sounds you and a family member can
+make (e.g., your clap vs. your parent's snap).
+Idea 3: An AI that recognizes two different poses you and a sibling can do.
+
+33
+Chapter 2 Summary
+You’re a PowerPoint pro! You:
+1.1
+Learned how AI "learns" from
+examples.
+
+Trained and tested your very
+1.2
+1.3
+first AI models.
+
+Explored different types of data like
+sound and pose.
+
+1.4
+Planned your own awesome AI
+invention!
+
+Homework:
+Show your family AI project or your AI invention plan to your parents and explain how
+it works!
+
+34
+Chapter 3:
+Scratch: Beginning to Code
+Welcome to Scratch!
+Scratch is a fun way to create stories, games, and animations by coding!
+Unlike Scratch Jr from Book 1, Scratch 1 has more blocks for bigger projects. Let’s
+start your coding adventure with the Scratch Cat!
+What is Scratch?
+A free website where you drag blocks to code, like building with LEGO.
+Why Scratch? It helps you think like a coder and create cool projects!
+Chapter Preview: You’ll learn the Scratch interface, animate a cat, make an interactive
+card, and build a game.
+
+35
+3.1 Introduction to Scratch Interface
+The Scratch workspace is your coding playground! The Stage shows your
+project. Sprites are characters, like the Scratch Cat. The Blocks Palette has
+coding blocks to drag. Let’s explore!
+Key Parts:
+Stage: Where your project plays.
+Sprite List: Shows your characters.
+Blocks Palette: Has Motion, Looks, Events blocks.
+
+Fun Fact
+Scratch was made at MIT for kids like
+you!
+
+Class Activity Preview:
+You’ll make a moving cat next!
+
+36
+Class Activity 1 - Move the Scratch Cat
+Let’s code the Scratch Cat to move! You’ll use Motion blocks to create your first project,
+like moving files in Chapter 2.
+
+1
+Step
+2
+Step
+Open scratch.mit.edu and click
+Click the Scratch Cat in the
+“Create.”
+Sprite List (bottom).
+
+3
+Step
+Drag “move 10 steps” (Motion) to the
+coding area (middle).
+
+44
+Step
+Step
+Click the block to test—it moves!
+
+37
+5
+5
+Step
+Step
+6
+4
+Step green flag clicked”
+Add “when
+(Events, yellow) above “move 10
+steps.”
+Step
+Step
+Click the green flag on the Stage
+to run.
+
+Challenge:
+Make the cat move
+backward (use “-10”).
+
+Home Activity 1:
+Make the Scratch Cat move in a new project and save it.
+
+38
+3.2 Creating Simple Animations
+Animations make sprites come alive! Use Motion and Looks blocks to make the
+Scratch Cat dance, like a cartoon. Motion moves the cat, and Looks changes its
+appearance or adds words.
+
+What’s an Animation?
+
+A moving picture with actions, like a dance.
+
+Example:
+The cat spins and says “Hello!”
+Activity Preview
+You’ll code a dancing cat next.
+
+39
+Class Activity 2 : Make the Cat Dance
+Let’s create a dancing animation! You’ll combine blocks to make
+the Scratch Cat move and talk, building on your moving cat.
+
+1
+Step
+Open a new Scratch project and
+select the Scratch Cat.
+
+3
+Step
+Add “move 10 steps” (Motion Block)
+Add “turn 15 degrees” (Motion Block).
+
+2
+Step
+Drag “when green flag clicked”
+(Events) to the coding area.
+
+44
+Step
+Step
+Add “say Assalam Alaikum! for 2
+secs” (Looks).
+
+40
+5
+5
+Step
+Step
+6
+4
+Step
+Repeat
+steps 3-4 twice for more
+dance moves.
+
+Step
+Step
+Click the green flag to test.
+
+Challenge:
+Change the message to “Happy Eid!”
+Home Activity 2:
+Create an animation where the Scratch Cat says a Pakistani greeting.
+
+41
+3.3 Adding Interactions with Events
+Events make projects interactive! Event blocks, like “when this sprite clicked,” let
+users control actions.
+You’ll make a clickable greeting card.
+
+What’s an Event?
+
+A trigger, like clicking, that starts code.
+
+Example:
+Click the cat, and it talks!
+
+Activity Preview
+You’ll create a card next.
+
+DIY Idea:
+Draw a paper card to match your Scratch one!
+
+42
+Class Activity 3 - Build a Clickable Greeting Card
+Let’s make an interactive card! When you click the Scratch
+Cat, it says a special message, perfect for celebrations.
+
+1
+Step
+2
+Step
+Open a new Scratch project
+Drag “when this sprite clicked”
+with the Scratch Cat.
+
+(Events) to the coding area.
+
+3
+Step
+Add “say Happy Basant! for 2 secs”
+(Looks).
+
+44
+Step
+Step
+Click the cat on the Stage to test
+—it talks!
+
+43
+5
+5
+Step
+Step
+6
+4
+Step
+Change
+the Stage: Click
+“Backdrops” (bottom left) and
+pick a festive one (e.g., party).
+
+Step
+Step
+Add “play sound meow until done”
+(Sound).
+
+Challenge:
+Change to “Happy Birthday!” for a friend.
+
+Home Activity 3:
+Make a greeting card for a Pakistani festival like Eid.
+
+44
+3.4 Building a Mini-Game
+Games are super fun to code! You’ll make a “Catch the Mango” game, like Chapter
+4’s robot challenges, where the Scratch Cat catches falling mangoes (a Pakistani
+favorite).
+
+What’s a Game?
+
+A project where players do tasks, like collecting items.
+
+Example:
+Move the cat to grab mangoes!
+
+Activity Preview
+You’ll code your game next.
+
+Parent Tip:
+Play the game with your child!
+
+45
+Class Activity 4 : Create a “Catch the Mango” Game
+Let’s build a game! The Scratch Cat moves with arrow keys to
+catch falling mangoes, using skills from earlier sections.
+
+1
+Step
+Open a new Scratch project.
+
+2
+Step
+Add an Apple sprite:
+Click “Choose a Sprite” and
+pick an Apple.
+
+3
+Step
+For Apple:
+Add “when green flag clicked” (Events)
+Add “go to x: 0 y: 100” (Motion)
+Add “glide 3 secs to x: 0 y: -150” (Motion).
+
+44
+Step
+Step
+For Scratch Cat:
+Add “when right arrow key
+pressed” (Events)
+Add “change x by 10” (Motion).
+
+46
+5
+5
+Step
+Step
+6
+4
+For Scratch
+Cat:
+Step
+Step
+Step
+Click the green flag and use
+arrows to catch the Apple
+Add “when left arrow key pressed,”
+“change x by -10” (Motion).
+
+Challenge:
+Add “say Yum! for 2 secs”
+(Looks) when cat touches
+Apple (use “touching” from
+Sensing).
+
+47
+Chapter 3 Summary and Final Home Activity
+You’re a Scratch coder! You:
+3.1: Explored the Scratch interface and moved the cat.
+3.2: Created a dancing animation with Motion and Looks.
+3.3: Made an interactive greeting card with Events.
+3.4: Built a “Catch the Apple” game.
+
+Home Activity 4:
+Code a new game where the Scratch Cat catches kites.
+
+Homework:
+Share your “Catch the Apple” game with your family!
+
+48
+Chapter 4:
+VEXcode VR: Exploring
+Obstacle Courses
+Welcome to VEXcode VR!
+VEXcode VR lets you code virtual robots to explore mazes! In this
+chapter, you’ll program robots to move, loop actions, use sensors, and
+complete challenges, like robot games in Tynker (Chapter 9). It’s like
+being a robot explorer!
+
+What’s VEXcode VR?
+
+A free website to code robots in virtual worlds.
+
+Why Code Robots?
+
+Learn problem-solving and have fun!
+
+Chapter Preview:
+You’ll navigate courses, use loops, avoid obstacles, and build a challenge.
+
+Instructions:
+Ask an adult to open vr.vex.com.
+
+49
+4.1 Navigating an Obstacle Course
+Robots can follow paths in VEXcode VR, like avoiding walls in a maze.
+You’ll give commands to move your robot.
+
+Why Navigate?
+
+Teaches robots to make decisions, like in real life.
+
+Key Tip:
+Use Drive and Turn blocks carefully.
+
+Fun Fact:
+VEXcode VR is used in schools
+for robotics competitions!
+
+Class Activity Preview:
+You’ll program a robot path next.
+
+50
+Class Activity 1 - Program a Robot Path
+Let’s code a robot to navigate a maze! You’ll use Motion blocks to create a simple path.
+
+1
+Step
+2
+Step
+Open vr.vex.com and click
+Drag “Drive Forward for
+“Playground” > “Wall Maze.”
+200mm” (Motion) to the coding
+area.
+
+3
+Step
+Run the program by clicking the play
+button!
+
+44
+Step
+Step
+Add “Turn Left for 90 degrees”
+(Motion) after Drive Forward.
+
+51
+5
+5
+Step
+Step
+6
+4
+Add Move Left for 90 degree, Move
+Right for 90 degree and Move Forward
+Block to move the robot.
+Test and adjust the distance to avoid walls.
+
+Step
+Step
+Complete till End Point.
+Save your code as a screenshot.
+Use Snipping tool for saving screenshot.
+We will use it in Google Drive (Chapter 7).
+
+Challenge:
+Make the robot point 1,
+2 and 3 instead of
+finish point.
+
+Home Activity 1:
+Program a robot to move in a straight line in a new playground.
+
+52
+4.2 Using Loops to Repeat Actions
+Loops repeat code to make it efficient, like repeating moves in Scratch (Chapter 3).
+You’ll use loops to shorten your robot’s path.
+
+What’s a Loop?
+
+A block that repeats actions, e.g., “repeat 4 times.”
+Why Loops?
+
+Save time for complex paths.
+
+Class Activity Preview:
+You’ll loop a robot movement next.
+
+Parent Tip:
+Count the repeats with your child!
+
+53
+Class Activity 2 - Loop a Robot Movement
+Let’s make your robot repeat actions! You’ll use a loop to create a square path in the
+maze.
+
+1
+Step
+2
+Step
+Open vr.vex.com and select “Grid
+Drag the “Repeat Block” from
+Maze” from the Playground
+(Logic - Control) to the coding
+options.
+
+area.
+
+3
+Step
+Inside the loop, add “Drive Forward
+for 200 mm” and “Turn Right 90
+degrees” from Drivetrain category
+44
+Step
+Step
+Before the loop from Drawing
+category add the following:
+“move pen down” to start drawing.
+“set pen color to black” for the line
+color.
+“set pen width to thin” for the line
+thickness.
+
+54
+5
+5
+Step
+Step
+Set the loop to “4 times” and click
+Step
+play—the robot draws a square!
+Increase the distance, See moving
+in a bigger square.
+
+6
+4
+Step
+Step
+Save your code as a screenshot.
+Use Snipping tool for saving
+screenshot.
+We will use it in Google Drive
+(Chapter 7).
+
+Challenge:
+Change the loop to “3
+times” for a triangle path.
+
+Home Activity 2:
+Use a loop to make the robot turn in a circle.
+
+55
+4.3 Using Sensors to Avoid Obstacles
+Sensors let robots “see” obstacles, like eyes! You’ll use sensor blocks to make your
+robot turn when it detects something, like in Tynker (Chapter 9).
+
+What’s a Sensor?
+
+A tool to detect walls or objects, e.g., Distance Sensor.
+
+Why Sensors?
+
+Help robots change paths automatically.
+
+Class Activity Preview:
+You’ll code sensor avoidance next.
+
+DIY Idea:
+Pretend to be a robot avoiding toys at home!
+
+56
+Class Activity 3 - Avoid Obstacles with Sensors
+Let’s make a smart robot! You’ll use the Front Distance sensor from the Sensing
+category to measure how close obstacles are and help the robot turn to avoid them in
+the maze. The Front Distance sensor gives a number in millimeters (mm) that shows the
+distance, so you can set a rule like “turn if closer than 50mm.”
+1
+Step
+2
+Step
+Open vr.vex.com and select “Wall
+Drag a “forever” loop (from the Logic
+Maze” from the Playground
+category) to the coding area to keep
+options.
+
+the robot moving continuously.
+
+3
+Step
+Inside the loop, add “Drive Forward
+for 50mm” (from the Drivetrain
+category) so the robot advances in
+small steps to allow time for sensing.
+
+44
+Step
+After the drive
+Stepblock, add an “If then” block
+(Logic category). On empty coding area:
+Drag the “Front Distance in mm” block
+(Sensing - Distance category). This is a
+round block that measures how far an
+object is.
+Drag the “<” comparison operator (from
+the Operators category under Logic Math). This creates a diamond-shaped
+condition to check if the distance is less
+than a number.
+
+57
+5
+6
+Step
+Step
+Drag your new combined condition block
+Combine both blocks into one.
+Place the “Front Distance in mm” on
+directly into the diamond slot of the "If
+the left side of diamond.
+
+then" block.
+
+use the “<” operator in the middle,
+Inside the "If then" block (from Logic),
+set the right side to “50”
+add “Turn Left for 90 degrees” (from
+(see Image)
+the Drivetrain category) to make the
+(this checks if the obstacle is closer
+robot change direction when an
+than 50mm).
+
+obstacle is closer than 50mm.
+
+7
+48
+Step
+Run the code.
+Robot will now avoid walls.
+It will move to left when a Wall is
+detected at 50mm.
+
+Step
+Step
+Change the distance from 50mm to
+10mm, 20mm, 70mm and 100mm
+What difference do you see.
+
+Challenge:
+use other Playground for
+same code.
+
+58
+4.4 Creating a Robot Challenge
+Combine your skills for a full challenge! You’ll program a robot to complete a maze,
+using loops and sensors, like a Pakistani adventure quest.
+
+What’s a Challenge?
+
+A complete program to solve a puzzle.
+
+Example:
+Navigate a maze to the finish!
+
+Class Activity Preview:
+You’ll code a maze challenge next.
+
+Parent Tip:
+Cheer your child as the robot wins!
+
+59
+4.5 Code a Maze Challenge
+Let’s build a robot to complete the maze! You’ll use Motion, loops, and sensors for a
+winning path.
+
+Class Activity 4: Complete a Maze Challenge
+1
+Step
+Open vr.vex.com and select “Wall
+Maze.”
+2
+Plan your path: Add “Drive Forward”
+and “Turn” blocks for turns.
+
+4
+3
+Step
+Step
+Add a loop for repeated moves (e.g.,
+“repeat 3 times”).
+
+Step
+4
+Step
+Insert sensor blocks to avoid
+walls (e.g., “if close, turn”)..
+
+60
+5
+5
+Step
+Step
+6
+4
+Click Step
+play and adjust until the
+robot finishes the maze.
+
+Step
+Step
+Save your code screenshot for
+Google Drive.
+
+Your code should include:
+1.Loops
+2.Distance Sensors
+Challenge:
+Use the fewest blocks possible
+with loops.
+
+61
+Chapter 4 Summary and Final Home Activity
+You’re a VEXcode VR expert! You:
+4.1: Navigated obstacle courses with Motion blocks.
+
+4.2: Used loops to repeat actions.
+
+4.3: Avoided obstacles with sensors.
+
+4.4: Created a robot maze challenge.
+
+Home Activity 3:
+Code a robot to explore a new
+playground / maze.
+
+Homework:
+Share your maze challenge screenshot with your teacher!
+
+62
+Chapter 5:
+Python: Variables and Input
+Welcome to Python!
+Python is a fun coding language to create programs! In this chapter,
+you’ll use Google Colab to store information with variables and make
+interactive programs, like asking someone’s name. It’s like telling a
+computer your story!
+
+What’s Python?
+A language to give instructions to computers.
+
+Why Python?
+It’s easy and used by coders worldwide!
+
+Chapter Preview:
+You’ll store data, ask questions, make programs, and build a quiz.
+
+Instructions:
+Ask an adult to open colab.google.com.
+
+63
+5.1 Introduction to Variables in Python
+Variables are like boxes that hold information, such as numbers or names. You give the
+box a name and put data inside, like in Scratch’s blocks (Chapter 3). Let’s try it in Google
+Colab!
+
+What’s a Variable?
+
+A named box for storing data, e.g.,
+“score = 10.”
+Why Use Variables?
+
+Save data to use later, like a game score.
+
+Fun Fact:
+Python is named after a
+funny TV show, not a snake!
+
+Class Activity Preview:
+You’ll create a variable next.
+
+64
+Class Activity 1 -Create a Number Variable
+Let’s make a variable to store a number! You’ll use Google Colab to create and show it,
+like storing a score in a game.
+
+1
+2
+Step
+Open colab.google.com and sign in
+(with teacher help).
+
+3
+In the code cell, type:
+Click “File” > “New notebook” to
+start a project.
+
+44
+Step
+score = 10
+Step
+Step
+Step
+Below, type: print(score)
+to show the number.
+
+65
+5
+5
+Step
+Step
+6
+4
+Click Step
+the “Play” button (triangle)
+next to the cell to run.
+
+Step
+Step
+Change 10 to 20 and run again.
+
+Challenge:
+Make a variable age = 8 and print it.
+
+Home Activity 1:
+Create a variable for your roll number and print it.
+
+66
+5.2 Using input() to Get User Input
+The input() function lets you ask users for information, like their name, and store it in a
+variable. It’s like asking a friend a question! This makes programs interactive.
+
+What’s input()?
+
+A way to get answers from users, e.g., “What’s your name?”
+Why Use It?
+
+Make programs talk to people, like a chat.
+
+Class Activity Preview:
+You’ll ask for a name next.
+
+Parent Tip:
+Type your name when your child runs the program!
+
+67
+Class Activity 2: Ask for a Name
+Let’s ask for a name and say hello! You’ll use input() in Google Colab to make an
+interactive program, building on variables.
+
+1
+Step
+Open a new notebook on
+colab.google.com.
+
+3
+Step
+Below, type:
+print("Hello, " + name + "!")
+2
+Step
+In a code cell, type:
+name = input("What is your name?")
+44
+Step
+Step
+Click the “Play” button, type your
+name (e.g., “Ayesha”) in the box, and
+press Enter.
+
+68
+5
+5
+Step
+Step
+Step
+See the
+output, like “Hello, Ayesha!”
+Google colab automatically saves your
+notebook
+6
+5
+Step
+Step
+You can rename the notebook name.
+Double click the name (above File
+Menu).
+
+Challenge:
+Add age = input("How old are you? ")
+and print “You are [age]! years old”
+Home Activity 2:
+Make a program that asks for your favorite color and prints it.
+
+69
+5.3 Writing Programs with Variables and Input
+Combine variables and input() to make fun programs! You’ll ask for more information,
+like favorite foods, and create messages, like mixing Scratch’s stories (Chapter 3). Let’s
+code in Colab!
+
+What’s a Program?
+
+Code that does something, like making a greeting.
+
+Example:
+Ask for a food and say “Yum!”
+Class Activity Preview:
+You’ll make a food program next.
+
+DIY Idea:
+Write a list of your favorite foods to inspire
+your code!
+
+70
+Class Activity 3 : Create a Food Program
+Let’s make a program that asks for a name and favorite food! You’ll use variables and
+input() in Google Colab to create a fun message.
+
+1
+Step
+2
+Step
+Open a new notebook on
+In a code cell, type:
+colab.google.com.
+
+name = input("What is your name?
+")
+3
+Type:
+Step
+food = input("What is
+your favorite food? ")
+44
+Step
+Step
+Type: print(name , " loves " , food ,
+"!")
+71
+5
+5
+Step
+Step
+6
+4
+Click Step
+“Play,” enter a name (e.g.,
+“Bilal”) and food (e.g., “biryani”),
+press Enter.
+
+Step
+Step
+See “Bilal loves biryani!”.
+
+Challenge:
+Add color = input("Favorite color? ")
+and print it with food.
+
+Home Activity 3:
+Create a program that asks for a favorite animal and prints a sentence about it.
+
+72
+5.4 Creating a Simple Quiz Program
+Quizzes are exciting programs! You’ll use variables, input(), and “if” conditions (like
+Tynker’s conditions in Chapter 9) in Google Colab to ask questions and check answers.
+
+What’s a Quiz?
+
+A program that asks questions and tells you if you’re right.
+
+Example:
+Answer the quiz with your child for fun!
+
+Class Activity Preview:
+You’ll build a quiz next.
+
+Parent Tip:
+“What’s the capital of Pakistan?”
+73
+Class Activity 4: Code a Quiz Game
+Let’s create a quiz! You’ll ask a question, check the answer, and say if it’s right, using all
+your Python skills in Google Colab.
+
+1
+Step
+Open a new notebook on
+colab.google.com.
+
+Step
+3
+Type: answer = input(question + "
+")
+2
+Step
+In a code cell, type:
+question = "What is the
+capital of Pakistan?"
+44
+Step
+Step
+Type: if answer ==
+"Islamabad":
+print("Correct!")
+74
+5
+5
+Step
+Step
+6
+4
+Type: Step
+else: print("Oops, it’s
+Step
+Step
+Click “Play,” answer the question,
+see the result.
+
+Islamabad.")
+Challenge:
+Add a second question, like “What is 5 + 5?”
+(answer: “10”).
+
+Home Activity 4:
+Make a quiz program with a question about a Pakistani festival.
+
+75
+Chapter 5 Summary and Final Home Activity
+You’re a Python coder! You:
+5.1: Created variables to store data.
+
+5.2: Used input() to ask questions.
+
+5.3: Made interactive programs with name and food.
+
+5.4: Built a quiz game with conditions.
+
+Home Activity 5:
+Code a program that asks for your favorite city in Pakistan and prints a fact about it.
+Share your quiz game with your family!
+
+76
+Chapter 6:
+AI for Image Creation
+What is AI and How Does It Work?
+AI (Artificial Intelligence) is like a smart computer brain that learns from
+examples to do tasks, like drawing pictures or answering questions.
+In this chapter, we’ll use prompts with Grok and ChatGPT to create
+images, and Google Colab to code prompts. AI is fun and safe with adult
+help, like coding in Python (Chapter 5)!
+What is Prompt?
+A prompt is a sentence you type to tell AI what to do, e.g., “Draw a camel.”
+AI Tip:
+Good prompts are clear and detailed.
+
+Fun Fact:
+AI helps in games and stories, like
+Scratch (Chapter 3).
+
+Preview:
+Let’s start with simple images!
+
+77
+Welcome to AI Image Magic!
+AI turns your words into pictures! In this chapter, you’ll use Grok and ChatGPT
+to create images, like a camel or a festival scene. You’ll type prompts to make
+art, and explore Google Colab for AI coding. It’s like painting with words!
+
+What is AI Image Creation?
+AI makes pictures from your prompts.
+
+Why Use AI?
+It’s fun and creates art without drawing!
+
+Tools:
+Grok (grok.com), ChatGPT (chat.openai.com), and Google Colab for prompts.
+
+Chapter Preview:
+You’ll explore tools, add details, create scenes, and use complex prompts.
+
+Instructions:
+Ask an adult to open grok.com or chat.openai.com.
+
+78
+6.1 Exploring AI Image Tools
+Let’s meet our AI tools! Grok and ChatGPT create images from prompts.
+Grok uses a chat, ChatGPT’s DALL·E makes art fast. We’ll use Colab for
+coding prompts later. Start simple!
+
+Key Tools:
+Grok: Type prompts in a chat for images.
+ChatGPT: Ask for pictures via DALL·E.
+Colab: For coding AI tasks.
+
+Fun Fact:
+AI learns from millions of
+images to draw for you!
+
+Class Activity Preview:
+You’ll make a camel next.
+
+79
+Class Activity 1: Generate a Camel Image
+Let’s make a camel with a simple prompt! You’ll use Grok or ChatGPT to
+generate your first AI picture.
+
+1
+Step
+Open grok.com or
+chat.openai.com (with adult help).
+
+3
+Step
+Press enter and wait for the image.
+
+2
+Step
+Type: “Create an image of A
+camel standing in a desert.”
+44
+Step
+Step
+Check the camel—does it have
+humps?
+
+80
+5
+5
+Step
+Step
+Stepthe image and rename to
+Download
+camel.jpeg
+Challenge:
+Try “a camel with a hat” for fun!
+
+Home Activity 1:
+Create an AI image of a Pakistani animal like a Markhor.
+Add details like in Jungle, in Woods, On mountains etc
+81
+6.2 Adding Details to Prompts
+Detailed prompts make AI images better! Add colors or places, like “a green
+bird on a mango tree.” This is like Scratch’s animations (Chapter 3). Let’s get
+creative!
+
+Why Details?
+
+They make your picture unique, like a story.
+
+Example:
+A bird in a Pakistani garden!
+
+Class Activity Preview:
+You’ll create a bird next.
+
+Parent Tip:
+Ask your child what colors they love!
+
+82
+Class Activity 2: Generate a Bird
+Let’s use a detailed prompt to make a bird picture! You’ll tell AI exactly what
+you want with Grok or ChatGPT.
+
+1
+Step
+2
+Step
+Open grok.com or
+Type: “Create an image of A
+chat.openai.com.
+
+green parrot on a mango tree
+in a sunny garden.”
+3
+Step
+Press enter to see the image.
+
+44
+Step
+Step
+Check the parrot—does it look
+happy?
+
+83
+5
+5
+Step
+Step
+Stepthe image,
+Downlaod
+Rename as “MyParrot.jpg”
+Challenge:
+Add more details to your image.
+Add a detail, like “near a Rickshaw, flying above Rikhshaw etc
+Home Activity 2:
+Make an AI image of a fruit like a mango tree. Add more details to prompt..
+
+84
+6.3 Creating Scenes with AI
+AI can make whole scenes, like a festival! Use prompts with places and actions,
+like “kids at a fair.” You’ll try this with Grok or ChatGPT, and Colab for AI
+coding later.
+
+What’s a Scene?
+
+A picture with many things, like people and objects.
+
+Example:
+A Basant festival with kites!
+
+Class Activity Preview:
+You’ll make a festival scene next.
+
+DIY Idea:
+Draw your scene on paper first!
+
+85
+Class Activity 3: Generate a Festival Scene
+Let’s make a Basant festival picture! You’ll use a scene prompt in Grok or
+ChatGPT for a lively image.
+
+1
+Step
+2
+Step
+Open grok.com or
+Type: “Create an image of Kids
+chat.openai.com.
+
+flying colorful kites at a Basant
+festival in Lahore with a sunset.”
+3
+Step
+Press enter—see the kites?
+
+44
+Step
+Step
+Save as “BasantScene.jpg”
+86
+5
+5
+Step
+Step
+Try aStep
+new prompt: “Create an
+image of A Mela Chiraghan fair
+with lamps.”
+Challenge:
+Add “near Minar-e-Pakistan” to your
+prompt.
+
+Home Activity 3:
+Create an AI scene of a Pakistani landmark like the Badshahi Mosque.
+
+87
+6.4 Complex Prompts for Big Ideas
+Complex prompts mix many ideas, like “a superhero flying over Karachi in a
+comic style.” You’ll use Grok or ChatGPT, and try a Python script in Colab to
+code prompts. Get ready for big dreams!
+
+Why Complex?
+
+Create special art, like a movie poster.
+
+Example:
+A Pakistani superhero adventure!
+
+Class Activity Preview:
+You’ll make a superhero and code a prompt next.
+
+DIY Idea:
+Draw your superhero on paper after AI makes it!
+
+88
+Class Activity 4: Generate a Superhero Scene
+Let’s design a superhero with a complex prompt! You’ll use Grok or ChatGPT
+to make a big picture.
+
+1
+Step
+2
+Step
+Open grok.com or
+Type: “Create an image of a A
+chat.openai.com.
+
+Pakistani superhero in a green
+cape flying over Karachi at
+night in a cartoon style.”
+3
+Step
+Press enter to see the superhero.
+
+44
+Step
+Step
+Save as “MySuperheroScene.jpg”
+89
+5
+5
+Step
+Step
+Step
+Try another:
+“Create image of A
+robot hero in a futuristic
+Islamabad.”
+Challenge:
+Name your superhero, like “Jinnah Super”!
+
+Home Activity 4:
+Make an AI image of a Pakistani story scene.
+
+Home Activity 5:
+Code a prompt in Colab for a family picnic image.
+
+HomeWork:
+Share your superhero image with your family!
+
+90
+Chapter 7:
+Getting Started with
+Google Drive
+Welcome to Google Drive!
+Google Drive is like a magic backpack in the cloud! You can store files,
+share them, and work with friends online. In this chapter, you’ll create
+files, folders, and more, just like you organized files on your computer!
+
+What is Google Drive?
+A free online place to save and share files.
+
+Why Use It?
+Keep your schoolwork safe and work with
+others anywhere!
+
+Activity Preview:
+You’ll make a folder today!
+
+Instructions:
+Ask an adult to help you sign into drive.google.com.
+
+91
+!
+
+7.1 Exploring Google Drive
+Google Drive looks like a big shelf for your files! You’ll see folders, documents, and
+buttons to create new things.
+It’s like the File Explorer from Chapter 2, but online!
+
+Key Parts:
+My Drive: Where your files live.
+New Button: To create files or folders.
+Share Button: To send files to others.
+
+Fun Fact:
+Google Drive saves your work
+so you never lose it!
+
+Pre Class Activity :
+Look around Drive.
+Step
+1
+Open drive.google.com (with adult
+help).
+
+2
+Step
+Find the “My Drive” section on
+the left.
+
+3
+Step
+Click the “New” button (top left) to
+see options.
+
+92
+Class Activity 1: Create a School Folder
+Let’s make a folder to organize your files, like you did on your computer! Folders help
+you keep schoolwork neat.
+
+1
+Step
+Open drive.google.com.
+
+3
+Step
+Type a name, like “My School
+Projects.”
+2
+Step
+Click “New” > “Folder.”
+44
+Step
+Step
+Click “Create” to Upload your
+folder.
+
+93
+5
+5
+Step
+Step
+Step the folder to open it—
+Double-click
+it’s empty now!
+
+Make another folder called “My Drawings.”
+Home Activity 1: .
+Create a folder for family photos online
+94
+7.2 Creating Files in Google Drive
+You can create files in Google Drive, like stories or drawings, without leaving the website!
+Google Docs is for writing, like Microsoft Word from Chapter 2. Let’s make a file next!
+
+What’s a File?
+A document, like a story or list, saved in Drive.
+
+Why Create Files?
+Write homework or notes and save them online.
+
+Activity Preview:
+You’ll write a story file.
+
+Parent Tip:
+Read your child’s story with them!
+
+95
+Class Activity 2 : Make a Story File
+Let’s write a short story in Google Docs! You’ll create a file and type in it.
+
+1
+Step
+Open drive.google.com and go to
+2
+Step
+Click “New” > “Google Docs.”
+“My School Projects” folder.
+
+3
+Step
+Type a title, like “My Adventure
+Story.”
+44
+Step
+Step
+Write one sentence, e.g., “I met a
+talking parrot!”
+96
+5
+5
+Step
+Step
+Click Step
+the blue “Share” button to
+save (it autosaves too).
+
+Challenge:
+Add a second sentence about a
+Pakistani place, like “in Lahore’s
+park.”
+Home Activity 2:
+Write a short online note about your favorite animal.
+
+97
+7.3 Organizing Files in Folders
+Just like moving files on your computer, you can move files into folders in Google Drive
+to stay organized. Let’s practice moving your story!
+
+Why Organize?
+It’s easier to find files for school or fun.
+
+Example:
+Put all homework in a “School” folder.
+
+Activity:
+Move your story file.
+Go to “My Drive” in drive.google.com.
+Find your story file (e.g., “My Adventure Story”).
+Drag it into “My School Projects” folder.
+
+98
+Class Activity 3 : Organize a File
+Let’s practice organizing! You’ll move another file and rename it to make it clear.
+
+1
+Step
+Open drive.google.com.
+
+2
+Step
+Click “New” > “Google Docs” to
+create a new file.
+
+3
+Step
+Name it “Homework” and type one
+sentence, e.g., “I love math!”
+44
+Step
+Step
+Right-click the file, select “Rename,”
+and change it to “Math Notes.”
+99
+5
+5
+Step
+Step
+Drag Step
+“Math Notes” into “My School
+Projects” folder.
+
+Challenge:
+Create a “Science Notes”
+file and move it too.
+
+Home Activity 3:
+Move a file to a new online folder for drawings
+100
+7.4 Editing Files in Google Drive
+Editing means changing a file, like adding words to your story. Google Docs lets you edit
+anytime, and changes save automatically!
+
+What’s Editing?
+Fixing or adding to your work, like in Chapter 2’s Word files.
+
+Why Edit?
+Make your files better for school or sharing.
+
+Activity Preview:
+You’ll edit your story next.
+
+DIY Idea:
+Print your story to show your teacher!
+
+101
+Class Activity 4 : Edit Your Story File
+Let’s make your story longer! You’ll open your story file and add more sentences.
+
+1
+Step
+2
+Step
+Open drive.google.com and go to
+Double-click “My Adventure
+“My School Projects.”
+Story” to open it.
+
+3
+Step
+Add two new sentences, e.g., “The
+44
+Step
+Step
+Click anywhere—it autosaves!
+
+parrot flew to Badshahi Mosque. It
+sang a song!”
+102
+5
+5
+Step
+Step
+Step
+Check
+your story—does it sound
+fun?
+
+Challenge:
+Add a sentence
+about a Pakistani
+festival, like “We
+saw Basant kites!”
+Home Activity 4:
+Edit an online story with a new sentence about a festival.
+
+103
+7.5 Deleting Files Safely
+Sometimes you don’t need a file anymore, like an old note. In Google Drive, deleting is like
+moving files to the Recycle Bin in Chapter 2. Let’s learn to delete safely!
+
+Why Delete?
+To keep your Drive tidy and free up space.
+
+Tip:
+Deleted files go to Trash, so you can get them back if needed.
+
+Class Activity 5 : Delete a Test File
+1 Step
+Activity:
+2
+Step
+Click “New” > “Google Docs” and
+Open drive.google.com.
+
+name it “Test File.”
+3
+Step
+Right-click “Test File” and select “Move to Trash.”
+Home Activity 5:
+Create and delete another file in presence of family.
+
+104
+Class Activity 6 : Delete and Restore
+Let’s practice deleting and bringing back a file! This helps you clean Drive without losing
+important work.
+
+1
+Step
+2
+Step
+Open drive.google.com and go to
+Create a new Google Doc
+“My Drive.”
+named “Old Note.”
+3
+Step
+Right-click “Old Note” and click
+“Remove” to delete it.
+
+44
+Step
+Step
+Click “Trash” on the left to see
+deleted files.
+
+105
+5
+5
+Step
+Step
+Step “Old Note” in Trash and
+Right-click
+select “Restore.”
+Challenge:
+Delete “Old Note” again
+and empty Trash (ask
+an adult).
+
+Home Activity 6:
+Delete an old online note and restore it
+106
+Chapter 7 Summary and Final Home Activity
+Great job, cloud explorer!
+You:
+Created and organized folders
+Moved, renamed, edited, and
+and files in Google Drive.
+
+deleted files.
+
+Final Activity: Make a Festival Folder
+1
+Step
+Open drive.google.com.
+
+2
+Step
+Click “New” > “Folder” and name
+it “Basant Festival.”
+107
+3
+44
+Step
+Create a Google Doc inside it called
+“Kite Plan.”
+5
+5
+Step
+Step
+Write one sentence, e.g., “I’ll make a
+red kite!”
+Step
+Step
+Move Step
+“Kite Plan” to “My School
+Projects” if you want!
+
+Homework:
+Add a sentence to “Kite Plan”
+about your favorite festival.
+
+108
+Chapter 8:
+Advanced Digital Art
+with Canva
+Welcome to Advanced Canva!
+Canva is your art studio! In Book 1, you opened and edited templates. Now,
+you’ll create fancier designs with layers, animations, and teamwork, like
+posters or moving graphics. Get ready to shine!
+
+What’s Advanced Canva?
+Using cool tools to make pro-level art.
+
+Why Learn More?
+Design for school, festivals, or fun with friends!
+
+Activity Preview:
+You’ll review Book 1 skills first!
+
+Instructions:
+Ask an adult to help you sign into www.canva.com.
+
+109
+8.1 Revisiting Canva Basics (Book 1 Review)
+Let’s refresh Book 1! You learned to open templates (ready-made designs) and edit them by
+changing text or images. This helps us start our advanced journey.
+
+Key Skills:
+Open a template: Pick a design to start.
+Edit: Change words, colors, or pictures.
+
+Fun Fact:
+Canva has templates
+for everything, even
+Pakistani weddings!
+
+Activity:
+Review with a template.
+
+1
+Step
+2
+Step
+Open www.canva.com and sign in
+Search “poster” and pick a
+(with adult help).
+
+template.
+
+3
+Step
+Change the text to “My Art Show!”
+110
+Class Activity 1: Create an Art Show Poster
+Let’s practice Book 1 skills! You’ll open and edit a template to make a quick poster, warming
+up for advanced Canva.
+
+1
+Step
+2
+Step
+Go to www.canva.com and click
+Choose a colorful poster
+“Create a design” > “Poster.”
+template (search “art”).
+
+3
+Step
+Change the title to “Lahore Art
+Show.”
+44
+Step
+Step
+Replace an image with a new one
+(search “painting” in “Elements”).
+
+111
+5
+5
+6
+Step
+Step
+Step
+Change
+the text color to blue or
+red.
+
+Step
+Download it as “ArtPoster.png.”
+Challenge:
+Add “By [Your Name]” to
+the poster at he end.
+
+Home Activity 1:
+Edit a family poster online.
+
+112
+8.2 Exploring Advanced Canva Features
+Advanced Canva lets you use layers (stacking images/text) and grids (organizing designs).
+These make your art look neat and professional, like a real designer!
+
+What’s a Layer?
+Each part (text, image) sits on its own level, like stacking papers.
+
+What’s a Grid?
+Lines to align your design perfectly.
+
+Activity Preview:
+You’ll design with layers next.
+
+Parent Tip:
+Ask your child to explain their design!
+
+113
+Class Activity 2: Create an Invitation Card
+Let’s stack layers to make a cool invitation! You’ll place text and images on different levels
+for a neat look.
+
+1
+Step
+2
+Step
+Open www.canva.com and click
+Choose a blank design or simple
+“Create a design” > “Invitation.”
+template.
+
+3
+Step
+Add a background: Search “pattern”
+in “Elements” and pick one.
+
+4
+4
+Step
+Step
+Add an image: Search “flower” and
+place it on top.
+
+114
+5
+5
+6
+Step
+Step
+StepType “Eid Party!” in a big
+Add text:
+font.
+
+7
+Step
+Click “Position” > “Layers” to
+move text above the flower.
+
+Step
+Download as “EidInvite.png.”
+Home Activity 2:
+Add a Pakistani touch, like “at Badshahi Mosque.”
+115
+8.3 Creating Animations in Canva
+Content: Animations make your designs move, like a dancing kite! Canva lets you add
+effects to create GIFs or videos, perfect for sharing online.
+
+What’s an Animation?
+A moving picture, like a mini-cartoon.
+
+Why Animate?
+Make your art fun for festivals or school!
+
+Class Activity Preview:
+You will create an animated post next.
+
+DIY Idea:
+Present your animated designs to family members.
+
+116
+Class Activity 3: Design an Animated Post
+Let’s make a moving social media post for Basant! You’ll add animation effects to text and
+images.
+
+1
+Step
+2
+Step
+Go to www.canva.com and click
+Choose a blank design or
+“Create a design” > “Social Media
+search “festival” for a
+Post.”
+template.
+
+3
+Step
+Add an image: Search “kite” in
+“Elements” and place it.
+
+44
+Step
+Step
+Add text: “Fly High at Basant!” in a
+bold font.
+
+117
+5
+5
+6
+Step
+Step
+Click Step
+“Animate” > choose “Rise” for
+the text and “Pan” for the kite.
+
+Step
+Download as a GIF (“Share” >
+“Download” > “GIF”).
+
+Challenge:
+Add a second kite with a
+different animation.
+
+Home Activity 3:
+Add more Animations to Basant card.
+
+118
+8.4 Designing Presentations
+Presentations are like digital stories! In Canva, you can make interactive slides with images,
+text, and effects, better than PowerPoint from Chapter 1.
+
+What’s a Presentation?
+Slides to share ideas, like a school project.
+
+Why Interactive?
+Add buttons or links to make slides fun!
+
+Activity Preview:
+You’ll make a 3-slide presentation next.
+
+DIY Idea:
+Present your slides to your family!
+
+Presentations
+119
+Class Activity 4: Create a 3-Slide Presentation
+Let’s design a presentation about your favorite animal! You’ll make slides with images and
+interactive elements.
+
+1
+Step
+2
+Step
+Open www.canva.com and click
+Slide 1: Add a title, “My Favorite
+“Create a design” > “Presentation.”
+Animal: Peacock.”
+3
+Step
+Slide 2: Add an image (search
+“peacock” in “Elements”) and text:
+“Peacocks dance!”
+44
+Step
+Step
+Slide 3: Add text: “The End” and a
+button (search “button” in
+“Elements”).
+
+120
+5
+5
+Step
+Step
+Click Step
+the button, “Share” and then
+download.
+
+6
+Step
+Download as
+“PeacockSlides.pdf.”
+Challenge:
+Add a Pakistani fact, like
+“Peacocks live in Sindh.”
+Home Activity 4:
+Design an interactive family story slide online.
+
+121
+8.5 Collaborative Design Projects
+Canva lets you work with friends on designs, like a class poster! You’ll share a project and
+edit together, building teamwork skills.
+
+What’s Collaboration?
+Working as a team on one design.
+
+Why Collaborate?
+Make bigger projects with others’ ideas!
+
+Class Activity Preview:
+You will create a class newsletter next.
+
+122
+Class Activity 5: Design a Newsletter
+Let’s make a newsletter with a friend! You’ll design a class update and share it for
+teamwork.
+
+1
+Step
+2
+Step
+Go to www.canva.com and click
+Choose a blank design or
+“Create a design” > “Newsletter.”
+search “school” for a template.
+
+3
+Step
+Add a title: “Our Class News.”
+4
+4
+Step
+Step
+Add an image (search “school” in
+“Elements”) and text: “Science Fair
+Soon!”
+123
+5
+5
+6
+Step
+Step
+Click Step
+“Share” > “Link” > “Can edit”
+and pretend to send to a friend.
+
+Step
+Download as “ClassNews.pdf.”
+Challenge:
+Add a section about a Pakistani
+event, like “Eid Mela.”
+124
+Chapter 8 Summary and Final Activity
+Wow, you’re a Canva star! You:
+Reviewed Book 1 by editing a template.
+Used layers, animations, presentations, and collaboration.
+Made art for festivals and school!
+Final Activity: Design a Festival Card
+8.1
+Reviewed Book 1 by editing a
+template.
+
+8.2
+8.3
+Used layers, animations,
+presentations, and collaboration.
+
+Made art for festivals and school!
+
+8.4
+Final Activity: Design a Festival
+Card
+125
+Final Home Activity
+1
+Step
+2
+Step
+Open www.canva.com and click
+Add an image: Search “lantern”
+“Create a design” > “Card.”
+for a Mela Chiraghan theme.
+
+3
+Step
+Add text: “Happy Mela Chiraghan!” with
+a “Rise” animation.
+
+44
+Step
+Step
+Use layers to place text over the
+lantern.
+
+126
+5
+5
+Step
+Step
+Stepas “FestivalCard.png.”
+Download
+Homework:
+Share your card with your teacher!
+
+127
+Chapter 9:
+Introduction to Arduino Basics
+Welcome to Arduino!
+Arduino is like a small computer you can program to make things light up
+or move! In this chapter, you'll learn the basics of Arduino hardware and
+simple coding, like turning on an LED, building on electronics from Book 1.
+It's like coding a robot in VEXcode VR (Chapter 4), but with real parts!
+
+What is Arduino?
+A board to build fun projects with code and parts.
+
+Why Learn Arduino?
+Make lights blink or sensors work, like a mini inventor!
+
+Chapter Preview:
+You'll explore the board, set up software, and make an LED blink.
+
+Instructions:
+Ask an adult to help with Arduino kit and open the Arduino IDE on your computer.
+
+128
+9.1 Exploring Arduino Hardware
+The Arduino board has pins for connecting parts like LEDs or buttons. You'll learn the main
+parts, like the USB port for power and the microcontroller chip.
+
+Key Parts:
+Pins (for wires), USB (for computer), LED (built-in light).
+
+Fun Fact:
+Arduino is open-source, used
+by makers worldwide!
+
+Class Activity Preview:
+You'll identify Arduino parts.
+
+129
+Class Activity 1: Explore the Arduino Kit
+Let’s look at the Arduino kit! You'll name the main parts and draw them.
+
+1
+Step
+Open the Arduino kit with your
+teacher.
+
+3
+Step
+Touch the pins and USB port (don't
+plug in yet).
+
+2
+Step
+Find the board, wires, LED, and
+USB cable.
+
+44
+Step
+Step
+Draw the board and label “Pins,”
+“USB,” and “LED on a paper.”
+130
+5
+5
+Step
+Step
+Step
+Discuss:
+How is this like the
+computer parts in Book 1?
+
+Challenge:
+Count the number of
+pins on the board.
+
+Home Activity 1:
+Draw an Arduino board and label three parts at home.
+
+131
+9.2 Setting Up the Arduino Software
+The Arduino IDE is software to write code, like Google Colab (Chapter 5). You'll install it and
+connect the board..
+
+What’s the IDE?
+A program to code and upload to Arduino.
+
+Why Set Up?
+To send instructions to the board.
+
+Class Activity Preview:
+You'll connect the board.
+
+Parent Tip:
+Help your child download the IDE safely!
+
+132
+Class Activity 2: Set Up the Software
+Let’s set up the software! You'll connect the board to your computer and test it.
+
+1
+Step
+Download the Arduino IDE from
+arduino.cc with teacher help.
+
+3
+Step
+Select the board type in Tools >
+Board (e.g., Arduino Uno).
+
+2
+Step
+Open the IDE and connect the
+Arduino board with USB cable.
+
+44
+Step
+Step
+Select the port in Tools > Port.
+Select COM4
+133
+5
+5
+6
+Step
+Step
+Click Step
+the upload button (arrow)
+with an empty sketch to test.
+
+Step
+See the board's LED blink—it's
+ready!
+
+Challenge:
+Unplug and reconnect the board.
+
+Home Activity 2:
+Open the Arduino IDE at home and draw the toolbar buttons.
+
+134
+9.3 Making an LED Blink
+An LED is a small light that blinks with code! You'll write a simple program to make it flash,
+like animations in Scratch (Chapter 3).
+
+What’s an LED?
+A light that turns on with electricity.
+
+Example:
+Blink like a signal light!
+
+Class Activity Preview:
+You'll code a blink.
+
+DIY Idea:
+Think of it as a festival light!
+
+135
+Class Activity 3: Blink an LED
+Let’s make an LED blink! You'll write code to turn it on and off.
+
+1
+Step
+Open the Arduino IDE and create
+a new sketch.
+
+3
+Step
+Type in loop(): digitalWrite(13, HIGH);
+2
+Step
+Type in setup(): pinMode(13,
+OUTPUT);
+44
+Step
+Step
+Connect the board and click upload.
+
+delay(1000); digitalWrite(13, LOW);
+delay(1000);
+136
+5
+5
+6
+Step
+Step
+WatchStep
+the built-in LED blink!
+
+Step
+Save the sketch as “Blink.ino”
+and upload to Google Drive
+(Chapter 7).
+
+Challenge:
+Change delay to 500 for faster blinking.
+
+Home Activity 3:
+Draw a blinking LED and write what the code does.
+
+137
+9.4 Building a Simple Circuit
+Connect an external LED with wires! You'll build a circuit and code it to blink, like
+electronics in Book 1.
+
+What’s a Circuit?
+A loop for electricity to flow.
+
+Example:
+Wire an LED to a pin!
+
+Class Activity Preview:
+You'll build and code a circuit.
+
+Safety Tip:
+Always unplug when connecting wires!
+
+138
+Class Activity 4: Build an LED Circuit
+Let’s connect an LED! You'll build a circuit and code it to blink.
+
+1
+Step
+Unplug the Arduino and get an
+LED, resistor, and wires from
+the kit.
+
+3
+2
+Step
+Connect the LED long leg to pin
+13, short leg to GND via resistor
+on a breadboard.
+
+Step
+Plug in the board.
+
+44
+Step
+Step
+Use the blink code from Activity 3,
+but change pin to 13 if needed.
+
+139
+5
+5
+6
+Step
+Step
+UploadStep
+and watch the external
+LED blink!
+
+Step
+Save a photo of your circuit
+to Google Drive.
+
+Challenge:
+Use pin 12 for a second LED.
+
+Home Activity 4:
+Draw your LED circuit and label the parts.
+
+140
+Chapter 9 Summary
+You’re an Arduino beginner! You:
+9.1: Explored Arduino hardware.
+
+9.2: Set up the software.
+
+9.3: Made an LED blink with code.
+
+9.4: Built a simple LED circuit.
+
+Home Activity 5:
+Research a simple Arduino project online (with adult help) and draw it.
+
+Homework: Share your LED blink video with your family!
+141
+Chapter 10:
+AI for Audio Creation
+Welcome to AI Audio Magic!
+Artificial Intelligence (AI) can make music and sounds! In this chapter, you’ll
+use Chrome Music Lab and Suno AI to create melodies, effects, and
+tunes. like a kite festival tune. It’s like being a DJ!
+What is AI Audio?
+AI turns your ideas into music or sounds.
+
+Why Make Audio?
+Create fun sounds for stories, games, or festivals!
+
+Activity Preview:
+: You’ll make a melody today!
+
+Instructions:
+Get ready to explore www.musiclab.chromeexperiments.com and www.suno.ai.
+
+142
+10.1 Exploring AI Audio Tools
+Let’s meet two AI tools! Chrome Music Lab makes simple melodies with blocks. Suno AI
+creates full songs from your words. Both are fun and easy, like coding in Tynker!
+
+Key Tools:
+Chrome Music Lab: Drag blocks to make tunes.
+Suno AI: Type words to get songs.
+
+Class Activity Preview:
+You will make a melody next.
+
+Fun Fact:
+AI can mix sounds like a real
+music producer!
+
+Class Activity 1: Create a Simple Melody
+Let’s make a melody! You’ll use Chrome Music Lab to create a short tune, like a ringtone.
+
+1
+Step
+Go to
+www.musiclab.chromeexperiments
+.com and click “Song Maker.”
+3
+Step
+Make a pattern, like 4 blocks in a
+2
+Step
+Click the grid to add colored
+blocks (each block is a note).
+
+44
+Step
+Step
+Click “Play” to hear your melody.
+
+row.
+
+144
+5
+5
+Step
+Step
+Click Step
+“Save” and copy the link (ask
+an adult to save it).
+
+Challenge:
+Make a melody like a Pakistani
+National Anthem.
+
+Home Activity 1:
+Create a melody for your favorite sound at home.
+
+145
+10.2 Designing Sound Effects
+Sound effects add fun to stories or games, like a “whoosh” for a kite! Chrome Music Lab
+can make effects, and you’ll use them in a project, like in Scratch (Chapter 3).
+
+What’s a Sound Effect?
+A short sound, like a beep or clap.
+
+Why Use Them?
+Make your creations more exciting!
+
+Activity Preview:
+You’ll create a kite sound next.
+
+Parent Tip:
+Play the sound with your child!
+
+146
+Class Activity 2: Create a Kite Sound Effect
+Let’s make a sound for a kite soaring! You’ll use Chrome Music Lab to design a cool
+effect.
+
+1
+Step
+Open
+www.musiclab.chromeexperiments
+.com and click “Song Maker.”
+3
+Step
+Add 3-4 blocks going up or down
+fast for a “whoosh” sound.
+
+2
+Step
+Choose a “Marimba” or “Synth”
+instrument (bottom menu).
+
+44
+Step
+Step
+Click “Play” to test—does it sound
+like a kite?
+
+147
+5
+5
+Step
+Step
+Save Step
+the link (ask an adult to
+copy it).
+
+Challenge:
+Make a “clap” sound for a
+festival crowd.
+
+Home Activity 2:
+Design a sound effect for a Pakistani instrument like a tabla.
+
+148
+10.3 Creating a Short Song with AI
+Suno AI can make full songs from your words, like a qawwali or pop tune! You’ll type a
+description, and AI sings it, building on Chapter 6’s AI prompts.
+
+What’s a Song?
+Music with words, like a radio hit.
+
+Example:
+A song about a Pakistani festival!
+
+Class Activity Preview:
+You will make a festival song next.
+
+DIY Idea:
+Sing along with your AI song!
+
+149
+Class Activity 3: Create a Festival Song
+Let’s make a song for Basant! You’ll use Suno AI to create music with words about kites.
+
+1
+Step
+Go to www.suno.com and sign in
+(with adult help).
+
+3
+Step
+Type: “A cheerful song about
+kids flying kites at Basant in
+Lahore.”
+2
+Step
+On the Home Screen, Click Create
+from left menu.
+
+44
+Step
+Step
+Click “Create” and listen to your
+song.
+
+150
+5
+5
+Step
+Step
+Save Step
+it (ask an adult to download
+the MP3).
+
+Challenge:
+Try a song about “Eid
+celebrations.”
+Home Activity 3:
+Create a short song about a Pakistani landmark like Minar-e-Pakistan.
+
+151
+10.4 Building an Audio Project
+Combine your skills to create complete audio projects! You will mix melodies, effects, and
+songs to make a podcast intro or story soundtrack,
+What is an Audio Project?
+A mix of sounds for stories or presentations.
+
+Example:
+A podcast intro with music and effects!
+
+Class Activity Preview:
+You’ll add sounds to a story next.
+
+DIY Idea:
+Act out the story with your sounds!
+
+152
+Class Activity 4: Create a Market Sound Story
+Let’s make a market story with sounds! You’ll create a melody and effect for a tale, like
+in Chapter 9’s robot story
+1
+Step
+Open
+www.musiclab.chromeexperiments
+.com and click “Song Maker.”
+3
+Step
+Save the melody link.
+
+2
+Step
+Make a short melody (4-5
+blocks) for a market tune.
+
+44
+Step
+Step
+Make a “ding” effect (2-3 blocks,
+fast notes) for a cart.
+
+153
+5
+5
+6
+Step
+Step
+Save Step
+the effect link.
+
+Step
+Write a story sentence: “I heard
+music and a cart in the market!”
+Challenge:
+:Add a Pakistani detail, like “in
+Anarkali Bazaar.”
+Home Activity 4:
+Add sounds to a family story at home.
+
+154
+10.5 Building an Audio Project
+Let’s combine all your skills! You’ll create a podcast intro with music and effects, like a
+radio show for your class, using both AI tools.
+
+What’s a Podcast Intro?
+A short audio to start a talk show.
+
+Example:
+“Welcome to my Eid show!” with music.
+
+Activity:
+Make a podcast intro.
+
+1
+Step
+2
+Open Chrome Music Lab’s Song
+Maker.
+
+Step
+Create a short tune for your
+intro.
+
+3
+Step
+Open Suno AI and make a
+welcome jingle.
+
+155
+Class Activity 5: Design a Podcast Intro
+Let’s make a podcast intro for an Eid show! You’ll mix a melody and a jingle for a cool
+opening.
+
+1
+Step
+Go to
+www.musiclab.chromeexperiments
+.com and click “Song Maker.”
+3
+Step
+Save the melody link.
+
+2
+Step
+Create a 5-block melody with a
+“Piano” instrument.
+
+44
+Step
+Step
+Go to www.suno.ai and type: “A fun
+jingle for an Eid podcast.”
+156
+5
+5
+6
+Step
+Step
+Save Step
+the jingle MP3 (ask an adult).
+
+Step
+Write: “Welcome to my Eid
+Podcast!” to say with your sounds.
+
+Challenge:
+Add “from Lahore!” to your jingle
+prompt.
+
+Home Activity 5:
+Create a podcast intro for a Basant festival.
+
+157
+Chapter 10 Summary and Final Home Activity
+Content: You’re an AI audio star! You:
+10.1: Made melodies and effects with
+Chrome Music Lab.
+
+10.2: Created songs and
+jingles with Suno AI.
+
+10.3: Added sounds to stories
+and a podcast intro.
+
+10.2: Created songs and jingles
+with Suno AI.
+
+158
+Final Home Activity: Make a Festival Sound
+1
+2
+Step
+Step
+Create a melody for a Mela
+Open
+Chiraghan festival (6 blocks).
+
+www.musiclab.chromeexperiments.co
+m and click “Song Maker.”
+3
+44
+Step
+Step
+Step
+Go to www.suno.ai and type: “A
+song about Mela Chiraghan lamps.”
+Save the link.
+
+5
+5
+Step
+Step
+Save Step
+the MP3.
+
+Share your festival sound with your teacher!
+
+159
+Chapter 11:
+Making Computers Work
+Together with n8n
+Welcome to Automation Magic!
+Get ready to make computers do amazing things for you! In Book 1, you
+learned simple coding. Now, you’ll learn how to teach different computer
+programs (like your email app, or a game app) to talk to each other and
+do tasks automatically! We’ll explore an idea called "automation" using a tool
+called n8n (say "n-eight-n"). It's like building smart chains for your
+computer, just like connecting different parts of a train! Let’s get
+started!
+
+What is Automation?
+It’s when computers do tasks by themselves, following rules you
+set, so you don’t have to do them every time.
+
+Why Learn Automation?
+You can create exciting projects, like having your computer
+send you a message when your favorite show starts!
+
+Chapter Preview:
+You’ll learn about starting points (triggers), what happens next (actions), connecting
+different computer tools, and planning your own automation.
+
+Instructions:
+Ask an adult to help you visit www.n8n.io to see what the n8n website looks like and
+explore its visual workflow builder. This chapter focuses on understanding how
+automation works, so you won't need to sign up for an account or install anything for
+now – we're learning the ideas behind it!
+
+160
+11.1 Understanding "Triggers" and "Actions"
+Every automatic task starts with something happening, and then something else happens!
+Imagine a domino effect: one domino falls (Trigger), and it makes another domino fall
+(Action). In computers, a Trigger is the event that starts an automation, and an Action is
+what the computer does because of that trigger. Good planning of triggers and actions
+helps your automation work perfectly, just like planning all the steps for cooking a
+delicious biryani!
+
+Why Focus on Triggers & Actions?
+They are the two main parts of every automation chain.
+
+Key Tip
+An automation always starts with a Trigger (the "if this..." part).
+An Action is what you want the computer to do (the "...then that" part).
+
+Fun Fact:
+When you get an email, your phone
+showing a notification is an automation
+(email arriving is the trigger, notification is
+the action)!
+
+Class Activity Preview:
+You’ll identify triggers and actions in simple stories next.
+
+161
+Class Activity 1: Identify Triggers and Actions
+1.Read the Story: Your teacher or an adult will read a short story or describe a situation.
+2.Find the Trigger: Listen carefully for what starts the event. What is the "if this..."?
+3.Find the Action: Listen for what happens next because of the trigger. What is the "...then
+that" or "...then this happens"?
+
+1
+Step
+2
+Step
+Example Stories:
+1.Story 1: "When the call to prayer (Azan) sounds, my family gets ready for prayer."
+2.Trigger: __________________________________
+3.Action: ___________________________________
+4.Story 2: "If the Eid moon is sighted, then we know Eid is tomorrow and everyone starts
+planning celebrations!"
+5.Trigger: __________________________________
+6.Action 1: ___________________________________
+7.Action 2: ___________________________________
+8.Story 3: "When my favorite cartoon starts on TV, then my tablet gives a little 'ding!' noise."
+9.Trigger: __________________________________
+10.Action: ___________________________________
+Challenge:
+Think of your own simple everyday event. What
+is the trigger and what is the action?
+
+Home Activity 1:
+With a parent, find one trigger and action pair in your home routine (e.g., "When the
+alarm rings, I wake up," or "When the doorbell rings, the dog barks").
+
+162
+11.2 Building Simple Computer Chains (Workflows)
+Just like you can link many dominoes to create a long chain, you can link many triggers
+and actions to create a workflow! A workflow is a series of steps where one
+computer task leads to another. These chains make your computer do many things
+automatically, one after the other
+What’s a Chain/Workflow?
+It’s a series of connected steps that make
+computers do multiple tasks automatically,
+like a path from start to finish.
+
+How to Build a Chain?
+You start with a trigger, then connect it to an
+action, and that action can lead to another
+action, and so on!
+
+Class Activity Preview:
+You’ll draw your first computer workflow chain next
+Parent Tip:
+Discuss real-life "chains" with your child (e.g., "If I put my dirty clothes in the basket,
+then the washing machine washes them, then they get dried, then I fold them").
+
+163
+Class Activity 2 - Draw Your First Computer Chain
+Let’s design a simple computer chain (workflow)! You’ll draw out the steps for a
+computer to follow for a fun task.
+
+1
+Step
+2
+Step
+Get Ready: Get a piece of paper and a pencil,
+Choose a Goal: We want to automate
+or open a simple drawing app on your
+this: "When my favorite online video
+computer.
+
+game is ready to play, send me a
+message on my tablet."
+3
+Step
+Draw the Trigger: Draw a box or
+circle. Inside, write: "Trigger: Game
+Ready" (You can draw a small game
+controller icon!).
+
+44
+Step
+Step
+Draw the First Action: Draw
+another box or circle. Inside, write:
+"Action 1: Find Game Link" (Draw a
+small magnifying glass icon!).
+
+164
+5
+5
+Step
+Step
+6
+4
+Draw the Second Action: Draw a
+third box or circle. Inside, write:
+"Action 2: Send Message to Tablet"
+(Draw a small message bubble icon!).
+
+Step
+Step
+Connect Them! Draw arrows from the
+"Trigger" box to "Action 1," and from "Action
+1" to "Action 2." This shows the chain!
+
+Challenge:
+Add a new action to your chain: "If
+the game is a new update, also send
+a message to my friend!" (This
+introduces a simple "if/then" idea).
+
+Home Activity 2
+Draw a simple chain (workflow) for how your favorite app works from
+when you open it to when it does something cool (e.g., "When I open YouTube, it
+loads my profile, then it shows new videos").
+
+165
+11.3 Connecting Different Computer "Tools" (Apps)
+Automation is super powerful because it can make many different computer programs,
+or "apps," work together! n8n helps these different "tools" share information and tasks,
+just like different instruments playing together in an orchestra. You can connect your
+email app to a messaging app, or a weather app to a calendar app! You’ll try to imagine
+connecting these tools next!
+
+Why Connect Tools?
+To make different computer programs work as a
+team, so you don't have to copy-paste information
+or jump between apps!
+
+Example:
+Connect an online photo album to a friend's
+sharing app.
+
+Class Activity Preview:
+You’ll imagine connecting different apps.
+
+DIY Idea:
+Think about two apps you use often. What would happen if they could talk to each other? What
+new cool thing could they do?
+
+166
+Class Activity 3 - Imagine Connecting Your Favorite Apps
+Let’s be super creative and imagine connecting our favorite computer apps to do
+something new!
+
+1
+2
+Step
+Step
+Pick Your Apps: Choose 2 or 3 of your
+Choose a Trigger App: Decide which
+favorite computer apps or online tools (e.g., a
+app will be the Trigger (the one that
+drawing app, a game, a music player, a video
+starts the automation).
+
+chat app, a calendar app).
+
+3
+Step
+Choose Action Apps: Decide what
+other apps will do the Actions.
+
+4
+4
+Step
+Step
+Draw Your Idea:
+Draw each chosen app as a box. You can draw
+their logos inside!
+Draw arrows showing how you would want
+them to share information or trigger actions.
+Write a simple sentence explaining what your
+automation does!
+
+167
+Example Scenario:
+(Trigger App: Weather App) "When it’s sunny tomorrow" -> (Action App 1: Messaging
+App) "Send message to friends: 'Let's go outside!'" -> (Action App 2: Calendar App) "Add
+'Outdoor Playtime' to my calendar."
+Weather
+Friends
+Calendar
+Outside Party
+Challenge:
+Add a decision step: "If it's raining, then send
+message: 'Let's play indoor games!'" (This is like an
+"if/then" rule within your workflow).
+
+168
+11.4 Planning a 5-Step Computer Automation Project
+Now combine all your new knowledge to plan your very own computer automation! You’ll
+create a simple 5-step plan for an automation project, like writing down all the ingredients and
+steps before you bake a cake. This is like outlining a story on Google Drive (Chapter 7).
+
+What’s an Automation Project?
+It’s an idea for how to use triggers, actions, and connected apps
+to make a computer do a helpful task automatically.
+
+Example:
+An automation that tells you when your favorite game has a new
+update, or when a friend posts a new drawing online.
+
+Class Activity Preview:
+You’ll plan your own 5-step automation idea next.
+
+Parent Tip:
+Discuss simple ways automation could help in your family's daily life!
+
+169
+Class Activity 4 - Plan Your Automation Invention
+Let’s create a 5-step plan for an amazing automation invention you can imagine! You’ll use all
+your n8n-thinking skills to make it awesome.
+
+Get Ready
+Get Ready: Open a blank document (like Google Docs or a simple text editor) or grab a piece
+of paper and a pencil.
+
+1
+Step
+2
+Step
+The Goal! What problem do you want your
+The Trigger! What event will start
+automation to solve, or what cool thing do you
+your automation?
+
+want it to do?
+Example: "I want to know immediately when
+Example: "The cartoon website
+updates."
+my favorite online cartoon updates."
+3
+Step
+The First Action! What's the very first thing the
+computer does?
+Example: "The computer checks the
+cartoon website for new pictures."
+170
+44
+Step
+Step
+What else does the computer do after that?
+Example: "If there are new pictures, the
+computer sends a message to my
+parents' phone, saying 'New comic!'"
+5
+5
+Step
+Step
+What's the final cool thing that happens
+because of your automation?
+Example: "My parents tell me right
+away, and I get to read the new
+comic without even looking for it!"
+Challenge:
+Add a "smart" decision to your plan. Example: "If it's
+past bedtime, don't send the message, just save the
+link for tomorrow!"
+171
+Chapter 11 Summary
+You’re a Automation Expert:
+11.1
+Understanding "Triggers" and
+"Actions"
+11.2
+11.3
+1Building Simple Computer Chains
+(Workflows)
+11.3 Connecting Different
+Computer "Tools" (Apps)
+11.4
+Planning a 5-Step Computer
+Automation Project
+Home Activity 3: Make a Festival Folder
+Create a pixel art picture about your family or a pixelated scene of your favorite family
+activity (e.g., a pixel picnic, a pixel game night, or a pixel picture of your family in traditional
+Pakistani clothes). Save it as a .pixil file or export it as a .png image.
+
+Homework:
+Present your family pixel art to your parents and tell them the story behind it!
+
+172
+Chapter 12:
+Getting Started with
+M3D GO Robotics
+Welcome to M3D GO Adventures!
+The M3D GO robotics kit provides an accessible platform for exploring
+fundamental concepts in robotics and coding. This chapter focuses on
+initial setup procedures, followed by introductory activities to facilitate
+practical engagement. By understanding the kit's components and
+establishing a reliable connection, learners can transition to basic
+exploratory tasks, such as free robot movements. This foundational
+knowledge supports subsequent chapters on advanced controls.
+
+What is M3D GO?
+A comprehensive robotics kit including a programmable robot,
+attachments, and integration tools for educational coding.
+
+Why Learn It?
+It develops skills in technology and problem-solving, applicable to real-world
+scenarios like automated systems in Pakistani industries.
+
+Chapter Preview:
+The content covers kit exploration, connection setup, and introductory free movement
+activities. Instructions: Ensure adult supervision during unpacking to maintain safety.
+
+173
+12.1 Exploring the M3D GO Kit
+The M3D GO kit comprises the core robot, charger, and various attachments designed for
+plug-and-play functionality. These include the OLED screen for displays, distance and line
+sensors for detection, and servo motor with extensions such as the dumper, pen holder,
+dozer, forklift, and Lego adapter. Familiarity with these elements is essential prior to
+setup, as attachments must be connected before powering on the robot to ensure
+accurate detection. This section prepares users for systematic assembly.
+
+Why Explore Attachments?
+Each component extends the robot's capabilities, enabling diverse applications from display
+outputs to physical interactions.
+
+Key Tips:
+Handle attachments carefully to avoid connector damage; verify compatibility
+with designated ports.
+
+Fun Fact:
+Similar robotics kits are utilized in Pakistani
+STEM programs to promote innovation in
+fields like agriculture and education.
+
+Class Activity Preview:
+The following activity focuses on practical identification and attachment.
+
+174
+Class Activity 1: Unpack, Identify, and Attach Kit Parts
+1.his activity emphasizes the initial setup phase by guiding users through unpacking and
+attachment, ensuring a solid foundation for subsequent operations.
+
+1
+Step
+Carefully open the M3D GO kit and organize all
+components: the robot base, charger, LED
+screen, sensors, and servo motor
+2
+2
+Step
+Step
+Identify each part; for example, note the
+LED screen's display function and the
+distance sensor's measurement role.
+
+attachments.
+
+3
+Step
+Select one attachment, such as the
+LED screen, and connect it to the top
+port on the robot.
+
+44
+Step
+Step
+Press the side button to power
+on the robot; observe the red
+blinking light.
+
+Home Activity 1: Practice Kit Identification
+At home, review the unpacked kit and attach a different component, such as the line sensor.
+Power on the robot and note any visual indicators. Create a diagram labeling at least five parts
+and their functions. Kit Setup Extensions: If connectivity issues arise during home practice,
+refer to basic power checks, such as ensuring the charger is functional. This builds
+confidence for classroom progression.
+
+175
+12.2 Setting Up and Connecting the Robot
+Establishing a connection via Bluetooth and the Scratch platform is critical for
+operational control. This section details the process, ensuring users can verify setup
+before advancing to activities.
+
+Why Set Up Properly?
+A stable connection enables reliable
+command execution and prevents
+interruptions in learning.
+
+Key Tips:
+Use a compatible browser and ensure the
+robot is in pairing mode, indicated by slow
+blinking.
+
+Fun Fact:
+Bluetooth technology, essential for such connections,
+draws from historical unification efforts, paralleling
+collaborative STEM initiatives in Pakistan.
+
+Activity Preview:
+The activity centers on completing
+and verifying the connection.
+
+176
+Class Activity 2: Connect and Verify Your Robot Setup
+1
+Step
+2
+Step
+With the robot powered on and in pairing
+Access the extensions menu via the
+mode, open a web browser and navigate to
+bottom-left icon and select the M3D
+https://scratch.markhor3d.com/.
+
+GO extension.
+
+3
+Step
+In the pairing dialog, choose the robot's
+name and confirm the connection;
+observe the success message.
+
+44
+Step
+Step
+If the dialog does not appear,
+manually connect via the M3D GO
+blocks section, ensuring the
+button turns green.
+
+177
+Challenge:
+Confirm setup by checking for the
+robot's name in the interface.
+
+Home Activity 2: Reconnect and Verify
+Replicate the connection process at home, powering on the robot and pairing
+via Scratch. Note the time taken and any variations in indicators. Practice
+disconnecting and reconnecting to build familiarity. Connection Verification
+Practice: Use the "M3D GO is Connected" block to confirm status; this ensures
+readiness for exploratory tasks.
+
+178
+12.3 Introduction to Basic Robot Activities
+With setup complete, this section introduces fundamental activities, such as free
+movements using controls, to demonstrate immediate application.
+
+Why Start with Basics?
+It allows users to experience robot responsiveness,
+fostering motivation for advanced topics.
+
+Key Tips:
+Connect an online photo album to a friend's
+sharing app.
+
+Fun Fact:
+Basic controls in robotics mirror those used
+in Pakistani educational tools for early STEM
+exposure.
+
+Class Activity Preview:
+The activity involves guided free movements.
+
+179
+Class Activity 3: Free Robot Movements and Exploration
+1
+2
+Step
+Step
+With the robot connected,
+Experiment with arrow keys for
+Upload the M3D GO Basic Controls.sb3 file to
+directional control: up for forward,
+your project using File Menu
+left/right for turns, down for
+Computer
+3
+→ Load from
+Step
+Navigate the robot in an open area,
+creating simple paths like straight
+lines or gentle curves.
+
+backward.
+
+4
+4
+Step
+Step
+Observe and note the robot's response
+to commands, adjusting for smoother
+operation.
+
+180
+Challenge:
+Guide the robot around a marked point without
+collisions.
+
+Home Activity 3: Customize Free Movements
+At home, reconnect the robot and use keys to create a custom path, such as
+a figure-eight pattern. Document the sequence of directions used and any
+observations on responsiveness.
+
+Movement Customization:
+Experiment with varying durations for each direction to refine control.
+
+Chapter Review and Integrated Basic Troubleshooting
+This review consolidates setup and introductory activities, incorporating light
+troubleshooting for common early issues.
+
+Chapter Review:
+Reflect on kit components, connection steps, and free movement experiences;
+address potential glitches like unresponsive controls by verifying Bluetooth
+status.
+
+Integrated Basic Troubleshooting:
+If movements falter, recheck the connection using the green indicator and
+test with a single command.
+
+181
+Chapter 12 Summary and Final Home Activity
+This chapter has equipped users with essential setup knowledge and initial hands-on experience.
+You have explored the kit, established connections, and engaged in basic free movements.
+
+Chapter 12 Summary:
+Award yourself a "Setup Explorer!" badge for mastering these foundations.
+
+Final Home Activity: Combined Setup and Movement Review
+Reverify your setup by connecting the robot, then perform a free movement sequence
+around a home object. Draw the path and note any adjustments made. Submit your drawing
+for class discussion.
+
+182
+KODER KIDS
+www.koderkids.pk
+BOOK 2
+EMPOWERING YOUNG MINDS
+

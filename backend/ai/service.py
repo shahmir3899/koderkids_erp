@@ -593,15 +593,37 @@ Current user message: {message}"""
         # Merge edited params with stored params (edited takes precedence)
         final_params = dict(audit_log.action_params or {})
         if edited_params:
-            # Map frontend field names to backend param names
-            param_mapping = {
-                'description': 'task_description',
-                'due_date': 'due_date',
-                'priority': 'priority'
-            }
-            for frontend_key, backend_key in param_mapping.items():
-                if frontend_key in edited_params and edited_params[frontend_key]:
-                    final_params[backend_key] = edited_params[frontend_key]
+            # Check if this is bulk task edits
+            if 'bulk_edits' in edited_params:
+                # For bulk tasks, update resolved_employees with individual edits
+                bulk_edits = edited_params['bulk_edits']
+                if bulk_edits:
+                    # Create new resolved_employees list with edited values
+                    edited_employees = []
+                    for edit in bulk_edits:
+                        edited_employees.append({
+                            'id': edit['employee_id'],
+                            'name': next((e['name'] for e in final_params.get('resolved_employees', [])
+                                         if e['id'] == edit['employee_id']), f"Employee #{edit['employee_id']}"),
+                            'role': next((e.get('role', 'Employee') for e in final_params.get('resolved_employees', [])
+                                         if e['id'] == edit['employee_id']), 'Employee'),
+                            # Individual task edits
+                            'task_description': edit.get('description', final_params.get('task_description', '')),
+                            'due_date': edit.get('due_date', final_params.get('due_date', '')),
+                            'priority': edit.get('priority', final_params.get('priority', 'medium'))
+                        })
+                    final_params['resolved_employees'] = edited_employees
+                    final_params['employee_ids'] = [e['id'] for e in edited_employees]
+            else:
+                # Single task - map frontend field names to backend param names
+                param_mapping = {
+                    'description': 'task_description',
+                    'due_date': 'due_date',
+                    'priority': 'priority'
+                }
+                for frontend_key, backend_key in param_mapping.items():
+                    if frontend_key in edited_params and edited_params[frontend_key]:
+                        final_params[backend_key] = edited_params[frontend_key]
 
         # Execute the action with final params
         result = self._execute_action(
@@ -936,6 +958,44 @@ Current user message: {message}"""
                     "employee_name": employee_name,
                     "employee_id": employee_id,
                     "employee_role": employee_role,
+                    "description": preview_desc,
+                    "full_description": task_description,
+                    "due_date": due_date,
+                    "priority": priority
+                }]
+            }
+
+        if action_name == 'CREATE_BULK_TASKS':
+            resolved_employees = params.get('resolved_employees', [])
+            task_description = params.get('task_description', '')
+            due_date = params.get('due_date', '')
+            priority = params.get('priority', 'medium')
+            target_role = params.get('target_role')
+
+            # Truncate description for preview
+            preview_desc = task_description[:150] + '...' if len(task_description) > 150 else task_description
+
+            employee_count = len(resolved_employees)
+
+            # Build message based on whether it's role-based or name-based
+            if target_role and target_role != 'all':
+                message = f"Create task for all {employee_count} {target_role}s?"
+            elif target_role == 'all':
+                message = f"Create task for all {employee_count} employees?"
+            else:
+                if employee_count <= 3:
+                    names = ', '.join([e['name'] for e in resolved_employees])
+                    message = f"Create task for {names}?"
+                else:
+                    message = f"Create task for {employee_count} employees?"
+
+            return {
+                "message": message,
+                "items": [{
+                    "is_bulk": True,
+                    "employee_count": employee_count,
+                    "employees": resolved_employees[:10],  # Limit preview to 10
+                    "target_role": target_role,
                     "description": preview_desc,
                     "full_description": task_description,
                     "due_date": due_date,

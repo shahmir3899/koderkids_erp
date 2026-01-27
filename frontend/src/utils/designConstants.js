@@ -82,6 +82,41 @@ export const COLORS = {
   accent: {
     purple: '#B061CE',
     blue: '#2362ab',
+    cyan: '#00BCD4',
+  },
+
+  // Student Dashboard Colors (matching Koder Kids reference design)
+  studentDashboard: {
+    // Soft gradient background
+    backgroundGradient: 'linear-gradient(180deg, #E8D5F2 0%, #D4E5F7 50%, #C5D8F0 100%)',
+
+    // Card backgrounds
+    cardWhite: 'rgba(255, 255, 255, 0.95)',
+    cardPurple: '#8B7EC8',
+    cardBlue: '#4A90D9',
+    cardLight: 'rgba(255, 255, 255, 0.85)',
+
+    // Progress circle colors
+    progressOrange: '#FF9800',
+    progressCyan: '#00BCD4',
+    progressPurple: '#9C27B0',
+    progressPink: '#E91E63',
+    progressGreen: '#4CAF50',
+
+    // Text colors
+    textPrimary: '#1a1a2e',
+    textSecondary: '#4a4a6a',
+    textMuted: '#8888a8',
+
+    // Accent colors
+    streakFire: '#FF6B35',
+    badgeGold: '#FFD700',
+    activeGreen: '#4CAF50',
+
+    // Status colors
+    statusActive: '#4CAF50',
+    statusPaid: '#10B981',
+    statusDue: '#F59E0B',
   },
 
   // Transaction-specific colors

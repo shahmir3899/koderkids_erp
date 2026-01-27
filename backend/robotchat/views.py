@@ -1,51 +1,52 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-import requests
-import os
-from dotenv import load_dotenv
+import logging
 
-# ✅ Load environment variables from .env
-load_dotenv()
+from ai.llm_client import get_llm_client
 
-# ✅ Get Hugging Face API Key from .env
-HF_API_KEY = os.getenv("HF_API_KEY")
+logger = logging.getLogger(__name__)
 
-# ✅ Hugging Face Model Endpoint
-HF_API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"
+# System prompt for the student-friendly robot assistant
+ROBOT_SYSTEM_PROMPT = """You are a friendly, helpful robot assistant for students at Koder Kids coding school.
+Your name is "Kody" and you help students with:
+- Answering questions about coding and programming concepts
+- Explaining homework or lesson topics in simple terms
+- Providing encouragement and motivation
+- Helping with general school-related questions
 
-def get_hf_reply(user_input):
-    """Send a message to Hugging Face API and get the reply."""
-    if not HF_API_KEY:
-        print("⚠️ Hugging Face API Key is missing!")
-        return "API key is not set. Please configure it correctly."
+Guidelines:
+- Keep responses concise and easy to understand (2-3 sentences max for simple questions)
+- Use simple language appropriate for young students (ages 6-15)
+- Be encouraging and positive
+- If asked about something inappropriate or off-topic, gently redirect to learning
+- Never provide complete homework answers - guide students to learn instead
+- Use occasional emojis to be friendly but don't overdo it"""
 
-    headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-    payload = {"inputs": user_input}
 
+def get_robot_reply(user_input):
+    """Get a reply from the LLM using Groq API."""
     try:
-        # Make a POST request to Hugging Face API
-        response = requests.post(HF_API_URL, headers=headers, json=payload)
+        client = get_llm_client()
 
-        # ✅ Successful response
-        if response.status_code == 200:
-            result = response.json()
-            # Check if result is valid and contains generated text
-            if isinstance(result, list) and len(result) > 0 and "generated_text" in result[0]:
-                return result[0]["generated_text"]
-            else:
-                return "Sorry, I couldn't process your request."
-        
-        # ❌ Handle API error responses
-        elif response.status_code == 503:
-            return "Model is loading. Please wait a moment."
-        elif response.status_code == 401:
-            return "Unauthorized request. Please check your API key."
+        result = client.generate_sync(
+            prompt=user_input,
+            system_prompt=ROBOT_SYSTEM_PROMPT,
+            temperature=0.7,  # Slightly creative for friendly responses
+            max_tokens=200    # Keep responses concise
+        )
+
+        if result['success']:
+            response = result['response']
+            logger.info(f"Robot reply generated via {result['provider']} in {result['response_time_ms']}ms")
+            return response
         else:
-            return f"Error: {response.status_code} - Unable to process request."
+            logger.error(f"LLM error: {result['error']}")
+            return "I'm having trouble thinking right now. Can you try asking again?"
 
-    except requests.RequestException as e:
-        print(f"❌ Hugging Face API error: {e}")
-        return "Sorry, something went wrong while connecting to Hugging Face."
+    except Exception as e:
+        logger.error(f"Robot chat error: {e}")
+        return "Oops! Something went wrong. Please try again in a moment."
+
 
 @api_view(['POST'])
 def robot_reply(request):
@@ -55,8 +56,7 @@ def robot_reply(request):
     if not user_input.strip():
         return Response({"reply": "Please say something."}, status=400)
 
-    # 🎯 Get reply from Hugging Face API
-    reply = get_hf_reply(user_input)
+    # Get reply from LLM (Groq API)
+    reply = get_robot_reply(user_input)
 
-    # ✅ Return the generated reply
     return Response({"reply": reply})

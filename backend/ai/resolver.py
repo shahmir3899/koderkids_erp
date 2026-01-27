@@ -401,6 +401,9 @@ class ParameterResolver:
         if action_name == 'CREATE_TASK':
             return self._resolve_create_task(params)
 
+        if action_name == 'CREATE_BULK_TASKS':
+            return self._resolve_create_bulk_tasks(params)
+
         # No resolution needed
         return {
             "success": True,
@@ -1294,6 +1297,141 @@ class ParameterResolver:
             "success": True,
             "params": params,
             "info": employee_info
+        }
+
+    def _resolve_create_bulk_tasks(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolve employees for CREATE_BULK_TASKS action (multiple employees or all of a role)."""
+        from django.contrib.auth import get_user_model
+        import logging
+        logger = logging.getLogger(__name__)
+
+        User = get_user_model()
+
+        employee_names = params.get('employee_names', [])
+        target_role = params.get('target_role')
+        task_description = params.get('task_description')
+        due_date = params.get('due_date')
+
+        # Validate required fields
+        if not task_description:
+            return {
+                "success": False,
+                "clarify": "What should the task description be?"
+            }
+
+        if not due_date:
+            return {
+                "success": False,
+                "clarify": "When should this task be completed? Please provide a due date."
+            }
+
+        # Must have either employee_names OR target_role
+        if not employee_names and not target_role:
+            return {
+                "success": False,
+                "clarify": "Who should this task be assigned to? Provide names (e.g., 'Ahmed and Sara') or a group (e.g., 'all teachers')."
+            }
+
+        resolved_employees = []
+        errors = []
+
+        # Handle target_role (all teachers, all BDMs, etc.)
+        if target_role:
+            # Normalize role name
+            role_mapping = {
+                'teacher': 'Teacher',
+                'teachers': 'Teacher',
+                'all_teachers': 'Teacher',
+                'bdm': 'BDM',
+                'bdms': 'BDM',
+                'all_bdms': 'BDM',
+                'admin': 'Admin',
+                'admins': 'Admin',
+                'all_admins': 'Admin',
+                'all': 'all'  # All employees
+            }
+
+            normalized_role = role_mapping.get(target_role.lower().replace(' ', '_'))
+            if not normalized_role:
+                return {
+                    "success": False,
+                    "clarify": f"Unknown role '{target_role}'. Please use 'Teacher', 'BDM', or 'Admin'."
+                }
+
+            # Get all active employees of this role
+            if normalized_role == 'all':
+                employees = User.objects.filter(
+                    role__in=['Teacher', 'Admin', 'BDM'],
+                    is_active=True
+                )
+            else:
+                employees = User.objects.filter(
+                    role=normalized_role,
+                    is_active=True
+                )
+
+            if not employees.exists():
+                return {
+                    "success": False,
+                    "clarify": f"No active {normalized_role}s found in the system."
+                }
+
+            for emp in employees:
+                resolved_employees.append({
+                    'id': emp.id,
+                    'name': emp.get_full_name() or emp.username,
+                    'role': emp.role
+                })
+
+            logger.info(f"Resolved {len(resolved_employees)} employees for role '{normalized_role}'")
+            params['target_role'] = normalized_role
+
+        # Handle multiple specific employee names
+        elif employee_names:
+            for name in employee_names:
+                employee_id, error, employee_info = resolve_employee(name)
+                if error:
+                    errors.append(f"{name}: {error}")
+                else:
+                    resolved_employees.append({
+                        'id': employee_id,
+                        'name': employee_info.get('name', name),
+                        'role': employee_info.get('role', 'Employee')
+                    })
+
+            if errors:
+                # Some names couldn't be resolved
+                if resolved_employees:
+                    # Partial match - ask about the ones that failed
+                    return {
+                        "success": False,
+                        "clarify": f"I couldn't find: {'; '.join(errors)}\n\nFound: {', '.join(e['name'] for e in resolved_employees)}. Please clarify the missing names."
+                    }
+                else:
+                    # No matches at all
+                    return {
+                        "success": False,
+                        "clarify": f"I couldn't find any of these employees:\n{chr(10).join(errors)}"
+                    }
+
+            logger.info(f"Resolved {len(resolved_employees)} employees by name")
+
+        # Store resolved employees in params
+        params['resolved_employees'] = resolved_employees
+        params['employee_ids'] = [e['id'] for e in resolved_employees]
+
+        # Parse relative dates
+        due_date_parsed = self._parse_relative_date(due_date)
+        if due_date_parsed:
+            params['due_date'] = due_date_parsed
+
+        return {
+            "success": True,
+            "params": params,
+            "info": {
+                "employee_count": len(resolved_employees),
+                "employees": resolved_employees
+            }
         }
 
     def _parse_relative_date(self, date_str: str) -> str:

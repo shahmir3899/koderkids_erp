@@ -281,71 +281,108 @@ class TeacherStudentEngagement(APIView):
 @permission_classes([IsAuthenticated])
 def get_login_activity(request):
     """
-    Returns login counts for students and teachers per school in last 3 WORKING days.
-    Working day = a day where a LessonPlan exists for that school.
+    Returns login counts for students and teachers for the last 3 days.
+    Returns separate counts for Today, Yesterday, and Day Before Yesterday.
+    Includes school-wise breakdown for each day.
     Uses CustomUser.last_login field (auto-updated by Django on each login)
     """
     today = now().date()
+    yesterday = today - timedelta(days=1)
+    day_before = today - timedelta(days=2)
 
     # Get active schools
-    schools = School.objects.filter(is_active=True)
+    schools = School.objects.filter(is_active=True).order_by('name')
 
-    result = []
-    for school in schools:
-        # Check if today is a working day for this school
-        is_working_today = LessonPlan.objects.filter(
-            school=school,
-            session_date=today
-        ).exists()
-
-        # Get last 3 working days for this school (days with lesson plans)
-        working_days = list(
-            LessonPlan.objects.filter(
-                school=school,
-                session_date__lte=today
-            ).values_list('session_date', flat=True)
-            .distinct()
-            .order_by('-session_date')[:3]
-        )
-
-        # If no working days found, show 0 logins
-        if not working_days:
-            result.append({
-                'school_id': school.id,
-                'school_name': school.name,
-                'student_logins_3d': 0,
-                'teacher_logins_3d': 0,
-                'working_days': [],
-                'is_working_today': is_working_today,
-            })
-            continue
-
-        # Count students who logged in on any of the working days
+    def get_logins_for_date(date):
+        """Get student and teacher login counts for a specific date, with school breakdown"""
+        # Overall counts
         student_logins = CustomUser.objects.filter(
             role='Student',
-            student_profile__school=school,
-            last_login__date__in=working_days,
+            last_login__date=date,
             is_active=True
         ).count()
 
-        # Count teachers who logged in on any of the working days
         teacher_logins = CustomUser.objects.filter(
             role='Teacher',
-            assigned_schools=school,
-            last_login__date__in=working_days,
+            last_login__date=date,
             is_active=True
         ).count()
 
-        result.append({
-            'school_id': school.id,
-            'school_name': school.name,
-            'student_logins_3d': student_logins,
-            'teacher_logins_3d': teacher_logins,
-            'working_days': [d.isoformat() for d in working_days],
-            'is_working_today': is_working_today,
-        })
+        # School-wise breakdown
+        schools_data = []
+        for school in schools:
+            school_students = CustomUser.objects.filter(
+                role='Student',
+                student_profile__school=school,
+                last_login__date=date,
+                is_active=True
+            ).count()
 
-    # Sort: working today schools first, then by name
-    result.sort(key=lambda x: (not x['is_working_today'], x['school_name']))
+            school_teachers = CustomUser.objects.filter(
+                role='Teacher',
+                assigned_schools=school,
+                last_login__date=date,
+                is_active=True
+            ).count()
+
+            # Only include schools with activity
+            if school_students > 0 or school_teachers > 0:
+                schools_data.append({
+                    'school_id': school.id,
+                    'school_name': school.name,
+                    'student_logins': school_students,
+                    'teacher_logins': school_teachers,
+                    'total': school_students + school_teachers,
+                })
+
+        # Sort schools by total logins (highest first)
+        schools_data.sort(key=lambda x: x['total'], reverse=True)
+
+        return {
+            'student_logins': student_logins,
+            'teacher_logins': teacher_logins,
+            'total': student_logins + teacher_logins,
+            'schools': schools_data,
+        }
+
+    # Get logins for each day
+    today_logins = get_logins_for_date(today)
+    yesterday_logins = get_logins_for_date(yesterday)
+    previous_logins = get_logins_for_date(day_before)
+
+    # Calculate totals across all 3 days
+    total_students = (
+        today_logins['student_logins'] +
+        yesterday_logins['student_logins'] +
+        previous_logins['student_logins']
+    )
+    total_teachers = (
+        today_logins['teacher_logins'] +
+        yesterday_logins['teacher_logins'] +
+        previous_logins['teacher_logins']
+    )
+
+    result = {
+        'today': {
+            'label': 'Today',
+            'date': today.isoformat(),
+            **today_logins,
+        },
+        'yesterday': {
+            'label': 'Yesterday',
+            'date': yesterday.isoformat(),
+            **yesterday_logins,
+        },
+        'previous': {
+            'label': 'Previous',
+            'date': day_before.isoformat(),
+            **previous_logins,
+        },
+        'totals': {
+            'student_logins': total_students,
+            'teacher_logins': total_teachers,
+            'total': total_students + total_teachers,
+        }
+    }
 
     return Response(result)

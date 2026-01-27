@@ -223,6 +223,31 @@ def get_logged_in_user(request):
     })
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_my_assigned_schools(request):
+    """
+    Get schools assigned to the current user.
+    Returns schools for teachers/admins.
+    """
+    user = request.user
+
+    if user.role not in ['Teacher', 'Admin']:
+        return Response({'error': 'Only teachers and admins have assigned schools'},
+                       status=status.HTTP_403_FORBIDDEN)
+
+    schools = user.assigned_schools.all()
+    school_data = [
+        {
+            'id': school.id,
+            'name': school.name,
+        }
+        for school in schools
+    ]
+
+    return Response(school_data)
+
+
 # ============================================
 # USER MANAGEMENT VIEWSET
 # ============================================

@@ -9,7 +9,7 @@
 // 5. Collapsible sections start collapsed for heavy data
 // ============================================
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import { UnifiedProfileHeader } from '../components/common/UnifiedProfileHeader';
@@ -22,6 +22,8 @@ import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { useSchools } from '../hooks/useSchools';
 import { SendNotificationModal } from '../components/admin/SendNotificationModal';
 import { FinancialSummaryCard } from '../components/finance/FinancialSummaryCard';
+import axios from 'axios';
+import { API_URL, getAuthHeaders } from '../api';
 
 // React Query Hooks
 import {
@@ -36,8 +38,8 @@ import {
 import LoginActivityWidget from '../components/dashboard/LoginActivityWidget';
 import AdminTeacherAttendanceWidget from '../components/dashboard/AdminTeacherAttendanceWidget';
 
-// Staff Command Components
-import { StaffCommandInput, CommandHistory, QuickActionsPanel } from '../components/staff';
+// Floating AI Agent Chat
+import FloatingAgentChat from '../components/admin/FloatingAgentChat';
 import {
   COLORS,
   SPACING,
@@ -132,13 +134,12 @@ function AdminDashboard() {
 
   // UI State
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
 
   // Profile state (still using local state since it's user-specific)
   const [profile, setProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
-  // Ref for command input
-  const commandInputRef = useRef(null);
 
   // Derived loading states
   const loading = {
@@ -282,6 +283,34 @@ function AdminDashboard() {
     // Update filters to trigger React Query refetch
     setStudentDataFilters({ schoolId, className });
   }, [selectedMonth]);
+
+  // Handler for downloading book PDF
+  const handleDownloadBookPDF = async (bookId) => {
+    setIsDownloadingPDF(true);
+    try {
+      const response = await axios.get(`${API_URL}/api/books/books/${bookId}/download-pdf/`, {
+        headers: getAuthHeaders(),
+        responseType: 'blob',
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Book_${bookId}_Content.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF');
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
 
   // ============================================
   // COMPUTED VALUES - Derived from React Query data
@@ -433,44 +462,106 @@ function AdminDashboard() {
         <AdminTeacherAttendanceWidget />
       </CollapsibleSection>
 
-      {/* Staff Command Center */}
+      {/* Book Content Export */}
       <CollapsibleSection
-        title="Command Center"
-        defaultOpen={true}
-        icon="🤖"
+        title="Book Content Export"
+        defaultOpen={false}
+        icon="📚"
       >
-        {/* Chat + History Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.lg, marginBottom: SPACING.lg }}>
-          <StaffCommandInput
-            ref={commandInputRef}
-            placeholder="Type a command... (e.g., 'Show inventory summary')"
-            showQuickActions={false}
-            height="350px"
-            onCommandSuccess={() => {
-              // Optionally refresh data after command execution
-            }}
-          />
-          <CommandHistory
-            limit={8}
-            showFilters={true}
-            compact={false}
-            style={{ height: '350px' }}
-          />
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: SPACING.lg,
+        }}>
+          {/* Book 2 Download Card */}
+          <div style={{
+            ...MIXINS.glassmorphicSubtle,
+            padding: SPACING.xl,
+            borderRadius: BORDER_RADIUS.lg,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: SPACING.md,
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: BORDER_RADIUS.lg,
+              backgroundColor: 'rgba(124, 58, 237, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '32px',
+            }}>
+              📖
+            </div>
+            <h3 style={{
+              margin: 0,
+              color: COLORS.text.white,
+              fontSize: FONT_SIZES.lg,
+              fontWeight: FONT_WEIGHTS.semibold,
+            }}>
+              Book 2
+            </h3>
+            <p style={{
+              margin: 0,
+              color: COLORS.text.whiteMedium,
+              fontSize: FONT_SIZES.sm,
+              textAlign: 'center',
+            }}>
+              12 Chapters • 71 Lessons
+            </p>
+            <button
+              onClick={() => handleDownloadBookPDF(3)}
+              disabled={isDownloadingPDF}
+              style={{
+                marginTop: SPACING.sm,
+                padding: `${SPACING.sm} ${SPACING.xl}`,
+                backgroundColor: isDownloadingPDF ? COLORS.text.whiteSubtle : COLORS.primary,
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: BORDER_RADIUS.full,
+                fontSize: FONT_SIZES.sm,
+                fontWeight: FONT_WEIGHTS.semibold,
+                cursor: isDownloadingPDF ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: SPACING.sm,
+                transition: `all ${TRANSITIONS.base}`,
+              }}
+              onMouseEnter={(e) => {
+                if (!isDownloadingPDF) {
+                  e.currentTarget.style.backgroundColor = '#6D28D9';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isDownloadingPDF) {
+                  e.currentTarget.style.backgroundColor = COLORS.primary;
+                  e.currentTarget.style.transform = 'scale(1)';
+                }
+              }}
+            >
+              {isDownloadingPDF ? (
+                <>
+                  <span style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid #fff',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                  }} />
+                  Generating PDF...
+                </>
+              ) : (
+                <>
+                  📥 Download PDF
+                </>
+              )}
+            </button>
+          </div>
         </div>
-        {/* Quick Actions Row */}
-        <QuickActionsPanel
-          onActionSelect={(action) => {
-            if (commandInputRef.current) {
-              if (action.required_params && action.required_params.length > 0) {
-                // Set command template for user to fill in
-                commandInputRef.current.setCommand(action.command_template);
-              } else {
-                // Execute directly
-                commandInputRef.current.executeCommand(action.command_template);
-              }
-            }
-          }}
-        />
       </CollapsibleSection>
 
       {/* Charts Row - Students per School & Fee Collection Side by Side */}
@@ -757,6 +848,9 @@ function AdminDashboard() {
         isOpen={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
       />
+
+      {/* Floating AI Agent Chat */}
+      <FloatingAgentChat />
     </div>
   </div>
   );

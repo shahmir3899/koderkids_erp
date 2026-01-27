@@ -35,6 +35,7 @@ from students.views import (
     StudentProfileViewSet,            # ← ADD
 
 )
+from authentication.views import get_my_assigned_schools
 
 # Register ViewSet-based routes
 router = DefaultRouter()
@@ -65,6 +66,7 @@ urlpatterns = [
     path('api/commands/', include('commands.urls')),
     path('api/ai/', include('ai.urls')),
     path('api/courses/', include('courses.urls')),
+    path('api/aigala/', include('aigala.urls')),
 
 
 
@@ -127,6 +129,9 @@ urlpatterns = [
 
     path('api/students/profile/photo/', StudentProfilePhotoUploadView.as_view(), name='student-photo-upload'),
     path('api/students/profile/photo/delete/', StudentProfilePhotoDeleteView.as_view(), name='student-photo-delete'),
+
+    # User assigned schools (for teachers creating contests)
+    path('api/users/me/assigned-schools/', get_my_assigned_schools, name='my-assigned-schools'),
 
     
    

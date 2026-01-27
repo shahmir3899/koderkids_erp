@@ -132,6 +132,7 @@ class ActionExecutor:
 
             # Task actions
             'CREATE_TASK': self._execute_create_task,
+            'CREATE_BULK_TASKS': self._execute_create_bulk_tasks,
         }
 
         executor_fn = executors.get(action_name)
@@ -2383,3 +2384,164 @@ class ActionExecutor:
                 "data": None,
                 "error": str(e)
             }
+
+    def _execute_create_bulk_tasks(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Create tasks for multiple employees or all employees of a role."""
+        from tasks.models import Task
+        from django.contrib.auth import get_user_model
+        from datetime import datetime
+        import logging
+
+        logger = logging.getLogger(__name__)
+        User = get_user_model()
+
+        logger.info(f"Executing CREATE_BULK_TASKS with params: {params}")
+
+        resolved_employees = params.get('resolved_employees', [])
+        employee_ids = params.get('employee_ids', [])
+        task_description = params.get('task_description')
+        due_date_str = params.get('due_date')
+        priority = params.get('priority', 'medium')
+        task_type = params.get('task_type', 'administrative')
+        title = params.get('title')
+        target_role = params.get('target_role')
+
+        if not employee_ids:
+            return {
+                "success": False,
+                "message": "No employees specified for bulk task creation.",
+                "data": None,
+                "error": "No employees"
+            }
+
+        # Parse due date
+        try:
+            if isinstance(due_date_str, str):
+                for fmt in ['%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M']:
+                    try:
+                        due_date = datetime.strptime(due_date_str.split('T')[0], '%Y-%m-%d')
+                        break
+                    except ValueError:
+                        continue
+                else:
+                    due_date = datetime.now()
+            else:
+                due_date = due_date_str
+        except Exception as e:
+            logger.error(f"Error parsing due_date: {e}")
+            due_date = datetime.now()
+
+        # Generate title from description if not provided
+        if not title:
+            title = task_description[:50]
+            if '.' in title:
+                title = title.split('.')[0]
+            if len(task_description) > 50:
+                title += '...'
+
+        # Validate priority and task_type
+        valid_priorities = ['low', 'medium', 'high', 'urgent']
+        valid_types = ['general', 'academic', 'administrative']
+
+        if priority not in valid_priorities:
+            priority = 'medium'
+        if task_type not in valid_types:
+            task_type = 'administrative'
+
+        # Create tasks for all employees
+        created_tasks = []
+        failed_employees = []
+
+        for emp_data in resolved_employees:
+            try:
+                employee = User.objects.get(id=emp_data['id'], is_active=True)
+
+                # Use individual edits if available, otherwise use defaults
+                emp_description = emp_data.get('task_description', task_description)
+                emp_priority = emp_data.get('priority', priority)
+                emp_due_date_str = emp_data.get('due_date', due_date_str)
+
+                # Parse individual due date if it's a string
+                if isinstance(emp_due_date_str, str):
+                    try:
+                        emp_due_date = datetime.strptime(emp_due_date_str.split('T')[0], '%Y-%m-%d')
+                    except ValueError:
+                        emp_due_date = due_date
+                else:
+                    emp_due_date = emp_due_date_str if emp_due_date_str else due_date
+
+                # Validate individual priority
+                if emp_priority not in valid_priorities:
+                    emp_priority = priority
+
+                # Generate individual title
+                emp_title = emp_description[:50]
+                if '.' in emp_title:
+                    emp_title = emp_title.split('.')[0]
+                if len(emp_description) > 50:
+                    emp_title += '...'
+
+                task = Task.objects.create(
+                    title=emp_title,
+                    description=emp_description,
+                    assigned_to=employee,
+                    assigned_by=self.user,
+                    due_date=emp_due_date,
+                    priority=emp_priority,
+                    task_type=task_type,
+                    status='pending'
+                )
+                created_tasks.append({
+                    'task_id': task.id,
+                    'employee_name': emp_data['name'],
+                    'employee_role': emp_data.get('role', 'Employee'),
+                    'priority': emp_priority,
+                    'due_date': emp_due_date.strftime('%Y-%m-%d') if emp_due_date else ''
+                })
+            except Exception as e:
+                logger.error(f"Failed to create task for employee {emp_data.get('name')}: {e}")
+                failed_employees.append(emp_data.get('name', f"ID:{emp_data.get('id')}"))
+
+        if not created_tasks:
+            return {
+                "success": False,
+                "message": "Failed to create any tasks.",
+                "data": None,
+                "error": f"Failed for: {', '.join(failed_employees)}"
+            }
+
+        # Build success message
+        employee_list = [t['employee_name'] for t in created_tasks]
+        if len(employee_list) <= 3:
+            emp_str = ', '.join(employee_list)
+        else:
+            emp_str = f"{len(employee_list)} employees"
+
+        role_info = f" ({target_role}s)" if target_role and target_role != 'all' else ""
+
+        message = f"✅ Created {len(created_tasks)} task(s) for {emp_str}{role_info}.\n\n"
+
+        # Show individual task details if there are few tasks
+        if len(created_tasks) <= 5:
+            for t in created_tasks:
+                message += f"• **{t['employee_name']}** ({t['employee_role']}) - Due: {t.get('due_date', 'N/A')}, Priority: {t.get('priority', 'medium').capitalize()}\n"
+        else:
+            # Show summary for many tasks
+            message += f"📋 Tasks assigned\n📅 Due dates set individually\n⚡ Priorities set individually"
+
+        if failed_employees:
+            message += f"\n\n⚠️ Failed for: {', '.join(failed_employees)}"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "tasks_created": len(created_tasks),
+                "tasks": created_tasks,
+                "title": title,
+                "due_date": due_date.strftime('%Y-%m-%d'),
+                "priority": priority,
+                "target_role": target_role,
+                "failed_employees": failed_employees
+            }
+        }

@@ -112,29 +112,20 @@ class TopicProgress(models.Model):
     def is_unlocked(self):
         """
         Check if this topic is unlocked based on sequential completion.
-        First topic in each chapter is always unlocked.
+        Simplified logic:
+        - Chapters are always unlocked (students can jump between chapters)
+        - First lesson in each chapter is always unlocked
+        - Other lessons require previous sibling to be completed
         """
+        # Chapters (parent=None or type='chapter') are always unlocked
+        if self.topic.type == 'chapter' or self.topic.parent is None:
+            return True
+
         # Get previous sibling in MPTT tree
         previous = self.topic.get_previous_sibling()
 
-        # First topic (no previous sibling) is always unlocked
+        # First lesson in chapter (no previous sibling) is always unlocked
         if not previous:
-            # Also check parent - if parent is a chapter, first lesson is unlocked
-            # if previous chapter's last topic is completed
-            parent = self.topic.parent
-            if parent:
-                prev_parent = parent.get_previous_sibling()
-                if prev_parent:
-                    # Check if all topics in previous chapter are completed
-                    prev_topics = prev_parent.get_descendants()
-                    if prev_topics.exists():
-                        last_topic = prev_topics.last()
-                        prev_progress = TopicProgress.objects.filter(
-                            enrollment=self.enrollment,
-                            topic=last_topic,
-                            status='completed'
-                        ).exists()
-                        return prev_progress
             return True
 
         # Check if previous topic is completed

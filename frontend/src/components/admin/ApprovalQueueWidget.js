@@ -31,25 +31,27 @@ export const ApprovalQueueWidget = ({ onOpenModal }) => {
 
   // Fetch stats and pending requests
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (silent = false) => {
       try {
-        setIsLoading(true);
+        if (!silent) setIsLoading(true);
         const [statsData, pendingData] = await Promise.all([
-          reportRequestService.fetchStats(),
-          reportRequestService.fetchPendingRequests(),
+          reportRequestService.fetchStats({ silent }),
+          reportRequestService.fetchPendingRequests({ silent }),
         ]);
         setStats(statsData);
         setPendingRequests(pendingData.results || []);
       } catch (error) {
         console.error('Error fetching approval data:', error);
       } finally {
-        setIsLoading(false);
+        if (!silent) setIsLoading(false);
       }
     };
 
-    fetchData();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
+    // Initial fetch with loader
+    fetchData(false);
+
+    // Background polling every 30 seconds (silent - no loader)
+    const interval = setInterval(() => fetchData(true), 30000);
     return () => clearInterval(interval);
   }, []);
 

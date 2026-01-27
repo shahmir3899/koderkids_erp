@@ -3,7 +3,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     BookViewSet, upload_csv,
-    AdminBookViewSet, AdminTopicViewSet, upload_topic_image
+    AdminBookViewSet, AdminTopicViewSet, upload_topic_image,
+    download_book_pdf
 )
 
 # Public/Student router
@@ -23,4 +24,7 @@ urlpatterns = [
     # Admin endpoints
     path("admin/", include(admin_router.urls)),
     path("admin/upload-image/", upload_topic_image, name='upload-topic-image'),
+
+    # PDF Download endpoint
+    path("books/<int:book_id>/download-pdf/", download_book_pdf, name='download-book-pdf'),
 ]

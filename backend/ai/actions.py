@@ -363,6 +363,15 @@ TASK_ACTIONS: Dict[str, ActionDefinition] = {
         requires_confirmation=True,  # Ask for completeness before creating
         description="Create a new task and assign to an employee"
     ),
+    "CREATE_BULK_TASKS": ActionDefinition(
+        name="CREATE_BULK_TASKS",
+        action_type=ActionType.WRITE,
+        required_params=["task_description", "due_date"],  # employee_names OR target_role required
+        optional_params=["employee_names", "target_role", "priority", "task_type", "title"],
+        handler="create_bulk_tasks",
+        requires_confirmation=True,  # Preview before bulk creation
+        description="Create tasks for multiple employees or all employees of a role"
+    ),
 }
 
 # ============================================

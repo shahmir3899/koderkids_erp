@@ -128,7 +128,7 @@ class TopicProgressSerializer(serializers.ModelSerializer):
 
 
 class TopicWithProgressSerializer(serializers.ModelSerializer):
-    """Topic with student progress data."""
+    """Topic with student progress data - optimized to avoid N+1 queries."""
     display_title = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
     children = serializers.SerializerMethodField()
@@ -146,7 +146,6 @@ class TopicWithProgressSerializer(serializers.ModelSerializer):
         return obj.display_title
 
     def get_progress(self, obj):
-        enrollment = self.context.get('enrollment')
         user = self.context.get('user')
 
         # For Admin/Teacher, always return unlocked (no enrollment needed)
@@ -156,42 +155,58 @@ class TopicWithProgressSerializer(serializers.ModelSerializer):
                 'is_unlocked': True
             }
 
+        enrollment = self.context.get('enrollment')
         if not enrollment:
             return None
 
-        try:
-            progress = TopicProgress.objects.get(
-                enrollment=enrollment,
-                topic=obj
-            )
-            return TopicProgressSerializer(progress).data
-        except TopicProgress.DoesNotExist:
-            # Return default unlocked state
+        # Use prefetched progress data from context (avoids N+1 queries)
+        progress_map = self.context.get('progress_map', {})
+        completed_ids = self.context.get('completed_topic_ids', set())
+
+        if obj.id in progress_map:
+            progress = progress_map[obj.id]
             return {
-                'status': 'not_started',
-                'is_unlocked': self._check_unlocked(obj, enrollment)
+                'status': progress.status,
+                'is_unlocked': True,  # Has progress = unlocked
+                'started_at': progress.started_at,
+                'completed_at': progress.completed_at,
+                'time_spent_seconds': progress.time_spent_seconds,
             }
 
-    def _check_unlocked(self, topic, enrollment):
-        """Check if topic is unlocked without existing progress record."""
-        previous = topic.get_previous_sibling()
-        if not previous:
-            return True
-        return TopicProgress.objects.filter(
-            enrollment=enrollment,
-            topic=previous,
-            status='completed'
-        ).exists()
+        # No progress record - check if unlocked using prefetched sibling data
+        # Chapters and first topics in each chapter are always unlocked
+        if obj.type == 'chapter' or obj.parent is None:
+            is_unlocked = True
+        else:
+            prev_sibling_map = self.context.get('prev_sibling_map', {})
+            prev_sibling_id = prev_sibling_map.get(obj.id)
+            is_unlocked = prev_sibling_id is None or prev_sibling_id in completed_ids
+
+        return {
+            'status': 'not_started',
+            'is_unlocked': is_unlocked
+        }
 
     def get_children(self, obj):
-        children = list(obj.get_children())
-        # Natural sorting for proper numeric ordering (1, 2, 3...10 instead of 1, 10, 2)
-        children.sort(key=natural_sort_key)
+        # Use prefetched children from context if available (already sorted)
+        children_map = self.context.get('children_map', {})
+        if children_map and obj.id in children_map:
+            children = children_map[obj.id]
+        else:
+            children = list(obj.get_children())
+            # Only sort if not from prefetched map (already sorted)
+            children.sort(key=natural_sort_key)
+
         return TopicWithProgressSerializer(
             children, many=True, context=self.context
         ).data
 
     def get_has_quiz(self, obj):
+        # Use prefetched quiz topic IDs from context (avoids N+1 queries)
+        quiz_topic_ids = self.context.get('quiz_topic_ids', None)
+        if quiz_topic_ids is not None:
+            return obj.id in quiz_topic_ids
+        # Fallback to query if not prefetched
         return obj.quizzes.filter(is_active=True).exists()
 
 
@@ -278,7 +293,7 @@ class CourseListSerializer(serializers.ModelSerializer):
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
-    """Full course details with topic tree."""
+    """Full course details with topic tree - optimized to avoid N+1 queries."""
     topics = serializers.SerializerMethodField()
     total_topics = serializers.SerializerMethodField()
     total_duration_minutes = serializers.SerializerMethodField()
@@ -295,12 +310,62 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     def get_topics(self, obj):
         enrollment = self.context.get('enrollment')
         user = self.context.get('user')
-        root_topics = list(obj.topics.filter(parent=None))
-        # Natural sorting for proper numeric ordering (1, 2, 3...10 instead of 1, 10, 2)
-        root_topics.sort(key=natural_sort_key)
+
+        # Prefetch all topics for this book (single query)
+        all_topics = list(obj.topics.all())
+
+        # Build children map to avoid repeated get_children() queries
+        children_map = {}
+        for topic in all_topics:
+            parent_id = topic.parent_id
+            if parent_id not in children_map:
+                children_map[parent_id] = []
+            children_map[parent_id].append(topic)
+
+        # Sort children by natural sort key and build previous sibling map
+        prev_sibling_map = {}  # topic_id -> previous_sibling_id (or None)
+        for parent_id, children in children_map.items():
+            children.sort(key=natural_sort_key)
+            prev_id = None
+            for child in children:
+                prev_sibling_map[child.id] = prev_id
+                prev_id = child.id
+
+        # Prefetch all progress for this enrollment (single query)
+        progress_map = {}
+        completed_topic_ids = set()
+        if enrollment:
+            progress_list = TopicProgress.objects.filter(
+                enrollment=enrollment,
+                topic__book=obj
+            ).select_related('topic')
+            for p in progress_list:
+                progress_map[p.topic_id] = p
+                if p.status == 'completed':
+                    completed_topic_ids.add(p.topic_id)
+
+        # Prefetch topic IDs that have active quizzes (single query)
+        quiz_topic_ids = set(
+            Quiz.objects.filter(
+                topic__book=obj,
+                is_active=True
+            ).values_list('topic_id', flat=True)
+        )
+
+        # Get root topics (already sorted above)
+        root_topics = children_map.get(None, [])
+
         return TopicWithProgressSerializer(
             root_topics, many=True,
-            context={'enrollment': enrollment, 'user': user}
+            context={
+                'enrollment': enrollment,
+                'user': user,
+                'progress_map': progress_map,
+                'completed_topic_ids': completed_topic_ids,
+                'quiz_topic_ids': quiz_topic_ids,
+                'children_map': children_map,
+                'prev_sibling_map': prev_sibling_map,
+            }
         ).data
 
     def get_total_topics(self, obj):

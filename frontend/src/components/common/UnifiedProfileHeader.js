@@ -54,17 +54,18 @@ export const UnifiedProfileHeader = ({
   // Fetch pending approval count for admins
   useEffect(() => {
     if (role === 'Admin') {
-      const fetchPendingCount = async () => {
+      const fetchPendingCount = async (silent = false) => {
         try {
-          const data = await reportRequestService.fetchPendingRequests();
+          const data = await reportRequestService.fetchPendingRequests({ silent });
           setPendingApprovals(data.count || data.results?.length || 0);
         } catch (error) {
           console.warn('Could not fetch pending approvals:', error.message);
         }
       };
-      fetchPendingCount();
-      // Refresh every 60 seconds
-      const interval = setInterval(fetchPendingCount, 60000);
+      // Initial fetch with loader
+      fetchPendingCount(false);
+      // Background polling every 60 seconds (silent - no loader)
+      const interval = setInterval(() => fetchPendingCount(true), 60000);
       return () => clearInterval(interval);
     }
   }, [role]);

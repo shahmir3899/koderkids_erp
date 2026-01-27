@@ -29,6 +29,7 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
     student_class: "",
     monthly_fee: "",
     phone: "",
+    date_of_birth: "",
     date_of_registration: "",
     gender: "",
     password: "",
@@ -194,6 +195,7 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
         phone: formData.phone,
         gender: formData.gender,
         password: formData.password,
+        date_of_birth: formData.date_of_birth || null,
         date_of_registration:
           formData.date_of_registration || new Date().toISOString().split("T")[0],
       };
@@ -424,6 +426,20 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
                 </select>
+              </div>
+
+              {/* Date of Birth */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date of Birth</label>
+                <input
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleInputChange}
+                  style={styles.input}
+                  className="add-student-input"
+                />
+                <small style={styles.helperText}>For birthday notifications</small>
               </div>
 
               {/* Date of Registration */}
