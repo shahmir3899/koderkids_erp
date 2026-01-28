@@ -144,3 +144,104 @@ class Topic(MPTTModel):
     @property
     def display_title(self):
         return f"{self.code} {self.title}".strip() if self.code else self.title
+
+
+class BookClassVisibility(models.Model):
+    """
+    Controls which classes can see/access specific books.
+    If no visibility records exist for a book, it's visible to all (default).
+    If visibility records exist, only listed classes can see the book.
+    """
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        related_name='class_visibility'
+    )
+    school = models.ForeignKey(
+        'students.School',
+        on_delete=models.CASCADE,
+        related_name='book_visibility'
+    )
+    student_class = models.CharField(
+        max_length=50,
+        help_text="Class that can see this book (e.g., 'Class 1', 'PlayGroup')"
+    )
+    is_visible = models.BooleanField(
+        default=True,
+        help_text="Whether this book is visible to this class"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        'students.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_visibility_rules'
+    )
+
+    class Meta:
+        unique_together = ('book', 'school', 'student_class')
+        verbose_name = 'Book Class Visibility'
+        verbose_name_plural = 'Book Class Visibility Rules'
+
+    def __str__(self):
+        status = "visible" if self.is_visible else "hidden"
+        return f"{self.book.title} - {self.school.name} {self.student_class} ({status})"
+
+
+class TopicAssignment(models.Model):
+    """
+    Assigns topics to specific classes with optional deadlines.
+    Teachers can set deadlines for when topics should be completed.
+    """
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.CASCADE,
+        related_name='assignments'
+    )
+    school = models.ForeignKey(
+        'students.School',
+        on_delete=models.CASCADE,
+        related_name='topic_assignments'
+    )
+    student_class = models.CharField(
+        max_length=50,
+        help_text="Class this assignment applies to"
+    )
+    assigned_by = models.ForeignKey(
+        'students.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='assigned_topics'
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Optional deadline for completing this topic"
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Optional notes/instructions for students"
+    )
+    is_mandatory = models.BooleanField(
+        default=True,
+        help_text="Whether this assignment is mandatory"
+    )
+
+    class Meta:
+        unique_together = ('topic', 'school', 'student_class')
+        verbose_name = 'Topic Assignment'
+        verbose_name_plural = 'Topic Assignments'
+        ordering = ['-assigned_at']
+
+    def __str__(self):
+        deadline_str = f" (due {self.deadline.strftime('%Y-%m-%d')})" if self.deadline else ""
+        return f"{self.topic.display_title} - {self.school.name} {self.student_class}{deadline_str}"
+
+    @property
+    def is_overdue(self):
+        """Check if assignment is past deadline."""
+        if not self.deadline:
+            return False
+        from django.utils import timezone
+        return timezone.now() > self.deadline

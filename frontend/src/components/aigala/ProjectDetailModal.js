@@ -164,7 +164,7 @@ const ProjectDetailModal = ({
     const getWinnerBadge = () => {
         if (!project?.is_winner) return null;
         const badges = {
-            1: { icon: faTrophy, color: '#FFD700', label: 'AI Gala Champion' },
+            1: { icon: faTrophy, color: COLORS.studentDashboard.badgeGold, label: 'AI Gala Champion' },
             2: { icon: faMedal, color: '#C0C0C0', label: 'AI Innovator' },
             3: { icon: faAward, color: '#CD7F32', label: 'AI Creator' },
         };
@@ -273,7 +273,7 @@ const ProjectDetailModal = ({
                                             ...styles.voteButton,
                                             backgroundColor: localHasVoted
                                                 ? COLORS.status.error
-                                                : COLORS.studentDashboard.cardPurple,
+                                                : COLORS.primary,
                                         }}
                                         onClick={handleVote}
                                         disabled={isVoting}
@@ -478,7 +478,7 @@ const styles = {
     avatarPlaceholder: {
         width: '100%',
         height: '100%',
-        backgroundColor: COLORS.studentDashboard.cardPurple,
+        backgroundColor: COLORS.primary,
         color: '#fff',
         display: 'flex',
         alignItems: 'center',
@@ -529,7 +529,7 @@ const styles = {
         marginTop: SPACING.xs,
     },
     tag: {
-        backgroundColor: COLORS.studentDashboard.cardPurple,
+        backgroundColor: COLORS.primary,
         color: '#fff',
         padding: '4px 12px',
         borderRadius: BORDER_RADIUS.full,
@@ -623,7 +623,7 @@ const styles = {
         width: '40px',
         height: '40px',
         borderRadius: BORDER_RADIUS.full,
-        backgroundColor: COLORS.studentDashboard.cardPurple,
+        backgroundColor: COLORS.primary,
         color: '#fff',
         border: 'none',
         cursor: 'pointer',

@@ -34,6 +34,12 @@ urlpatterns = [
     path('progress/topic/<int:topic_id>/heartbeat/', views.topic_heartbeat, name='topic-heartbeat'),
     path('progress/dashboard/', views.progress_dashboard, name='progress-dashboard'),
 
+    # Teacher Progress Views (NEW)
+    path('teacher/students-progress/', views.teacher_students_progress, name='teacher-students-progress'),
+    path('teacher/class-overview/', views.teacher_class_overview, name='teacher-class-overview'),
+    path('teacher/student/<int:student_id>/progress/', views.student_detail_progress, name='student-detail-progress'),
+    path('export/progress-csv/', views.export_progress_csv, name='export-progress-csv'),
+
     # Quiz Taking (Student)
     path('quizzes/<int:quiz_id>/', views.quiz_detail, name='quiz-detail'),
     path('quizzes/<int:quiz_id>/start/', views.quiz_start, name='quiz-start'),

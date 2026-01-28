@@ -36,10 +36,10 @@ import { useSchools } from '../hooks/useSchools';
 import { useClasses } from '../hooks/useClasses';
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', color: '#6B7280', icon: faEdit, bgColor: '#F3F4F6' },
-    active: { label: 'Active', color: '#10B981', icon: faCheckCircle, bgColor: '#D1FAE5' },
-    voting: { label: 'Voting', color: '#8B5CF6', icon: faVoteYea, bgColor: '#EDE9FE' },
-    closed: { label: 'Closed', color: '#EF4444', icon: faLock, bgColor: '#FEE2E2' },
+    draft: { label: 'Draft', color: COLORS.text.tertiary, icon: faEdit, bgColor: COLORS.background.gray },
+    active: { label: 'Active', color: COLORS.status.success, icon: faCheckCircle, bgColor: COLORS.status.successLight },
+    voting: { label: 'Voting', color: COLORS.primary, icon: faVoteYea, bgColor: '#F3E8FF' },
+    closed: { label: 'Closed', color: COLORS.status.error, icon: faLock, bgColor: COLORS.status.errorLight },
 };
 
 const AiGalaManagePage = () => {
@@ -250,7 +250,7 @@ const AiGalaManagePage = () => {
                                     {/* Winners (if closed) */}
                                     {gallery.status === 'closed' && gallery.winners?.length > 0 && (
                                         <div style={styles.winnersSection}>
-                                            <FontAwesomeIcon icon={faTrophy} style={{ color: '#FFD700', marginRight: '8px' }} />
+                                            <FontAwesomeIcon icon={faTrophy} style={{ color: COLORS.studentDashboard.badgeGold, marginRight: '8px' }} />
                                             <span style={styles.winnersText}>
                                                 Winners: {gallery.winners.slice(0, 3).map(w => w.student_name).join(', ')}
                                             </span>
@@ -902,7 +902,7 @@ const styles = {
     },
     titleIcon: {
         fontSize: '40px',
-        color: '#FFD700',
+        color: COLORS.studentDashboard.badgeGold,
     },
     pageTitle: {
         fontSize: FONT_SIZES['2xl'],
@@ -1041,8 +1041,8 @@ const styles = {
         display: 'inline-flex',
         alignItems: 'center',
         padding: '4px 10px',
-        backgroundColor: '#EDE9FE',
-        color: '#8B5CF6',
+        backgroundColor: COLORS.primaryLight + '20',
+        color: COLORS.primary,
         borderRadius: BORDER_RADIUS.md,
         fontSize: FONT_SIZES.xs,
         fontWeight: FONT_WEIGHTS.medium,
@@ -1079,7 +1079,7 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         padding: SPACING.sm,
-        backgroundColor: '#FEF3C7',
+        backgroundColor: COLORS.status.warningLight,
         borderRadius: BORDER_RADIUS.md,
         marginBottom: SPACING.md,
         fontSize: FONT_SIZES.sm,
@@ -1263,7 +1263,7 @@ const styles = {
     targetSection: {
         marginTop: SPACING.lg,
         padding: SPACING.md,
-        backgroundColor: '#F8F9FF',
+        backgroundColor: COLORS.background.lightGray,
         borderRadius: BORDER_RADIUS.lg,
         border: `1px solid ${COLORS.border.default}`,
     },
@@ -1330,9 +1330,9 @@ const styles = {
         transition: `all ${TRANSITIONS.fast}`,
     },
     classChipActive: {
-        backgroundColor: '#8B5CF6',
+        backgroundColor: COLORS.primary,
         color: '#fff',
-        borderColor: '#8B5CF6',
+        borderColor: COLORS.primary,
     },
     customClassRow: {
         display: 'flex',
@@ -1367,8 +1367,8 @@ const styles = {
         display: 'inline-flex',
         alignItems: 'center',
         padding: '3px 8px',
-        backgroundColor: '#EDE9FE',
-        color: '#8B5CF6',
+        backgroundColor: COLORS.primaryLight + '30',
+        color: COLORS.primary,
         borderRadius: BORDER_RADIUS.md,
         fontSize: FONT_SIZES.xs,
         fontWeight: FONT_WEIGHTS.medium,
@@ -1377,7 +1377,7 @@ const styles = {
         marginLeft: '4px',
         background: 'none',
         border: 'none',
-        color: '#8B5CF6',
+        color: COLORS.primary,
         cursor: 'pointer',
         fontSize: '14px',
         padding: 0,
@@ -1391,13 +1391,13 @@ const styles = {
         fontSize: FONT_SIZES.sm,
     },
     summaryGlobal: {
-        color: '#10B981',
+        color: COLORS.status.success,
     },
     summaryTargeted: {
         color: COLORS.text.primary,
     },
     summaryWarning: {
-        color: '#EF4444',
+        color: COLORS.status.error,
     },
 };
 

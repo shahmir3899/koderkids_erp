@@ -266,7 +266,7 @@ const styles = {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: SPACING.md,
-        backgroundColor: COLORS.studentDashboard.cardPurple,
+        backgroundColor: COLORS.primary,
         color: '#fff',
         borderRadius: BORDER_RADIUS.lg,
         marginBottom: SPACING.md,
@@ -315,7 +315,7 @@ const styles = {
     statValue: {
         fontSize: FONT_SIZES.lg,
         fontWeight: FONT_WEIGHTS.bold,
-        color: COLORS.studentDashboard.cardPurple,
+        color: COLORS.primary,
     },
     statLabel: {
         fontSize: FONT_SIZES.xs,
@@ -328,7 +328,7 @@ const styles = {
         padding: SPACING.md,
     },
     viewAll: {
-        color: COLORS.studentDashboard.cardPurple,
+        color: COLORS.primary,
         fontWeight: FONT_WEIGHTS.medium,
         display: 'block',
         marginTop: SPACING.sm,
@@ -338,7 +338,7 @@ const styles = {
         alignItems: 'center',
         justifyContent: 'center',
         gap: SPACING.sm,
-        color: COLORS.studentDashboard.cardPurple,
+        color: COLORS.primary,
         fontSize: FONT_SIZES.sm,
         fontWeight: FONT_WEIGHTS.medium,
         paddingTop: SPACING.sm,

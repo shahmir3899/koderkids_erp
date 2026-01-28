@@ -44,7 +44,7 @@ const ProjectCard = ({
     const getWinnerBadge = () => {
         if (!is_winner) return null;
         const badges = {
-            1: { icon: faTrophy, color: '#FFD700', label: 'Champion' },
+            1: { icon: faTrophy, color: COLORS.studentDashboard.badgeGold, label: 'Champion' },
             2: { icon: faMedal, color: '#C0C0C0', label: 'Innovator' },
             3: { icon: faAward, color: '#CD7F32', label: 'Creator' },
         };
@@ -133,7 +133,7 @@ const ProjectCard = ({
                             backgroundColor: has_voted
                                 ? COLORS.status.error
                                 : isVotingOpen && canVote
-                                ? COLORS.studentDashboard.cardPurple
+                                ? COLORS.primary
                                 : 'transparent',
                             color: has_voted || (isVotingOpen && canVote) ? '#fff' : COLORS.text.secondary,
                             cursor: isVotingOpen && canVote ? 'pointer' : 'default',
@@ -263,7 +263,7 @@ const styles = {
     avatarPlaceholder: {
         width: '100%',
         height: '100%',
-        backgroundColor: COLORS.studentDashboard.cardPurple,
+        backgroundColor: COLORS.primary,
         color: '#fff',
         display: 'flex',
         alignItems: 'center',

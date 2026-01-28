@@ -242,7 +242,7 @@ const ProjectUploadModal = ({
                                 style={{
                                     ...styles.dropZone,
                                     borderColor: dragActive
-                                        ? COLORS.studentDashboard.cardPurple
+                                        ? COLORS.primary
                                         : COLORS.border.default,
                                     backgroundColor: dragActive
                                         ? 'rgba(139, 126, 200, 0.1)'
@@ -449,7 +449,7 @@ const styles = {
     },
     uploadIcon: {
         fontSize: '48px',
-        color: COLORS.studentDashboard.cardPurple,
+        color: COLORS.primary,
         marginBottom: SPACING.md,
     },
     dropText: {
@@ -519,7 +519,7 @@ const styles = {
         gap: SPACING.sm,
         padding: '14px 24px',
         borderRadius: BORDER_RADIUS.lg,
-        backgroundColor: COLORS.studentDashboard.cardPurple,
+        backgroundColor: COLORS.primary,
         color: '#fff',
         border: 'none',
         fontSize: FONT_SIZES.base,

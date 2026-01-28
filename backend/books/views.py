@@ -1,7 +1,7 @@
 # books/views.py
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from rest_framework.views import APIView
-from .models import Book, Topic
+from .models import Book, Topic, BookClassVisibility, TopicAssignment
 from .serializers import (
     BookSerializer, BookListSerializer,
     AdminBookListSerializer, AdminBookDetailSerializer, AdminBookWriteSerializer,
@@ -14,6 +14,7 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.core.files.storage import default_storage
 from django.http import HttpResponse
+from django.utils import timezone
 import csv
 import chardet
 import re
@@ -262,6 +263,303 @@ def upload_topic_image(request):
         })
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+
+# ============================================
+# VISIBILITY & ASSIGNMENT MANAGEMENT
+# ============================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminOrTeacher])
+def book_visibility_list(request, book_id):
+    """
+    GET: List visibility rules for a book
+    POST: Create/update visibility rule for a book
+    """
+    book = Book.objects.filter(id=book_id).first()
+    if not book:
+        return Response({'error': 'Book not found'}, status=404)
+
+    if request.method == 'GET':
+        rules = BookClassVisibility.objects.filter(book=book).select_related('school')
+        data = [{
+            'id': rule.id,
+            'school_id': rule.school_id,
+            'school_name': rule.school.name if rule.school else None,
+            'student_class': rule.student_class,
+            'is_visible': rule.is_visible,
+            'created_at': rule.created_at,
+        } for rule in rules]
+        return Response(data)
+
+    elif request.method == 'POST':
+        school_id = request.data.get('school_id')
+        student_class = request.data.get('student_class')
+        is_visible = request.data.get('is_visible', True)
+
+        if not school_id or not student_class:
+            return Response(
+                {'error': 'school_id and student_class are required'},
+                status=400
+            )
+
+        rule, created = BookClassVisibility.objects.update_or_create(
+            book=book,
+            school_id=school_id,
+            student_class=student_class,
+            defaults={
+                'is_visible': is_visible,
+                'created_by': request.user
+            }
+        )
+
+        return Response({
+            'id': rule.id,
+            'school_id': rule.school_id,
+            'student_class': rule.student_class,
+            'is_visible': rule.is_visible,
+            'created': created
+        }, status=201 if created else 200)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminOrTeacher])
+def book_visibility_delete(request, book_id, rule_id):
+    """Delete a visibility rule"""
+    rule = BookClassVisibility.objects.filter(id=rule_id, book_id=book_id).first()
+    if not rule:
+        return Response({'error': 'Rule not found'}, status=404)
+    rule.delete()
+    return Response({'message': 'Rule deleted'})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminOrTeacher])
+def topic_assignment_list(request):
+    """
+    GET: List assignments (with filters)
+    POST: Create a new assignment
+    Query params:
+        - school_id: Filter by school
+        - student_class: Filter by class
+        - topic_id: Filter by topic
+        - book_id: Filter by book
+    """
+    if request.method == 'GET':
+        assignments = TopicAssignment.objects.select_related(
+            'topic', 'topic__book', 'school', 'assigned_by'
+        )
+
+        # Apply filters
+        school_id = request.query_params.get('school_id')
+        student_class = request.query_params.get('student_class')
+        topic_id = request.query_params.get('topic_id')
+        book_id = request.query_params.get('book_id')
+
+        if school_id:
+            assignments = assignments.filter(school_id=school_id)
+        if student_class:
+            assignments = assignments.filter(student_class=student_class)
+        if topic_id:
+            assignments = assignments.filter(topic_id=topic_id)
+        if book_id:
+            assignments = assignments.filter(topic__book_id=book_id)
+
+        # For teachers, only show their assignments
+        if request.user.role == 'Teacher':
+            assignments = assignments.filter(assigned_by=request.user)
+
+        data = [{
+            'id': a.id,
+            'topic_id': a.topic_id,
+            'topic_title': a.topic.display_title,
+            'topic_type': a.topic.type,
+            'book_id': a.topic.book_id,
+            'book_title': a.topic.book.title,
+            'school_id': a.school_id,
+            'school_name': a.school.name if a.school else None,
+            'student_class': a.student_class,
+            'assigned_by': a.assigned_by.username if a.assigned_by else None,
+            'assigned_at': a.assigned_at,
+            'deadline': a.deadline,
+            'notes': a.notes,
+            'is_mandatory': a.is_mandatory,
+            'is_overdue': a.is_overdue,
+        } for a in assignments]
+
+        return Response(data)
+
+    elif request.method == 'POST':
+        topic_id = request.data.get('topic_id')
+        school_id = request.data.get('school_id')
+        student_class = request.data.get('student_class')
+        deadline = request.data.get('deadline')
+        notes = request.data.get('notes', '')
+        is_mandatory = request.data.get('is_mandatory', True)
+
+        if not all([topic_id, school_id, student_class]):
+            return Response(
+                {'error': 'topic_id, school_id, and student_class are required'},
+                status=400
+            )
+
+        # Validate topic exists
+        topic = Topic.objects.filter(id=topic_id).first()
+        if not topic:
+            return Response({'error': 'Topic not found'}, status=404)
+
+        # Parse deadline if provided
+        deadline_dt = None
+        if deadline:
+            from django.utils.dateparse import parse_datetime
+            deadline_dt = parse_datetime(deadline)
+
+        assignment, created = TopicAssignment.objects.update_or_create(
+            topic_id=topic_id,
+            school_id=school_id,
+            student_class=student_class,
+            defaults={
+                'assigned_by': request.user,
+                'deadline': deadline_dt,
+                'notes': notes,
+                'is_mandatory': is_mandatory,
+            }
+        )
+
+        return Response({
+            'id': assignment.id,
+            'topic_id': assignment.topic_id,
+            'topic_title': assignment.topic.display_title,
+            'school_id': assignment.school_id,
+            'student_class': assignment.student_class,
+            'deadline': assignment.deadline,
+            'notes': assignment.notes,
+            'is_mandatory': assignment.is_mandatory,
+            'created': created
+        }, status=201 if created else 200)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAdminOrTeacher])
+def topic_assignment_detail(request, assignment_id):
+    """
+    GET: Get assignment details
+    PUT: Update assignment
+    DELETE: Delete assignment
+    """
+    assignment = TopicAssignment.objects.select_related(
+        'topic', 'topic__book', 'school'
+    ).filter(id=assignment_id).first()
+
+    if not assignment:
+        return Response({'error': 'Assignment not found'}, status=404)
+
+    # Teachers can only manage their own assignments
+    if request.user.role == 'Teacher' and assignment.assigned_by != request.user:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        return Response({
+            'id': assignment.id,
+            'topic_id': assignment.topic_id,
+            'topic_title': assignment.topic.display_title,
+            'book_id': assignment.topic.book_id,
+            'book_title': assignment.topic.book.title,
+            'school_id': assignment.school_id,
+            'school_name': assignment.school.name,
+            'student_class': assignment.student_class,
+            'deadline': assignment.deadline,
+            'notes': assignment.notes,
+            'is_mandatory': assignment.is_mandatory,
+            'is_overdue': assignment.is_overdue,
+            'assigned_at': assignment.assigned_at,
+        })
+
+    elif request.method == 'PUT':
+        deadline = request.data.get('deadline')
+        if deadline:
+            from django.utils.dateparse import parse_datetime
+            assignment.deadline = parse_datetime(deadline)
+        elif 'deadline' in request.data:
+            assignment.deadline = None
+
+        if 'notes' in request.data:
+            assignment.notes = request.data['notes']
+        if 'is_mandatory' in request.data:
+            assignment.is_mandatory = request.data['is_mandatory']
+
+        assignment.save()
+
+        return Response({
+            'id': assignment.id,
+            'deadline': assignment.deadline,
+            'notes': assignment.notes,
+            'is_mandatory': assignment.is_mandatory,
+        })
+
+    elif request.method == 'DELETE':
+        assignment.delete()
+        return Response({'message': 'Assignment deleted'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_assignments(request):
+    """
+    Get assignments for the current student.
+    Returns topics assigned to the student's school/class with deadline info.
+    GET /api/books/student/assignments/
+    """
+    if request.user.role != 'Student':
+        return Response({'error': 'Only students can access this endpoint'}, status=403)
+
+    from students.models import Student
+    student = Student.objects.filter(user=request.user).first()
+    if not student:
+        return Response({'error': 'Student profile not found'}, status=404)
+
+    assignments = TopicAssignment.objects.filter(
+        school=student.school,
+        student_class=student.student_class
+    ).select_related('topic', 'topic__book')
+
+    # Get progress for these topics
+    from courses.models import CourseEnrollment, TopicProgress
+    enrollments = CourseEnrollment.objects.filter(student=student)
+    progress_map = {}
+    for enrollment in enrollments:
+        for tp in TopicProgress.objects.filter(enrollment=enrollment):
+            progress_map[tp.topic_id] = {
+                'status': tp.status,
+                'completed_at': tp.completed_at
+            }
+
+    data = []
+    for a in assignments:
+        progress = progress_map.get(a.topic_id, {})
+        data.append({
+            'id': a.id,
+            'topic_id': a.topic_id,
+            'topic_title': a.topic.display_title,
+            'topic_type': a.topic.type,
+            'book_id': a.topic.book_id,
+            'book_title': a.topic.book.title,
+            'deadline': a.deadline,
+            'notes': a.notes,
+            'is_mandatory': a.is_mandatory,
+            'is_overdue': a.is_overdue,
+            'progress_status': progress.get('status', 'not_started'),
+            'completed_at': progress.get('completed_at'),
+        })
+
+    # Sort by deadline (None last), then by mandatory
+    data.sort(key=lambda x: (
+        x['deadline'] is None,
+        x['deadline'] or timezone.now() + timezone.timedelta(days=365),
+        not x['is_mandatory']
+    ))
+
+    return Response(data)
 
 
 # ============================================

@@ -415,7 +415,7 @@ const AiGalaPage = () => {
             {activeGallery?.status === 'closed' && activeGallery.winners?.length > 0 && (
                 <div style={styles.winnersSection}>
                     <h3 style={styles.sectionTitle}>
-                        <FontAwesomeIcon icon={faTrophy} style={{ marginRight: '8px', color: '#FFD700' }} />
+                        <FontAwesomeIcon icon={faTrophy} style={{ marginRight: '8px', color: COLORS.studentDashboard.badgeGold }} />
                         Winners
                     </h3>
                     <div style={styles.winnersGrid}>
@@ -518,7 +518,7 @@ const styles = {
     },
     loadingIcon: {
         fontSize: '32px',
-        color: COLORS.studentDashboard.cardPurple,
+        color: COLORS.primary,
     },
     header: {
         backgroundColor: COLORS.background.white,
@@ -617,7 +617,7 @@ const styles = {
         alignItems: 'center',
         gap: SPACING.sm,
         padding: '10px 20px',
-        backgroundColor: COLORS.studentDashboard.cardPurple,
+        backgroundColor: COLORS.primary,
         color: '#fff',
         border: 'none',
         borderRadius: BORDER_RADIUS.lg,
@@ -674,7 +674,7 @@ const styles = {
         borderRadius: BORDER_RADIUS.xl,
         padding: SPACING.lg,
         boxShadow: SHADOWS.md,
-        border: `2px solid ${COLORS.studentDashboard.cardPurple}`,
+        border: `2px solid ${COLORS.primary}`,
     },
     myProjectImage: {
         width: '80px',

@@ -20,6 +20,54 @@ class IsAdminUser(permissions.BasePermission):
         return request.user.role == 'Admin'
 
 
+class CanResetPassword(permissions.BasePermission):
+    """
+    Permission for password reset action:
+    - Admin: Can reset any user's password
+    - Teacher: Can reset only students from their assigned schools
+    - Student: Can reset only their own password
+    - BDM: Can reset only their own password
+    """
+    message = "You don't have permission to reset this user's password."
+
+    def has_permission(self, request, view):
+        # Must be authenticated
+        return request.user and request.user.is_authenticated
+
+    def has_object_permission(self, request, view, target_user):
+        requester = request.user
+
+        # Admin can reset any user's password
+        if requester.role == 'Admin':
+            return True
+
+        # Users can always reset their own password
+        if target_user.id == requester.id:
+            return True
+
+        # Teacher can reset passwords for students in their assigned schools
+        if requester.role == 'Teacher':
+            # Target must be a Student
+            if target_user.role != 'Student':
+                return False
+
+            # Check if student belongs to one of teacher's assigned schools
+            try:
+                # Get teacher's assigned school IDs
+                teacher_school_ids = set(requester.assigned_schools.values_list('id', flat=True))
+
+                # Get student's school (from Student model)
+                if hasattr(target_user, 'student_profile') and target_user.student_profile:
+                    student_school_id = target_user.student_profile.school_id
+                    return student_school_id in teacher_school_ids
+                return False
+            except Exception:
+                return False
+
+        # BDM and other roles can only reset their own password (handled above)
+        return False
+
+
 class IsAdminOrSelf(permissions.BasePermission):
     """
     Custom permission to allow:

@@ -568,13 +568,75 @@ class UserViewSet(viewsets.ModelViewSet):
         
         return Response(response_data, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['post'], url_path='reset-password')
+    @action(detail=True, methods=['post'], url_path='reset-password', permission_classes=[IsAuthenticated])
     def reset_password(self, request, pk=None):
         """
         Reset user password with optional email notification
         Supports simple passwords for students (min 4 characters)
+
+        Permissions:
+        - Admin: Can reset any user's password
+        - Teacher: Can reset only students from their assigned schools
+        - Student/BDM: Can reset only their own password
+
+        Note: This action searches ALL users (including Students) since
+        the default queryset only includes Admin, Teacher, and BDM roles.
         """
-        user = self.get_object()
+        # Get user from ALL users (not just the filtered queryset)
+        # This allows resetting passwords for Students who are excluded from the default queryset
+        try:
+            user = CustomUser.objects.get(pk=pk)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ============================================
+        # PERMISSION CHECK
+        # ============================================
+        requester = request.user
+
+        # Admin can reset any user's password
+        if requester.role == 'Admin':
+            pass  # Allowed
+        # Users can always reset their own password
+        elif user.id == requester.id:
+            pass  # Allowed
+        # Teacher can reset students from their assigned schools
+        elif requester.role == 'Teacher':
+            if user.role != 'Student':
+                return Response(
+                    {'error': 'Teachers can only reset passwords for students.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            # Check if student belongs to teacher's assigned schools
+            try:
+                teacher_school_ids = set(requester.assigned_schools.values_list('id', flat=True))
+                if hasattr(user, 'student_profile') and user.student_profile:
+                    student_school_id = user.student_profile.school_id
+                    if student_school_id not in teacher_school_ids:
+                        return Response(
+                            {'error': 'You can only reset passwords for students in your assigned schools.'},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                else:
+                    return Response(
+                        {'error': 'Student profile not found.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            except Exception as e:
+                logger.error(f"Permission check error: {e}")
+                return Response(
+                    {'error': 'Permission check failed.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            # BDM, Student, or other roles - can only reset own password
+            return Response(
+                {'error': 'You can only reset your own password.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         # Extract flags
         send_email = request.data.get('send_email', False)

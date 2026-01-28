@@ -325,7 +325,7 @@ const AdminUploadModal = ({
                                                     : 'transparent',
                                             borderColor:
                                                 selectedStudent?.id === student.id
-                                                    ? COLORS.studentDashboard.cardPurple
+                                                    ? COLORS.primary
                                                     : COLORS.border.light,
                                         }}
                                         onClick={() => setSelectedStudent(student)}
@@ -371,7 +371,7 @@ const AdminUploadModal = ({
                                 style={{
                                     ...styles.dropZone,
                                     borderColor: dragActive
-                                        ? COLORS.studentDashboard.cardPurple
+                                        ? COLORS.primary
                                         : COLORS.border.default,
                                     backgroundColor: dragActive
                                         ? 'rgba(139, 126, 200, 0.1)'
@@ -639,7 +639,7 @@ const styles = {
         color: COLORS.text.tertiary,
     },
     checkIcon: {
-        color: COLORS.studentDashboard.cardPurple,
+        color: COLORS.primary,
         fontSize: FONT_SIZES.base,
     },
     loadingState: {
@@ -669,7 +669,7 @@ const styles = {
     },
     uploadIcon: {
         fontSize: '36px',
-        color: COLORS.studentDashboard.cardPurple,
+        color: COLORS.primary,
         marginBottom: SPACING.sm,
     },
     dropText: {
@@ -735,7 +735,7 @@ const styles = {
         gap: SPACING.sm,
         padding: '14px 24px',
         borderRadius: BORDER_RADIUS.lg,
-        backgroundColor: COLORS.studentDashboard.cardPurple,
+        backgroundColor: COLORS.primary,
         color: '#fff',
         border: 'none',
         fontSize: FONT_SIZES.base,

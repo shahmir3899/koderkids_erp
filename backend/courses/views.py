@@ -1,10 +1,13 @@
 # courses/views.py
+import csv
+from io import StringIO
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum, Avg, Count, Q
+from django.http import HttpResponse
 from django.utils import timezone
 
 from .models import (
@@ -20,7 +23,7 @@ from .serializers import (
     ProgressDashboardSerializer, ContinueLearningSerializer
 )
 from books.models import Book, Topic
-from students.models import Student
+from students.models import Student, LessonPlan
 
 
 # =============================================
@@ -83,6 +86,113 @@ def get_student_from_user(user):
         return Student.objects.get(user=user)
     except Student.DoesNotExist:
         return None
+
+
+def has_lessonplan_access(student, topic):
+    """
+    Check if student has access to a topic via LessonPlan.
+    A student can access a topic if it appears in any LessonPlan
+    for their school and class.
+    """
+    if not student:
+        return False
+
+    # Check if this topic (or its parent chapter/lesson) is in any LessonPlan
+    # for the student's school and class
+    topic_ids = [topic.id]
+
+    # Also include parent topics (if activity, include parent lesson and chapter)
+    if topic.parent:
+        topic_ids.append(topic.parent.id)
+        if topic.parent.parent:
+            topic_ids.append(topic.parent.parent.id)
+
+    # Also include all children (if this is a chapter/lesson, include all sub-topics)
+    children = topic.get_descendants()
+    topic_ids.extend(children.values_list('id', flat=True))
+
+    return LessonPlan.objects.filter(
+        school=student.school,
+        student_class=student.student_class,
+        planned_topics__id__in=topic_ids
+    ).exists()
+
+
+def get_accessible_books_for_student(student):
+    """
+    Get all books accessible to a student via LessonPlan.
+    Returns books that have at least one topic in any LessonPlan
+    for the student's school and class.
+    """
+    if not student:
+        return Book.objects.none()
+
+    # Get all topic IDs from LessonPlans for this student's school/class
+    lesson_plans = LessonPlan.objects.filter(
+        school=student.school,
+        student_class=student.student_class
+    )
+
+    # Get books that have topics in these lesson plans
+    accessible_book_ids = Topic.objects.filter(
+        planned_lessons__in=lesson_plans
+    ).values_list('book_id', flat=True).distinct()
+
+    return Book.objects.filter(id__in=accessible_book_ids)
+
+
+def get_accessible_topics_for_student(student, book=None):
+    """
+    Get all accessible topic IDs for a student via LessonPlan.
+    If book is provided, filter to that book only.
+    """
+    if not student:
+        return set()
+
+    # Get all LessonPlans for this student's school/class
+    lesson_plans = LessonPlan.objects.filter(
+        school=student.school,
+        student_class=student.student_class
+    ).prefetch_related('planned_topics')
+
+    accessible_topic_ids = set()
+
+    for lp in lesson_plans:
+        for topic in lp.planned_topics.all():
+            # Add the topic itself
+            accessible_topic_ids.add(topic.id)
+
+            # Add all ancestors (chapter, parent lesson)
+            for ancestor in topic.get_ancestors():
+                accessible_topic_ids.add(ancestor.id)
+
+            # Add all descendants (sub-lessons, activities)
+            for descendant in topic.get_descendants():
+                accessible_topic_ids.add(descendant.id)
+
+    if book:
+        # Filter to only topics from this book
+        book_topic_ids = set(Topic.objects.filter(book=book).values_list('id', flat=True))
+        accessible_topic_ids = accessible_topic_ids.intersection(book_topic_ids)
+
+    return accessible_topic_ids
+
+
+def get_or_create_auto_enrollment(student, book):
+    """
+    Get or create an enrollment for automatic LessonPlan-based access.
+    This creates an enrollment record for tracking progress without
+    requiring manual enrollment.
+    """
+    enrollment, created = CourseEnrollment.objects.get_or_create(
+        student=student,
+        course=book,
+        defaults={'status': 'active'}
+    )
+    if enrollment.status == 'dropped':
+        enrollment.status = 'active'
+        enrollment.save()
+    return enrollment
 
 
 # =============================================
@@ -247,8 +357,10 @@ def unenroll_from_course(request, course_id):
 @permission_classes([IsAuthenticated])
 def my_courses(request):
     """
-    List student's enrolled courses.
-    For Admin/Teacher: returns all courses as "enrolled" for testing.
+    List student's accessible courses.
+    For Admin/Teacher: returns all courses.
+    For Students: returns courses accessible via LessonPlan (automatic)
+                  plus any manual enrollments (legacy).
     GET /api/courses/my-courses/
     """
     # For Admin/Teacher - return all courses as mock enrollments
@@ -277,20 +389,95 @@ def my_courses(request):
                 'progress_percentage': 0,
                 'total_topics': total_topics,
                 'total_duration_minutes': total_duration,
+                'access_type': 'admin',
             })
         return Response(data)
 
-    # For Students - return actual enrollments
+    # For Students - return courses accessible via LessonPlan
     student = get_student_from_user(request.user)
     if not student:
         return Response([])
 
-    enrollments = CourseEnrollment.objects.filter(
+    # Get books accessible via LessonPlan
+    accessible_books = get_accessible_books_for_student(student)
+
+    # Also get any manual enrollments (legacy support)
+    manual_enrollments = CourseEnrollment.objects.filter(
         student=student
     ).exclude(status='dropped').select_related('course', 'last_topic')
 
-    serializer = CourseEnrollmentSerializer(enrollments, many=True)
-    return Response(serializer.data)
+    manual_book_ids = set(e.course_id for e in manual_enrollments)
+
+    data = []
+
+    # Add LessonPlan-accessible courses
+    for course in accessible_books:
+        # Get or create enrollment for progress tracking
+        enrollment = manual_enrollments.filter(course=course).first()
+        if not enrollment:
+            enrollment = get_or_create_auto_enrollment(student, course)
+
+        # Calculate topic stats
+        accessible_topic_ids = get_accessible_topics_for_student(student, course)
+        total_topics = len(accessible_topic_ids)
+        completed = TopicProgress.objects.filter(
+            enrollment=enrollment,
+            topic_id__in=accessible_topic_ids,
+            status='completed'
+        ).count()
+        progress_pct = round((completed / total_topics) * 100, 1) if total_topics > 0 else 0
+
+        topics = course.topics.filter(id__in=accessible_topic_ids, is_required=True)
+        total_duration = sum(t.estimated_time_minutes for t in topics)
+
+        data.append({
+            'id': enrollment.id,
+            'student': student.id,
+            'course': course.id,
+            'course_title': course.title,
+            'course_cover': course.cover.url if course.cover else None,
+            'student_name': student.name,
+            'enrolled_at': enrollment.enrolled_at,
+            'completed_at': enrollment.completed_at,
+            'status': enrollment.status,
+            'last_accessed_at': enrollment.last_accessed_at,
+            'last_topic': enrollment.last_topic_id,
+            'last_topic_title': enrollment.last_topic.display_title if enrollment.last_topic else None,
+            'progress_percentage': progress_pct,
+            'total_topics': total_topics,
+            'total_duration_minutes': total_duration,
+            'access_type': 'lessonplan',
+            'accessible_topic_count': len(accessible_topic_ids),
+        })
+
+    # Add any manual enrollments not already covered by LessonPlan
+    for enrollment in manual_enrollments:
+        if enrollment.course_id not in [d['course'] for d in data]:
+            course = enrollment.course
+            topics = course.topics.filter(is_required=True)
+            total_topics = topics.count()
+            total_duration = sum(t.estimated_time_minutes for t in topics)
+
+            data.append({
+                'id': enrollment.id,
+                'student': student.id,
+                'course': course.id,
+                'course_title': course.title,
+                'course_cover': course.cover.url if course.cover else None,
+                'student_name': student.name,
+                'enrolled_at': enrollment.enrolled_at,
+                'completed_at': enrollment.completed_at,
+                'status': enrollment.status,
+                'last_accessed_at': enrollment.last_accessed_at,
+                'last_topic': enrollment.last_topic_id,
+                'last_topic_title': enrollment.last_topic.display_title if enrollment.last_topic else None,
+                'progress_percentage': enrollment.get_progress_percentage(),
+                'total_topics': total_topics,
+                'total_duration_minutes': total_duration,
+                'access_type': 'manual',
+            })
+
+    return Response(data)
 
 
 @api_view(['POST'])
@@ -431,12 +618,24 @@ def topic_start(request, topic_id):
 
     topic = get_object_or_404(Topic, id=topic_id)
 
-    enrollment = get_object_or_404(
-        CourseEnrollment,
+    # Check LessonPlan access first, then manual enrollment
+    has_lp_access = has_lessonplan_access(student, topic)
+
+    enrollment = CourseEnrollment.objects.filter(
         student=student,
         course=topic.book,
         status='active'
-    )
+    ).first()
+
+    if not has_lp_access and not enrollment:
+        return Response(
+            {'error': 'You do not have access to this topic'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Auto-create enrollment for progress tracking
+    if has_lp_access and not enrollment:
+        enrollment = get_or_create_auto_enrollment(student, topic.book)
 
     # Get or create progress record
     progress, created = TopicProgress.objects.get_or_create(
@@ -473,12 +672,24 @@ def topic_complete(request, topic_id):
 
     topic = get_object_or_404(Topic, id=topic_id)
 
-    enrollment = get_object_or_404(
-        CourseEnrollment,
+    # Check LessonPlan access first, then manual enrollment
+    has_lp_access = has_lessonplan_access(student, topic)
+
+    enrollment = CourseEnrollment.objects.filter(
         student=student,
         course=topic.book,
         status='active'
-    )
+    ).first()
+
+    if not has_lp_access and not enrollment:
+        return Response(
+            {'error': 'You do not have access to this topic'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Auto-create enrollment for progress tracking
+    if has_lp_access and not enrollment:
+        enrollment = get_or_create_auto_enrollment(student, topic.book)
 
     progress, created = TopicProgress.objects.get_or_create(
         enrollment=enrollment,
@@ -487,14 +698,23 @@ def topic_complete(request, topic_id):
 
     progress.mark_completed()
 
-    # Check if course is complete
-    total_required = enrollment.course.topics.filter(is_required=True).count()
-    completed = TopicProgress.objects.filter(
-        enrollment=enrollment,
-        status='completed'
-    ).count()
+    # Check if course is complete (for LessonPlan, check accessible topics only)
+    if has_lp_access:
+        accessible_topic_ids = get_accessible_topics_for_student(student, topic.book)
+        total_required = len(accessible_topic_ids)
+        completed = TopicProgress.objects.filter(
+            enrollment=enrollment,
+            topic_id__in=accessible_topic_ids,
+            status='completed'
+        ).count()
+    else:
+        total_required = enrollment.course.topics.filter(is_required=True).count()
+        completed = TopicProgress.objects.filter(
+            enrollment=enrollment,
+            status='completed'
+        ).count()
 
-    course_completed = completed >= total_required
+    course_completed = completed >= total_required if total_required > 0 else False
 
     if course_completed and enrollment.status != 'completed':
         enrollment.mark_completed()
@@ -524,12 +744,24 @@ def topic_heartbeat(request, topic_id):
     topic = get_object_or_404(Topic, id=topic_id)
     seconds = request.data.get('seconds', 30)
 
-    enrollment = get_object_or_404(
-        CourseEnrollment,
+    # Check LessonPlan access first, then manual enrollment
+    has_lp_access = has_lessonplan_access(student, topic)
+
+    enrollment = CourseEnrollment.objects.filter(
         student=student,
         course=topic.book,
         status='active'
-    )
+    ).first()
+
+    if not has_lp_access and not enrollment:
+        return Response(
+            {'error': 'You do not have access to this topic'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Auto-create enrollment for progress tracking
+    if has_lp_access and not enrollment:
+        enrollment = get_or_create_auto_enrollment(student, topic.book)
 
     progress, created = TopicProgress.objects.get_or_create(
         enrollment=enrollment,
@@ -556,30 +788,43 @@ def topic_content(request, topic_id):
     """
     Get full topic content.
     GET /api/topics/{id}/content/
+
+    Access is granted if:
+    - User is Admin or Teacher (full access)
+    - Student has LessonPlan access (topic appears in their school/class LessonPlan)
+    - Student has manual enrollment (legacy support)
     """
     topic = get_object_or_404(Topic, id=topic_id)
 
-    # Check enrollment (if student)
+    # Check access (if student)
     if request.user.role == 'Student':
         student = get_student_from_user(request.user)
         if not student:
             return Response({'error': 'Student not found'}, status=400)
 
-        enrollment = CourseEnrollment.objects.filter(
+        # Check LessonPlan-based access first (automatic)
+        has_lp_access = has_lessonplan_access(student, topic)
+
+        # Also check legacy manual enrollment
+        manual_enrollment = CourseEnrollment.objects.filter(
             student=student,
             course=topic.book,
             status='active'
         ).first()
 
-        if not enrollment:
+        if not has_lp_access and not manual_enrollment:
             return Response(
-                {'error': 'You must be enrolled in this course'},
+                {'error': 'You do not have access to this topic. It must be in your class lesson plan.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Auto-create enrollment for LessonPlan access (for progress tracking)
+        if has_lp_access and not manual_enrollment:
+            manual_enrollment = get_or_create_auto_enrollment(student, topic.book)
+
         # Check if topic is unlocked
         progress, _ = TopicProgress.objects.get_or_create(
-            enrollment=enrollment,
+            enrollment=manual_enrollment,
             topic=topic
         )
         if not progress.is_unlocked():
@@ -898,6 +1143,343 @@ def topic_quizzes(request, topic_id):
                 quiz_data['passed'] = attempts.filter(passed=True).exists()
 
         data.append(quiz_data)
+
+    return Response(data)
+
+
+# =============================================
+# Teacher Progress Views
+# =============================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminOrTeacher])
+def teacher_students_progress(request):
+    """
+    Get progress for students in teacher's classes.
+    Teachers see students from schools/classes they've created LessonPlans for.
+    Admins see all students.
+    GET /api/courses/teacher/students-progress/
+    Query params:
+        - school_id: Filter by school
+        - student_class: Filter by class
+        - book_id: Filter by book/course
+    """
+    # Get filter parameters
+    school_id = request.query_params.get('school_id')
+    student_class = request.query_params.get('student_class')
+    book_id = request.query_params.get('book_id')
+
+    # For teachers, get schools/classes from their LessonPlans
+    if request.user.role == 'Teacher':
+        teacher_lesson_plans = LessonPlan.objects.filter(teacher=request.user)
+        school_class_pairs = teacher_lesson_plans.values_list(
+            'school_id', 'student_class'
+        ).distinct()
+
+        # Build Q filter for students
+        q_filter = Q()
+        for school, cls in school_class_pairs:
+            q_filter |= Q(school_id=school, student_class=cls)
+
+        if not q_filter:
+            return Response([])
+
+        students = Student.objects.filter(q_filter)
+    else:
+        # Admin sees all students
+        students = Student.objects.all()
+
+    # Apply additional filters
+    if school_id:
+        students = students.filter(school_id=school_id)
+    if student_class:
+        students = students.filter(student_class=student_class)
+
+    students = students.select_related('school', 'user')
+
+    data = []
+    for student in students:
+        student_data = {
+            'student_id': student.id,
+            'student_name': student.name,
+            'school_id': student.school_id,
+            'school_name': student.school.name if student.school else None,
+            'student_class': student.student_class,
+            'courses': []
+        }
+
+        # Get enrollments
+        enrollments = CourseEnrollment.objects.filter(
+            student=student
+        ).select_related('course', 'last_topic')
+
+        if book_id:
+            enrollments = enrollments.filter(course_id=book_id)
+
+        for enrollment in enrollments:
+            # Get progress stats
+            progress_records = TopicProgress.objects.filter(enrollment=enrollment)
+            total_topics = enrollment.course.topics.filter(is_required=True).count()
+            completed = progress_records.filter(status='completed').count()
+            in_progress = progress_records.filter(status='in_progress').count()
+            total_time = progress_records.aggregate(total=Sum('time_spent_seconds'))['total'] or 0
+
+            # Get quiz stats
+            quiz_attempts = QuizAttempt.objects.filter(
+                enrollment=enrollment,
+                completed_at__isnull=False
+            )
+            quizzes_passed = quiz_attempts.filter(passed=True).count()
+            avg_score = quiz_attempts.aggregate(avg=Avg('score'))['avg'] or 0
+
+            student_data['courses'].append({
+                'course_id': enrollment.course_id,
+                'course_title': enrollment.course.title,
+                'status': enrollment.status,
+                'enrolled_at': enrollment.enrolled_at,
+                'last_accessed_at': enrollment.last_accessed_at,
+                'progress_percentage': enrollment.get_progress_percentage(),
+                'total_topics': total_topics,
+                'completed_topics': completed,
+                'in_progress_topics': in_progress,
+                'total_time_seconds': total_time,
+                'quizzes_passed': quizzes_passed,
+                'avg_quiz_score': round(avg_score, 1) if avg_score else 0,
+            })
+
+        data.append(student_data)
+
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminOrTeacher])
+def teacher_class_overview(request):
+    """
+    Get overview of classes the teacher is responsible for.
+    GET /api/courses/teacher/class-overview/
+    """
+    if request.user.role == 'Teacher':
+        # Get unique school/class combinations from teacher's LessonPlans
+        lesson_plans = LessonPlan.objects.filter(
+            teacher=request.user
+        ).select_related('school')
+
+        school_class_pairs = lesson_plans.values(
+            'school_id', 'school__name', 'student_class'
+        ).distinct()
+    else:
+        # Admin sees all school/class combinations
+        from students.models import School
+        school_class_pairs = Student.objects.values(
+            'school_id', 'school__name', 'student_class'
+        ).distinct()
+
+    data = []
+    for pair in school_class_pairs:
+        # Count students in this school/class
+        student_count = Student.objects.filter(
+            school_id=pair['school_id'],
+            student_class=pair['student_class']
+        ).count()
+
+        # Get topics planned for this class
+        planned_topics = LessonPlan.objects.filter(
+            school_id=pair['school_id'],
+            student_class=pair['student_class']
+        ).values_list('planned_topics', flat=True)
+
+        topic_count = Topic.objects.filter(
+            planned_lessons__school_id=pair['school_id'],
+            planned_lessons__student_class=pair['student_class']
+        ).distinct().count()
+
+        data.append({
+            'school_id': pair['school_id'],
+            'school_name': pair['school__name'],
+            'student_class': pair['student_class'],
+            'student_count': student_count,
+            'planned_topic_count': topic_count,
+        })
+
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminOrTeacher])
+def export_progress_csv(request):
+    """
+    Export student progress as CSV.
+    GET /api/courses/export/progress-csv/
+    Query params:
+        - school_id: Filter by school
+        - student_class: Filter by class
+        - book_id: Filter by book/course
+    """
+    # Get filter parameters
+    school_id = request.query_params.get('school_id')
+    student_class = request.query_params.get('student_class')
+    book_id = request.query_params.get('book_id')
+
+    # Build student queryset
+    if request.user.role == 'Teacher':
+        teacher_lesson_plans = LessonPlan.objects.filter(teacher=request.user)
+        school_class_pairs = teacher_lesson_plans.values_list(
+            'school_id', 'student_class'
+        ).distinct()
+
+        q_filter = Q()
+        for school, cls in school_class_pairs:
+            q_filter |= Q(school_id=school, student_class=cls)
+
+        if not q_filter:
+            return HttpResponse('No students found', content_type='text/plain')
+
+        students = Student.objects.filter(q_filter)
+    else:
+        students = Student.objects.all()
+
+    if school_id:
+        students = students.filter(school_id=school_id)
+    if student_class:
+        students = students.filter(student_class=student_class)
+
+    students = students.select_related('school', 'user')
+
+    # Create CSV
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Header
+    writer.writerow([
+        'Student Name', 'School', 'Class', 'Course', 'Status',
+        'Progress %', 'Completed Topics', 'Total Topics',
+        'Time Spent (minutes)', 'Quizzes Passed', 'Avg Quiz Score',
+        'Last Accessed'
+    ])
+
+    # Data rows
+    for student in students:
+        enrollments = CourseEnrollment.objects.filter(
+            student=student
+        ).select_related('course')
+
+        if book_id:
+            enrollments = enrollments.filter(course_id=book_id)
+
+        for enrollment in enrollments:
+            progress_records = TopicProgress.objects.filter(enrollment=enrollment)
+            total_topics = enrollment.course.topics.filter(is_required=True).count()
+            completed = progress_records.filter(status='completed').count()
+            total_time = progress_records.aggregate(total=Sum('time_spent_seconds'))['total'] or 0
+
+            quiz_attempts = QuizAttempt.objects.filter(
+                enrollment=enrollment,
+                completed_at__isnull=False
+            )
+            quizzes_passed = quiz_attempts.filter(passed=True).count()
+            avg_score = quiz_attempts.aggregate(avg=Avg('score'))['avg'] or 0
+
+            writer.writerow([
+                student.name,
+                student.school.name if student.school else '',
+                student.student_class,
+                enrollment.course.title,
+                enrollment.status,
+                enrollment.get_progress_percentage(),
+                completed,
+                total_topics,
+                round(total_time / 60, 1),
+                quizzes_passed,
+                round(avg_score, 1) if avg_score else 0,
+                enrollment.last_accessed_at.strftime('%Y-%m-%d %H:%M') if enrollment.last_accessed_at else '',
+            ])
+
+    # Create response
+    response = HttpResponse(output.getvalue(), content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="student_progress.csv"'
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminOrTeacher])
+def student_detail_progress(request, student_id):
+    """
+    Get detailed progress for a specific student.
+    GET /api/courses/teacher/student/{student_id}/progress/
+    """
+    student = get_object_or_404(Student, id=student_id)
+
+    # Check teacher has access to this student
+    if request.user.role == 'Teacher':
+        has_access = LessonPlan.objects.filter(
+            teacher=request.user,
+            school=student.school,
+            student_class=student.student_class
+        ).exists()
+        if not has_access:
+            return Response(
+                {'error': 'You do not have access to this student'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    data = {
+        'student_id': student.id,
+        'student_name': student.name,
+        'school': student.school.name if student.school else None,
+        'student_class': student.student_class,
+        'enrollments': []
+    }
+
+    enrollments = CourseEnrollment.objects.filter(
+        student=student
+    ).select_related('course', 'last_topic')
+
+    for enrollment in enrollments:
+        # Get all topic progress
+        progress_records = TopicProgress.objects.filter(
+            enrollment=enrollment
+        ).select_related('topic')
+
+        topic_progress = []
+        for p in progress_records:
+            topic_progress.append({
+                'topic_id': p.topic_id,
+                'topic_title': p.topic.display_title,
+                'topic_type': p.topic.type,
+                'status': p.status,
+                'started_at': p.started_at,
+                'completed_at': p.completed_at,
+                'time_spent_seconds': p.time_spent_seconds,
+            })
+
+        # Get quiz attempts
+        quiz_attempts = QuizAttempt.objects.filter(
+            enrollment=enrollment
+        ).select_related('quiz')
+
+        quizzes = []
+        for attempt in quiz_attempts:
+            quizzes.append({
+                'quiz_id': attempt.quiz_id,
+                'quiz_title': attempt.quiz.title,
+                'score': attempt.score,
+                'passed': attempt.passed,
+                'started_at': attempt.started_at,
+                'completed_at': attempt.completed_at,
+            })
+
+        data['enrollments'].append({
+            'enrollment_id': enrollment.id,
+            'course_id': enrollment.course_id,
+            'course_title': enrollment.course.title,
+            'status': enrollment.status,
+            'enrolled_at': enrollment.enrolled_at,
+            'completed_at': enrollment.completed_at,
+            'progress_percentage': enrollment.get_progress_percentage(),
+            'topic_progress': topic_progress,
+            'quiz_attempts': quizzes,
+        })
 
     return Response(data)
 
