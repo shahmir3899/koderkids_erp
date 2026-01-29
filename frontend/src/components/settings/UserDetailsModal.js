@@ -1,6 +1,6 @@
 // ============================================
 // USER DETAILS MODAL - View and Edit User
-// Glassmorphism Design System
+// Glassmorphism Design System - Modular Version
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -14,10 +14,291 @@ import {
   MIXINS,
 } from '../../utils/designConstants';
 
-/**
- * UserDetailsModal Component
- * Combined view and edit modal for users with glassmorphism design
- */
+// ============================================
+// FIELD CONFIGURATIONS
+// ============================================
+
+const FIELD_CONFIGS = {
+  // Profile Section Fields
+  profile: [
+    { name: 'first_name', label: 'First Name', type: 'text', editable: true, placeholder: 'Enter first name' },
+    { name: 'last_name', label: 'Last Name', type: 'text', editable: true, placeholder: 'Enter last name' },
+    { name: 'email', label: 'Email', type: 'email', editable: true, placeholder: 'user@example.com', icon: '✉️' },
+    { name: 'role', label: 'Role', type: 'role', editable: true },
+  ],
+
+  // Employment Section Fields
+  employment: [
+    { name: 'employee_id', label: 'Employee ID', type: 'text', editable: false },
+    { name: 'title', label: 'Job Title', type: 'text', editable: true, placeholder: 'e.g., Senior Teacher, Business Development Manager', icon: '💼' },
+    { name: 'date_of_joining', label: 'Date of Joining', type: 'date', editable: true, icon: '📅' },
+    { name: 'basic_salary', label: 'Basic Salary', type: 'salary', editable: true, icon: '💰' },
+    { name: 'is_active', label: 'Status', type: 'status', editable: true },
+  ],
+
+  // Bank Details Section Fields (NEW)
+  bankDetails: [
+    { name: 'bank_name', label: 'Bank Name', type: 'text', editable: true, placeholder: 'e.g., HBL, MCB, Allied Bank', icon: '🏦' },
+    { name: 'account_title', label: 'Account Title', type: 'text', editable: true, placeholder: 'Account holder name' },
+    { name: 'account_number', label: 'Account Number', type: 'text', editable: true, placeholder: 'Account number / IBAN' },
+  ],
+
+  // Activity Section Fields
+  activity: [
+    { name: 'last_login', label: 'Last Login', type: 'datetime', editable: false, icon: '🕐' },
+    { name: 'created_at', label: 'Created', type: 'datetime', editable: false, showCreator: true },
+    { name: 'updated_at', label: 'Last Updated', type: 'datetime', editable: false, conditional: true },
+  ],
+};
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return 'Not set';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatSalary = (salary) => {
+  if (!salary) return 'Not set';
+  return `Rs ${Number(salary).toLocaleString()}`;
+};
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return 'Never';
+  const date = new Date(dateStr);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const getRoleColor = (role) => {
+  const colors = {
+    Admin: { bg: 'rgba(139, 92, 246, 0.2)', text: '#A78BFA', border: 'rgba(139, 92, 246, 0.4)' },
+    Teacher: { bg: 'rgba(245, 158, 11, 0.2)', text: '#FBBF24', border: 'rgba(245, 158, 11, 0.4)' },
+    BDM: { bg: 'rgba(16, 185, 129, 0.2)', text: '#34D399', border: 'rgba(16, 185, 129, 0.4)' },
+    Student: { bg: 'rgba(59, 130, 246, 0.2)', text: '#60A5FA', border: 'rgba(59, 130, 246, 0.4)' },
+  };
+  return colors[role] || { bg: 'rgba(107, 114, 128, 0.2)', text: '#9CA3AF', border: 'rgba(107, 114, 128, 0.4)' };
+};
+
+// ============================================
+// FIELD RENDERER COMPONENT
+// ============================================
+
+const FieldRenderer = ({
+  field,
+  formData,
+  isEditing,
+  onChange,
+  roles = [],
+  errors = {},
+}) => {
+  const value = formData[field.name];
+  const roleColor = getRoleColor(formData.role);
+
+  // Skip conditional fields if value doesn't exist
+  if (field.conditional && !value) return null;
+
+  // Render view mode value
+  const renderViewValue = () => {
+    switch (field.type) {
+      case 'email':
+        return value ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+            {field.icon && <span>{field.icon}</span>}
+            <span>{value}</span>
+          </span>
+        ) : (
+          <span style={{ color: COLORS.text.whiteSubtle }}>No email set</span>
+        );
+
+      case 'role':
+        return (
+          <div style={{
+            ...styles.badge,
+            backgroundColor: roleColor.bg,
+            color: roleColor.text,
+            border: `1px solid ${roleColor.border}`,
+          }}>
+            {formData.role === 'Admin' && '👑 '}
+            {formData.role === 'Teacher' && '📚 '}
+            {formData.role === 'BDM' && '💼 '}
+            {formData.role}
+            {formData.is_super_admin && ' (Super)'}
+          </div>
+        );
+
+      case 'date':
+        return (
+          <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+            {field.icon && <span>{field.icon}</span>}
+            <span>{formatDate(value)}</span>
+          </span>
+        );
+
+      case 'datetime':
+        return (
+          <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+            {field.icon && <span>{field.icon}</span>}
+            <span>
+              {formatDateTime(value)}
+              {field.showCreator && formData.created_by_name && (
+                <span style={{ color: COLORS.text.whiteSubtle }}> by {formData.created_by_name}</span>
+              )}
+            </span>
+          </span>
+        );
+
+      case 'salary':
+        return (
+          <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+            {field.icon && <span>{field.icon}</span>}
+            <span style={{ color: value ? '#10B981' : COLORS.text.whiteSubtle }}>
+              {formatSalary(value)}
+            </span>
+          </span>
+        );
+
+      case 'status':
+        return (
+          <div style={{
+            ...styles.badge,
+            backgroundColor: formData.is_active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+            color: formData.is_active ? '#34D399' : '#f87171',
+            border: `1px solid ${formData.is_active ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+          }}>
+            {formData.is_active ? '✅ Active' : '❌ Inactive'}
+          </div>
+        );
+
+      default:
+        return value || <span style={{ color: COLORS.text.whiteSubtle }}>Not set</span>;
+    }
+  };
+
+  // Render edit mode input
+  const renderEditInput = () => {
+    switch (field.type) {
+      case 'role':
+        return (
+          <>
+            <select
+              name={field.name}
+              value={value || ''}
+              onChange={onChange}
+              required
+              style={styles.select}
+            >
+              {roles.map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label}
+                </option>
+              ))}
+            </select>
+            {errors[field.name] && <div style={styles.error}>{errors[field.name]}</div>}
+          </>
+        );
+
+      case 'date':
+        return (
+          <input
+            type="date"
+            name={field.name}
+            value={value || ''}
+            onChange={onChange}
+            style={styles.input}
+          />
+        );
+
+      case 'salary':
+        return (
+          <input
+            type="number"
+            name={field.name}
+            value={value || ''}
+            onChange={onChange}
+            style={styles.input}
+            placeholder="Enter basic salary"
+            min="0"
+            step="100"
+          />
+        );
+
+      case 'status':
+        return (
+          <label style={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              name="is_active"
+              checked={formData.is_active || false}
+              onChange={onChange}
+              style={styles.checkbox}
+            />
+            <span>Active</span>
+          </label>
+        );
+
+      case 'email':
+        return (
+          <input
+            type="email"
+            name={field.name}
+            value={value || ''}
+            onChange={onChange}
+            style={styles.input}
+            placeholder={field.placeholder}
+          />
+        );
+
+      default:
+        return (
+          <input
+            type="text"
+            name={field.name}
+            value={value || ''}
+            onChange={onChange}
+            style={styles.input}
+            placeholder={field.placeholder}
+          />
+        );
+    }
+  };
+
+  return (
+    <div style={styles.field}>
+      <label style={styles.label}>{field.label}</label>
+      {isEditing && field.editable ? renderEditInput() : (
+        <div style={styles.value}>{renderViewValue()}</div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// SECTION COMPONENT
+// ============================================
+
+const Section = ({ icon, title, children }) => (
+  <div style={styles.section}>
+    <div style={styles.sectionHeader}>
+      <span style={styles.sectionIcon}>{icon}</span>
+      <span style={styles.sectionTitle}>{title}</span>
+    </div>
+    {children}
+  </div>
+);
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
 export const UserDetailsModal = ({
   user,
   isEditing,
@@ -121,6 +402,28 @@ export const UserDetailsModal = ({
       submitData.assigned_schools = formData.assigned_schools;
     }
 
+    // Include employment profile fields
+    if (formData.title) {
+      submitData.title = formData.title;
+    }
+    if (formData.date_of_joining) {
+      submitData.date_of_joining = formData.date_of_joining;
+    }
+    if (formData.basic_salary !== undefined && formData.basic_salary !== null && formData.basic_salary !== '') {
+      submitData.basic_salary = formData.basic_salary;
+    }
+
+    // Include bank details
+    if (formData.bank_name !== undefined) {
+      submitData.bank_name = formData.bank_name;
+    }
+    if (formData.account_title !== undefined) {
+      submitData.account_title = formData.account_title;
+    }
+    if (formData.account_number !== undefined) {
+      submitData.account_number = formData.account_number;
+    }
+
     if (onSave) {
       onSave(submitData);
     }
@@ -139,30 +442,6 @@ export const UserDetailsModal = ({
     }
   };
 
-  // Format helpers
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'Not set';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const formatSalary = (salary) => {
-    if (!salary) return 'Not set';
-    return `Rs ${Number(salary).toLocaleString()}`;
-  };
-
-  const formatDateTime = (dateStr) => {
-    if (!dateStr) return 'Never';
-    const date = new Date(dateStr);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   // Get assigned schools display names
   const getAssignedSchoolsDisplay = () => {
     if (user.assigned_schools_names) {
@@ -177,17 +456,6 @@ export const UserDetailsModal = ({
       return `${user.assigned_schools_count} school${user.assigned_schools_count !== 1 ? 's' : ''} assigned`;
     }
     return 'None';
-  };
-
-  // Role colors
-  const getRoleColor = (role) => {
-    const colors = {
-      Admin: { bg: 'rgba(139, 92, 246, 0.2)', text: '#A78BFA', border: 'rgba(139, 92, 246, 0.4)' },
-      Teacher: { bg: 'rgba(245, 158, 11, 0.2)', text: '#FBBF24', border: 'rgba(245, 158, 11, 0.4)' },
-      BDM: { bg: 'rgba(16, 185, 129, 0.2)', text: '#34D399', border: 'rgba(16, 185, 129, 0.4)' },
-      Student: { bg: 'rgba(59, 130, 246, 0.2)', text: '#60A5FA', border: 'rgba(59, 130, 246, 0.4)' },
-    };
-    return colors[role] || { bg: 'rgba(107, 114, 128, 0.2)', text: '#9CA3AF', border: 'rgba(107, 114, 128, 0.4)' };
   };
 
   const roleColor = getRoleColor(formData.role);
@@ -210,9 +478,21 @@ export const UserDetailsModal = ({
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerLeft}>
-            <div style={{ ...styles.avatar, backgroundColor: roleColor.bg, borderColor: roleColor.border }}>
-              {getInitials()}
-            </div>
+            {formData.profile_photo_url ? (
+              <img
+                src={formData.profile_photo_url}
+                alt={`${formData.first_name || formData.username}'s photo`}
+                style={{
+                  ...styles.avatar,
+                  objectFit: 'cover',
+                  borderColor: roleColor.border,
+                }}
+              />
+            ) : (
+              <div style={{ ...styles.avatar, backgroundColor: roleColor.bg, borderColor: roleColor.border }}>
+                {getInitials()}
+              </div>
+            )}
             <div>
               <h2 style={styles.title}>
                 {isEditing ? 'Edit User' : 'User Details'}
@@ -231,184 +511,57 @@ export const UserDetailsModal = ({
         <form onSubmit={handleSubmit}>
           <div style={styles.content}>
             {/* Profile Section */}
-            <div style={styles.section}>
-              <div style={styles.sectionHeader}>
-                <span style={styles.sectionIcon}>👤</span>
-                <span style={styles.sectionTitle}>Profile Information</span>
-              </div>
+            <Section icon="👤" title="Profile Information">
               <div style={styles.grid}>
-                {/* First Name */}
-                <div style={styles.field}>
-                  <label style={styles.label}>First Name</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="first_name"
-                      value={formData.first_name || ''}
-                      onChange={handleChange}
-                      style={styles.input}
-                      placeholder="Enter first name"
-                    />
-                  ) : (
-                    <div style={styles.value}>{formData.first_name || 'Not set'}</div>
-                  )}
-                </div>
-
-                {/* Last Name */}
-                <div style={styles.field}>
-                  <label style={styles.label}>Last Name</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="last_name"
-                      value={formData.last_name || ''}
-                      onChange={handleChange}
-                      style={styles.input}
-                      placeholder="Enter last name"
-                    />
-                  ) : (
-                    <div style={styles.value}>{formData.last_name || 'Not set'}</div>
-                  )}
-                </div>
-
-                {/* Email */}
-                <div style={styles.field}>
-                  <label style={styles.label}>Email</label>
-                  {isEditing ? (
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email || ''}
-                      onChange={handleChange}
-                      style={styles.input}
-                      placeholder="user@example.com"
-                    />
-                  ) : (
-                    <div style={styles.value}>
-                      {formData.email ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
-                          <span>✉️</span>
-                          <span>{formData.email}</span>
-                        </span>
-                      ) : (
-                        <span style={{ color: COLORS.text.whiteSubtle }}>No email set</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Role */}
-                <div style={styles.field}>
-                  <label style={styles.label}>Role</label>
-                  {isEditing ? (
-                    <>
-                      <select
-                        name="role"
-                        value={formData.role || ''}
-                        onChange={handleChange}
-                        required
-                        style={styles.select}
-                      >
-                        {roles.map((role) => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.role && <div style={styles.error}>{errors.role}</div>}
-                    </>
-                  ) : (
-                    <div style={{
-                      ...styles.badge,
-                      backgroundColor: roleColor.bg,
-                      color: roleColor.text,
-                      border: `1px solid ${roleColor.border}`,
-                    }}>
-                      {formData.role === 'Admin' && '👑 '}
-                      {formData.role === 'Teacher' && '📚 '}
-                      {formData.role === 'BDM' && '💼 '}
-                      {formData.role}
-                      {formData.is_super_admin && ' (Super)'}
-                    </div>
-                  )}
-                </div>
+                {FIELD_CONFIGS.profile.map(field => (
+                  <FieldRenderer
+                    key={field.name}
+                    field={field}
+                    formData={formData}
+                    isEditing={isEditing}
+                    onChange={handleChange}
+                    roles={roles}
+                    errors={errors}
+                  />
+                ))}
               </div>
-            </div>
+            </Section>
 
             {/* Employment Section */}
-            <div style={styles.section}>
-              <div style={styles.sectionHeader}>
-                <span style={styles.sectionIcon}>💼</span>
-                <span style={styles.sectionTitle}>Employment Details</span>
-              </div>
+            <Section icon="💼" title="Employment Details">
               <div style={styles.grid}>
-                {/* Employee ID */}
-                <div style={styles.field}>
-                  <label style={styles.label}>Employee ID</label>
-                  <div style={styles.value}>
-                    {formData.employee_id || <span style={{ color: COLORS.text.whiteSubtle }}>Not assigned</span>}
-                  </div>
-                </div>
-
-                {/* Date of Joining */}
-                <div style={styles.field}>
-                  <label style={styles.label}>Date of Joining</label>
-                  <div style={styles.value}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
-                      <span>📅</span>
-                      <span>{formatDate(formData.date_of_joining)}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Basic Salary */}
-                <div style={styles.field}>
-                  <label style={styles.label}>Basic Salary</label>
-                  <div style={styles.value}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
-                      <span>💰</span>
-                      <span style={{ color: formData.basic_salary ? '#10B981' : COLORS.text.whiteSubtle }}>
-                        {formatSalary(formData.basic_salary)}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Status */}
-                <div style={styles.field}>
-                  <label style={styles.label}>Status</label>
-                  {isEditing ? (
-                    <label style={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={formData.is_active || false}
-                        onChange={handleChange}
-                        style={styles.checkbox}
-                      />
-                      <span>Active</span>
-                    </label>
-                  ) : (
-                    <div style={{
-                      ...styles.badge,
-                      backgroundColor: formData.is_active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                      color: formData.is_active ? '#34D399' : '#f87171',
-                      border: `1px solid ${formData.is_active ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
-                    }}>
-                      {formData.is_active ? '✅ Active' : '❌ Inactive'}
-                    </div>
-                  )}
-                </div>
+                {FIELD_CONFIGS.employment.map(field => (
+                  <FieldRenderer
+                    key={field.name}
+                    field={field}
+                    formData={formData}
+                    isEditing={isEditing}
+                    onChange={handleChange}
+                    errors={errors}
+                  />
+                ))}
               </div>
-            </div>
+            </Section>
+
+            {/* Bank Details Section */}
+            <Section icon="🏦" title="Bank Details">
+              <div style={styles.grid}>
+                {FIELD_CONFIGS.bankDetails.map(field => (
+                  <FieldRenderer
+                    key={field.name}
+                    field={field}
+                    formData={formData}
+                    isEditing={isEditing}
+                    onChange={handleChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </Section>
 
             {/* Schools Section (Teachers only) */}
             {(formData.role === 'Teacher' || user.assigned_schools_count > 0) && (
-              <div style={styles.section}>
-                <div style={styles.sectionHeader}>
-                  <span style={styles.sectionIcon}>🏫</span>
-                  <span style={styles.sectionTitle}>Assigned Schools</span>
-                </div>
+              <Section icon="🏫" title="Assigned Schools">
                 {isEditing && formData.role === 'Teacher' ? (
                   <div style={styles.field}>
                     <select
@@ -431,86 +584,70 @@ export const UserDetailsModal = ({
                 ) : (
                   <div style={styles.value}>{getAssignedSchoolsDisplay()}</div>
                 )}
-              </div>
+              </Section>
             )}
 
             {/* Activity Section */}
-            <div style={styles.section}>
-              <div style={styles.sectionHeader}>
-                <span style={styles.sectionIcon}>📊</span>
-                <span style={styles.sectionTitle}>Activity & Audit</span>
-              </div>
+            <Section icon="📊" title="Activity & Audit">
               <div style={styles.grid}>
-                <div style={styles.field}>
-                  <label style={styles.label}>Last Login</label>
-                  <div style={styles.value}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
-                      <span>🕐</span>
-                      <span>{formatDateTime(formData.last_login)}</span>
-                    </span>
-                  </div>
-                </div>
-
-                <div style={styles.field}>
-                  <label style={styles.label}>Created</label>
-                  <div style={styles.value}>
-                    {formatDateTime(formData.created_at)}
-                    {formData.created_by_name && (
-                      <span style={{ color: COLORS.text.whiteSubtle }}> by {formData.created_by_name}</span>
-                    )}
-                  </div>
-                </div>
-
-                {formData.updated_at && (
-                  <div style={styles.field}>
-                    <label style={styles.label}>Last Updated</label>
-                    <div style={styles.value}>{formatDateTime(formData.updated_at)}</div>
-                  </div>
-                )}
+                {FIELD_CONFIGS.activity.map(field => (
+                  <FieldRenderer
+                    key={field.name}
+                    field={field}
+                    formData={formData}
+                    isEditing={isEditing}
+                    onChange={handleChange}
+                  />
+                ))}
               </div>
-            </div>
+            </Section>
           </div>
 
-          {/* Footer */}
-          <div style={styles.footer}>
-            {isEditing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  disabled={isSubmitting}
-                  style={styles.secondaryButton}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  style={styles.primaryButton}
-                >
-                  {isSubmitting ? '⏳ Saving...' : '💾 Save Changes'}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  style={styles.secondaryButton}
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  style={styles.primaryButton}
-                >
-                  ✏️ Edit User
-                </button>
-              </>
-            )}
-          </div>
+          {/* Footer - Edit Mode (inside form for submit) */}
+          {isEditing && (
+            <div style={styles.footer}>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                disabled={isSubmitting}
+                style={styles.secondaryButton}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                style={styles.primaryButton}
+              >
+                {isSubmitting ? '⏳ Saving...' : '💾 Save Changes'}
+              </button>
+            </div>
+          )}
         </form>
+
+        {/* Footer - View Mode (outside form to prevent accidental submission) */}
+        {!isEditing && (
+          <div style={styles.footer}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={styles.secondaryButton}
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onEdit();
+              }}
+              style={styles.primaryButton}
+            >
+              ✏️ Edit User
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

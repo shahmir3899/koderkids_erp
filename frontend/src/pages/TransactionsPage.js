@@ -28,6 +28,7 @@ import {
 
 // API (only for transactionService reference types)
 import { transactionService } from "../services/transactionService";
+import { getTodayLocal } from "../utils/dateFormatters";
 
 // Design Constants
 import {
@@ -124,7 +125,7 @@ function TransactionsPage() {
 
   // Form State
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: getTodayLocal(),
     transaction_type: "income",
     amount: "",
     category: "",
@@ -430,7 +431,7 @@ function TransactionsPage() {
       setIsEditing(false);
       setSelectedTransaction(null);
       setFormData({
-        date: new Date().toISOString().split("T")[0],
+        date: getTodayLocal(),
         transaction_type: "income",
         amount: "",
         category: "",

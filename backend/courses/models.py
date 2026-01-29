@@ -390,3 +390,411 @@ class QuizAttempt(models.Model):
             quiz=self.quiz
         ).count()
         return attempt_count < self.quiz.max_attempts
+
+
+# ============================================
+# ACTIVITY PROOF & VALIDATION MODELS
+# ============================================
+
+class ActivityProof(models.Model):
+    """
+    Student-uploaded screenshot proof of activity completion.
+    Part of the 5-step validation pipeline:
+    Reading → Activity → Screenshot → Teacher Approval → Guardian Review
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    RATING_CHOICES = [
+        ('basic', 'Basic'),
+        ('good', 'Good'),
+        ('excellent', 'Excellent'),
+    ]
+
+    SOFTWARE_CHOICES = [
+        ('scratch', 'Scratch'),
+        ('python', 'Python'),
+        ('canva', 'Canva'),
+        ('ai_tool', 'AI Tool'),
+        ('other', 'Other'),
+    ]
+
+    # Student & Topic info
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='activity_proofs'
+    )
+    topic = models.ForeignKey(
+        'books.Topic',
+        on_delete=models.CASCADE,
+        related_name='activity_proofs'
+    )
+    enrollment = models.ForeignKey(
+        CourseEnrollment,
+        on_delete=models.CASCADE,
+        related_name='activity_proofs'
+    )
+
+    # Screenshot - using Supabase storage URL
+    screenshot_url = models.URLField(
+        max_length=500,
+        help_text="Supabase storage URL for the screenshot"
+    )
+    software_used = models.CharField(
+        max_length=20,
+        choices=SOFTWARE_CHOICES,
+        default='other'
+    )
+    student_notes = models.TextField(
+        blank=True,
+        help_text="Optional notes from student about their activity"
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    # Approval status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    teacher_remarks = models.TextField(
+        blank=True,
+        help_text="Teacher's feedback on the activity"
+    )
+    teacher_rating = models.CharField(
+        max_length=20,
+        choices=RATING_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Quality rating given by teacher"
+    )
+    approved_by = models.ForeignKey(
+        'students.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_proofs'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = 'Activity Proof'
+        verbose_name_plural = 'Activity Proofs'
+        # One proof per student per topic
+        unique_together = ('student', 'topic')
+
+    def __str__(self):
+        return f"{self.student.name} - {self.topic.display_title} ({self.status})"
+
+    def approve(self, teacher, rating='good', remarks=''):
+        """Approve this activity proof."""
+        self.status = 'approved'
+        self.approved_by = teacher
+        self.approved_at = timezone.now()
+        self.teacher_rating = rating
+        self.teacher_remarks = remarks
+        self.save()
+
+    def reject(self, teacher, remarks=''):
+        """Reject this activity proof."""
+        self.status = 'rejected'
+        self.approved_by = teacher
+        self.approved_at = timezone.now()
+        self.teacher_remarks = remarks
+        self.save()
+
+    def get_rating_score(self):
+        """
+        Convert teacher rating to score (0-100) for score calculation.
+        """
+        rating_scores = {
+            'excellent': 100,
+            'good': 75,
+            'basic': 50,
+        }
+        return rating_scores.get(self.teacher_rating, 0)
+
+
+class ActivityProofBulkAction(models.Model):
+    """
+    Audit trail for bulk approval/rejection actions by teachers.
+    """
+    ACTION_CHOICES = [
+        ('approve', 'Bulk Approve'),
+        ('reject', 'Bulk Reject'),
+    ]
+
+    teacher = models.ForeignKey(
+        'students.CustomUser',
+        on_delete=models.CASCADE,
+        related_name='bulk_proof_actions'
+    )
+    action_type = models.CharField(
+        max_length=20,
+        choices=ACTION_CHOICES
+    )
+    proof_ids = models.JSONField(
+        help_text="List of ActivityProof IDs affected"
+    )
+    count = models.PositiveIntegerField(
+        help_text="Number of proofs affected"
+    )
+    rating = models.CharField(
+        max_length=20,
+        choices=ActivityProof.RATING_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Rating applied (for bulk approve)"
+    )
+    remarks = models.TextField(
+        blank=True,
+        help_text="Remarks applied to all proofs"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Bulk Action Log'
+        verbose_name_plural = 'Bulk Action Logs'
+
+    def __str__(self):
+        return f"{self.teacher.username} - {self.action_type} {self.count} proofs"
+
+
+class GuardianReview(models.Model):
+    """
+    Guardian review/approval for activity completion.
+    This is the final step in the 5-step validation pipeline.
+
+    Guardian review is only available OUTSIDE school hours,
+    using the same student login (no separate guardian account needed).
+    """
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='guardian_reviews'
+    )
+    topic = models.ForeignKey(
+        'books.Topic',
+        on_delete=models.CASCADE,
+        related_name='guardian_reviews'
+    )
+    activity_proof = models.OneToOneField(
+        ActivityProof,
+        on_delete=models.CASCADE,
+        related_name='guardian_review',
+        help_text="The approved activity proof being reviewed"
+    )
+
+    # Review details
+    reviewed_at = models.DateTimeField(auto_now_add=True)
+    is_approved = models.BooleanField(
+        default=True,
+        help_text="Guardian approval status"
+    )
+    reviewer_ip = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address for audit purposes"
+    )
+    review_notes = models.TextField(
+        blank=True,
+        help_text="Optional notes from guardian"
+    )
+
+    class Meta:
+        ordering = ['-reviewed_at']
+        verbose_name = 'Guardian Review'
+        verbose_name_plural = 'Guardian Reviews'
+        # One review per student per topic
+        unique_together = ('student', 'topic')
+
+    def __str__(self):
+        status = "Approved" if self.is_approved else "Pending"
+        return f"{self.student.name} - {self.topic.display_title} ({status})"
+
+
+# ============================================
+# STUDENT SCORE MODELS
+# ============================================
+
+class SectionScore(models.Model):
+    """
+    Calculated score for a student's section/activity completion.
+
+    Score formula:
+    - Reading (time spent): 20%
+    - Activity Completion: 30%
+    - Teacher Quality Rating: 30%
+    - Guardian Review: 20%
+    """
+    RATING_CHOICES = [
+        ('excellent', 'Excellent'),
+        ('good', 'Good'),
+        ('average', 'Average'),
+        ('needs_support', 'Needs Support'),
+    ]
+
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='section_scores'
+    )
+    topic = models.ForeignKey(
+        'books.Topic',
+        on_delete=models.CASCADE,
+        related_name='section_scores'
+    )
+    enrollment = models.ForeignKey(
+        CourseEnrollment,
+        on_delete=models.CASCADE,
+        related_name='section_scores'
+    )
+
+    # Component scores (0-100)
+    reading_score = models.IntegerField(
+        default=0,
+        help_text="Score based on time spent reading (0-100)"
+    )
+    activity_score = models.IntegerField(
+        default=0,
+        help_text="Score based on activity completion (0-100)"
+    )
+    teacher_rating_score = models.IntegerField(
+        default=0,
+        help_text="Score based on teacher's quality rating (0-100)"
+    )
+    guardian_review_score = models.IntegerField(
+        default=0,
+        help_text="Score based on guardian review (0 or 100)"
+    )
+
+    # Weighted total
+    total_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Weighted total score"
+    )
+    rating = models.CharField(
+        max_length=20,
+        choices=RATING_CHOICES,
+        default='needs_support'
+    )
+
+    # Timestamps
+    calculated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-calculated_at']
+        verbose_name = 'Section Score'
+        verbose_name_plural = 'Section Scores'
+        unique_together = ('student', 'topic')
+
+    def __str__(self):
+        return f"{self.student.name} - {self.topic.display_title}: {self.total_score}%"
+
+    def calculate_score(self):
+        """
+        Calculate the weighted total score.
+
+        Weight distribution:
+        - Reading: 20%
+        - Activity Completion: 30%
+        - Teacher Quality Rating: 30%
+        - Guardian Review: 20%
+        """
+        self.total_score = (
+            (self.reading_score * 0.20) +
+            (self.activity_score * 0.30) +
+            (self.teacher_rating_score * 0.30) +
+            (self.guardian_review_score * 0.20)
+        )
+
+        # Assign rating based on total score
+        if self.total_score >= 90:
+            self.rating = 'excellent'
+        elif self.total_score >= 75:
+            self.rating = 'good'
+        elif self.total_score >= 60:
+            self.rating = 'average'
+        else:
+            self.rating = 'needs_support'
+
+        self.save()
+        return self.total_score
+
+    @classmethod
+    def calculate_for_topic(cls, student, topic, enrollment=None):
+        """
+        Calculate or update score for a student's topic.
+        """
+        if not enrollment:
+            enrollment = CourseEnrollment.objects.filter(
+                student=student,
+                course=topic.book
+            ).first()
+
+        if not enrollment:
+            return None
+
+        # Get or create score record
+        score, created = cls.objects.get_or_create(
+            student=student,
+            topic=topic,
+            defaults={'enrollment': enrollment}
+        )
+
+        # 1. Reading Score (based on time spent)
+        progress = TopicProgress.objects.filter(
+            enrollment=enrollment,
+            topic=topic
+        ).first()
+
+        if progress:
+            # Score based on time spent (target: 10 minutes = 600 seconds)
+            min_required = 600  # 10 minutes
+            time_spent = progress.time_spent_seconds
+            score.reading_score = min(100, int((time_spent / min_required) * 100))
+
+            # Activity completion score
+            if progress.status == 'completed':
+                score.activity_score = 100
+            elif progress.status == 'in_progress':
+                score.activity_score = 50
+            else:
+                score.activity_score = 0
+        else:
+            score.reading_score = 0
+            score.activity_score = 0
+
+        # 2. Teacher Rating Score (from ActivityProof)
+        proof = ActivityProof.objects.filter(
+            student=student,
+            topic=topic,
+            status='approved'
+        ).first()
+
+        if proof and proof.teacher_rating:
+            score.teacher_rating_score = proof.get_rating_score()
+        else:
+            score.teacher_rating_score = 0
+
+        # 3. Guardian Review Score
+        guardian_review = GuardianReview.objects.filter(
+            student=student,
+            topic=topic,
+            is_approved=True
+        ).first()
+
+        score.guardian_review_score = 100 if guardian_review else 0
+
+        # Calculate total
+        score.calculate_score()
+        return score

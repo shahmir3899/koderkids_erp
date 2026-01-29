@@ -18,6 +18,7 @@ import {
   TRANSITIONS,
   Z_INDEX,
 } from '../utils/designConstants';
+import { getTodayLocal } from '../utils/dateFormatters';
 
 function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
   const [closeButtonHovered, setCloseButtonHovered] = useState(false);
@@ -197,7 +198,7 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
         password: formData.password,
         date_of_birth: formData.date_of_birth || null,
         date_of_registration:
-          formData.date_of_registration || new Date().toISOString().split("T")[0],
+          formData.date_of_registration || getTodayLocal(),
       };
 
       // API call

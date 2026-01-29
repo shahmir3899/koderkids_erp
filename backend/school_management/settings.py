@@ -120,6 +120,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Timezone Configuration (Pakistan Standard Time)
+TIME_ZONE = 'Asia/Karachi'
+USE_TZ = True
+USE_I18N = True
+USE_L10N = True
+
 # URL Configuration
 ROOT_URLCONF = 'school_management.urls'
 

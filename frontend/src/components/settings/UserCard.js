@@ -22,8 +22,7 @@ import {
  *
  * @param {Object} props
  * @param {Object} props.user - User object
- * @param {Function} props.onView - Callback when view button is clicked
- * @param {Function} props.onEdit - Callback when edit button is clicked
+ * @param {Function} props.onView - Callback when view button is clicked (opens modal with edit option)
  * @param {Function} props.onAssignSchools - Callback when assign schools button is clicked (Teachers only)
  * @param {Function} props.onResetPassword - Callback when reset password button is clicked
  * @param {Function} props.onDeactivate - Callback when deactivate button is clicked
@@ -34,7 +33,6 @@ import {
 export const UserCard = ({
   user,
   onView,
-  onEdit,
   onAssignSchools,
   onResetPassword,
   onDeactivate,
@@ -252,18 +250,6 @@ export const UserCard = ({
         {/* For active users */}
         {!isInactive && (
           <>
-            {/* Edit Button */}
-            {onEdit && (
-              <button
-                style={getActionButtonStyle('success', 'edit')}
-                onClick={() => onEdit(user)}
-                onMouseEnter={() => setHoveredButton('edit')}
-                onMouseLeave={() => setHoveredButton(null)}
-              >
-                ✏️ Edit
-              </button>
-            )}
-
             {/* Assign Schools - Teachers only */}
             {role === 'Teacher' && onAssignSchools && (
               <button

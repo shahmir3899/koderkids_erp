@@ -16,9 +16,14 @@ class UserListSerializer(serializers.ModelSerializer):
     assigned_schools_count = serializers.SerializerMethodField()
     assigned_schools_names = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
+    # TeacherProfile fields
+    employee_id = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
     date_of_joining = serializers.SerializerMethodField()
     basic_salary = serializers.SerializerMethodField()
-    employee_id = serializers.SerializerMethodField()
+    bank_name = serializers.SerializerMethodField()
+    account_title = serializers.SerializerMethodField()
+    account_number = serializers.SerializerMethodField()
     profile_photo_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -28,8 +33,9 @@ class UserListSerializer(serializers.ModelSerializer):
             'role', 'is_active', 'is_super_admin',
             'assigned_schools_count', 'assigned_schools_names',
             'last_login', 'created_at', 'created_by_name',
-            'date_of_joining', 'basic_salary', 'employee_id',
-            'profile_photo_url'
+            # TeacherProfile fields
+            'employee_id', 'title', 'date_of_joining', 'basic_salary',
+            'bank_name', 'account_title', 'account_number', 'profile_photo_url',
         ]
 
     def get_assigned_schools_count(self, obj):
@@ -89,6 +95,26 @@ class UserListSerializer(serializers.ModelSerializer):
             return profile.employee_id
         return None
 
+    def get_title(self, obj):
+        """Get title from TeacherProfile if exists"""
+        profile = self._get_profile(obj)
+        return profile.title if profile and profile.title else None
+
+    def get_bank_name(self, obj):
+        """Get bank_name from TeacherProfile if exists"""
+        profile = self._get_profile(obj)
+        return profile.bank_name if profile and profile.bank_name else None
+
+    def get_account_title(self, obj):
+        """Get account_title from TeacherProfile if exists"""
+        profile = self._get_profile(obj)
+        return profile.account_title if profile and profile.account_title else None
+
+    def get_account_number(self, obj):
+        """Get account_number from TeacherProfile if exists"""
+        profile = self._get_profile(obj)
+        return profile.account_number if profile and profile.account_number else None
+
     def get_profile_photo_url(self, obj):
         """Get profile_photo_url from CustomUser or TeacherProfile"""
         # First check CustomUser's profile_photo_url
@@ -107,7 +133,16 @@ class UserDetailSerializer(serializers.ModelSerializer):
     assigned_schools_names = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
     updated_by_name = serializers.SerializerMethodField()
-    
+    # TeacherProfile fields
+    employee_id = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    date_of_joining = serializers.SerializerMethodField()
+    basic_salary = serializers.SerializerMethodField()
+    bank_name = serializers.SerializerMethodField()
+    account_title = serializers.SerializerMethodField()
+    account_number = serializers.SerializerMethodField()
+    profile_photo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomUser
         fields = [
@@ -116,27 +151,88 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'assigned_schools', 'assigned_schools_names',
             'created_by', 'created_by_name',
             'updated_by', 'updated_by_name', 'created_at', 'updated_at',
-            'last_login'
+            'last_login',
+            # TeacherProfile fields
+            'employee_id', 'title', 'date_of_joining', 'basic_salary',
+            'bank_name', 'account_title', 'account_number', 'profile_photo_url',
         ]
         read_only_fields = ['id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'last_login']
-    
+
+    def _get_profile(self, obj):
+        """Get TeacherProfile if exists"""
+        cache_key = f'_profile_cache_{obj.id}'
+        if hasattr(self, cache_key):
+            return getattr(self, cache_key)
+
+        profile = None
+        try:
+            if hasattr(obj, '_prefetched_profile'):
+                profile = obj._prefetched_profile
+            else:
+                profile = getattr(obj, 'teacher_profile', None)
+        except Exception:
+            pass
+
+        setattr(self, cache_key, profile)
+        return profile
+
     def get_assigned_schools(self, obj):
         return [school.id for school in obj.assigned_schools.all()]
-    
+
     def get_assigned_schools_names(self, obj):
         names = list(obj.assigned_schools.values_list('name', flat=True))
         if len(names) == 1:
             return names[0]  # Return string for single school
         return names  # Return array for multiple schools
-    
+
     def get_created_by_name(self, obj):
         if obj.created_by:
             return f"{obj.created_by.first_name} {obj.created_by.last_name}".strip() or obj.created_by.username
         return "System"
-    
+
     def get_updated_by_name(self, obj):
         if obj.updated_by:
             return f"{obj.updated_by.first_name} {obj.updated_by.last_name}".strip() or obj.updated_by.username
+        return None
+
+    def get_employee_id(self, obj):
+        profile = self._get_profile(obj)
+        return profile.employee_id if profile else None
+
+    def get_title(self, obj):
+        profile = self._get_profile(obj)
+        return profile.title if profile and profile.title else None
+
+    def get_date_of_joining(self, obj):
+        profile = self._get_profile(obj)
+        if profile and profile.date_of_joining:
+            return profile.date_of_joining.isoformat()
+        return None
+
+    def get_basic_salary(self, obj):
+        profile = self._get_profile(obj)
+        if profile and profile.basic_salary:
+            return float(profile.basic_salary)
+        return None
+
+    def get_bank_name(self, obj):
+        profile = self._get_profile(obj)
+        return profile.bank_name if profile and profile.bank_name else None
+
+    def get_account_title(self, obj):
+        profile = self._get_profile(obj)
+        return profile.account_title if profile and profile.account_title else None
+
+    def get_account_number(self, obj):
+        profile = self._get_profile(obj)
+        return profile.account_number if profile and profile.account_number else None
+
+    def get_profile_photo_url(self, obj):
+        if obj.profile_photo_url:
+            return obj.profile_photo_url
+        profile = self._get_profile(obj)
+        if profile and hasattr(profile, 'profile_photo_url') and profile.profile_photo_url:
+            return profile.profile_photo_url
         return None
 
 
@@ -204,14 +300,27 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         queryset=School.objects.all(),
         required=False
     )
-    send_email = serializers.BooleanField(write_only=True, required=False, default=False)  # ← ADD THIS
-    
+    send_email = serializers.BooleanField(write_only=True, required=False, default=False)
+    # TeacherProfile fields (handled in update method)
+    title = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+    date_of_joining = serializers.DateField(write_only=True, required=False, allow_null=True)
+    basic_salary = serializers.DecimalField(
+        write_only=True, required=False, allow_null=True,
+        max_digits=10, decimal_places=2
+    )
+    bank_name = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+    account_title = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+    account_number = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+
     class Meta:
         model = CustomUser
         fields = [
             'email', 'first_name', 'last_name', 'role',
             'is_active', 'is_staff', 'assigned_schools',
-            'send_email'  # ← ADD THIS
+            'send_email',
+            # TeacherProfile fields
+            'title', 'date_of_joining', 'basic_salary',
+            'bank_name', 'account_title', 'account_number',
         ]
         extra_kwargs = {
             'email': {'required': False},
@@ -221,25 +330,75 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'is_active': {'required': False},
             'is_staff': {'required': False},
         }
-    
+
     def validate_role(self, value):
         """Validate role choice"""
         valid_roles = [choice[0] for choice in CustomUser.ROLE_CHOICES]
         if value not in valid_roles:
             raise serializers.ValidationError(f"Invalid role. Choose from: {', '.join(valid_roles)}")
         return value
-    
+
     def validate(self, data):
         """Validate assigned_schools based on role"""
         role = data.get('role', self.instance.role)
         assigned_schools = data.get('assigned_schools')
-        
+
         if assigned_schools and role != 'Teacher':
             raise serializers.ValidationError({
                 'assigned_schools': 'Only teachers can be assigned to schools'
             })
-        
+
         return data
+
+    def update(self, instance, validated_data):
+        # Extract profile fields before parent update
+        title = validated_data.pop('title', None)
+        date_of_joining = validated_data.pop('date_of_joining', None)
+        basic_salary = validated_data.pop('basic_salary', None)
+        bank_name = validated_data.pop('bank_name', None)
+        account_title = validated_data.pop('account_title', None)
+        account_number = validated_data.pop('account_number', None)
+        validated_data.pop('send_email', None)  # Remove, handled in view
+
+        # Update CustomUser fields
+        instance = super().update(instance, validated_data)
+
+        # Check if any profile field was provided
+        profile_fields = {
+            'title': title,
+            'date_of_joining': date_of_joining,
+            'basic_salary': basic_salary,
+            'bank_name': bank_name,
+            'account_title': account_title,
+            'account_number': account_number,
+        }
+        has_profile_update = any(v is not None for v in profile_fields.values())
+
+        # Update TeacherProfile fields if any provided
+        if has_profile_update:
+            try:
+                from employees.models import TeacherProfile
+                profile, created = TeacherProfile.objects.get_or_create(user=instance)
+
+                if title is not None:
+                    profile.title = title
+                if date_of_joining is not None:
+                    profile.date_of_joining = date_of_joining
+                if basic_salary is not None:
+                    profile.basic_salary = basic_salary
+                if bank_name is not None:
+                    profile.bank_name = bank_name
+                if account_title is not None:
+                    profile.account_title = account_title
+                if account_number is not None:
+                    profile.account_number = account_number
+
+                profile.save()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to update TeacherProfile: {e}")
+
+        return instance
 
 class PasswordResetSerializer(serializers.Serializer):
     """Serializer for password reset"""

@@ -2,7 +2,8 @@
 from django.contrib import admin
 from .models import (
     CourseEnrollment, TopicProgress,
-    Quiz, QuizQuestion, QuizChoice, QuizAttempt
+    Quiz, QuizQuestion, QuizChoice, QuizAttempt,
+    ActivityProof, ActivityProofBulkAction, GuardianReview, SectionScore
 )
 
 
@@ -98,3 +99,60 @@ class QuizAttemptAdmin(admin.ModelAdmin):
             return f"{minutes}m {seconds}s"
         return "-"
     time_taken_display.short_description = 'Time Taken'
+
+
+# ============================================
+# Activity Proof Admin
+# ============================================
+
+@admin.register(ActivityProof)
+class ActivityProofAdmin(admin.ModelAdmin):
+    list_display = (
+        'student', 'topic', 'software_used', 'status',
+        'teacher_rating', 'uploaded_at', 'approved_at'
+    )
+    list_filter = ('status', 'software_used', 'teacher_rating', 'uploaded_at')
+    search_fields = ('student__name', 'topic__title', 'teacher_remarks')
+    readonly_fields = ('uploaded_at', 'approved_at')
+    raw_id_fields = ('student', 'topic', 'enrollment', 'approved_by')
+
+    fieldsets = (
+        ('Student Info', {
+            'fields': ('student', 'topic', 'enrollment')
+        }),
+        ('Proof Details', {
+            'fields': ('screenshot_url', 'software_used', 'student_notes', 'uploaded_at')
+        }),
+        ('Review', {
+            'fields': ('status', 'teacher_rating', 'teacher_remarks', 'approved_by', 'approved_at')
+        }),
+    )
+
+
+@admin.register(ActivityProofBulkAction)
+class ActivityProofBulkActionAdmin(admin.ModelAdmin):
+    list_display = ('teacher', 'action_type', 'count', 'rating', 'created_at')
+    list_filter = ('action_type', 'rating', 'created_at')
+    search_fields = ('teacher__username', 'remarks')
+    readonly_fields = ('teacher', 'action_type', 'proof_ids', 'count', 'rating', 'remarks', 'created_at')
+
+
+@admin.register(GuardianReview)
+class GuardianReviewAdmin(admin.ModelAdmin):
+    list_display = ('student', 'topic', 'is_approved', 'reviewed_at', 'reviewer_ip')
+    list_filter = ('is_approved', 'reviewed_at')
+    search_fields = ('student__name', 'topic__title', 'review_notes')
+    readonly_fields = ('reviewed_at',)
+    raw_id_fields = ('student', 'topic', 'activity_proof')
+
+
+@admin.register(SectionScore)
+class SectionScoreAdmin(admin.ModelAdmin):
+    list_display = (
+        'student', 'topic', 'reading_score', 'activity_score',
+        'teacher_rating_score', 'guardian_review_score', 'total_score', 'rating'
+    )
+    list_filter = ('rating', 'calculated_at')
+    search_fields = ('student__name', 'topic__title')
+    readonly_fields = ('calculated_at', 'created_at')
+    raw_id_fields = ('student', 'topic', 'enrollment')

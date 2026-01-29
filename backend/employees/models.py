@@ -34,12 +34,12 @@ class TeacherProfile(models.Model):
         ('O-', 'O-'),
     ]
     
-    # UPDATED: Now supports both Teacher and Admin roles
+    # UPDATED: Now supports Teacher, Admin, and BDM roles
     user = models.OneToOneField(
         CustomUser,
         on_delete=models.CASCADE,
         related_name='teacher_profile',
-        limit_choices_to={'role__in': ['Teacher', 'Admin']}
+        limit_choices_to={'role__in': ['Teacher', 'Admin', 'BDM']}
     )
     
     # Auto-generated Employee ID
@@ -80,8 +80,9 @@ class TeacherProfile(models.Model):
         help_text="Monthly salary in PKR"
     )
     bank_name = models.CharField(max_length=100, blank=True, null=True)
+    account_title = models.CharField(max_length=150, blank=True, null=True, help_text="Bank account holder name")
     account_number = models.CharField(max_length=50, blank=True, null=True)
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -104,12 +105,16 @@ class TeacherProfile(models.Model):
         Generate employee ID based on role:
         - Teachers: KK-T-XXX (starting from 025)
         - Admins: KK-A-XXX (starting from 001)
+        - BDMs: KK-BDM-XXX (starting from 001)
         """
         role = self.user.role
-        
+
         # Determine prefix and start number based on role
         if role == 'Admin':
             prefix = 'KK-A'
+            start_number = 1
+        elif role == 'BDM':
+            prefix = 'KK-BDM'
             start_number = 1
         else:  # Teacher (default)
             prefix = 'KK-T'
@@ -280,6 +285,7 @@ class SalarySlip(models.Model):
     schools = models.TextField(blank=True, null=True, help_text="Schools assigned (one per line)")
     date_of_joining = models.DateField(blank=True, null=True)
     bank_name = models.CharField(max_length=100, blank=True, null=True)
+    account_title = models.CharField(max_length=150, blank=True, null=True, help_text="Bank account holder name")
     account_number = models.CharField(max_length=50, blank=True, null=True)
 
     # Financial data
@@ -370,22 +376,332 @@ class SalarySlip(models.Model):
 
 
 # ============================================
-# SIGNALS - Auto-create TeacherProfile for both Teachers and Admins
+# SIGNALS - Auto-create TeacherProfile for Teachers, Admins, and BDMs
 # ============================================
 
 @receiver(post_save, sender=CustomUser)
 def create_employee_profile(sender, instance, created, **kwargs):
     """
-    Automatically create TeacherProfile when a new Teacher or Admin user is created
+    Automatically create TeacherProfile when a new Teacher, Admin, or BDM user is created
     """
-    if instance.role in ['Teacher', 'Admin']:
+    if instance.role in ['Teacher', 'Admin', 'BDM']:
         TeacherProfile.objects.get_or_create(user=instance)
 
 
 @receiver(post_save, sender=CustomUser)
 def save_employee_profile(sender, instance, **kwargs):
     """
-    Save TeacherProfile when user is saved (for both Teachers and Admins)
+    Save TeacherProfile when user is saved (for Teachers, Admins, and BDMs)
     """
-    if instance.role in ['Teacher', 'Admin'] and hasattr(instance, 'teacher_profile'):
+    if instance.role in ['Teacher', 'Admin', 'BDM'] and hasattr(instance, 'teacher_profile'):
         instance.teacher_profile.save()
+
+
+# ============================================
+# BDM PROFORMA & TEACHER EVALUATION MODELS
+# ============================================
+
+class BDMVisitProforma(models.Model):
+    """
+    Monthly BDM visit proforma for teacher attitude evaluation.
+    BDM fills this during their monthly school visits.
+
+    The attitude score from this proforma contributes to the overall
+    teacher evaluation (30% weight).
+    """
+    teacher = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'Teacher'},
+        related_name='bdm_proformas'
+    )
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name='bdm_proformas'
+    )
+    bdm = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'BDM'},
+        related_name='submitted_proformas',
+        help_text="BDM who filled this proforma"
+    )
+
+    # Period
+    visit_date = models.DateField()
+    month = models.IntegerField(help_text="Month (1-12)")
+    year = models.IntegerField()
+
+    # Rating parameters (1-5 scale)
+    discipline_rating = models.IntegerField(
+        default=3,
+        help_text="Discipline & punctuality (1-5)"
+    )
+    communication_rating = models.IntegerField(
+        default=3,
+        help_text="Communication skills (1-5)"
+    )
+    child_handling_rating = models.IntegerField(
+        default=3,
+        help_text="Child handling & patience (1-5)"
+    )
+    professionalism_rating = models.IntegerField(
+        default=3,
+        help_text="Professionalism & dress code (1-5)"
+    )
+    content_knowledge_rating = models.IntegerField(
+        default=3,
+        help_text="Subject content knowledge (1-5)"
+    )
+
+    # Calculated attitude score (average * 20 to convert to 0-100)
+    overall_attitude_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Calculated from average of all ratings (0-100)"
+    )
+
+    # Additional info
+    remarks = models.TextField(blank=True)
+    areas_of_improvement = models.TextField(blank=True)
+    teacher_strengths = models.TextField(blank=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-visit_date']
+        verbose_name = 'BDM Visit Proforma'
+        verbose_name_plural = 'BDM Visit Proformas'
+        unique_together = ('teacher', 'school', 'month', 'year')
+
+    def __str__(self):
+        return f"{self.teacher.get_full_name()} - {self.school.name} ({self.month}/{self.year})"
+
+    def save(self, *args, **kwargs):
+        # Calculate overall attitude score
+        ratings = [
+            self.discipline_rating,
+            self.communication_rating,
+            self.child_handling_rating,
+            self.professionalism_rating,
+            self.content_knowledge_rating
+        ]
+        average = sum(ratings) / len(ratings)
+        # Convert 1-5 scale to 0-100 scale
+        self.overall_attitude_score = average * 20
+        super().save(*args, **kwargs)
+
+
+class TeacherEvaluationScore(models.Model):
+    """
+    Monthly calculated teacher evaluation score.
+
+    Score formula:
+    - ERP Attendance (login-based): 30%
+    - Attitude Rating (BDM proforma): 30%
+    - Student Interest & Engagement: 20%
+    - New Enrollment Impact: 20%
+    """
+    RATING_CHOICES = [
+        ('master_trainer', 'Master Trainer'),
+        ('certified_trainer', 'Certified Trainer'),
+        ('needs_improvement', 'Needs Improvement'),
+        ('performance_review', 'Performance Review'),
+    ]
+
+    teacher = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'Teacher'},
+        related_name='evaluation_scores'
+    )
+
+    # Period
+    month = models.IntegerField(help_text="Month (1-12)")
+    year = models.IntegerField()
+
+    # Component scores (0-100)
+    attendance_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Score from TeacherAttendance (0-100)"
+    )
+    attitude_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Score from BDMVisitProforma (0-100)"
+    )
+    student_interest_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Score from TopicProgress completion rates (0-100)"
+    )
+    enrollment_impact_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Score from new student admissions (0-100)"
+    )
+
+    # Weighted total
+    total_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Weighted total score"
+    )
+    rating = models.CharField(
+        max_length=30,
+        choices=RATING_CHOICES,
+        default='needs_improvement'
+    )
+
+    # Timestamps
+    calculated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-year', '-month']
+        verbose_name = 'Teacher Evaluation Score'
+        verbose_name_plural = 'Teacher Evaluation Scores'
+        unique_together = ('teacher', 'month', 'year')
+
+    def __str__(self):
+        return f"{self.teacher.get_full_name()} - {self.month}/{self.year}: {self.total_score}%"
+
+    def calculate_score(self):
+        """
+        Calculate the weighted total score.
+
+        Weight distribution:
+        - Attendance: 30%
+        - Attitude: 30%
+        - Student Interest: 20%
+        - Enrollment Impact: 20%
+        """
+        self.total_score = (
+            (float(self.attendance_score) * 0.30) +
+            (float(self.attitude_score) * 0.30) +
+            (float(self.student_interest_score) * 0.20) +
+            (float(self.enrollment_impact_score) * 0.20)
+        )
+
+        # Assign rating based on total score
+        if self.total_score >= 85:
+            self.rating = 'master_trainer'
+        elif self.total_score >= 70:
+            self.rating = 'certified_trainer'
+        elif self.total_score >= 55:
+            self.rating = 'needs_improvement'
+        else:
+            self.rating = 'performance_review'
+
+        self.save()
+        return self.total_score
+
+    @classmethod
+    def calculate_for_teacher(cls, teacher, month, year):
+        """
+        Calculate or update evaluation score for a teacher.
+        """
+        from students.models import TeacherAttendance
+        from courses.models import TopicProgress
+        from django.db.models import Avg, Count
+
+        # Get or create score record
+        score, created = cls.objects.get_or_create(
+            teacher=teacher,
+            month=month,
+            year=year
+        )
+
+        # 1. Attendance Score
+        # Get teacher's attendance for the month
+        from django.utils import timezone
+        from datetime import date
+        month_start = date(year, month, 1)
+        if month == 12:
+            month_end = date(year + 1, 1, 1)
+        else:
+            month_end = date(year, month + 1, 1)
+
+        # Get working days from assigned schools
+        teacher_schools = teacher.assigned_schools.all()
+        total_working_days = 0
+        present_days = 0
+
+        for school in teacher_schools:
+            # Count assigned days in the month
+            current_date = month_start
+            while current_date < month_end:
+                if school.is_working_day(current_date):
+                    total_working_days += 1
+                current_date += timezone.timedelta(days=1)
+
+        # Count actual attendance
+        attendance_records = TeacherAttendance.objects.filter(
+            teacher=teacher,
+            date__gte=month_start,
+            date__lt=month_end,
+            status__in=['Present', 'Within Geofence']
+        ).count()
+
+        if total_working_days > 0:
+            score.attendance_score = min(100, (attendance_records / total_working_days) * 100)
+        else:
+            score.attendance_score = 0
+
+        # 2. Attitude Score (from BDM Proforma)
+        proforma = BDMVisitProforma.objects.filter(
+            teacher=teacher,
+            month=month,
+            year=year
+        ).first()
+
+        if proforma:
+            score.attitude_score = proforma.overall_attitude_score
+        else:
+            score.attitude_score = 0
+
+        # 3. Student Interest Score (from TopicProgress completion rates)
+        # Get students in teacher's schools
+        from students.models import Student
+        students_in_schools = Student.objects.filter(
+            school__in=teacher_schools,
+            is_active=True
+        )
+
+        if students_in_schools.exists():
+            progress_stats = TopicProgress.objects.filter(
+                enrollment__student__in=students_in_schools
+            ).aggregate(
+                completed=Count('id', filter=models.Q(status='completed')),
+                total=Count('id')
+            )
+
+            if progress_stats['total'] > 0:
+                score.student_interest_score = (
+                    progress_stats['completed'] / progress_stats['total']
+                ) * 100
+            else:
+                score.student_interest_score = 0
+        else:
+            score.student_interest_score = 0
+
+        # 4. Enrollment Impact Score
+        # This would need a StudentEnrollmentRecord model to track
+        # For now, we'll set it based on student count growth
+        # Simplified: 20 students = 100%, scaling down
+        student_count = students_in_schools.count()
+        score.enrollment_impact_score = min(100, student_count * 5)  # 20 students = 100
+
+        # Calculate total
+        score.calculate_score()
+        return score

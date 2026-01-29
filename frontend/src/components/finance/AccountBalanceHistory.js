@@ -10,6 +10,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_URL, getAuthHeaders } from '../../api';
+import { formatLocalDate } from '../../utils/dateFormatters';
 import {
   LineChart,
   Line,
@@ -179,7 +180,7 @@ export const AccountBalanceHistory = ({ accounts }) => {
     
     transactions.forEach(tx => {
       const weekStart = getWeekStart(tx.date);
-      const weekKey = weekStart.toISOString().split('T')[0];
+      const weekKey = formatLocalDate(weekStart);
       const weekLabel = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       
       if (!grouped[weekKey] || tx.date > grouped[weekKey].date) {

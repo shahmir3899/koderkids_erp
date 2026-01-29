@@ -43,6 +43,15 @@ from .views import (
     SalarySlipDetailView,
 )
 
+from .evaluation_views import (
+    bdm_proforma_list,
+    bdm_proforma_detail,
+    teacher_evaluation_list,
+    teacher_evaluation_detail,
+    calculate_evaluation,
+    my_evaluation,
+)
+
 app_name = 'employees'
 
 urlpatterns = [
@@ -148,4 +157,32 @@ urlpatterns = [
     # GET - Retrieve specific slip (own only for non-admins)
     # DELETE - Delete slip (Admin only)
     path('salary-slips/<int:pk>/', SalarySlipDetailView.as_view(), name='salary-slip-detail'),
+
+    # ============================================
+    # BDM Proforma Endpoints (Teacher Attitude Evaluation)
+    # URLs: /employees/bdm/proforma/...
+    # ============================================
+
+    # GET - List all proformas, POST - Create new proforma
+    path('bdm/proforma/', bdm_proforma_list, name='bdm-proforma-list'),
+
+    # GET/PUT - View or update specific proforma
+    path('bdm/proforma/<int:proforma_id>/', bdm_proforma_detail, name='bdm-proforma-detail'),
+
+    # ============================================
+    # Teacher Evaluation Endpoints
+    # URLs: /employees/teacher-evaluation/...
+    # ============================================
+
+    # GET - List all teacher evaluations (Admin only)
+    path('teacher-evaluation/', teacher_evaluation_list, name='teacher-evaluation-list'),
+
+    # GET - View specific teacher's evaluations
+    path('teacher-evaluation/<int:teacher_id>/', teacher_evaluation_detail, name='teacher-evaluation-detail'),
+
+    # POST - Calculate/recalculate evaluations
+    path('teacher-evaluation/calculate/', calculate_evaluation, name='teacher-evaluation-calculate'),
+
+    # GET - Get own evaluations (Teacher self-service)
+    path('my-evaluation/', my_evaluation, name='my-evaluation'),
 ]

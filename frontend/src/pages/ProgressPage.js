@@ -591,7 +591,7 @@ const ProgressPage = () => {
               showClass={true}
               showMonth={false}
               preventFutureDates={true}
-              submitButtonText="Fetch Students"
+              submitButtonText="📊 Show Students"
               showResetButton={true}
               onFilter={handleFilter}
             />
@@ -688,7 +688,7 @@ const ProgressPage = () => {
                   Select date, school, and class above
                 </p>
                 <p style={responsiveStyles.emptyStateText}>
-                  Then click "Fetch Students" to load student data.
+                  Then click "Show Students" to load student data.
                 </p>
               </div>
             )}

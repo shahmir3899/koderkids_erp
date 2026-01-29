@@ -99,42 +99,41 @@ class TeacherListView(APIView):
 
 class TeacherProfileView(APIView):
     """
-    GET: Retrieve current teacher's profile
-    PUT: Update current teacher's profile
+    GET: Retrieve employee profile (Teacher, Admin, or BDM)
+    PUT: Update employee profile
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, teacher_id=None):
         """Get teacher profile - either by ID (admin) or current user"""
         if teacher_id:
-            # Admin viewing specific teacher
-            user = get_object_or_404(CustomUser, id=teacher_id, role='Teacher')
+            # Admin viewing specific employee (Teacher, Admin, or BDM)
+            user = get_object_or_404(CustomUser, id=teacher_id, role__in=['Teacher', 'Admin', 'BDM'])
         else:
-            # Teacher viewing own profile
+            # Employee viewing own profile
             user = request.user
-            if user.role != 'Teacher':
+            if user.role not in ['Teacher', 'Admin', 'BDM']:
                 return Response(
-                    {'error': 'This endpoint is only for teachers'},
+                    {'error': 'This endpoint is only for employees'},
                     status=status.HTTP_403_FORBIDDEN
                 )
-        
+
         # Get or create profile
         profile, created = TeacherProfile.objects.get_or_create(user=user)
         serializer = TeacherProfileSerializer(profile)
-        
         return Response(serializer.data)
 
     def put(self, request, teacher_id=None):
         """Update teacher profile"""
         if teacher_id and request.user.role == 'Admin':
-            # Admin updating teacher
-            user = get_object_or_404(CustomUser, id=teacher_id, role='Teacher')
+            # Admin updating employee (Teacher, Admin, or BDM)
+            user = get_object_or_404(CustomUser, id=teacher_id, role__in=['Teacher', 'Admin', 'BDM'])
         else:
-            # Teacher updating own profile
+            # Employee updating own profile
             user = request.user
-            if user.role != 'Teacher':
+            if user.role not in ['Teacher', 'Admin', 'BDM']:
                 return Response(
-                    {'error': 'This endpoint is only for teachers'},
+                    {'error': 'This endpoint is only for employees'},
                     status=status.HTTP_403_FORBIDDEN
                 )
         
@@ -621,6 +620,7 @@ def get_my_salary_data(request):
             'date_of_joining': profile.date_of_joining,
             'basic_salary': str(profile.basic_salary) if profile.basic_salary else '0',
             'bank_name': profile.bank_name or '',
+            'account_title': profile.account_title or '',
             'account_number': profile.account_number or '',
             'phone': profile.phone or '',
             'address': profile.address or '',
@@ -1027,6 +1027,31 @@ class SalarySlipDetailView(APIView):
 
         serializer = SalarySlipSerializer(slip)
         return Response(serializer.data)
+
+    def put(self, request, pk):
+        """Update an existing salary slip (Admin only)."""
+        # Only admins can update
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can update salary slips'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        slip = get_object_or_404(SalarySlip, pk=pk)
+
+        serializer = SalarySlipCreateSerializer(
+            slip,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            updated_slip = serializer.save()
+            response_serializer = SalarySlipSerializer(updated_slip)
+            return Response(response_serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
         # Only admins can delete

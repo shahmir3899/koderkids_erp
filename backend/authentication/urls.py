@@ -11,9 +11,10 @@ from .views import (
     get_logged_in_user,
     get_my_assigned_schools,
     UserViewSet,
-    password_reset_request,      # ← NEW
-    password_reset_confirm,       # ← NEW
+    password_reset_request,
+    password_reset_confirm,
     change_password,
+    teacher_logout,
 )
 from .teacher_attendance_views import (
     get_my_attendance,
@@ -48,6 +49,9 @@ urlpatterns = [
     path('teacher-attendance/calendar/', get_my_attendance_calendar, name='teacher-attendance-calendar'),
     path('teacher-attendance/admin/', get_admin_teacher_attendance, name='admin-teacher-attendance'),
     path('teacher-attendance/admin/<int:teacher_id>/', get_teacher_attendance_detail, name='teacher-attendance-detail'),
+
+    # Teacher Logout (clears location data)
+    path('teacher-logout/', teacher_logout, name='teacher-logout'),
 
     # User management routes (from router)
     path('', include(router.urls)),

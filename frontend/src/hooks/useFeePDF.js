@@ -129,7 +129,7 @@ const buildPDFHTML = ({
             <p style="font-size: 12px; color: #4b5563; margin: 4px 0;"><strong>Month:</strong> ${monthDisplay}</p>
           </div>
           <div style="text-align: right;">
-            <img src="/logo512.png" alt="Koder Kids Logo" style="width: 60px; margin-bottom: 8px;" />
+            <img src="/logo512.png" alt="Koder Kids Logo" style="width: 120px; margin-bottom: 8px;" />
             <p style="font-weight: bold; font-size: 14px; color: #1e40af; margin: 0;">Koder Kids</p>
             <p style="font-size: 11px; color: #4b5563; margin: 2px 0;">G-15 Markaz, Islamabad</p>
             <p style="font-size: 11px; color: #4b5563; margin: 2px 0;">0316-7394390</p>

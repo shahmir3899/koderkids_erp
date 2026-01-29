@@ -4,8 +4,8 @@ Geolocation utilities for teacher attendance tracking.
 import math
 from decimal import Decimal
 
-# Geofence radius in meters
-GEOFENCE_RADIUS_METERS = 200
+# Geofence radius in meters (2km = 2000m)
+GEOFENCE_RADIUS_METERS = 2000
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -51,7 +51,7 @@ def is_within_geofence(teacher_lat, teacher_lon, school_lat, school_lon, radius=
     Args:
         teacher_lat, teacher_lon: Teacher's current location
         school_lat, school_lon: School's location
-        radius: Geofence radius in meters (default 200m)
+        radius: Geofence radius in meters (default 2km)
 
     Returns:
         tuple: (is_within: bool, distance: float)

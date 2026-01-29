@@ -40,7 +40,7 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
             'employee_id', 'profile_photo_url', 'title', 'gender', 'blood_group',
             'phone', 'address', 'date_of_joining',
             # Financial
-            'basic_salary', 'bank_name', 'account_number',
+            'basic_salary', 'bank_name', 'account_title', 'account_number',
             # Schools
             'assigned_schools', 'school_names',
             # Timestamps
@@ -72,7 +72,7 @@ class TeacherProfileUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'first_name', 'last_name',
             'title', 'gender', 'blood_group', 'phone', 'address',
-            'date_of_joining', 'basic_salary', 'bank_name', 'account_number',
+            'date_of_joining', 'basic_salary', 'bank_name', 'account_title', 'account_number',
             'profile_photo_url',
         ]
 
@@ -123,7 +123,7 @@ class AdminProfileSerializer(serializers.ModelSerializer):
             'employee_id', 'profile_photo_url', 'title', 'gender', 'blood_group',
             'phone', 'address', 'date_of_joining',
             # Financial (optional for admin, but keeping for consistency)
-            'basic_salary', 'bank_name', 'account_number',
+            'basic_salary', 'bank_name', 'account_title', 'account_number',
             # Timestamps
             'created_at', 'updated_at',
         ]
@@ -295,7 +295,7 @@ class SalarySlipSerializer(serializers.ModelSerializer):
             # Snapshot data
             'company_name', 'employee_name', 'employee_id_snapshot',
             'title', 'schools', 'date_of_joining',
-            'bank_name', 'account_number',
+            'bank_name', 'account_title', 'account_number',
             # Financial
             'basic_salary', 'no_of_days', 'normalized_days', 'prorated_salary',
             'earnings_snapshot', 'deductions_snapshot',
@@ -329,7 +329,7 @@ class SalarySlipCreateSerializer(serializers.ModelSerializer):
             # Snapshot data
             'company_name', 'employee_name', 'employee_id_snapshot',
             'title', 'schools', 'date_of_joining',
-            'bank_name', 'account_number',
+            'bank_name', 'account_title', 'account_number',
             # Financial
             'basic_salary', 'no_of_days', 'normalized_days', 'prorated_salary',
             'earnings_snapshot', 'deductions_snapshot',

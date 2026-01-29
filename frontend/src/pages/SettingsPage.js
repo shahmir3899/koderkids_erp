@@ -609,8 +609,7 @@ function SettingsPage() {
                       key={user.id}
                       user={user}
                       onView={handleViewDetails}
-                      onEdit={handleEdit}
-                      onAssignSchools={handleAssignSchools}
+                                            onAssignSchools={handleAssignSchools}
                       onResetPassword={handleResetPassword}
                       onDeactivate={openDeleteConfirm}
                       onReactivate={handleReactivate}
@@ -637,8 +636,7 @@ function SettingsPage() {
                       key={user.id}
                       user={user}
                       onView={handleViewDetails}
-                      onEdit={handleEdit}
-                      onAssignSchools={handleAssignSchools}
+                                            onAssignSchools={handleAssignSchools}
                       onResetPassword={handleResetPassword}
                       onDeactivate={openDeleteConfirm}
                       onReactivate={handleReactivate}
@@ -665,8 +663,7 @@ function SettingsPage() {
                       key={user.id}
                       user={user}
                       onView={handleViewDetails}
-                      onEdit={handleEdit}
-                      onAssignSchools={handleAssignSchools}
+                                            onAssignSchools={handleAssignSchools}
                       onResetPassword={handleResetPassword}
                       onDeactivate={openDeleteConfirm}
                       onReactivate={handleReactivate}
@@ -686,8 +683,7 @@ function SettingsPage() {
                 key={user.id}
                 user={user}
                 onView={handleViewDetails}
-                onEdit={handleEdit}
-                onAssignSchools={handleAssignSchools}
+                                onAssignSchools={handleAssignSchools}
                 onResetPassword={handleResetPassword}
                 onDeactivate={openDeleteConfirm}
                 onReactivate={handleReactivate}

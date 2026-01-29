@@ -306,6 +306,7 @@ const AdminTeacherAttendanceWidget = () => {
 const styles = {
   container: {
     ...MIXINS.glassmorphicCard,
+    background: 'rgba(255, 255, 255, 0.5)', // Lighter background for better text visibility
     padding: SPACING.xl,
     marginBottom: SPACING.lg,
   },
@@ -341,21 +342,21 @@ const styles = {
     transition: 'all 0.2s ease',
   },
   toggleButtonActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    color: COLORS.text.white,
+    backgroundColor: 'rgba(99, 102, 241, 0.3)',
+    color: '#312e81',
   },
   title: {
     fontSize: FONT_SIZES.lg,
     fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.text.white,
+    color: '#1e1b4b',
     margin: 0,
   },
   monthInput: {
     padding: `${SPACING.sm} ${SPACING.md}`,
     borderRadius: BORDER_RADIUS.md,
-    border: `1px solid ${COLORS.border.whiteTransparent}`,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    color: COLORS.text.white,
+    border: '1px solid rgba(99, 102, 241, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    color: '#1e1b4b',
     fontSize: FONT_SIZES.sm,
     outline: 'none',
   },
@@ -376,7 +377,7 @@ const styles = {
     animation: 'spin 1s linear infinite',
   },
   loadingText: {
-    color: COLORS.text.whiteSubtle,
+    color: '#4b5563',
     fontSize: FONT_SIZES.sm,
   },
   errorContainer: {
@@ -390,7 +391,7 @@ const styles = {
   noData: {
     padding: SPACING.xl,
     textAlign: 'center',
-    color: COLORS.text.whiteSubtle,
+    color: '#4b5563',
   },
   summaryRow: {
     display: 'flex',
@@ -411,11 +412,11 @@ const styles = {
   summaryValue: {
     fontSize: FONT_SIZES.xxl,
     fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.text.white,
+    color: '#1e1b4b',
   },
   summaryLabel: {
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.whiteSubtle,
+    color: '#4b5563',
     textAlign: 'center',
   },
   tableContainer: {
@@ -427,14 +428,14 @@ const styles = {
     borderCollapse: 'collapse',
   },
   tableHeaderRow: {
-    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderBottom: '1px solid rgba(99, 102, 241, 0.2)',
   },
   tableHeader: {
     padding: `${SPACING.sm} ${SPACING.md}`,
     textAlign: 'left',
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.whiteSubtle,
+    color: '#6366f1',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
@@ -445,7 +446,7 @@ const styles = {
   tableCell: {
     padding: `${SPACING.sm} ${SPACING.md}`,
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.white,
+    color: '#1e1b4b',
   },
   statusIndicator: {
     fontSize: FONT_SIZES.md,
@@ -454,7 +455,7 @@ const styles = {
     fontWeight: FONT_WEIGHTS.medium,
   },
   schoolName: {
-    color: COLORS.text.whiteSubtle,
+    color: '#4b5563',
     fontSize: FONT_SIZES.sm,
   },
   todayStatusContainer: {
@@ -475,7 +476,7 @@ const styles = {
   },
   loginTime: {
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.whiteSubtle,
+    color: '#6b7280',
   },
   rateValue: {
     fontWeight: FONT_WEIGHTS.bold,
@@ -486,7 +487,7 @@ const styles = {
     justifyContent: 'center',
     gap: SPACING.lg,
     paddingTop: SPACING.md,
-    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderTop: '1px solid rgba(99, 102, 241, 0.2)',
     flexWrap: 'wrap',
   },
   legendItem: {
@@ -496,7 +497,7 @@ const styles = {
   },
   legendText: {
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.whiteSubtle,
+    color: '#4b5563',
   },
 };
 

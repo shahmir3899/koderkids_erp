@@ -945,19 +945,77 @@ def change_password(request):
     }
     """
     from .serializers import ChangePasswordSerializer
-    
+
     serializer = ChangePasswordSerializer(
         data=request.data,
         context={'request': request}
     )
-    
+
     if serializer.is_valid():
         result = serializer.save()
         return Response(result, status=status.HTTP_200_OK)
-    
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ============================================
-# END OF NEW CODE
+# TEACHER LOGOUT (Clear Location)
 # ============================================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def teacher_logout(request):
+    """
+    Teacher logout - clears location data for privacy.
+    POST: {} or {"clear_location": true}
+
+    This endpoint:
+    1. Records logout time on today's attendance
+    2. Optionally clears location data (lat/long)
+    3. Returns logout confirmation
+    """
+    user = request.user
+
+    if user.role != 'Teacher':
+        return Response(
+            {'error': 'This endpoint is for teachers only'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    from django.utils import timezone
+    from students.models import TeacherAttendance
+
+    today = timezone.localdate()
+    clear_location = request.data.get('clear_location', True)
+
+    # Find today's attendance record
+    attendance = TeacherAttendance.objects.filter(
+        teacher=user,
+        date=today
+    ).first()
+
+    if attendance:
+        # Record logout time
+        attendance.logout_time = timezone.now()
+
+        # Clear location data if requested
+        if clear_location:
+            attendance.login_latitude = None
+            attendance.login_longitude = None
+            attendance.distance_from_school = None
+            attendance.location_cleared = True
+
+        attendance.save()
+
+        return Response({
+            'success': True,
+            'message': 'Logout recorded successfully',
+            'logout_time': attendance.logout_time,
+            'location_cleared': clear_location,
+        })
+    else:
+        return Response({
+            'success': True,
+            'message': 'No attendance record for today',
+            'location_cleared': False,
+        })

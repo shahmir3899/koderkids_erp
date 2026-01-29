@@ -562,7 +562,7 @@ const ImageManagementModal = ({
 
     try {
       await axios.delete(
-        `${API_URL}/api/reports/student-progress-images/${studentId}/${filename}/`,
+        `${API_URL}/api/student-progress-images/${studentId}/${filename}/`,
         { headers: getAuthHeaders() }
       );
 

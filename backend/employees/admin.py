@@ -3,7 +3,10 @@
 # ============================================
 
 from django.contrib import admin
-from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification
+from .models import (
+    TeacherProfile, TeacherEarning, TeacherDeduction, Notification,
+    BDMVisitProforma, TeacherEvaluationScore
+)
 
 
 @admin.register(TeacherProfile)
@@ -102,3 +105,78 @@ class NotificationAdmin(admin.ModelAdmin):
         count = queryset.update(is_read=False, read_at=None)
         self.message_user(request, f'{count} notification(s) marked as unread.')
     mark_as_unread.short_description = 'Mark selected notifications as unread'
+
+
+# ============================================
+# BDM PROFORMA & TEACHER EVALUATION ADMIN
+# ============================================
+
+@admin.register(BDMVisitProforma)
+class BDMVisitProformaAdmin(admin.ModelAdmin):
+    list_display = [
+        'teacher', 'school', 'bdm', 'month', 'year',
+        'overall_attitude_score', 'visit_date'
+    ]
+    list_filter = ['school', 'month', 'year', 'visit_date']
+    search_fields = [
+        'teacher__username', 'teacher__first_name', 'teacher__last_name',
+        'school__name', 'bdm__username'
+    ]
+    readonly_fields = ['overall_attitude_score', 'created_at', 'updated_at']
+    date_hierarchy = 'visit_date'
+
+    fieldsets = (
+        ('Visit Info', {
+            'fields': ('teacher', 'school', 'bdm', 'visit_date', 'month', 'year')
+        }),
+        ('Ratings (1-5)', {
+            'fields': (
+                'discipline_rating', 'communication_rating',
+                'child_handling_rating', 'professionalism_rating',
+                'content_knowledge_rating'
+            )
+        }),
+        ('Calculated Score', {
+            'fields': ('overall_attitude_score',)
+        }),
+        ('Additional Comments', {
+            'fields': ('remarks', 'areas_of_improvement', 'teacher_strengths'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(TeacherEvaluationScore)
+class TeacherEvaluationScoreAdmin(admin.ModelAdmin):
+    list_display = [
+        'teacher', 'month', 'year',
+        'attendance_score', 'attitude_score',
+        'student_interest_score', 'enrollment_impact_score',
+        'total_score', 'rating'
+    ]
+    list_filter = ['rating', 'month', 'year']
+    search_fields = ['teacher__username', 'teacher__first_name', 'teacher__last_name']
+    readonly_fields = ['calculated_at', 'created_at']
+
+    fieldsets = (
+        ('Teacher & Period', {
+            'fields': ('teacher', 'month', 'year')
+        }),
+        ('Component Scores', {
+            'fields': (
+                'attendance_score', 'attitude_score',
+                'student_interest_score', 'enrollment_impact_score'
+            )
+        }),
+        ('Final Score', {
+            'fields': ('total_score', 'rating')
+        }),
+        ('Timestamps', {
+            'fields': ('calculated_at', 'created_at'),
+            'classes': ('collapse',)
+        }),
+    )

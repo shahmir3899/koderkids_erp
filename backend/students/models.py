@@ -69,6 +69,19 @@ class School(models.Model):
         help_text="Days of week when this school has classes. [0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun]"
     )
 
+    # School timing for Guardian Mode
+    # Guardian review is only available OUTSIDE school hours
+    start_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="School start time (e.g., 08:00). If not set, defaults to 8:00 AM"
+    )
+    end_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="School end time (e.g., 15:00). If not set, defaults to 3:00 PM"
+    )
+
     def is_working_day(self, date=None):
         """Check if the given date (or today) is a working day for this school."""
         from django.utils import timezone
@@ -76,6 +89,24 @@ class School(models.Model):
             date = timezone.now().date()
         # Python weekday(): Monday=0, Sunday=6
         return date.weekday() in self.assigned_days if self.assigned_days else True
+
+    def is_guardian_time(self):
+        """
+        Check if current time is OUTSIDE school hours.
+        Guardian review button only shows during this time.
+        Returns True if current time is before start_time or after end_time.
+        """
+        from django.utils import timezone
+        from datetime import time as datetime_time
+
+        now = timezone.localtime().time()
+
+        # Default school hours: 8 AM - 3 PM
+        start = self.start_time or datetime_time(8, 0)
+        end = self.end_time or datetime_time(15, 0)
+
+        # Outside school hours = Guardian time
+        return now < start or now > end
 
     def get_assigned_days_display(self):
         """Return human-readable list of assigned days."""
@@ -326,7 +357,7 @@ class TeacherAttendance(models.Model):
     Records are created when teachers log in based on their location.
     """
     STATUS_CHOICES = [
-        ('present', 'Present'),                      # Within 200m of school
+        ('present', 'Present'),                      # Within 2km of school
         ('out_of_range', 'Out of Range'),            # Logged in but outside geofence
         ('location_unavailable', 'Location Unavailable'),  # User denied location permission
     ]
@@ -360,6 +391,16 @@ class TeacherAttendance(models.Model):
         max_digits=10, decimal_places=2,
         null=True, blank=True,
         help_text="Distance from school in meters"
+    )
+
+    # Logout details (for clearing location on logout)
+    logout_time = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Time when teacher logged out"
+    )
+    location_cleared = models.BooleanField(
+        default=False,
+        help_text="Whether location data was cleared on logout"
     )
 
     # Metadata

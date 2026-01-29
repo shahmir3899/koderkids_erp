@@ -240,10 +240,10 @@ def get_admin_teacher_attendance(request):
         out_of_range = counts.get('out_of_range', 0)
         location_unavailable = counts.get('location_unavailable', 0)
 
-        # Calculate attendance rate
+        # Calculate attendance rate (present + out_of_range counts as attended)
         attendance_rate = 0
         if total_working_days > 0:
-            attendance_rate = round((present / total_working_days) * 100, 1)
+            attendance_rate = round(((present + out_of_range) / total_working_days) * 100, 1)
 
         # Get today's attendance info
         today_attendance = TeacherAttendance.objects.filter(

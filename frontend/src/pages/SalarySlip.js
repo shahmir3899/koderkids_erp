@@ -198,6 +198,11 @@ function SalarySlipPage() {
 
   // Delete confirmation state
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  // Update/Create dialog state
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  // Track existing slip found during duplicate check (for fresh prints)
+  const [existingSlipForPeriod, setExistingSlipForPeriod] = useState(null);
 
   const {
     formData,
@@ -223,6 +228,8 @@ function SalarySlipPage() {
     loadHistoricalSlip,
     deleteHistoricalSlip,
     clearHistoricalSlip,
+    saveSalarySlipToDb,
+    updateSalarySlipInDb,
   } = useSalarySlip();
 
   // Fetch history on mount
@@ -254,8 +261,226 @@ function SalarySlipPage() {
     return `PKR ${parseFloat(amount || 0).toLocaleString()}`
   };
 
+  // Handle generate button click
+  const handleGenerateClick = () => {
+    // If loaded from history, ask user whether to update or create new
+    if (selectedHistorySlip) {
+      setExistingSlipForPeriod(null);
+      setShowUpdateDialog(true);
+      return;
+    }
+
+    // Check if a slip already exists for this teacher + period (fresh print)
+    if (selectedTeacherId && formData.fromDate && formData.tillDate) {
+      const existingSlip = salarySlipHistory.find(slip =>
+        String(slip.teacher) === String(selectedTeacherId) &&
+        slip.from_date === formData.fromDate &&
+        slip.till_date === formData.tillDate
+      );
+
+      if (existingSlip) {
+        // Found existing slip for same period - ask user
+        setExistingSlipForPeriod(existingSlip);
+        setShowUpdateDialog(true);
+        return;
+      }
+    }
+
+    // No duplicate found - generate and save as new
+    downloadPDF();
+  };
+
+  // Execute PDF generation with update or create
+  const executeGeneration = async (shouldUpdate) => {
+    setIsGeneratingPDF(true);
+    try {
+      // Download PDF first (skip auto-save since we'll handle it)
+      await downloadPDF({ skipAutoSave: true });
+
+      // Determine which slip to update (loaded from history OR found duplicate)
+      const slipToUpdate = selectedHistorySlip || existingSlipForPeriod;
+
+      // Then save or update based on user choice
+      if (shouldUpdate && slipToUpdate) {
+        await updateSalarySlipInDb(slipToUpdate.id);
+      } else {
+        await saveSalarySlipToDb();
+      }
+
+      // Close modal and clear state
+      setShowUpdateDialog(false);
+      setExistingSlipForPeriod(null);
+      if (selectedHistorySlip) {
+        clearHistoricalSlip();
+      }
+    } catch (err) {
+      console.error('Error generating salary slip:', err);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  // Modal styles
+  const modalStyles = {
+    overlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.75)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+    },
+    box: {
+      background: 'linear-gradient(135deg, rgba(30, 30, 60, 0.95) 0%, rgba(20, 20, 40, 0.98) 100%)',
+      border: '1px solid rgba(255, 255, 255, 0.15)',
+      borderRadius: BORDER_RADIUS.xl,
+      padding: SPACING.xl,
+      maxWidth: '420px',
+      width: '90%',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+    },
+    icon: {
+      width: '60px',
+      height: '60px',
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(59, 130, 246, 0.3) 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      margin: '0 auto',
+      marginBottom: SPACING.md,
+      fontSize: '28px',
+    },
+    title: {
+      color: COLORS.text.white,
+      fontSize: FONT_SIZES.xl,
+      fontWeight: FONT_WEIGHTS.bold,
+      marginBottom: SPACING.sm,
+      textAlign: 'center',
+    },
+    text: {
+      color: COLORS.text.whiteSubtle,
+      fontSize: FONT_SIZES.sm,
+      marginBottom: SPACING.lg,
+      textAlign: 'center',
+      lineHeight: 1.6,
+    },
+    buttons: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: SPACING.sm,
+    },
+    button: {
+      padding: `${SPACING.md} ${SPACING.lg}`,
+      border: 'none',
+      borderRadius: BORDER_RADIUS.lg,
+      color: COLORS.text.white,
+      cursor: 'pointer',
+      fontSize: FONT_SIZES.sm,
+      fontWeight: FONT_WEIGHTS.semibold,
+      transition: `all ${TRANSITIONS.normal}`,
+      textAlign: 'center',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: SPACING.sm,
+    },
+    buttonPrimary: {
+      background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+      boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
+    },
+    buttonSuccess: {
+      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+      boxShadow: '0 4px 15px rgba(34, 197, 94, 0.3)',
+    },
+    buttonCancel: {
+      background: 'rgba(107, 114, 128, 0.3)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+      cursor: 'not-allowed',
+    },
+  };
+
   return (
     <div style={styles.pageContainer}>
+      {/* Update/Create Modal */}
+      {showUpdateDialog && (
+        <div style={modalStyles.overlay} onClick={isGeneratingPDF ? undefined : () => { setShowUpdateDialog(false); setExistingSlipForPeriod(null); }}>
+          <div style={modalStyles.box} onClick={(e) => e.stopPropagation()}>
+            <div style={modalStyles.icon}>
+              {isGeneratingPDF ? '⏳' : '💵'}
+            </div>
+            <h3 style={modalStyles.title}>
+              {isGeneratingPDF ? 'Generating Salary Slip...' : 'Save Salary Slip'}
+            </h3>
+            <p style={modalStyles.text}>
+              {isGeneratingPDF
+                ? 'Please wait while your salary slip is being generated and saved.'
+                : existingSlipForPeriod
+                  ? `A salary slip already exists for this employee for the period ${existingSlipForPeriod.period_display || `${formData.fromDate} to ${formData.tillDate}`}. How would you like to proceed?`
+                  : 'This salary slip was loaded from history. How would you like to save your changes?'
+              }
+            </p>
+            <div style={modalStyles.buttons}>
+              <button
+                onClick={() => executeGeneration(true)}
+                disabled={isGeneratingPDF}
+                style={{
+                  ...modalStyles.button,
+                  ...modalStyles.buttonPrimary,
+                  ...(isGeneratingPDF ? modalStyles.buttonDisabled : {}),
+                }}
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <span>🔄</span>
+                    Update Existing
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => executeGeneration(false)}
+                disabled={isGeneratingPDF}
+                style={{
+                  ...modalStyles.button,
+                  ...modalStyles.buttonSuccess,
+                  ...(isGeneratingPDF ? modalStyles.buttonDisabled : {}),
+                }}
+              >
+                <span>➕</span>
+                Create New Copy
+              </button>
+              <button
+                onClick={() => {
+                  setShowUpdateDialog(false);
+                  setExistingSlipForPeriod(null);
+                }}
+                disabled={isGeneratingPDF}
+                style={{
+                  ...modalStyles.button,
+                  ...modalStyles.buttonCancel,
+                  ...(isGeneratingPDF ? modalStyles.buttonDisabled : {}),
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <PageHeader
         icon="💵"
         title={isSelfServiceMode ? "My Salary Slip" : "Salary Slip Generator"}
@@ -391,9 +616,9 @@ function SalarySlipPage() {
         ) : (
         <>
           {/* ============================================ */}
-          {/* EMPLOYEE INFORMATION SECTION */}
+          {/* EMPLOYEE BASIC INFO SECTION */}
           {/* ============================================ */}
-          <CollapsibleSection title="Employee Information">
+          <CollapsibleSection title="👤 Employee Basic Info">
             <div style={styles.formGrid}>
 
               {/* Teacher Selection - Only show for Admin */}
@@ -459,7 +684,7 @@ function SalarySlipPage() {
 
               {/* Title */}
               <div style={styles.fieldGroup}>
-                <label style={styles.label}>Title:</label>
+                <label style={styles.label}>Job Title:</label>
                 <input
                   type="text"
                   value={formData.title}
@@ -472,7 +697,7 @@ function SalarySlipPage() {
 
               {/* Schools */}
               <div style={styles.fieldGroup}>
-                <label style={styles.label}>Schools (one per line):</label>
+                <label style={styles.label}>Assigned Schools:</label>
                 <textarea
                   value={formData.schools}
                   onChange={(e) => updateFormField('schools', e.target.value)}
@@ -494,7 +719,60 @@ function SalarySlipPage() {
                   readOnly={isSelfServiceMode}
                 />
               </div>
+            </div>
+          </CollapsibleSection>
 
+          {/* ============================================ */}
+          {/* BANK DETAILS SECTION */}
+          {/* ============================================ */}
+          <CollapsibleSection title="🏦 Bank Details">
+            <div style={styles.formGrid}>
+              {/* Bank Name */}
+              <div style={styles.fieldGroup}>
+                <label style={styles.label}>Bank Name:</label>
+                <input
+                  type="text"
+                  value={formData.bankName}
+                  onChange={(e) => updateFormField('bankName', e.target.value)}
+                  placeholder="e.g., HBL, MCB, UBL"
+                  style={{...styles.input, ...(isSelfServiceMode ? styles.readOnlyInput : {})}}
+                  readOnly={isSelfServiceMode}
+                />
+              </div>
+
+              {/* Account Title */}
+              <div style={styles.fieldGroup}>
+                <label style={styles.label}>Account Title:</label>
+                <input
+                  type="text"
+                  value={formData.accountTitle}
+                  onChange={(e) => updateFormField('accountTitle', e.target.value)}
+                  placeholder="Account holder name"
+                  style={{...styles.input, ...(isSelfServiceMode ? styles.readOnlyInput : {})}}
+                  readOnly={isSelfServiceMode}
+                />
+              </div>
+
+              {/* Account Number */}
+              <div style={styles.fieldGroup}>
+                <label style={styles.label}>Account Number:</label>
+                <input
+                  type="text"
+                  value={formData.accountNumber}
+                  onChange={(e) => updateFormField('accountNumber', e.target.value)}
+                  placeholder="Account number / IBAN"
+                  style={{...styles.input, ...(isSelfServiceMode ? styles.readOnlyInput : {})}}
+                  readOnly={isSelfServiceMode}
+                />
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* ============================================ */}
+          {/* SALARY PERIOD & SETTINGS SECTION */}
+          {/* ============================================ */}
+          <CollapsibleSection title="📅 Salary Period & Settings">
+            <div style={styles.formGrid}>
               {/* From Date */}
               <div style={styles.fieldGroup}>
                 <label style={styles.label}>From Date:</label>
@@ -517,19 +795,6 @@ function SalarySlipPage() {
                 />
               </div>
 
-              {/* Basic Salary */}
-              <div style={styles.fieldGroup}>
-                <label style={styles.label}>Basic Salary (PKR):</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.basicSalary}
-                  onChange={(e) => updateFormField('basicSalary', parseFloat(e.target.value) || 0)}
-                  style={{...styles.input, ...(isSelfServiceMode ? styles.readOnlyInput : {})}}
-                  readOnly={isSelfServiceMode}
-                />
-              </div>
-
               {/* Payment Date */}
               <div style={styles.fieldGroup}>
                 <label style={styles.label}>Payment Date:</label>
@@ -542,27 +807,14 @@ function SalarySlipPage() {
                 />
               </div>
 
-              {/* Bank Name */}
+              {/* Basic Salary */}
               <div style={styles.fieldGroup}>
-                <label style={styles.label}>Bank Name:</label>
+                <label style={styles.label}>Basic Salary (PKR):</label>
                 <input
-                  type="text"
-                  value={formData.bankName}
-                  onChange={(e) => updateFormField('bankName', e.target.value)}
-                  placeholder="Bank name"
-                  style={{...styles.input, ...(isSelfServiceMode ? styles.readOnlyInput : {})}}
-                  readOnly={isSelfServiceMode}
-                />
-              </div>
-
-              {/* Account Number */}
-              <div style={styles.fieldGroup}>
-                <label style={styles.label}>Account Number:</label>
-                <input
-                  type="text"
-                  value={formData.accountNumber}
-                  onChange={(e) => updateFormField('accountNumber', e.target.value)}
-                  placeholder="Account number"
+                  type="number"
+                  min="0"
+                  value={formData.basicSalary}
+                  onChange={(e) => updateFormField('basicSalary', parseFloat(e.target.value) || 0)}
                   style={{...styles.input, ...(isSelfServiceMode ? styles.readOnlyInput : {})}}
                   readOnly={isSelfServiceMode}
                 />
@@ -587,7 +839,7 @@ function SalarySlipPage() {
           {/* ============================================ */}
           {/* EARNINGS & DEDUCTIONS SECTION */}
           {/* ============================================ */}
-          <CollapsibleSection title="Earnings & Deductions">
+          <CollapsibleSection title="💰 Earnings & Deductions">
             <div style={styles.earningsDeductionsGrid}>
               <EarningsDeductionsList
                 items={earnings}
@@ -611,7 +863,7 @@ function SalarySlipPage() {
           {/* ============================================ */}
           {/* SUMMARY & PREVIEW SECTION */}
           {/* ============================================ */}
-          <CollapsibleSection title="Summary & Preview">
+          <CollapsibleSection title="📊 Summary & Preview">
             <div style={styles.summaryGrid}>
               <CalculatedValues calculations={calculations} />
               <SalarySlipPreview
@@ -630,8 +882,8 @@ function SalarySlipPage() {
           {/* ============================================ */}
           <div style={{ display: 'flex', gap: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.xl }}>
             <Button
-              onClick={downloadPDF}
-              disabled={loading.generating || loading.saving}
+              onClick={handleGenerateClick}
+              disabled={loading.generating || loading.saving || showUpdateDialog}
               variant="primary"
               style={{ ...styles.generateButton, marginTop: 0, flex: 1 }}
             >
@@ -748,6 +1000,16 @@ function SalarySlipPage() {
         </>
         )
       )}
+
+      {/* Keyframe animations */}
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 }

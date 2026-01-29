@@ -46,6 +46,7 @@ export const TeacherSettingsModal = ({
     phone: '',
     address: '',
     bank_name: '',
+    account_title: '',
     account_number: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,6 +66,7 @@ export const TeacherSettingsModal = ({
         phone: profile.phone || '',
         address: profile.address || '',
         bank_name: profile.bank_name || '',
+        account_title: profile.account_title || '',
         account_number: profile.account_number || '',
       });
     }
@@ -357,16 +359,29 @@ export const TeacherSettingsModal = ({
                   />
                 </div>
 
+                {/* Account Title */}
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Account Title</label>
+                  <input
+                    type="text"
+                    name="account_title"
+                    value={formData.account_title}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="e.g., Muhammad Ali"
+                  />
+                </div>
+
                 {/* Account Number */}
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Account Number</label>
+                  <label style={styles.label}>Account Number / IBAN</label>
                   <input
                     type="text"
                     name="account_number"
                     value={formData.account_number}
                     onChange={handleChange}
                     style={styles.input}
-                    placeholder="Enter account number"
+                    placeholder="Enter account number or IBAN"
                   />
                 </div>
 
@@ -383,7 +398,7 @@ export const TeacherSettingsModal = ({
                 </div>
 
                 {/* Read-only Basic Salary */}
-                <div style={styles.formGroup}>
+                <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
                   <label style={styles.label}>Basic Salary</label>
                   <input
                     type="text"

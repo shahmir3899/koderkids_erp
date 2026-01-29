@@ -672,6 +672,7 @@ export class PDFGenerator {
       basicSalary = 0,
       paymentDate = '',
       bankName = '',
+      accountTitle = '',
       accountNumber = '',
       noOfDays = 0,
       proratedSalary = 0,
@@ -777,58 +778,47 @@ export class PDFGenerator {
       // Start details below top space
       const detailsStartY = this.pageHeight - this.margin - topSpace;
       const leftColumnX = this.margin;
-      const rightColumnX = this.pageWidth / 2;
+      const rightColumnX = this.pageWidth / 2 + 20;
+      const sectionHeaderColor = rgb(0.2, 0.2, 0.4); // Dark blue for section headers
 
-      // ============================================
-      // LEFT COLUMN
-      // ============================================
-      let yLeft = detailsStartY;
+      // Helper: Draw section header with underline
+      const drawSectionHeader = (text, x, y, width) => {
+        page.drawText(text, {
+          x: x,
+          y: y,
+          size: this.fontSize + 1,
+          font: fontBold,
+          color: sectionHeaderColor,
+        });
+        // Underline
+        page.drawLine({
+          start: { x: x, y: y - 3 },
+          end: { x: x + width, y: y - 3 },
+          thickness: 0.5,
+          color: sectionHeaderColor,
+        });
+        return y - lineHeight * 1.5;
+      };
 
-      // Name
-      page.drawText('Name: ', {
-        x: leftColumnX,
-        y: yLeft,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const nameLabelWidth = fontBold.widthOfTextAtSize('Name: ', this.fontSize);
-      page.drawText(name, {
-        x: leftColumnX + nameLabelWidth,
-        y: yLeft,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yLeft -= lineHeight;
-
-      // Title
-      page.drawText('Title: ', {
-        x: leftColumnX,
-        y: yLeft,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const titleLabelWidth = fontBold.widthOfTextAtSize('Title: ', this.fontSize);
-      page.drawText(title, {
-        x: leftColumnX + titleLabelWidth,
-        y: yLeft,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yLeft -= lineHeight;
-
-      // Schools - handle both newline and comma-separated
-      page.drawText('Schools: ', {
-        x: leftColumnX,
-        y: yLeft,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      yLeft -= lineHeight;
+      // Helper: Draw label-value pair
+      const drawLabelValue = (label, value, x, y) => {
+        page.drawText(label, {
+          x: x,
+          y: y,
+          size: this.fontSize,
+          font: fontBold,
+          color: rgb(0, 0, 0),
+        });
+        const labelWidth = fontBold.widthOfTextAtSize(label, this.fontSize);
+        page.drawText(value || '-', {
+          x: x + labelWidth,
+          y: y,
+          size: this.fontSize,
+          font: fontRegular,
+          color: rgb(0, 0, 0),
+        });
+        return y - lineHeight;
+      };
 
       // Parse schools: try newline first, then comma
       const parseSchools = (schoolsStr) => {
@@ -839,10 +829,32 @@ export class PDFGenerator {
         return byComma.length > 0 ? byComma : ['None'];
       };
 
+      // ============================================
+      // LEFT COLUMN
+      // ============================================
+      let yLeft = detailsStartY;
+
+      // SECTION 1: Employee Information
+      yLeft = drawSectionHeader('EMPLOYEE INFORMATION', leftColumnX, yLeft, 180);
+
+      yLeft = drawLabelValue('Name: ', name, leftColumnX, yLeft);
+      yLeft = drawLabelValue('Designation: ', title, leftColumnX, yLeft);
+      yLeft = drawLabelValue('Date of Joining: ', formatDateWithOrdinal(dateOfJoining), leftColumnX, yLeft);
+
+      // Schools
+      page.drawText('Schools: ', {
+        x: leftColumnX,
+        y: yLeft,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      yLeft -= lineHeight;
+
       const schoolsList = parseSchools(schools);
       schoolsList.forEach((school) => {
-        page.drawText(school, {
-          x: leftColumnX + 20,
+        page.drawText(`• ${school}`, {
+          x: leftColumnX + 15,
           y: yLeft,
           size: this.fontSize,
           font: fontRegular,
@@ -851,232 +863,187 @@ export class PDFGenerator {
         yLeft -= lineHeight;
       });
 
-      // Date of Joining
-      page.drawText('Date of joining: ', {
-        x: leftColumnX,
-        y: yLeft,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const joiningLabelWidth = fontBold.widthOfTextAtSize('Date of joining: ', this.fontSize);
-      page.drawText(formatDateWithOrdinal(dateOfJoining), {
-        x: leftColumnX + joiningLabelWidth,
-        y: yLeft,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yLeft -= lineHeight * 2;
+      yLeft -= lineHeight * 0.5;
+
+      // SECTION 2: Bank Details
+      yLeft = drawSectionHeader('BANK DETAILS', leftColumnX, yLeft, 120);
+
+      yLeft = drawLabelValue('Bank Name: ', bankName || '-', leftColumnX, yLeft);
+      yLeft = drawLabelValue('Account Title: ', accountTitle || '-', leftColumnX, yLeft);
+      yLeft = drawLabelValue('Account No: ', accountNumber || '-', leftColumnX, yLeft);
 
       // ============================================
       // RIGHT COLUMN
       // ============================================
       let yRight = detailsStartY;
 
-      // From Date
-      page.drawText('From Date: ', {
-        x: rightColumnX,
-        y: yRight,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const fromLabelWidth = fontBold.widthOfTextAtSize('From Date: ', this.fontSize);
-      page.drawText(formatDateWithOrdinal(fromDate), {
-        x: rightColumnX + fromLabelWidth,
-        y: yRight,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yRight -= lineHeight;
+      // SECTION 3: Salary Period
+      yRight = drawSectionHeader('SALARY PERIOD', rightColumnX, yRight, 130);
 
-      // Till Date
-      page.drawText('Till Date: ', {
-        x: rightColumnX,
-        y: yRight,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const tillLabelWidth = fontBold.widthOfTextAtSize('Till Date: ', this.fontSize);
-      page.drawText(formatDateWithOrdinal(tillDate), {
-        x: rightColumnX + tillLabelWidth,
-        y: yRight,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yRight -= lineHeight;
-
-      // Basic Salary
-      page.drawText('Basic Salary: ', {
-        x: rightColumnX,
-        y: yRight,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const basicLabelWidth = fontBold.widthOfTextAtSize('Basic Salary: ', this.fontSize);
-      page.drawText(formatCurrency(basicSalary), {
-        x: rightColumnX + basicLabelWidth,
-        y: yRight,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yRight -= lineHeight;
-
-      // Payment Date
-      page.drawText('Payment Date: ', {
-        x: rightColumnX,
-        y: yRight,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const paymentLabelWidth = fontBold.widthOfTextAtSize('Payment Date: ', this.fontSize);
-      page.drawText(formatDateWithOrdinal(paymentDate), {
-        x: rightColumnX + paymentLabelWidth,
-        y: yRight,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yRight -= lineHeight;
-
-      // Bank Name
-      page.drawText('Bank Name: ', {
-        x: rightColumnX,
-        y: yRight,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const bankLabelWidth = fontBold.widthOfTextAtSize('Bank Name: ', this.fontSize);
-      page.drawText(bankName, {
-        x: rightColumnX + bankLabelWidth,
-        y: yRight,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yRight -= lineHeight;
-
-      // Account Number
-      page.drawText('Acct #: ', {
-        x: rightColumnX,
-        y: yRight,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      const acctLabelWidth = fontBold.widthOfTextAtSize('Acct #: ', this.fontSize);
-      page.drawText(accountNumber, {
-        x: rightColumnX + acctLabelWidth,
-        y: yRight,
-        size: this.fontSize,
-        font: fontRegular,
-        color: rgb(0, 0, 0),
-      });
-      yRight -= lineHeight * 2;
-
-      // ============================================
-      // SALARY DETAILS SECTION
-      // ============================================
-      let yPosition = Math.min(yLeft, yRight);
+      yRight = drawLabelValue('From: ', formatDateWithOrdinal(fromDate), rightColumnX, yRight);
+      yRight = drawLabelValue('Till: ', formatDateWithOrdinal(tillDate), rightColumnX, yRight);
 
       // No of Days
-      const daysText =
-        noOfDays === 31 ? `${noOfDays} (normalized to 30 for calculation)` : `${noOfDays}`;
-      page.drawText(`No of Days: ${daysText}`, {
-        x: this.margin,
-        y: yPosition,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      yPosition -= lineHeight * 1.5;
+      const daysText = noOfDays === 31 ? `${noOfDays} (normalized)` : `${noOfDays}`;
+      yRight = drawLabelValue('Working Days: ', daysText, rightColumnX, yRight);
 
-      // Earnings Section
-      page.drawText('Earnings:', {
-        x: this.margin,
-        y: yPosition,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
+      yRight -= lineHeight * 0.5;
+
+      // SECTION 4: Payment Details
+      yRight = drawSectionHeader('PAYMENT DETAILS', rightColumnX, yRight, 150);
+
+      yRight = drawLabelValue('Basic Salary: ', formatCurrency(basicSalary), rightColumnX, yRight);
+      yRight = drawLabelValue('Payment Date: ', formatDateWithOrdinal(paymentDate), rightColumnX, yRight);
+
+      // ============================================
+      // EARNINGS & DEDUCTIONS SECTION (Full Width)
+      // ============================================
+      let yPosition = Math.min(yLeft, yRight) - lineHeight * 1.5;
+
+      // Draw horizontal separator (with space above)
+      const separatorY = yPosition + lineHeight;
+      page.drawLine({
+        start: { x: this.margin, y: separatorY },
+        end: { x: this.pageWidth - this.margin, y: separatorY },
+        thickness: 0.5,
+        color: rgb(0.7, 0.7, 0.7),
       });
-      yPosition -= lineHeight;
+
+      // SECTION 5: Earnings (Left side) - start below separator with space
+      const earningsX = this.margin;
+      const deductionsX = this.pageWidth / 2 + 20;
+      let yEarnings = yPosition - lineHeight * 0.5;
+      let yDeductions = yPosition - lineHeight * 0.5;
+
+      yEarnings = drawSectionHeader('EARNINGS', earningsX, yEarnings, 100);
 
       earnings.forEach((earning) => {
-        page.drawText(`${earning.category}: ${formatCurrency(earning.amount)}`, {
-          x: this.margin + 20,
-          y: yPosition,
+        page.drawText(`${earning.category}:`, {
+          x: earningsX,
+          y: yEarnings,
           size: this.fontSize,
           font: fontRegular,
           color: rgb(0, 0, 0),
         });
-        yPosition -= lineHeight;
+        page.drawText(formatCurrency(earning.amount), {
+          x: earningsX + 140,
+          y: yEarnings,
+          size: this.fontSize,
+          font: fontRegular,
+          color: rgb(0, 0, 0),
+        });
+        yEarnings -= lineHeight;
       });
 
-      page.drawText(`Total Earnings: ${formatCurrency(totalEarning)}`, {
-        x: this.margin,
-        y: yPosition,
+      // Total Earnings
+      yEarnings -= lineHeight * 0.3;
+      page.drawLine({
+        start: { x: earningsX, y: yEarnings + lineHeight * 0.5 },
+        end: { x: earningsX + 200, y: yEarnings + lineHeight * 0.5 },
+        thickness: 0.5,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+      page.drawText('Total Earnings:', {
+        x: earningsX,
+        y: yEarnings,
         size: this.fontSize,
         font: fontBold,
-        color: rgb(0, 0.5, 0), // Green color
+        color: rgb(0, 0.5, 0),
       });
-      yPosition -= lineHeight * 2;
+      page.drawText(formatCurrency(totalEarning), {
+        x: earningsX + 140,
+        y: yEarnings,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0, 0.5, 0),
+      });
 
-      // Deductions Section
-      page.drawText('Deductions:', {
-        x: this.margin,
-        y: yPosition,
-        size: this.fontSize,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
-      yPosition -= lineHeight;
+      // SECTION 6: Deductions (Right side)
+      yDeductions = drawSectionHeader('DEDUCTIONS', deductionsX, yDeductions, 120);
 
       if (deductions.length === 0) {
         page.drawText('None', {
-          x: this.margin + 20,
-          y: yPosition,
+          x: deductionsX,
+          y: yDeductions,
           size: this.fontSize,
           font: fontRegular,
           color: rgb(0.5, 0.5, 0.5),
         });
-        yPosition -= lineHeight;
+        yDeductions -= lineHeight;
       } else {
         deductions.forEach((deduction) => {
-          page.drawText(`${deduction.category}: ${formatCurrency(deduction.amount)}`, {
-            x: this.margin + 20,
-            y: yPosition,
+          page.drawText(`${deduction.category}:`, {
+            x: deductionsX,
+            y: yDeductions,
             size: this.fontSize,
             font: fontRegular,
             color: rgb(0, 0, 0),
           });
-          yPosition -= lineHeight;
+          page.drawText(formatCurrency(deduction.amount), {
+            x: deductionsX + 140,
+            y: yDeductions,
+            size: this.fontSize,
+            font: fontRegular,
+            color: rgb(0, 0, 0),
+          });
+          yDeductions -= lineHeight;
         });
       }
 
-      page.drawText(`Total Deductions: ${formatCurrency(totalDeduction)}`, {
-        x: this.margin,
-        y: yPosition,
+      // Total Deductions
+      yDeductions -= lineHeight * 0.3;
+      page.drawLine({
+        start: { x: deductionsX, y: yDeductions + lineHeight * 0.5 },
+        end: { x: deductionsX + 200, y: yDeductions + lineHeight * 0.5 },
+        thickness: 0.5,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+      page.drawText('Total Deductions:', {
+        x: deductionsX,
+        y: yDeductions,
         size: this.fontSize,
         font: fontBold,
-        color: rgb(0.8, 0, 0), // Red color
+        color: rgb(0.8, 0, 0),
       });
-      yPosition -= lineHeight * 2;
+      page.drawText(formatCurrency(totalDeduction), {
+        x: deductionsX + 140,
+        y: yDeductions,
+        size: this.fontSize,
+        font: fontBold,
+        color: rgb(0.8, 0, 0),
+      });
 
-      // Net Payable (Highlighted)
-      page.drawText(`Net Payable: ${formatCurrency(netPay)}`, {
-        x: this.margin,
-        y: yPosition,
+      // ============================================
+      // NET PAYABLE SECTION (Highlighted Box)
+      // ============================================
+      yPosition = Math.min(yEarnings, yDeductions) - lineHeight * 2;
+
+      // Draw highlighted box for Net Payable
+      const boxWidth = 250;
+      const boxHeight = 35;
+      const boxX = (this.pageWidth - boxWidth) / 2;
+      const boxY = yPosition - 5;
+
+      // Box background
+      page.drawRectangle({
+        x: boxX,
+        y: boxY,
+        width: boxWidth,
+        height: boxHeight,
+        color: rgb(0.95, 0.95, 1), // Light blue background
+        borderColor: rgb(0, 0, 0.6),
+        borderWidth: 1,
+      });
+
+      // Net Payable text (centered in box)
+      const netPayText = `NET PAYABLE: ${formatCurrency(netPay)}`;
+      const netPayWidth = fontBold.widthOfTextAtSize(netPayText, this.fontSize + 2);
+      page.drawText(netPayText, {
+        x: boxX + (boxWidth - netPayWidth) / 2,
+        y: boxY + 12,
         size: this.fontSize + 2,
         font: fontBold,
-        color: rgb(0, 0, 0.6), // Blue color
+        color: rgb(0, 0, 0.6),
       });
 
       // Footer

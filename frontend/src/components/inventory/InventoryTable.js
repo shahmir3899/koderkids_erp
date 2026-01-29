@@ -242,7 +242,7 @@ export const InventoryTable = ({
         sortable: true,
         width: isTablet ? '90px' : '100px',
         render: (value) => (
-          <span style={{ fontWeight: '500', color: COLORS.status.success }}>
+          <span style={{ fontWeight: '500', color: COLORS.text.white }}>
             PKR {Number(value || 0).toLocaleString()}
           </span>
         ),

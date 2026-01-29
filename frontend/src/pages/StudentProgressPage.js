@@ -22,6 +22,9 @@ import {
 // Responsive Hook
 import { useResponsive } from '../hooks/useResponsive';
 
+// Timezone-safe date utilities
+import { getTodayLocal, getCurrentMonthLocal } from '../utils/dateFormatters';
+
 // Date formatting utilities
 const formatDatePretty = (dateStr) => {
   if (!dateStr) return '';
@@ -679,8 +682,8 @@ const StudentProgressPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
-  const [sessionDate] = useState(new Date().toISOString().split("T")[0]);
-  const [currentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [sessionDate] = useState(getTodayLocal());
+  const [currentMonth] = useState(getCurrentMonthLocal()); // YYYY-MM
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
   const [deletingImageId, setDeletingImageId] = useState(null);

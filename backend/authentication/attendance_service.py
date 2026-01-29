@@ -355,10 +355,10 @@ def get_teacher_attendance_summary(user, month=None, year=None):
             status='location_unavailable'
         ).count()
 
-        # Calculate attendance percentage
+        # Calculate attendance percentage (present + out_of_range counts as attended)
         attendance_rate = 0
         if total_working_days > 0:
-            attendance_rate = round((present_days / total_working_days) * 100, 1)
+            attendance_rate = round(((present_days + out_of_range_days) / total_working_days) * 100, 1)
 
         summary.append({
             'school_id': school.id,

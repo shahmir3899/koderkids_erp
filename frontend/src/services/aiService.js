@@ -5,6 +5,7 @@
 // ============================================
 
 import axios from 'axios';
+import { getTodayLocal } from '../utils/dateFormatters';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -183,7 +184,7 @@ export const getAIStats = async () => {
 export const buildFeeContext = (schools = [], students = [], feeCategories = []) => {
     const now = new Date();
     return {
-        current_date: now.toISOString().split('T')[0],
+        current_date: getTodayLocal(),
         current_month: now.toLocaleString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-'),
         schools: schools.map(s => ({
             id: s.id,
@@ -215,7 +216,7 @@ export const buildFeeContext = (schools = [], students = [], feeCategories = [])
 export const buildInventoryContext = (schools = [], categories = [], users = [], currentUserId = null, isAdmin = false) => {
     const now = new Date();
     return {
-        current_date: now.toISOString().split('T')[0],
+        current_date: getTodayLocal(),
         current_user_id: currentUserId,
         is_admin: isAdmin,
         schools: schools.map(s => ({
@@ -242,7 +243,7 @@ export const buildInventoryContext = (schools = [], categories = [], users = [],
 export const buildHRContext = (schools = [], employees = []) => {
     const now = new Date();
     return {
-        current_date: now.toISOString().split('T')[0],
+        current_date: getTodayLocal(),
         current_month: now.toLocaleString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-'),
         schools: schools.map(s => ({
             id: s.id,
@@ -265,7 +266,7 @@ export const buildHRContext = (schools = [], employees = []) => {
  */
 export const buildBroadcastContext = (schools = [], groups = []) => {
     return {
-        current_date: new Date().toISOString().split('T')[0],
+        current_date: getTodayLocal(),
         schools: schools.map(s => ({
             id: s.id,
             name: s.name
@@ -286,7 +287,7 @@ export const buildBroadcastContext = (schools = [], groups = []) => {
 export const buildTaskContext = (employees = []) => {
     const now = new Date();
     return {
-        current_date: now.toISOString().split('T')[0],
+        current_date: getTodayLocal(),
         employees: employees.slice(0, 50).map(e => ({
             id: e.id,
             name: e.name || e.username || `Employee ${e.id}`,

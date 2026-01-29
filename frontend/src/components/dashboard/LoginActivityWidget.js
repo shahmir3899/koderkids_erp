@@ -178,7 +178,7 @@ const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, d
             <span style={styles.studentIcon}>S</span>
             <span style={{
               ...styles.statValue,
-              color: studentLogins > 0 ? COLORS.accent.cyan : COLORS.text.whiteSubtle,
+              color: studentLogins > 0 ? '#1e1b4b' : '#4b5563',
             }}>
               {studentLogins}
             </span>
@@ -189,7 +189,7 @@ const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, d
             <span style={styles.teacherIcon}>T</span>
             <span style={{
               ...styles.statValue,
-              color: teacherLogins > 0 ? COLORS.accent.purple : COLORS.text.whiteSubtle,
+              color: teacherLogins > 0 ? '#1e1b4b' : '#4b5563',
             }}>
               {teacherLogins}
             </span>
@@ -199,7 +199,7 @@ const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, d
           <div style={styles.statBoxTotal}>
             <span style={{
               ...styles.totalValue,
-              color: total > 0 ? COLORS.text.white : COLORS.text.whiteSubtle,
+              color: total > 0 ? '#1e1b4b' : '#4b5563',
             }}>
               {total}
             </span>
@@ -220,7 +220,8 @@ const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, d
                 <span style={styles.schoolStatItem}>
                   <span style={styles.studentIconTiny}>S</span>
                   <span style={{
-                    color: school.student_logins > 0 ? COLORS.accent.cyan : COLORS.text.whiteSubtle,
+                    color: school.student_logins > 0 ? '#1e1b4b' : '#4b5563',
+                    fontWeight: 600,
                   }}>
                     {school.student_logins}
                   </span>
@@ -228,7 +229,8 @@ const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, d
                 <span style={styles.schoolStatItem}>
                   <span style={styles.teacherIconTiny}>T</span>
                   <span style={{
-                    color: school.teacher_logins > 0 ? COLORS.accent.purple : COLORS.text.whiteSubtle,
+                    color: school.teacher_logins > 0 ? '#1e1b4b' : '#4b5563',
+                    fontWeight: 600,
                   }}>
                     {school.teacher_logins}
                   </span>
@@ -272,7 +274,8 @@ const styles = {
     ...MIXINS.glassmorphicSubtle,
     borderRadius: BORDER_RADIUS.full,
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.whiteMedium,
+    color: '#1e1b4b',
+    fontWeight: FONT_WEIGHTS.semibold,
   },
   totalItem: {
     display: 'flex',

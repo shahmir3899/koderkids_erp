@@ -104,6 +104,21 @@ export const salaryService = {
   },
 
   /**
+   * Update an existing salary slip (Admin only)
+   * @param {number} slipId - Salary slip ID
+   * @param {Object} slipData - Updated salary slip data
+   * @returns {Promise<Object>} Updated salary slip
+   */
+  updateSalarySlip: async (slipId, slipData) => {
+    const response = await axios.put(
+      `${API_BASE_URL}/employees/salary-slips/${slipId}/`,
+      slipData,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  /**
    * Delete a salary slip
    * @param {number} slipId - Salary slip ID
    * @returns {Promise<void>}

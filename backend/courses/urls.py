@@ -2,6 +2,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from . import proof_views
+from . import guardian_views
+from . import score_views
+from . import unlock_views
 
 # Router for ViewSets
 router = DefaultRouter()
@@ -48,4 +52,37 @@ urlpatterns = [
 
     # Quiz Builder (Admin/Teacher) - ViewSet routes
     path('', include(router.urls)),
+
+    # Activity Proof Endpoints (Student)
+    path('activity-proof/upload/', proof_views.upload_activity_proof, name='activity-proof-upload'),
+    path('activity-proof/my-proofs/', proof_views.my_proofs, name='my-proofs'),
+    path('activity-proof/my-proofs/<int:proof_id>/', proof_views.proof_detail_student, name='proof-detail-student'),
+
+    # Activity Proof Endpoints (Teacher/Admin)
+    path('activity-proof/pending/', proof_views.pending_proofs, name='pending-proofs'),
+    path('activity-proof/all/', proof_views.all_proofs, name='all-proofs'),
+    path('activity-proof/<int:proof_id>/', proof_views.proof_detail_teacher, name='proof-detail-teacher'),
+    path('activity-proof/bulk-approve/', proof_views.bulk_approve, name='bulk-approve'),
+    path('activity-proof/bulk-reject/', proof_views.bulk_reject, name='bulk-reject'),
+    path('activity-proof/stats/', proof_views.proof_statistics, name='proof-statistics'),
+
+    # Guardian Review Endpoints (Student - outside school hours)
+    path('guardian/check-time/', guardian_views.check_guardian_time, name='guardian-check-time'),
+    path('guardian/pending-reviews/', guardian_views.pending_guardian_reviews, name='guardian-pending-reviews'),
+    path('guardian/review/<int:proof_id>/', guardian_views.submit_guardian_review, name='guardian-submit-review'),
+    path('guardian/my-reviews/', guardian_views.my_guardian_reviews, name='guardian-my-reviews'),
+
+    # Student Score Endpoints
+    path('scores/my-scores/', score_views.my_scores, name='my-scores'),
+    path('scores/my-scores/<int:topic_id>/', score_views.my_score_detail, name='my-score-detail'),
+    path('scores/recalculate/<int:topic_id>/', score_views.recalculate_score, name='recalculate-score'),
+
+    # Teacher/Admin Score Endpoints
+    path('scores/class-report/', score_views.class_score_report, name='class-score-report'),
+    path('scores/student/<int:student_id>/', score_views.student_score_detail, name='student-score-detail'),
+
+    # Unlock Status Endpoints (5-Step Validation)
+    path('topics/<int:topic_id>/unlock-status/', unlock_views.topic_unlock_status, name='topic-unlock-status'),
+    path('topics/<int:topic_id>/validation-steps/', unlock_views.topic_validation_steps, name='topic-validation-steps'),
+    path('topics/<int:topic_id>/can-access/', unlock_views.topic_access_check, name='topic-access-check'),
 ]

@@ -18,6 +18,7 @@ import {
   TRANSITIONS,
   Z_INDEX,
 } from '../../utils/designConstants';
+import { formatLocalDate } from '../../utils/dateFormatters';
 
 // Status options for students
 const STATUS_OPTIONS = [
@@ -213,12 +214,12 @@ export const StudentDetailsModal = ({
     }
   };
 
-  // Format date for input (YYYY-MM-DD)
+  // Format date for input (YYYY-MM-DD) using local timezone
   const formatDateForInput = (dateStr) => {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr);
-      return date.toISOString().split('T')[0];
+      return formatLocalDate(date);
     } catch {
       return dateStr;
     }
