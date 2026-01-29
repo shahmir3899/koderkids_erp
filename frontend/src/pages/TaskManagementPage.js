@@ -13,6 +13,7 @@ import BulkTaskModal from '../components/tasks/BulkTaskModal';
 import CreateTaskModal from '../components/tasks/CreateTaskModal';
 import TaskActions from '../components/tasks/TaskActions';
 import TaskAgentChat from '../components/tasks/TaskAgentChat';
+import FloatingChatWindow from '../components/common/FloatingChatWindow';
 
 // Design Constants
 import {
@@ -33,23 +34,29 @@ import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { PageHeader } from '../components/common/PageHeader';
 
 // ============================================
-// STAT CARD COMPONENT WITH HOVER
+// STAT CARD COMPONENT WITH HOVER & CLICK
 // ============================================
-const StatCard = ({ icon, value, label, valueColor }) => {
+const StatCard = ({ icon, value, label, valueColor, onClick, isActive }) => {
     const [isHovered, setIsHovered] = React.useState(false);
 
     return (
         <div
+            onClick={onClick}
             style={{
                 ...MIXINS.glassmorphicCard,
                 borderRadius: BORDER_RADIUS.xl,
                 padding: SPACING.xl,
                 textAlign: 'center',
                 transition: `all ${TRANSITIONS.normal}`,
-                transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
-                boxShadow: isHovered ? '0 12px 40px rgba(0, 0, 0, 0.25)' : '0 4px 24px rgba(0, 0, 0, 0.12)',
-                background: isHovered ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.12)',
-                cursor: 'default',
+                transform: isHovered || isActive ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+                boxShadow: isHovered || isActive ? '0 12px 40px rgba(0, 0, 0, 0.25)' : '0 4px 24px rgba(0, 0, 0, 0.12)',
+                background: isActive
+                    ? `linear-gradient(135deg, ${valueColor}30 0%, ${valueColor}15 100%)`
+                    : isHovered
+                        ? 'rgba(255, 255, 255, 0.18)'
+                        : 'rgba(255, 255, 255, 0.12)',
+                cursor: 'pointer',
+                border: isActive ? `2px solid ${valueColor}` : '1px solid rgba(255, 255, 255, 0.18)',
             }}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -59,7 +66,7 @@ const StatCard = ({ icon, value, label, valueColor }) => {
                 marginBottom: SPACING.sm,
                 display: 'block',
                 transition: `all ${TRANSITIONS.normal}`,
-                transform: isHovered ? 'scale(1.2)' : 'scale(1)',
+                transform: isHovered || isActive ? 'scale(1.2)' : 'scale(1)',
             }}>{icon}</span>
             <div style={{
                 fontSize: FONT_SIZES['3xl'],
@@ -68,11 +75,11 @@ const StatCard = ({ icon, value, label, valueColor }) => {
                 lineHeight: 1,
                 color: valueColor,
                 transition: `all ${TRANSITIONS.normal}`,
-                transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+                transform: isHovered || isActive ? 'scale(1.05)' : 'scale(1)',
             }}>{value}</div>
             <div style={{
                 fontSize: FONT_SIZES.sm,
-                color: COLORS.text.whiteSubtle,
+                color: isActive ? COLORS.text.white : COLORS.text.whiteSubtle,
                 fontWeight: FONT_WEIGHTS.medium,
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
@@ -188,7 +195,6 @@ const TaskManagementPage = () => {
         pageSize: 10,
         totalPages: 1
     });
-    const [showTaskAgent, setShowTaskAgent] = useState(false);
 
     // Fetch all tasks
     const fetchTasks = async () => {
@@ -383,13 +389,13 @@ const TaskManagementPage = () => {
                     title="Task Management"
                     subtitle="Create, assign, and manage tasks for your team"
                     actions={
-                        <div style={{ display: 'flex', gap: SPACING.md }}>
+                        <div style={{ display: 'flex', gap: SPACING.md, flexWrap: 'wrap' }}>
                             <HoverButton
-                                variant={showTaskAgent ? 'primary' : 'secondary'}
-                                onClick={() => setShowTaskAgent(!showTaskAgent)}
+                                variant="success"
+                                onClick={() => setShowCreateModal(true)}
                                 style={{ padding: `${SPACING.md} ${SPACING.xl}` }}
                             >
-                                🤖 {showTaskAgent ? 'Hide' : 'Show'} Task Agent
+                                ➕ Create New Task
                             </HoverButton>
                             <HoverButton
                                 variant="success"
@@ -402,60 +408,50 @@ const TaskManagementPage = () => {
                     }
                 />
 
-                {/* Task Agent Panel */}
-                {showTaskAgent && (
+                {/* Error Message */}
+                {error && (
                     <div style={{
                         ...MIXINS.glassmorphicCard,
-                        borderRadius: BORDER_RADIUS.xl,
-                        marginBottom: SPACING['2xl'],
-                        overflow: 'hidden'
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: BORDER_RADIUS.lg,
+                        padding: SPACING.lg,
+                        marginBottom: SPACING.xl,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: SPACING.md,
                     }}>
-                        <div style={{
-                            padding: SPACING.lg,
-                            borderBottom: `1px solid ${COLORS.border.whiteSubtle}`,
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
-                            <div>
-                                <h3 style={{
-                                    fontSize: FONT_SIZES.lg,
-                                    fontWeight: FONT_WEIGHTS.semibold,
-                                    color: COLORS.text.white,
-                                    margin: 0
-                                }}>🤖 AI Task Agent</h3>
-                                <p style={{
-                                    fontSize: FONT_SIZES.sm,
-                                    color: COLORS.text.whiteSubtle,
-                                    margin: `${SPACING.xs} 0 0 0`
-                                }}>
-                                    Use natural language to quickly assign tasks to employees
-                                </p>
+                        <span style={{ fontSize: FONT_SIZES.xl }}>⚠️</span>
+                        <div>
+                            <div style={{ color: '#FCA5A5', fontWeight: FONT_WEIGHTS.semibold, fontSize: FONT_SIZES.sm }}>
+                                Error
                             </div>
-                            <HoverButton
-                                variant="secondary"
-                                onClick={() => setShowTaskAgent(false)}
-                            >
-                                ✕ Close
-                            </HoverButton>
+                            <div style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.sm }}>
+                                {error}
+                            </div>
                         </div>
-                        <div style={{ padding: SPACING.lg }}>
-                            <TaskAgentChat
-                                employees={employeeList}
-                                onTaskCreated={() => {
-                                    fetchTasks();
-                                    fetchStats();
-                                }}
-                                height="400px"
-                            />
-                        </div>
+                        <button
+                            onClick={() => setError(null)}
+                            style={{
+                                marginLeft: 'auto',
+                                background: 'none',
+                                border: 'none',
+                                color: COLORS.text.whiteSubtle,
+                                cursor: 'pointer',
+                                fontSize: FONT_SIZES.lg,
+                            }}
+                        >
+                            ×
+                        </button>
                     </div>
                 )}
 
                 {/* Filters Section */}
                 <div style={styles.filtersSection}>
-                    <div style={styles.filtersGrid}>
+                    <div style={{
+                        ...styles.filtersGrid,
+                        gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr auto',
+                    }}>
                         <div style={styles.searchInputWrapper}>
                             <span style={styles.searchIcon}>🔍</span>
                             <input
@@ -497,7 +493,7 @@ const TaskManagementPage = () => {
                     </div>
                 </div>
 
-                {/* Statistics Cards */}
+                {/* Statistics Cards - Clickable Filters */}
                 {stats && stats.status_stats && (
                     <div style={styles.statsGrid}>
                         <StatCard
@@ -505,24 +501,44 @@ const TaskManagementPage = () => {
                             value={stats.status_stats.completed || 0}
                             label="Completed"
                             valueColor={COLORS.status.success}
+                            onClick={() => setFilters(prev => ({
+                                ...prev,
+                                status: prev.status === 'completed' ? '' : 'completed'
+                            }))}
+                            isActive={filters.status === 'completed'}
                         />
                         <StatCard
                             icon="🚀"
                             value={stats.status_stats.in_progress || 0}
                             label="In Progress"
                             valueColor={COLORS.primary}
+                            onClick={() => setFilters(prev => ({
+                                ...prev,
+                                status: prev.status === 'in_progress' ? '' : 'in_progress'
+                            }))}
+                            isActive={filters.status === 'in_progress'}
                         />
                         <StatCard
                             icon="⏳"
                             value={stats.status_stats.pending || 0}
                             label="Pending"
                             valueColor={COLORS.status.warning}
+                            onClick={() => setFilters(prev => ({
+                                ...prev,
+                                status: prev.status === 'pending' ? '' : 'pending'
+                            }))}
+                            isActive={filters.status === 'pending'}
                         />
                         <StatCard
                             icon="⚠️"
                             value={stats.status_stats.overdue || 0}
                             label="Overdue"
                             valueColor={COLORS.status.error}
+                            onClick={() => setFilters(prev => ({
+                                ...prev,
+                                status: prev.status === 'overdue' ? '' : 'overdue'
+                            }))}
+                            isActive={filters.status === 'overdue'}
                         />
                         {stats.priority_stats && (
                             <StatCard
@@ -531,6 +547,8 @@ const TaskManagementPage = () => {
                                        (stats.priority_stats.high || 0) + (stats.priority_stats.urgent || 0)}
                                 label="Total Tasks"
                                 valueColor={COLORS.status.info}
+                                onClick={() => setFilters({ status: '', priority: '', search: '' })}
+                                isActive={!filters.status && !filters.priority && !filters.search}
                             />
                         )}
                     </div>
@@ -539,13 +557,23 @@ const TaskManagementPage = () => {
                 {/* Tasks Section */}
                 <div style={styles.tasksSection}>
                     <div style={styles.tasksSectionHeader}>
-                        <h3 style={styles.tasksSectionTitle}>📋 All Tasks</h3>
-                        <HoverButton
-                            variant="success"
-                            onClick={() => setShowCreateModal(true)}
-                        >
-                            ➕ Create New Task
-                        </HoverButton>
+                        <h3 style={styles.tasksSectionTitle}>
+                            📋 {filters.status
+                                ? `${filters.status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Tasks`
+                                : filters.priority
+                                    ? `${filters.priority.charAt(0).toUpperCase() + filters.priority.slice(1)} Priority Tasks`
+                                    : filters.search
+                                        ? `Search Results`
+                                        : 'All Tasks'}
+                            {' '}
+                            <span style={{
+                                fontSize: FONT_SIZES.base,
+                                fontWeight: FONT_WEIGHTS.normal,
+                                color: COLORS.text.whiteSubtle
+                            }}>
+                                ({filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'})
+                            </span>
+                        </h3>
                     </div>
                     <div style={styles.tasksSectionBody}>
                         {loading ? (
@@ -796,6 +824,29 @@ const TaskManagementPage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Floating AI Task Agent Chat */}
+            <FloatingChatWindow
+                title="AI Task Agent"
+                subtitle="Assign tasks using natural language"
+                icon="🤖"
+                fabPosition={{ bottom: '24px', right: '24px' }}
+                windowSize={{ width: '400px', height: '520px' }}
+                showBadge={true}
+                badgeColor="#10B981"
+                zIndex={1000}
+            >
+                <div style={{ padding: SPACING.md, height: '100%', overflow: 'hidden' }}>
+                    <TaskAgentChat
+                        employees={employeeList}
+                        onTaskCreated={() => {
+                            fetchTasks();
+                            fetchStats();
+                        }}
+                        height="100%"
+                    />
+                </div>
+            </FloatingChatWindow>
         </div>
     );
 };

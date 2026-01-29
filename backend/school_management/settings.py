@@ -63,7 +63,7 @@ MEDIA_URL = '/media/'
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
-    'frontend.koderkids.pk',
+    'portal.koderkids.pk',
     'koderkids-erp.onrender.com'
 ]
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -143,14 +143,14 @@ TEMPLATES = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://frontend.koderkids.pk",
+    "https://portal.koderkids.pk",
     "https://koderkids-erp.onrender.com",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 CORS_ALLOW_ALL_ORIGINS = False
 CSRF_TRUSTED_ORIGINS = [
-    "https://frontend.koderkids.pk",
+    "https://portal.koderkids.pk",
     "https://koderkids-erp.onrender.com",
 ]
 # Cache CORS preflight requests for 24 hours

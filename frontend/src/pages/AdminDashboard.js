@@ -722,7 +722,7 @@ function AdminDashboard() {
               sortable: true,
               align: 'right',
               render: (value) => (
-                <span style={{ color: '#10B981' }}>
+                <span style={{ color: '#00E5FF', fontWeight: '500' }}>
                   PKR {value?.toLocaleString() || 0}
                 </span>
               )
