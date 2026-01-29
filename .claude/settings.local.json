@@ -45,7 +45,11 @@
       "Bash(pip show:*)",
       "Bash(powershell:*)",
       "Bash(del \"d:\\\\Personal\\\\school-management-system\\\\read_docx.ps1\")",
-      "Bash(cmd /c \"cd /d d:\\\\Personal\\\\school-management-system\\\\backend && python manage.py shell -c \"\"from books.models import Topic; print\\(''TREE ACTIVITIES:'', Topic.objects.filter\\(type=''activity''\\).count\\(\\)\\); print\\(''WITH JSON BLOCKS:'', Topic.objects.exclude\\(activity_blocks=[]\\).count\\(\\)\\)\"\"\")"
+      "Bash(cmd /c \"cd /d d:\\\\Personal\\\\school-management-system\\\\backend && python manage.py shell -c \"\"from books.models import Topic; print\\(''TREE ACTIVITIES:'', Topic.objects.filter\\(type=''activity''\\).count\\(\\)\\); print\\(''WITH JSON BLOCKS:'', Topic.objects.exclude\\(activity_blocks=[]\\).count\\(\\)\\)\"\"\")",
+      "Bash(git config:*)",
+      "Bash(git fetch:*)",
+      "Bash(cd:*)",
+      "Bash(pip install:*)"
     ]
   }
 }
