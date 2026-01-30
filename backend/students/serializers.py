@@ -131,7 +131,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'user_id',
             'username',
             'email',
-            
+
             # Student admin-only fields
             'id',
             'reg_num',
@@ -141,10 +141,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'school_name',
             'student_class',
             'monthly_fee',
-            'date_of_birth',
+            # 'date_of_birth',  # Now editable by students
             'status',
             'date_of_registration',
-            
+
             # System fields
             'profile_photo_url',
             'created_at',

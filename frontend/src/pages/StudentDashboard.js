@@ -100,7 +100,9 @@ const StudentDashboard = () => {
   // Handle profile updates (from settings modal)
   const handleProfileUpdate = (updatedProfile) => {
     console.log('Updating profile:', updatedProfile);
-    setProfile(prev => ({ ...prev, ...updatedProfile }));
+    // Update both data and profile states to reflect changes everywhere
+    setData(prev => prev ? { ...prev, ...updatedProfile } : prev);
+    setProfile(prev => prev ? { ...prev, ...updatedProfile } : prev);
   };
 
   // Show loading if either is still loading

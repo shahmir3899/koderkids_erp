@@ -39,9 +39,10 @@ export const StudentSettingsModal = ({
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
-    email: '', // <--- ADD THIS
+    email: '',
     phone: '',
     address: '',
+    date_of_birth: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
@@ -54,9 +55,10 @@ export const StudentSettingsModal = ({
       setFormData({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
-        email: profile.email || '', // <--- ADD THIS
+        email: profile.email || '',
         phone: profile.phone || '',
         address: profile.address || '',
+        date_of_birth: profile.date_of_birth || '',
       });
     }
   }, [profile]);
@@ -249,19 +251,30 @@ export const StudentSettingsModal = ({
                 />
               </div>
 
-              {/* Email - Read Only */}
               {/* Email Field */}
-<div style={styles.formGroup}>
-  <label style={styles.label}>Email Address</label>
-  <input
-    type="email"
-    name="email" // Important for handleChange
-    value={formData.email} // Changed from profile.email to formData.email
-    onChange={handleChange} // Now it can be typed in
-    style={styles.input}
-    placeholder="student@example.com"
-  />
-</div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Email Address</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  style={styles.input}
+                  placeholder="student@example.com"
+                />
+              </div>
+
+              {/* Date of Birth - Editable */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date of Birth</label>
+                <input
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
 
               {/* School - Read Only */}
               <div style={styles.formGroup}>

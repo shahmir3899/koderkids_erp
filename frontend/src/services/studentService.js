@@ -190,6 +190,7 @@ export const updateStudentProfile = async (profileData) => {
       last_name: profileData.last_name,
       phone: profileData.phone,
       address: profileData.address,
+      date_of_birth: profileData.date_of_birth,
     };
 
     const response = await axios.put(
