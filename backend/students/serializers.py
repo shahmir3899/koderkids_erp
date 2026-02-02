@@ -130,7 +130,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             # Identity fields
             'user_id',
             'username',
-            'email',
+            # 'email',  # Now editable by students
 
             # Student admin-only fields
             'id',

@@ -188,6 +188,7 @@ export const updateStudentProfile = async (profileData) => {
     const allowedFields = {
       first_name: profileData.first_name,
       last_name: profileData.last_name,
+      email: profileData.email,
       phone: profileData.phone,
       address: profileData.address,
       date_of_birth: profileData.date_of_birth,
