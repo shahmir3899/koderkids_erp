@@ -156,7 +156,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = True  # TODO: Set back to False in production
 CSRF_TRUSTED_ORIGINS = [
     "https://frontend.koderkids.pk",
     "https://portal.koderkids.pk",
