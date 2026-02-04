@@ -97,10 +97,11 @@ def get_my_attendance_calendar(request):
     year = int(request.GET.get('year', today.year))
     school_id = request.GET.get('school_id')
 
-    # Get all working days (days with lesson plans) for the month
+    # Get all working days (days with lesson plans) for the month, excluding future dates
     working_days_filter = {
         'session_date__year': year,
         'session_date__month': month,
+        'session_date__lte': today,  # Only include past and current dates
         'school__in': user.assigned_schools.all()
     }
     if school_id:

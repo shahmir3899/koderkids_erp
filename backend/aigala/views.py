@@ -145,6 +145,57 @@ def notify_vote_received(project, voter):
     )
 
 
+# ============== PERMISSION HELPERS ==============
+
+def is_admin_or_teacher(user):
+    """Check if user is Admin or Teacher."""
+    return user.role in ['Admin', 'Teacher']
+
+
+def can_manage_gallery(user, gallery):
+    """
+    Check if user can manage (edit/update status/view stats) a gallery.
+    - Admin: Can manage any gallery
+    - Teacher: Can manage galleries that target their assigned schools or galleries they created
+    """
+    if user.role == 'Admin':
+        return True
+
+    if user.role == 'Teacher':
+        # Teacher can manage galleries they created
+        if gallery.created_by == user:
+            return True
+
+        # Teacher can manage galleries targeting their assigned schools
+        teacher_school_ids = set(user.assigned_schools.values_list('id', flat=True))
+        gallery_school_ids = set(gallery.target_schools.values_list('id', flat=True))
+
+        # If gallery has no target schools (global), teacher cannot manage
+        if not gallery_school_ids:
+            return False
+
+        # Teacher can manage if gallery targets any of their schools
+        return bool(teacher_school_ids & gallery_school_ids)
+
+    return False
+
+
+def can_access_student(user, student):
+    """
+    Check if user can access/manage a student.
+    - Admin: Can access any student
+    - Teacher: Can only access students in their assigned schools
+    """
+    if user.role == 'Admin':
+        return True
+
+    if user.role == 'Teacher':
+        teacher_school_ids = user.assigned_schools.values_list('id', flat=True)
+        return student.school_id in teacher_school_ids
+
+    return False
+
+
 # ============== GALLERY ENDPOINTS ==============
 
 @api_view(['GET'])
@@ -338,18 +389,33 @@ def create_gallery(request):
 
 
 @api_view(['PUT', 'PATCH'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def update_gallery(request, gallery_id):
     """
     PUT/PATCH /api/aigala/galleries/{id}/update/
-    Update gallery details (admin only).
+    Update gallery details.
+    - Admin: Can update any gallery
+    - Teacher: Can update galleries they created or targeting their schools
     """
+    if not is_admin_or_teacher(request.user):
+        return Response(
+            {'error': 'Only admins and teachers can update galleries'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
     try:
         gallery = Gallery.objects.get(id=gallery_id)
     except Gallery.DoesNotExist:
         return Response(
             {'error': 'Gallery not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user can manage this gallery
+    if not can_manage_gallery(request.user, gallery):
+        return Response(
+            {'error': 'You do not have permission to update this gallery'},
+            status=status.HTTP_403_FORBIDDEN
         )
 
     partial = request.method == 'PATCH'
@@ -382,19 +448,34 @@ def update_gallery(request, gallery_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def update_gallery_status(request, gallery_id):
     """
     POST /api/aigala/galleries/{id}/status/
-    Update gallery status (admin only).
+    Update gallery status.
+    - Admin: Can update any gallery status
+    - Teacher: Can update status for galleries they created or targeting their schools
     Body: { "status": "active" | "voting" | "closed" | "draft" }
     """
+    if not is_admin_or_teacher(request.user):
+        return Response(
+            {'error': 'Only admins and teachers can update gallery status'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
     try:
         gallery = Gallery.objects.get(id=gallery_id)
     except Gallery.DoesNotExist:
         return Response(
             {'error': 'Gallery not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user can manage this gallery
+    if not can_manage_gallery(request.user, gallery):
+        return Response(
+            {'error': 'You do not have permission to update this gallery status'},
+            status=status.HTTP_403_FORBIDDEN
         )
 
     new_status = request.data.get('status')
@@ -1031,7 +1112,7 @@ def my_gala_data(request):
             'theme': current_gallery.theme,
             'status': current_gallery.status,
             'is_voting_open': current_gallery.is_voting_open,
-            'voting_end_date': current_gallery.voting_end_date.isoformat(),
+            'voting_end_date': current_gallery.voting_end_date.isoformat() if current_gallery.voting_end_date else None,
             'days_until_voting_ends': current_gallery.days_until_voting_ends,
             'total_projects': current_gallery.total_projects,
         }
@@ -1264,18 +1345,33 @@ def teacher_upload_project(request, gallery_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def admin_calculate_winners(request, gallery_id):
     """
     POST /api/aigala/admin/galleries/{id}/calculate-winners/
     Manually calculate winners for a gallery.
+    - Admin: Can calculate for any gallery
+    - Teacher: Can calculate for galleries they created or targeting their schools
     """
+    if not is_admin_or_teacher(request.user):
+        return Response(
+            {'error': 'Only admins and teachers can calculate winners'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
     try:
         gallery = Gallery.objects.get(id=gallery_id)
     except Gallery.DoesNotExist:
         return Response(
             {'error': 'Gallery not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user can manage this gallery
+    if not can_manage_gallery(request.user, gallery):
+        return Response(
+            {'error': 'You do not have permission to manage this gallery'},
+            status=status.HTTP_403_FORBIDDEN
         )
 
     calculate_gallery_winners(gallery)
@@ -1287,18 +1383,33 @@ def admin_calculate_winners(request, gallery_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def admin_gallery_stats(request, gallery_id):
     """
     GET /api/aigala/admin/galleries/{id}/stats/
-    Get detailed statistics for a gallery (admin only).
+    Get detailed statistics for a gallery.
+    - Admin: Can view stats for any gallery
+    - Teacher: Can view stats for galleries they created or targeting their schools
     """
+    if not is_admin_or_teacher(request.user):
+        return Response(
+            {'error': 'Only admins and teachers can view gallery stats'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
     try:
         gallery = Gallery.objects.get(id=gallery_id)
     except Gallery.DoesNotExist:
         return Response(
             {'error': 'Gallery not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user can manage this gallery
+    if not can_manage_gallery(request.user, gallery):
+        return Response(
+            {'error': 'You do not have permission to view this gallery stats'},
+            status=status.HTTP_403_FORBIDDEN
         )
 
     projects = gallery.projects.all()
@@ -1337,12 +1448,20 @@ def admin_gallery_stats(request, gallery_id):
 # ============== PDF GENERATION ENDPOINTS ==============
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def participation_report_pdf(request, gallery_id):
     """
     GET /api/aigala/admin/galleries/{id}/participation-report/
     Generate and download participation report PDF for a gallery.
+    - Admin: Can download for any gallery
+    - Teacher: Can download for galleries they created or targeting their schools
     """
+    if not is_admin_or_teacher(request.user):
+        return Response(
+            {'error': 'Only admins and teachers can download reports'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
     from django.http import HttpResponse
     from weasyprint import HTML
     from io import BytesIO
@@ -1355,6 +1474,13 @@ def participation_report_pdf(request, gallery_id):
         return Response(
             {'error': 'Gallery not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user can manage this gallery
+    if not can_manage_gallery(request.user, gallery):
+        return Response(
+            {'error': 'You do not have permission to download this report'},
+            status=status.HTTP_403_FORBIDDEN
         )
 
     # Get data
@@ -1874,12 +2000,20 @@ def download_certificate(request, project_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def download_all_certificates(request, gallery_id):
     """
     GET /api/aigala/admin/galleries/{id}/certificates/
     Download all certificates for a gallery as a ZIP file.
+    - Admin: Can download for any gallery
+    - Teacher: Can download for galleries they created or targeting their schools
     """
+    if not is_admin_or_teacher(request.user):
+        return Response(
+            {'error': 'Only admins and teachers can download certificates'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
     from django.http import HttpResponse
     from weasyprint import HTML
     from io import BytesIO
@@ -1892,6 +2026,13 @@ def download_all_certificates(request, gallery_id):
         return Response(
             {'error': 'Gallery not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user can manage this gallery
+    if not can_manage_gallery(request.user, gallery):
+        return Response(
+            {'error': 'You do not have permission to download certificates for this gallery'},
+            status=status.HTTP_403_FORBIDDEN
         )
 
     if gallery.status != 'closed':

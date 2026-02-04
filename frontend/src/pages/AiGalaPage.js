@@ -331,8 +331,8 @@ const AiGalaPage = () => {
                         </button>
                     )}
 
-                    {/* Admin: Download Report */}
-                    {userRole === 'Admin' && (
+                    {/* Admin/Teacher: Download Report */}
+                    {isAdminOrTeacher && (
                         <button
                             style={styles.downloadButton}
                             onClick={handleDownloadReport}
@@ -342,8 +342,8 @@ const AiGalaPage = () => {
                         </button>
                     )}
 
-                    {/* Admin: Download All Certificates (when closed) */}
-                    {userRole === 'Admin' && activeGallery?.status === 'closed' && (
+                    {/* Admin/Teacher: Download All Certificates (when closed) */}
+                    {isAdminOrTeacher && activeGallery?.status === 'closed' && (
                         <button
                             style={styles.downloadButton}
                             onClick={handleDownloadAllCertificates}
@@ -459,7 +459,7 @@ const AiGalaPage = () => {
                                 }}
                                 onVote={handleVote}
                                 onViewDetails={handleViewDetails}
-                                canVote={votesRemaining > 0 && !myProject?.id === project.id}
+                                canVote={votesRemaining > 0 && myProject?.id !== project.id}
                                 isVotingOpen={isVotingOpen}
                             />
                         ))}

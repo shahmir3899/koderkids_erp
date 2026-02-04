@@ -321,11 +321,12 @@ def get_teacher_attendance_summary(user, month=None, year=None):
     assigned_schools = user.assigned_schools.filter(is_active=True)
 
     for school in assigned_schools:
-        # Count total working days (days with lesson plans)
+        # Count total working days (days with lesson plans, excluding future dates)
         total_working_days = LessonPlan.objects.filter(
             school=school,
             session_date__year=year,
-            session_date__month=month
+            session_date__month=month,
+            session_date__lte=today  # Only count past and current dates
         ).values('session_date').distinct().count()
 
         # Count present days
