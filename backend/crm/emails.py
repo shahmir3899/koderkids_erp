@@ -188,3 +188,130 @@ def send_activity_scheduled_email(activity, bdm_user):
     except Exception as e:
         logger.error(f"Failed to send activity scheduled email to {bdm_user.email}: {str(e)}")
         return False
+
+
+def send_aging_lead_alert_email(leads_data, bdm_user, days_threshold):
+    """
+    Send email alert to BDM about leads that haven't been contacted recently
+
+    Args:
+        leads_data: List of dicts with lead info (id, name, status, phone, city, days_old, days_since_activity)
+        bdm_user: CustomUser object (BDM receiving the alert)
+        days_threshold: Number of days used as threshold
+
+    Returns:
+        bool: True if email sent successfully
+    """
+    if not bdm_user.email:
+        logger.warning(f"BDM {bdm_user.username} has no email address")
+        return False
+
+    if not leads_data:
+        logger.warning(f"No leads data provided for aging alert to {bdm_user.username}")
+        return False
+
+    try:
+        lead_count = len(leads_data)
+        subject = f'⚠️ {lead_count} Lead(s) Need Attention - KoderKids ERP'
+
+        # Build leads table rows
+        leads_rows = ""
+        for lead in leads_data:
+            activity_info = f"{lead['days_since_activity']} days ago" if lead.get('days_since_activity') is not None else "No activities"
+            status_color = {
+                'New': '#FEF3C7',
+                'Contacted': '#DBEAFE',
+                'Interested': '#D1FAE5',
+            }.get(lead['status'], '#F3F4F6')
+
+            leads_rows += f"""
+            <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #E5E7EB;">
+                    <strong>{lead['name']}</strong>
+                    {f"<br><span style='color: #6B7280; font-size: 12px;'>{lead.get('phone', '')}</span>" if lead.get('phone') else ''}
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #E5E7EB;">
+                    <span style="background: {status_color}; padding: 2px 8px; border-radius: 3px; font-size: 12px;">{lead['status']}</span>
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; color: #6B7280;">{lead.get('city', '-')}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; color: #DC2626; font-weight: 500;">{lead['days_old']} days</td>
+                <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; color: #6B7280;">{activity_info}</td>
+            </tr>
+            """
+
+        html_message = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 700px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                    <div style="background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h2 style="color: #92400E; margin: 0;">⚠️ Aging Leads Alert</h2>
+                        <p style="color: #B45309; margin: 10px 0 0 0;">
+                            You have <strong>{lead_count} lead(s)</strong> that haven't been contacted in over <strong>{days_threshold} days</strong>
+                        </p>
+                    </div>
+
+                    <p>Hello {bdm_user.first_name or bdm_user.username},</p>
+
+                    <p>The following leads need your attention. They haven't had any activity recently and may be going cold:</p>
+
+                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+                        <thead>
+                            <tr style="background: #F9FAFB;">
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #E5E7EB;">Lead</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #E5E7EB;">Status</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #E5E7EB;">City</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #E5E7EB;">Age</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #E5E7EB;">Last Activity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {leads_rows}
+                        </tbody>
+                    </table>
+
+                    <div style="background-color: #EFF6FF; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3B82F6;">
+                        <h4 style="margin-top: 0; color: #1E40AF;">💡 Recommended Actions</h4>
+                        <ul style="margin: 0; padding-left: 20px;">
+                            <li>Schedule follow-up calls for these leads today</li>
+                            <li>Review any notes or previous conversations</li>
+                            <li>Update lead status if they're no longer interested</li>
+                            <li>Consider sending a follow-up email or WhatsApp message</li>
+                        </ul>
+                    </div>
+
+                    <p style="text-align: center; margin: 25px 0;">
+                        <a href="{settings.FRONTEND_URL}/crm/leads"
+                           style="display: inline-block; background: #3B82F6; color: white; padding: 12px 24px;
+                                  text-decoration: none; border-radius: 6px; font-weight: bold;">
+                            View Leads in CRM →
+                        </a>
+                    </p>
+
+                    <p style="margin-top: 30px;">Best regards,<br>KoderKids ERP Team</p>
+
+                    <hr style="margin-top: 30px; border: none; border-top: 1px solid #ddd;">
+                    <p style="font-size: 12px; color: #6B7280;">
+                        This is an automated daily reminder. Leads without recent activity are flagged after {days_threshold} days.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+
+        plain_message = strip_tags(html_message)
+
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[bdm_user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+
+        logger.info(f"Aging lead alert sent to {bdm_user.email} for {lead_count} leads")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send aging lead alert to {bdm_user.email}: {str(e)}")
+        return False

@@ -215,14 +215,42 @@ class Activity(models.Model):
         default='Scheduled',
         help_text="Current status of the activity"
     )
-    
+
     scheduled_date = models.DateTimeField(
         help_text="When this activity is scheduled"
     )
     completed_date = models.DateTimeField(
-        null=True, 
+        null=True,
         blank=True,
         help_text="When this activity was completed"
+    )
+
+    # ===== OUTCOME & TRACKING =====
+    outcome = models.CharField(
+        max_length=30,
+        choices=[
+            ('Interested', 'Interested'),
+            ('Not Interested', 'Not Interested'),
+            ('Follow-up Required', 'Follow-up Required'),
+            ('No Answer', 'No Answer'),
+            ('Wrong Number', 'Wrong Number'),
+            ('Callback Requested', 'Callback Requested'),
+            ('Other', 'Other'),
+        ],
+        blank=True,
+        null=True,
+        help_text="Outcome of the activity"
+    )
+
+    duration_minutes = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="Duration of call/meeting in minutes"
+    )
+
+    is_logged = models.BooleanField(
+        default=False,
+        help_text="True if activity was logged after completion (not scheduled in advance)"
     )
     
     # ===== TIMESTAMPS =====

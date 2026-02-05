@@ -32,6 +32,10 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
     assigned_to: '',
     scheduled_date: '',
     status: 'Scheduled',
+    // New fields for quick-log and outcome tracking
+    is_logged: false,
+    outcome: '',
+    duration_minutes: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -111,7 +115,8 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
     if (!formData.subject) {
       newErrors.subject = 'Subject is required';
     }
-    if (!formData.scheduled_date) {
+    // Scheduled date only required for scheduled activities (not logged ones)
+    if (!formData.is_logged && !formData.scheduled_date) {
       newErrors.scheduled_date = 'Scheduled date is required';
     }
     if (isAdmin && !formData.assigned_to) {
@@ -229,6 +234,38 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
 
               {/* Form */}
               <form onSubmit={handleSubmit}>
+                {/* Quick Log Toggle */}
+                <div style={styles.toggleContainer}>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, is_logged: false, status: 'Scheduled' }))}
+                    style={{
+                      ...styles.toggleButton,
+                      ...(formData.is_logged ? {} : styles.toggleButtonActive),
+                    }}
+                  >
+                    📅 Schedule Activity
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, is_logged: true, status: 'Completed' }))}
+                    style={{
+                      ...styles.toggleButton,
+                      ...(formData.is_logged ? styles.toggleButtonActive : {}),
+                    }}
+                  >
+                    ✓ Log Completed Activity
+                  </button>
+                </div>
+
+                {formData.is_logged && (
+                  <div style={styles.loggedInfoBox}>
+                    <p style={styles.loggedInfoText}>
+                      📝 Quick log mode: Record an activity that just happened. It will be saved as completed.
+                    </p>
+                  </div>
+                )}
+
                 <div style={styles.formGrid}>
                   {/* Activity Type */}
                   <div style={styles.formGroup}>
@@ -296,24 +333,26 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
                     )}
                   </div>
 
-                  {/* Scheduled Date */}
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Scheduled Date & Time *</label>
-                    <input
-                      type="datetime-local"
-                      name="scheduled_date"
-                      value={formData.scheduled_date}
-                      onChange={handleChange}
-                      style={{
-                        ...styles.input,
-                        ...(errors.scheduled_date ? styles.inputError : {}),
-                      }}
-                      className="activity-modal-input"
-                    />
-                    {errors.scheduled_date && (
-                      <p style={styles.errorText}>{errors.scheduled_date}</p>
-                    )}
-                  </div>
+                  {/* Scheduled Date - Only for scheduled activities */}
+                  {!formData.is_logged && (
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Scheduled Date & Time *</label>
+                      <input
+                        type="datetime-local"
+                        name="scheduled_date"
+                        value={formData.scheduled_date}
+                        onChange={handleChange}
+                        style={{
+                          ...styles.input,
+                          ...(errors.scheduled_date ? styles.inputError : {}),
+                        }}
+                        className="activity-modal-input"
+                      />
+                      {errors.scheduled_date && (
+                        <p style={styles.errorText}>{errors.scheduled_date}</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Assigned To (Admin only) */}
                   {isAdmin && (
@@ -342,21 +381,70 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
                     </div>
                   )}
 
-                  {/* Status */}
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Status</label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      style={styles.select}
-                      className="activity-modal-select"
-                    >
-                      <option value="Scheduled">Scheduled</option>
-                      <option value="Completed">Completed</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </div>
+                  {/* Status - Hidden in quick-log mode */}
+                  {!formData.is_logged && (
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Status</label>
+                      <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleChange}
+                        style={styles.select}
+                        className="activity-modal-select"
+                      >
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Outcome - Show for logged activities or completed status */}
+                  {(formData.is_logged || formData.status === 'Completed') && (
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Outcome {formData.is_logged ? '*' : ''}</label>
+                      <select
+                        name="outcome"
+                        value={formData.outcome}
+                        onChange={handleChange}
+                        style={{
+                          ...styles.select,
+                          ...(errors.outcome ? styles.inputError : {}),
+                        }}
+                        className="activity-modal-select"
+                      >
+                        <option value="">Select outcome...</option>
+                        <option value="Interested">Interested</option>
+                        <option value="Not Interested">Not Interested</option>
+                        <option value="Follow-up Required">Follow-up Required</option>
+                        <option value="No Answer">No Answer</option>
+                        <option value="Wrong Number">Wrong Number</option>
+                        <option value="Callback Requested">Callback Requested</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      {errors.outcome && (
+                        <p style={styles.errorText}>{errors.outcome}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Duration - Show for calls in logged mode or completed status */}
+                  {formData.activity_type === 'Call' && (formData.is_logged || formData.status === 'Completed') && (
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Call Duration (minutes)</label>
+                      <input
+                        type="number"
+                        name="duration_minutes"
+                        value={formData.duration_minutes}
+                        onChange={handleChange}
+                        min="1"
+                        max="300"
+                        style={styles.input}
+                        placeholder="e.g., 5"
+                        className="activity-modal-input"
+                      />
+                    </div>
+                  )}
 
                   {/* Description - Full Width */}
                   <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
@@ -391,7 +479,7 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
                     }}
                     disabled={loading}
                   >
-                    {loading ? 'Creating...' : 'Create Activity'}
+                    {loading ? 'Saving...' : (formData.is_logged ? 'Log Activity' : 'Schedule Activity')}
                   </button>
                 </div>
               </form>
@@ -405,6 +493,44 @@ export const CreateActivityModal = ({ onClose, onSuccess }) => {
 
 // Styles - Gradient Design
 const styles = {
+  toggleContainer: {
+    display: 'flex',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+    padding: SPACING.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  toggleButton: {
+    flex: 1,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    backgroundColor: 'transparent',
+    color: COLORS.text.whiteSubtle,
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  toggleButtonActive: {
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+  },
+  loggedInfoBox: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  loggedInfoText: {
+    color: '#6EE7B7',
+    fontSize: FONT_SIZES.sm,
+    margin: 0,
+  },
   overlay: {
     position: 'fixed',
     inset: 0,

@@ -182,6 +182,32 @@ export const assignLead = async (leadId, bdmId) => {
   }
 };
 
+/**
+ * Check for duplicate leads by phone number
+ * @param {string} phone - Phone number to check
+ * @returns {Promise<Object>} Duplicate check result { found: boolean, leads: Array }
+ */
+export const checkDuplicateLead = async (phone) => {
+  try {
+    console.log(`🔍 Checking for duplicate leads with phone: ${phone}`);
+
+    const response = await axios.post(
+      `${API_URL}${CRM_BASE}/leads/check-duplicate/`,
+      { phone },
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    console.log('✅ Duplicate check result:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error checking duplicates:', error.response?.data || error.message);
+    handleAuthError(error);
+    return { found: false, leads: [] };
+  }
+};
+
 // ============================================
 // ACTIVITY OPERATIONS
 // ============================================
@@ -594,6 +620,7 @@ export default {
   deleteLead,
   convertLead,
   assignLead,
+  checkDuplicateLead,
 
   // Activities
   fetchActivities,

@@ -83,11 +83,11 @@ class LeadDetailSerializer(LeadSerializer):
 
 class ActivitySerializer(serializers.ModelSerializer):
     """Serializer for Activity model"""
-    
+
     # Read-only fields
     assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
     lead_name = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Activity
         fields = [
@@ -102,26 +102,38 @@ class ActivitySerializer(serializers.ModelSerializer):
             'status',
             'scheduled_date',
             'completed_date',
+            'outcome',
+            'duration_minutes',
+            'is_logged',
             'created_at',
             'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
-    
+
     def get_lead_name(self, obj):
         """Return lead name or phone"""
         return str(obj.lead)
-    
+
     def validate(self, data):
-        """Validate activity dates"""
+        """Validate activity dates and handle quick-log mode"""
+        from django.utils import timezone
+
+        is_logged = data.get('is_logged', False)
         status = data.get('status', self.instance.status if self.instance else 'Scheduled')
         completed_date = data.get('completed_date')
-        
+
+        # Quick-log mode: auto-complete the activity
+        if is_logged:
+            data['status'] = 'Completed'
+            data['completed_date'] = timezone.now()
+            # If no scheduled_date provided for logged activity, use now
+            if not data.get('scheduled_date'):
+                data['scheduled_date'] = timezone.now()
+
         # If status is Completed, completed_date should be set
         if status == 'Completed' and not completed_date and not (self.instance and self.instance.completed_date):
-            # Auto-set to now if not provided
-            from django.utils import timezone
             data['completed_date'] = timezone.now()
-        
+
         return data
 
 

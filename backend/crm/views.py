@@ -79,6 +79,31 @@ class LeadViewSet(viewsets.ModelViewSet):
             return LeadDetailSerializer
         return LeadSerializer
 
+    def create(self, request, *args, **kwargs):
+        """Override create to include duplicate warning in response"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+
+        response_data = serializer.data
+
+        # Check for duplicates and add warning
+        phone = request.data.get('phone', '').strip()
+        if phone:
+            duplicate_leads = Lead.objects.filter(phone=phone).exclude(
+                id=serializer.instance.id
+            ).values('id', 'school_name', 'phone', 'status', 'contact_person')[:5]
+
+            if duplicate_leads.exists():
+                response_data['duplicate_warning'] = {
+                    'found': True,
+                    'message': f'Note: {duplicate_leads.count()} other lead(s) exist with the same phone number',
+                    'leads': list(duplicate_leads)
+                }
+
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_create(self, serializer):
         """Set created_by to current user and send email if BDM assigned"""
         user = self.request.user
@@ -227,6 +252,31 @@ class LeadViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=False, methods=['post'], url_path='check-duplicate')
+    def check_duplicate(self, request):
+        """
+        Check if a lead with the same phone number exists
+        POST /api/crm/leads/check-duplicate/
+        Body: {"phone": "1234567890"}
+        """
+        phone = request.data.get('phone', '').strip()
+
+        if not phone:
+            return Response({
+                'found': False,
+                'leads': []
+            })
+
+        # Find leads with matching phone
+        duplicate_leads = Lead.objects.filter(phone=phone).values(
+            'id', 'school_name', 'phone', 'status', 'contact_person', 'city'
+        )[:5]  # Limit to 5 results
+
+        return Response({
+            'found': duplicate_leads.exists(),
+            'leads': list(duplicate_leads)
+        })
+
     @action(detail=True, methods=['patch'])
     def assign(self, request, pk=None):
         """
@@ -368,7 +418,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
         """
         Set assigned_to to current user if not specified
         AUTO-RULE: Change lead status to 'Contacted' if lead is 'New' and this is first activity
-        EMAIL: Send notification to BDM when activity is scheduled for them
+        EMAIL: Send notification to BDM when activity is scheduled for them (not for logged activities)
         """
         self._automation_message = None  # Reset automation message
 
@@ -377,8 +427,11 @@ class ActivityViewSet(viewsets.ModelViewSet):
         else:
             activity = serializer.save()
 
-        # EMAIL: Send notification to BDM when activity is scheduled
-        if activity.assigned_to and activity.assigned_to.role == 'BDM' and activity.status == 'Scheduled':
+        # EMAIL: Send notification to BDM when activity is scheduled (NOT for quick-logged activities)
+        if (activity.assigned_to and
+            activity.assigned_to.role == 'BDM' and
+            activity.status == 'Scheduled' and
+            not activity.is_logged):
             try:
                 email_sent = send_activity_scheduled_email(activity, activity.assigned_to)
                 if email_sent:
