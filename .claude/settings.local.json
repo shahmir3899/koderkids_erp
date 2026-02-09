@@ -50,7 +50,23 @@
       "Bash(git fetch:*)",
       "Bash(cd:*)",
       "Bash(pip install:*)",
-      "WebFetch(domain:koderkids-erp.onrender.com)"
+      "WebFetch(domain:koderkids-erp.onrender.com)",
+      "Bash(npx cap:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(explorer \"d:\\\\Personal\\\\school-management-system\\\\frontend\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\debug\")",
+      "Bash(venvScriptspip install django djangorestframework djangorestframework-simplejwt django-cors-headers pillow psycopg2-binary python-dotenv)",
+      "Bash(D:\\\\Personal\\\\smart-attendance\\\\backend\\\\venv\\\\Scripts\\\\pip.exe install:*)",
+      "Bash(\"D:/Personal/smart-attendance/backend/venv/Scripts/pip.exe\" install:*)",
+      "Bash(\"D:/Personal/smart-attendance/backend/venv/Scripts/django-admin.exe\" startproject config .)",
+      "Bash(\"D:/Personal/smart-attendance/backend/venv/Scripts/pip.exe\" freeze)",
+      "Bash(\"D:/Personal/smart-attendance/backend/venv/Scripts/python.exe\" \"D:/Personal/smart-attendance/backend/manage.py\" makemigrations:*)",
+      "Bash(\"D:/Personal/smart-attendance/backend/venv/Scripts/python.exe\" \"D:/Personal/smart-attendance/backend/manage.py\" migrate:*)",
+      "Bash(\"D:/Personal/smart-attendance/backend/venv/Scripts/python.exe\" \"D:/Personal/smart-attendance/backend/manage.py\" shell)",
+      "Bash(npm init -y)",
+      "Bash(set DJANGO_SETTINGS_MODULE=backend.settings)",
+      "Bash(echo:*)",
+      "Bash(xargs:*)",
+      "Bash(wc:*)"
     ]
   }
 }

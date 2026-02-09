@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khan Chappals - Premium Handcrafted Footwear</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #333; }
+
+        /* Navigation */
+        nav { background: #ff6b35; padding: 1rem 5%; position: fixed; width: 100%; top: 0; z-index: 100; }
+        nav .container { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; }
+        .logo { font-size: 1.5rem; font-weight: 700; color: white; text-decoration: none; }
+        nav ul { display: flex; list-style: none; gap: 2rem; }
+        nav a { color: white; text-decoration: none; font-weight: 500; }
+
+        /* Hero */
+        .hero { background: linear-gradient(rgba(255,107,53,0.9), rgba(247,147,30,0.9)), url('images/hero-bg.jpg') center/cover; min-height: 60vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 100px 20px 40px; }
+        .hero h1 { font-size: 3rem; color: white; margin-bottom: 1rem; }
+        .hero p { font-size: 1.2rem; color: white; margin-bottom: 1.5rem; }
+        .btn { display: inline-block; padding: 0.8rem 2rem; background: #2d1b0e; color: white; text-decoration: none; border-radius: 5px; font-weight: 600; }
+
+        /* Section Styles */
+        .section-title { text-align: center; margin-bottom: 40px; }
+        .section-title h2 { font-size: 2rem; color: #2d1b0e; }
+        .section-title .line { width: 60px; height: 3px; background: #ff6b35; margin: 0.5rem auto; }
+
+        /* Products */
+        .products { padding: 60px 5%; background: #fff9f5; }
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; }
+        .product-card { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .product-image { height: 200px; position: relative; }
+        .product-image img { width: 100%; height: 100%; object-fit: cover; }
+        .badge { position: absolute; top: 10px; right: 10px; background: #ff6b35; color: white; padding: 4px 12px; border-radius: 15px; font-size: 0.8rem; }
+        .product-info { padding: 20px; }
+        .product-info h3 { font-size: 1.1rem; color: #2d1b0e; margin-bottom: 0.5rem; }
+        .product-info .description { color: #777; font-size: 0.9rem; margin-bottom: 0.8rem; }
+        .product-info .price { font-size: 1.3rem; font-weight: 700; color: #ff6b35; }
+        .product-info .price span { font-size: 0.9rem; color: #999; text-decoration: line-through; margin-left: 8px; }
+        .add-to-cart { width: 100%; padding: 10px; background: #ff6b35; border: none; color: white; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 10px; border-radius: 5px; }
+
+        /* About */
+        .about { padding: 60px 5%; background: #2d1b0e; color: white; }
+        .about-container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+        .about-image img { width: 100%; height: 300px; object-fit: cover; border-radius: 10px; }
+        .about-content h2 { font-size: 2rem; margin-bottom: 1rem; }
+        .about-content p { font-size: 1rem; margin-bottom: 1rem; opacity: 0.9; }
+
+        /* Contact */
+        .contact { padding: 60px 5%; background: #fff9f5; }
+        .contact-container { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .contact-info h3 { font-size: 1.5rem; color: #2d1b0e; margin-bottom: 1.5rem; }
+        .contact-item { margin-bottom: 1rem; color: #555; }
+        .contact-item strong { color: #2d1b0e; display: block; }
+        .contact-form input, .contact-form textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; font-family: inherit; }
+        .contact-form textarea { height: 100px; resize: none; }
+        .contact-form button { width: 100%; padding: 12px; background: #ff6b35; border: none; color: white; font-size: 1rem; font-weight: 600; border-radius: 5px; cursor: pointer; }
+
+        /* Footer */
+        footer { background: #2d1b0e; color: white; text-align: center; padding: 20px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav ul { display: none; }
+            .hero h1 { font-size: 2rem; }
+            .about-container, .contact-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">Khan Chappals</a>
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#products">Products</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero" id="home">
+        <div>
+            <h1>Khan Chappals</h1>
+            <p>Premium handcrafted traditional footwear</p>
+            <a href="#products" class="btn">Shop Now</a>
+        </div>
+    </section>
+
+    <section class="products" id="products">
+        <div class="section-title">
+            <h2>Our Collection</h2>
+            <div class="line"></div>
+        </div>
+        <div class="products-grid">
+            <div class="product-card">
+                <div class="product-image">
+                    <img src="images/product1.jpg" alt="Peshawari Classic">
+                    <span class="badge">Bestseller</span>
+                </div>
+                <div class="product-info">
+                    <h3>Peshawari Classic</h3>
+                    <p class="description">Authentic handmade leather chappal</p>
+                    <p class="price">₨ 2,499 <span>₨ 3,200</span></p>
+                    <button class="add-to-cart">Add to Cart</button>
+                </div>
+            </div>
+            <div class="product-card">
+                <div class="product-image">
+                    <img src="images/product2.jpg" alt="Kohati Premium">
+                    <span class="badge">New</span>
+                </div>
+                <div class="product-info">
+                    <h3>Kohati Premium</h3>
+                    <p class="description">Elegant design with superior comfort</p>
+                    <p class="price">₨ 3,299 <span>₨ 4,000</span></p>
+                    <button class="add-to-cart">Add to Cart</button>
+                </div>
+            </div>
+            <div class="product-card">
+                <div class="product-image">
+                    <img src="images/product3.jpg" alt="Multani Special">
+                </div>
+                <div class="product-info">
+                    <h3>Multani Special</h3>
+                    <p class="description">Lightweight everyday wear</p>
+                    <p class="price">₨ 1,899 <span>₨ 2,500</span></p>
+                    <button class="add-to-cart">Add to Cart</button>
+                </div>
+            </div>
+            <div class="product-card">
+                <div class="product-image">
+                    <img src="images/product4.jpg" alt="Quetta Royal">
+                    <span class="badge">Hot</span>
+                </div>
+                <div class="product-info">
+                    <h3>Quetta Royal</h3>
+                    <p class="description">Premium leather with embroidery</p>
+                    <p class="price">₨ 4,599 <span>₨ 5,500</span></p>
+                    <button class="add-to-cart">Add to Cart</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="about" id="about">
+        <div class="about-container">
+            <div class="about-image">
+                <img src="images/about.jpg" alt="Workshop">
+            </div>
+            <div class="about-content">
+                <h2>Crafted With Passion</h2>
+                <p>For over three generations, Khan Chappals has been synonymous with quality and tradition.</p>
+                <p>Every pair is handcrafted using premium leather sourced from the finest tanneries.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="contact" id="contact">
+        <div class="section-title">
+            <h2>Get In Touch</h2>
+            <div class="line"></div>
+        </div>
+        <div class="contact-container">
+            <div class="contact-info">
+                <h3>Contact Information</h3>
+                <div class="contact-item"><strong>Address</strong>Shop #45, Raja Bazaar, Rawalpindi</div>
+                <div class="contact-item"><strong>Phone</strong>+92 300 1234567</div>
+                <div class="contact-item"><strong>Email</strong>info@khanchappals.pk</div>
+                <div class="contact-item"><strong>Hours</strong>Mon - Sat: 10:00 AM - 9:00 PM</div>
+            </div>
+            <form class="contact-form">
+                <input type="text" placeholder="Your Name" required>
+                <input type="email" placeholder="Your Email" required>
+                <textarea placeholder="Your Message" required></textarea>
+                <button type="submit">Send Message</button>
+            </form>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2026 Khan Chappals. All Rights Reserved.</p>
+    </footer>
+</body>
+</html>

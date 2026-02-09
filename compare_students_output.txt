@@ -1,0 +1,1300 @@
+
+==============================================================================================================
+  TABLE: students_student   (total rows: 581)
+==============================================================================================================
+ID     Name                           Reg#             Status       School                 UserID   Username        
+--------------------------------------------------------------------------------------------------------------------
+313    AARIZ BIN QASIM                25-KK-MSSGC-032  Active       Mazen School Soan Gard 15       25-KK-MSSGC-032 
+641    Aayaat Amna                    25-KK-MSS-011    Left         Momentians School Syst 16       25-KK-MSS-011   
+596    Abdul Ahad                     25-KK-MSQC-095   Active       Mazen Schools Quaid Ca 17       25-KK-MSQC-095  
+909    ABDUL AHAD                     25-KK-TSSSG-194  Active       The Smart School, Soan 618      25-KK-TSSSG-194 
+801    ABDUL AHAD                     25-KK-TSSSG-086  Active       The Smart School, Soan 510      25-KK-TSSSG-086 
+810    ABDUL AHAD                     25-KK-TSSSG-095  Active       The Smart School, Soan 519      25-KK-TSSSG-095 
+478    ABDUL AHAD KHOKAR              25-KK-MSSGC-112  Active       Mazen School Soan Gard 19       25-KK-MSSGC-112 
+507    Abdul Aziz Ul Islam            25-KK-KKS-007    Active       Kid Kare School        20       25-KK-KKS-007   
+788    ABDUL HAADI                    25-KK-TSSSG-073  Active       The Smart School, Soan 497      25-KK-TSSSG-073 
+685    Abdul Hadi                     25-KK-MSS-055    Left         Momentians School Syst 21       25-KK-MSS-055   
+904    ABDUL HADI                     25-KK-TSSSG-189  Active       The Smart School, Soan 613      25-KK-TSSSG-189 
+410    Abdul Hanan                    25-KK-MSQC-076   Active       Mazen Schools Quaid Ca 22       25-KK-MSQC-076  
+705    Abdul Hannan                   25-KK-TCS-045    Active       The Creative School    23       25-KK-TCS-045   
+747    ABDUL HANNAN                   25-KK-TSSSG-032  Active       The Smart School, Soan 456      25-KK-TSSSG-032 
+677    Abdul Haseeb                   25-KK-MSS-047    Left         Momentians School Syst 24       25-KK-MSS-047   
+740    ABDULLAH                       25-KK-TSSSG-025  Active       The Smart School, Soan 449      25-KK-TSSSG-025 
+911    ABDULLAH                       25-KK-TSSSG-196  Active       The Smart School, Soan 620      25-KK-TSSSG-196 
+529    Abdullah Berlas                25-KK-KKS-029    Active       Kid Kare School        26       25-KK-KKS-029   
+822    ABDULLAH JALIL                 25-KK-TSSSG-107  Active       The Smart School, Soan 531      25-KK-TSSSG-107 
+592    Abdullah Nauman                25-KK-MSQC-091   Active       Mazen Schools Quaid Ca 27       25-KK-MSQC-091  
+583    Abdul Muqeet                   25-KK-MSQC-082   Active       Mazen Schools Quaid Ca 28       25-KK-MSQC-082  
+920    Abdul Qadir                    26-KK-MSQC-100   Active       Mazen Schools Quaid Ca 659      26-KK-MSQC-100  
+675    Abdul Rafay                    25-KK-MSS-045    Left         Momentians School Syst 29       25-KK-MSS-045   
+272    ABDUL RAFAY                    25-KK-MSQC-065   Active       Mazen Schools Quaid Ca 30       25-KK-MSQC-065  
+836    ABDUL RAHMAN                   25-KK-TSSSG-121  Active       The Smart School, Soan 545      25-KK-TSSSG-121 
+664    Abdul Rehman                   25-KK-MSS-034    Left         Momentians School Syst 31       25-KK-MSS-034   
+461    Abdul Rehman                   25-KK-TGPCS-044  Active       The Generation Pre Cad 32       25-KK-TGPCS-044 
+898    ABDUL REHMAN                   25-KK-TSSSG-183  Active       The Smart School, Soan 607      25-KK-TSSSG-183 
+450    Abdul Rehman Waseem            25-KK-TGPCS-059  Active       The Generation Pre Cad 33       25-KK-TGPCS-059 
+648    Abdul Wasay                    25-KK-MSS-018    Left         Momentians School Syst 34       25-KK-MSS-018   
+271    ABDUL WASAY                    25-KK-MSQC-064   Active       Mazen Schools Quaid Ca 36       25-KK-MSQC-064  
+121    Abdul Wasay Waseem             24-KK-TGPCS-068  Active       The Generation Pre Cad 37       24-KK-TGPCS-068 
+501    Abeeha Hasani                  25-KK-KKS-001    Active       Kid Kare School        38       25-KK-KKS-001   
+930    Abeeha Noor                    26-KK-FS-002     Active       Faseeha School         672      26-KK-FS-002    
+821    ABEEHA ZAFAR                   25-KK-TSSSG-106  Active       The Smart School, Soan 530      25-KK-TSSSG-106 
+750    ABEERA SHAKOOR                 25-KK-TSSSG-035  Active       The Smart School, Soan 459      25-KK-TSSSG-035 
+634    Abia Adnan                     25-KK-TGPCS-041  Active       The Generation Pre Cad 39       25-KK-TGPCS-041 
+75     Abiha Mansoor                  24-KK-TGPCS-043  Active       The Generation Pre Cad 40       24-KK-TGPCS-043 
+356    ABRAM BULAND                   25-KK-MSSGC-075  Active       Mazen School Soan Gard 41       25-KK-MSSGC-075 
+614    ABRISH FATIMA                  25-KK-MSQC-112   Active       Mazen Schools Quaid Ca 44       25-KK-MSQC-112  
+554    Abu Bakar                      25-KK-KKS-052    Active       Kid Kare School        45       25-KK-KKS-052   
+76     Aena Raham                     24-KK-TCS-033    Active       The Creative School    46       24-KK-TCS-033   
+251    AFFAN AHMAD                    25-KK-MSQC-044   Active       Mazen Schools Quaid Ca 47       25-KK-MSQC-044  
+454    Ahad Usman                     25-KK-TGPCS-063  Active       The Generation Pre Cad 49       25-KK-TGPCS-063 
+230    AHDA RANA                      25-KK-MSQC-023   Active       Mazen Schools Quaid Ca 50       25-KK-MSQC-023  
+912    AHMAD AMIN                     25-KK-TSSSG-197  Active       The Smart School, Soan 621      25-KK-TSSSG-197 
+688    Ahmad Bilal                    25-KK-MSS-058    Left         Momentians School Syst 51       25-KK-MSS-058   
+399    Ahmad Farooq                   25-KK-MSSGC-098  Passed out   Mazen School Soan Gard 52       25-KK-MSSGC-098 
+236    AHMAD IBRAHIM                  25-KK-MSQC-029   Active       Mazen Schools Quaid Ca 147      25-KK-MSQC-029  
+233    AHMAD IBRAHIM                  25-KK-MSQC-026   Active       Mazen Schools Quaid Ca 53       25-KK-MSQC-026  
+325    AHMED ALI AHSAN                25-KK-MSSGC-044  Active       Mazen School Soan Gard 54       25-KK-MSSGC-044 
+308    AHMED IBNE MUHAMMAD            25-KK-MSSGC-027  Active       Mazen School Soan Gard 55       25-KK-MSSGC-027 
+812    AHMED KASHIF                   25-KK-TSSSG-097  Active       The Smart School, Soan 521      25-KK-TSSSG-097 
+739    AIMAN HABIB                    25-KK-TSSSG-024  Active       The Smart School, Soan 448      25-KK-TSSSG-024 
+263    AIMA SAAD                      25-KK-MSQC-056   Active       Mazen Schools Quaid Ca 57       25-KK-MSQC-056  
+421    Aima Sial                      25-KK-TGPCS-036  Active       The Generation Pre Cad 58       25-KK-TGPCS-036 
+400    Aiza Ali                       25-KK-MSSGC-099  Passed out   Mazen School Soan Gard 59       25-KK-MSSGC-099 
+273    AIZAH FATIMA                   25-KK-MSQC-066   Active       Mazen Schools Quaid Ca 60       25-KK-MSQC-066  
+773    AKAASH ALI                     25-KK-TSSSG-058  Active       The Smart School, Soan 482      25-KK-TSSSG-058 
+360    ALEEZA ARZOO                   25-KK-MSSGC-079  Active       Mazen School Soan Gard 61       25-KK-MSSGC-079 
+287    ALI AHMED                      25-KK-MSSGC-006  Active       Mazen School Soan Gard 62       25-KK-MSSGC-006 
+805    ALI AWAN                       25-KK-TSSSG-090  Active       The Smart School, Soan 514      25-KK-TSSSG-090 
+907    ALI HAIDER                     25-KK-TSSSG-192  Active       The Smart School, Soan 616      25-KK-TSSSG-192 
+902    ALI IMRAN                      25-KK-TSSSG-187  Active       The Smart School, Soan 611      25-KK-TSSSG-187 
+864    Ali Muqaddas                   25-KK-TSSSG-149  Active       The Smart School, Soan 573      25-KK-TSSSG-149 
+477    ALI MUSTAFA RAIZ               25-KK-MSSGC-111  Active       Mazen School Soan Gard 63       25-KK-MSSGC-111 
+456    Alina waseem                   25-KK-TGPCS-065  Active       The Generation Pre Cad 64       25-KK-TGPCS-065 
+817    ALIZAY KANWAL                  25-KK-TSSSG-102  Active       The Smart School, Soan 526      25-KK-TSSSG-102 
+764    ALLAH WASAYA                   25-KK-TSSSG-049  Active       The Smart School, Soan 473      25-KK-TSSSG-049 
+823    ALMA AZMAT                     25-KK-TSSSG-108  Active       The Smart School, Soan 532      25-KK-TSSSG-108 
+245    AMEER HAMZA BIN NAVEED         25-KK-MSQC-038   Active       Mazen Schools Quaid Ca 65       25-KK-MSQC-038  
+264    AMMAR ATTIQUE AWAN             25-KK-MSQC-057   Active       Mazen Schools Quaid Ca 66       25-KK-MSQC-057  
+401    Amna Bukhari                   25-KK-MSSGC-100  Passed out   Mazen School Soan Gard 67       25-KK-MSSGC-100 
+567    Amna Mudassir                  25-KK-TCS-024    Active       The Creative School    68       25-KK-TCS-024   
+680    Amna Mushtaq                   25-KK-MSS-050    Left         Momentians School Syst 69       25-KK-MSS-050   
+441    Amna Rahat                     25-KK-TGPCS-054  Active       The Generation Pre Cad 70       25-KK-TGPCS-054 
+887    AMNA SAQIB                     25-KK-TSSSG-172  Active       The Smart School, Soan 596      25-KK-TSSSG-172 
+467    ANABIA BILAL                   25-KK-MSSGC-083  Active       Mazen School Soan Gard 71       25-KK-MSSGC-083 
+615    Anabia Binte Naman             25-KK-MSQC-113   Active       Mazen Schools Quaid Ca 72       25-KK-MSQC-113  
+893    ANABIA NAZIR                   25-KK-TSSSG-178  Active       The Smart School, Soan 602      25-KK-TSSSG-178 
+888    ANABIA YOUSAF                  25-KK-TSSSG-173  Active       The Smart School, Soan 597      25-KK-TSSSG-173 
+848    Anas Tariq                     25-KK-TSSSG-133  Active       The Smart School, Soan 557      25-KK-TSSSG-133 
+561    Anaya Ali                      25-KK-KKS-059    Active       Kid Kare School        73       25-KK-KKS-059   
+485    ANAYA IMRAN                    25-KK-MSSGC-119  Active       Mazen School Soan Gard 74       25-KK-MSSGC-119 
+530    Anaya Shah                     25-KK-KKS-030    Active       Kid Kare School        76       25-KK-KKS-030   
+655    Anisha Sheraz                  25-KK-MSS-025    Left         Momentians School Syst 77       25-KK-MSS-025   
+581    Anoosh Asad                    25-KK-MSQC-080   Active       Mazen Schools Quaid Ca 78       25-KK-MSQC-080  
+687    Anum Mazhar                    25-KK-MSS-057    Left         Momentians School Syst 79       25-KK-MSS-057   
+671    Anumta                         25-KK-MSS-041    Left         Momentians School Syst 80       25-KK-MSS-041   
+890    AQSA AQEEL                     25-KK-TSSSG-175  Active       The Smart School, Soan 599      25-KK-TSSSG-175 
+865    Areesha Adnan                  25-KK-TSSSG-150  Active       The Smart School, Soan 574      25-KK-TSSSG-150 
+763    AREESHA IFTIKHAAR              25-KK-TSSSG-048  Active       The Smart School, Soan 472      25-KK-TSSSG-048 
+863    Arfa Imran                     25-KK-TSSSG-148  Active       The Smart School, Soan 572      25-KK-TSSSG-148 
+921    Arham                          26-KK-MSSGC-102  Active       Mazen School Soan Gard 660      26-KK-MSSGC-102 
+516    Arham Ahmed                    25-KK-KKS-016    Active       Kid Kare School        81       25-KK-KKS-016   
+338    ARHAM NASIR                    25-KK-MSSGC-057  Active       Mazen School Soan Gard 82       25-KK-MSSGC-057 
+459    Arish                          25-KK-HT(B-001   Active       Home Tuition (Mr. Baba 83       25-KK-HT(B-001  
+892    ARSALAN FAISAL                 25-KK-TSSSG-177  Active       The Smart School, Soan 601      25-KK-TSSSG-177 
+261    ASAD ABBAS                     25-KK-MSQC-054   Active       Mazen Schools Quaid Ca 84       25-KK-MSQC-054  
+586    Asheer Abbas                   25-KK-MSQC-085   Active       Mazen Schools Quaid Ca 86       25-KK-MSQC-085  
+768    AYAT ARSHAN                    25-KK-TSSSG-053  Active       The Smart School, Soan 477      25-KK-TSSSG-053 
+219    AYAT GHUFRAN                   25-KK-MSQC-012   Active       Mazen Schools Quaid Ca 89       25-KK-MSQC-012  
+572    Ayat Noor                      25-KK-TCS-029    Active       The Creative School    91       25-KK-TCS-029   
+627    Ayat ul Hira                   25-KK-TCS-034    Active       The Creative School    92       25-KK-TCS-034   
+706    Ayesha Hussain                 25-KK-MSQC-118   Active       Mazen Schools Quaid Ca 93       25-KK-MSQC-118  
+700    Ayesha Mehmood                 25-KK-TCS-040    Active       The Creative School    94       25-KK-TCS-040   
+462    AYESHA NADEEM                  25-KK-MSSGC-089  Active       Mazen School Soan Gard 95       25-KK-MSSGC-089 
+666    Ayesha Naz                     25-KK-MSS-036    Left         Momentians School Syst 96       25-KK-MSS-036   
+626    Ayesha Siddiqui                25-KK-TCS-032    Active       The Creative School    97       25-KK-TCS-032   
+598    Ayesha Waqas                   25-KK-MSQC-097   Active       Mazen Schools Quaid Ca 98       25-KK-MSQC-097  
+584    Ayeza Farhad                   25-KK-MSQC-083   Active       Mazen Schools Quaid Ca 99       25-KK-MSQC-083  
+528    Ayilah Usman                   25-KK-KKS-028    Active       Kid Kare School        100      25-KK-KKS-028   
+508    Ayiza Usman                    25-KK-KKS-008    Active       Kid Kare School        101      25-KK-KKS-008   
+824    AYRA FAISAL                    25-KK-TSSSG-109  Active       The Smart School, Soan 533      25-KK-TSSSG-109 
+543    Ayra Sheheryar                 25-KK-KKS-041    Active       Kid Kare School        102      25-KK-KKS-041   
+757    AZAN SUFIYAN                   25-KK-TSSSG-042  Active       The Smart School, Soan 466      25-KK-TSSSG-042 
+531    Baraka Suleman                 25-KK-KKS-031    Active       Kid Kare School        103      25-KK-KKS-031   
+359    BAREERA HAROON                 25-KK-MSSGC-078  Active       Mazen School Soan Gard 104      25-KK-MSSGC-078 
+653    Bareerah Hassan                25-KK-MSS-023    Left         Momentians School Syst 105      25-KK-MSS-023   
+704    Barira Arshad                  25-KK-TCS-044    Active       The Creative School    106      25-KK-TCS-044   
+453    Bariya Hurain                  25-KK-TGPCS-062  Active       The Generation Pre Cad 107      25-KK-TGPCS-062 
+862    Batool Fatima                  25-KK-TSSSG-147  Active       The Smart School, Soan 571      25-KK-TSSSG-147 
+922    Bibi simra                     26-KK-TCS-022    Active       The Creative School    661      26-KK-TCS-022   
+924    Bibi Taiba                     26-KK-TCS-024    Active       The Creative School    663      26-KK-TCS-024   
+766    BILAL AWAIS                    25-KK-TSSSG-051  Active       The Smart School, Soan 475      25-KK-TSSSG-051 
+756    BILAL BANGASH                  25-KK-TSSSG-041  Active       The Smart School, Soan 465      25-KK-TSSSG-041 
+931    Burhan zafar                   26-KK-TGPCS-029  Active       The Generation Pre Cad 673      26-KK-TGPCS-029 
+669    Daim Ali                       25-KK-MSS-039    Left         Momentians School Syst 109      25-KK-MSS-039   
+815    DAMAN KHAN                     25-KK-TSSSG-100  Active       The Smart School, Soan 524      25-KK-TSSSG-100 
+517    Daneen Asim                    25-KK-KKS-017    Active       Kid Kare School        110      25-KK-KKS-017   
+825    DANIYAL TARIQ                  25-KK-TSSSG-110  Active       The Smart School, Soan 534      25-KK-TSSSG-110 
+238    DAWOOD AHSAN                   25-KK-MSQC-031   Active       Mazen Schools Quaid Ca 113      25-KK-MSQC-031  
+728    DILAWAR                        25-KK-TSSSG-013  Active       The Smart School, Soan 437      25-KK-TSSSG-013 
+297    DUA ATIF                       25-KK-MSSGC-016  Active       Mazen School Soan Gard 115      25-KK-MSSGC-016 
+407    Dua e Amman                    25-KK-MSSGC-106  Passed out   Mazen School Soan Gard 116      25-KK-MSSGC-106 
+518    Eesa Yasir Awan                25-KK-KKS-018    Active       Kid Kare School        117      25-KK-KKS-018   
+283    EIMAAN ABDUL QUDUS PIRACHA     25-KK-MSSGC-002  Active       Mazen School Soan Gard 118      25-KK-MSSGC-002 
+861    Eman Fatima                    25-KK-TSSSG-146  Active       The Smart School, Soan 570      25-KK-TSSSG-146 
+797    EMAN FATIMA                    25-KK-TSSSG-082  Active       The Smart School, Soan 506      25-KK-TSSSG-082 
+901    EMAN FATIMA                    25-KK-TSSSG-186  Active       The Smart School, Soan 610      25-KK-TSSSG-186 
+544    Eman Malik                     25-KK-KKS-042    Active       Kid Kare School        119      25-KK-KKS-042   
+274    ESHAAL RADIA                   25-KK-MSQC-067   Active       Mazen Schools Quaid Ca 120      25-KK-MSQC-067  
+826    ESHAL FATIMA                   25-KK-TSSSG-111  Active       The Smart School, Soan 535      25-KK-TSSSG-111 
+650    Esha Noor                      25-KK-MSS-020    Left         Momentians School Syst 121      25-KK-MSS-020   
+330    ESSA KHAN                      25-KK-MSSGC-049  Active       Mazen School Soan Gard 122      25-KK-MSSGC-049 
+573    Fabeha Jibran                  25-KK-MSQC-070   Active       Mazen Schools Quaid Ca 123      25-KK-MSQC-070  
+177    Fahad Zubair                   25-KK-TRES-048   Left         TRES                   124      25-KK-TRES-048  
+794    FAHEEM AHMED                   25-KK-TSSSG-079  Active       The Smart School, Soan 503      25-KK-TSSSG-079 
+870    Faiq Hussain                   25-KK-TSSSG-155  Active       The Smart School, Soan 579      25-KK-TSSSG-155 
+555    Faizan Naeem                   25-KK-KKS-053    Active       Kid Kare School        125      25-KK-KKS-053   
+873    Faiz Tassawar                  25-KK-TSSSG-158  Active       The Smart School, Soan 582      25-KK-TSSSG-158 
+746    FARIA SAQIB                    25-KK-TSSSG-031  Active       The Smart School, Soan 455      25-KK-TSSSG-031 
+929    Faseeah Noor                   26-KK-FS-001     Active       Faseeha School         671      26-KK-FS-001    
+881    FATIMA ALI SYED                25-KK-TSSSG-166  Active       The Smart School, Soan 590      25-KK-TSSSG-166 
+524    Fatima Bilal                   25-KK-KKS-024    Active       Kid Kare School        126      25-KK-KKS-024   
+474    FATIMA JEHANZEB                25-KK-MSSGC-096  Active       Mazen School Soan Gard 127      25-KK-MSSGC-096 
+404    Fatima Majid                   25-KK-MSSGC-103  Passed out   Mazen School Soan Gard 128      25-KK-MSSGC-103 
+828    FATIMA RANA                    25-KK-TSSSG-113  Active       The Smart School, Soan 537      25-KK-TSSSG-113 
+783    FATIMA REHMAN                  25-KK-TSSSG-068  Active       The Smart School, Soan 492      25-KK-TSSSG-068 
+164    Fatima Saad                    25-KK-TRES-043   Left         TRES                   129      25-KK-TRES-043  
+463    FATIMA SAAD ABBAS              25-KK-MSSGC-090  Active       Mazen School Soan Gard 130      25-KK-MSSGC-090 
+695    Fatima Tariq                   25-KK-KKS-065    Active       Kid Kare School        131      25-KK-KKS-065   
+827    FATIMA TUZ ZAHRA               25-KK-TSSSG-112  Active       The Smart School, Soan 536      25-KK-TSSSG-112 
+542    FATIMA UMAR                    25-KK-MSSGC-130  Active       Mazen School Soan Gard 132      25-KK-MSSGC-130 
+608    Fatima Usman                   25-KK-MSQC-107   Active       Mazen Schools Quaid Ca 133      25-KK-MSQC-107  
+856    Fatima Waseem                  25-KK-TSSSG-141  Active       The Smart School, Soan 565      25-KK-TSSSG-141 
+871    Fatiq Hussain                  25-KK-TSSSG-156  Active       The Smart School, Soan 580      25-KK-TSSSG-156 
+767    FIZZA ANWER                    25-KK-TSSSG-052  Active       The Smart School, Soan 476      25-KK-TSSSG-052 
+532    Ghazan Mohsin                  25-KK-KKS-032    Active       Kid Kare School        134      25-KK-KKS-032   
+525    Guleena Saleem                 25-KK-KKS-025    Active       Kid Kare School        135      25-KK-KKS-025   
+545    Habibah Khan                   25-KK-KKS-043    Active       Kid Kare School        136      25-KK-KKS-043   
+678    Hadia Sarfaraz                 25-KK-MSS-048    Left         Momentians School Syst 137      25-KK-MSS-048   
+242    HAFSA RAHEEL                   25-KK-MSQC-035   Active       Mazen Schools Quaid Ca 138      25-KK-MSQC-035  
+830    HAIDER ABBAS                   25-KK-TSSSG-115  Active       The Smart School, Soan 539      25-KK-TSSSG-115 
+786    HAIDER ABBASS                  25-KK-TSSSG-071  Active       The Smart School, Soan 495      25-KK-TSSSG-071 
+260    HAIDER ALI                     25-KK-MSQC-053   Active       Mazen Schools Quaid Ca 139      25-KK-MSQC-053  
+579    Haider Attique Awan            25-KK-MSQC-078   Active       Mazen Schools Quaid Ca 140      25-KK-MSQC-078  
+398    Haider Farid                   25-KK-MSSGC-097  Passed out   Mazen School Soan Gard 141      25-KK-MSSGC-097 
+849    Haider Noor                    25-KK-TSSSG-134  Active       The Smart School, Soan 558      25-KK-TSSSG-134 
+778    HAJIRA BANGISH                 25-KK-TSSSG-063  Active       The Smart School, Soan 487      25-KK-TSSSG-063 
+860    Hajra Amjad                    25-KK-TSSSG-145  Active       The Smart School, Soan 569      25-KK-TSSSG-145 
+403    Haleema Irfan                  25-KK-MSSGC-102  Passed out   Mazen School Soan Gard 142      25-KK-MSSGC-102 
+854    Hamayun Waqas                  25-KK-TSSSG-139  Active       The Smart School, Soan 563      25-KK-TSSSG-139 
+818    HAMID ALI                      25-KK-TSSSG-103  Active       The Smart School, Soan 527      25-KK-TSSSG-103 
+472    HAMZA ALI BHATTI               25-KK-MSSGC-094  Active       Mazen School Soan Gard 143      25-KK-MSSGC-094 
+900    HAMZA BUTT                     25-KK-TSSSG-185  Active       The Smart School, Soan 609      25-KK-TSSSG-185 
+755    HANEEN                         25-KK-TSSSG-040  Active       The Smart School, Soan 464      25-KK-TSSSG-040 
+539    Haneen Ameer                   25-KK-KKS-039    Active       Kid Kare School        144      25-KK-KKS-039   
+492    HANIA AAMIR                    25-KK-MSSGC-126  Active       Mazen School Soan Gard 145      25-KK-MSSGC-126 
+580    Hania Hammad                   25-KK-MSQC-079   Active       Mazen Schools Quaid Ca 146      25-KK-MSQC-079  
+853    Hania Touqeer                  25-KK-TSSSG-138  Active       The Smart School, Soan 562      25-KK-TSSSG-138 
+718    HANIA WASEEM                   25-KK-TSSSG-003  Active       The Smart School, Soan 427      25-KK-TSSSG-003 
+657    Hani Talal                     25-KK-MSS-027    Left         Momentians School Syst 148      25-KK-MSS-027   
+490    HANIYA ASAD                    25-KK-MSSGC-124  Active       Mazen School Soan Gard 149      25-KK-MSSGC-124 
+471    HANIYA QAISER                  25-KK-MSSGC-088  Active       Mazen School Soan Gard 150      25-KK-MSSGC-088 
+749    HAREEM                         25-KK-TSSSG-034  Active       The Smart School, Soan 458      25-KK-TSSSG-034 
+829    HAREEM                         25-KK-TSSSG-114  Active       The Smart School, Soan 538      25-KK-TSSSG-114 
+432    Hareem Akbar                   25-KK-TGPCS-047  Active       The Generation Pre Cad 152      25-KK-TGPCS-047 
+777    HAREEM AYESHA                  25-KK-TSSSG-062  Active       The Smart School, Soan 486      25-KK-TSSSG-062 
+659    Hareem Bilal                   25-KK-MSS-029    Left         Momentians School Syst 153      25-KK-MSS-029   
+759    HAREEM FAJR                    25-KK-TSSSG-044  Active       The Smart School, Soan 468      25-KK-TSSSG-044 
+296    HAREEM FATIMA                  25-KK-MSSGC-015  Active       Mazen School Soan Gard 154      25-KK-MSSGC-015 
+290    HAREEM KHAN                    25-KK-MSSGC-009  Active       Mazen School Soan Gard 155      25-KK-MSSGC-009 
+643    Hareem Naz                     25-KK-MSS-013    Left         Momentians School Syst 156      25-KK-MSS-013   
+882    HASHIR ABDULLAH                25-KK-TSSSG-167  Active       The Smart School, Soan 591      25-KK-TSSSG-167 
+163    Hassan Ali                     25-KK-TRES-042   Left         TRES                   158      25-KK-TRES-042  
+729    HAYYAN                         25-KK-TSSSG-014  Active       The Smart School, Soan 438      25-KK-TSSSG-014 
+682    Heram Sarfaraz                 25-KK-MSS-052    Left         Momentians School Syst 160      25-KK-MSS-052   
+772    HIBA NOOR                      25-KK-TSSSG-057  Active       The Smart School, Soan 481      25-KK-TSSSG-057 
+889    HILAL TARIQ                    25-KK-TSSSG-174  Active       The Smart School, Soan 598      25-KK-TSSSG-174 
+95     Hina Hassan                    24-KK-TCS-052    Active       The Creative School    161      24-KK-TCS-052   
+642    Hoorab Bilal                   25-KK-MSS-012    Left         Momentians School Syst 162      25-KK-MSS-012   
+137    Hoorab Farhan                  25-KK-TRES-036   Left         TRES                   163      25-KK-TRES-036  
+537    Hoorain Ahmed                  25-KK-KKS-037    Active       Kid Kare School        164      25-KK-KKS-037   
+690    Hurain Ahasan                  25-KK-MSQC-115   Active       Mazen Schools Quaid Ca 165      25-KK-MSQC-115  
+435    Hurain Usman                   25-KK-TGPCS-048  Active       The Generation Pre Cad 166      25-KK-TGPCS-048 
+588    Hurrain Fatima                 25-KK-MSQC-087   Active       Mazen Schools Quaid Ca 167      25-KK-MSQC-087  
+905    HUSAIN  ALI                    25-KK-TSSSG-190  Active       The Smart School, Soan 614      25-KK-TSSSG-190 
+903    HUSNA HUSNAIN                  25-KK-TSSSG-188  Active       The Smart School, Soan 612      25-KK-TSSSG-188 
+875    Hussain Awan                   25-KK-TSSSG-160  Active       The Smart School, Soan 584      25-KK-TSSSG-160 
+917    Huzaifa Asad                   25-KK-TGPCS-058  Active       The Generation Pre Cad 632      25-KK-TGPCS-058 
+719    HUZAIFA HASSAN                 25-KK-TSSSG-004  Active       The Smart School, Soan 428      25-KK-TSSSG-004 
+234    IBRAHIM ADEEL                  25-KK-MSQC-027   Active       Mazen Schools Quaid Ca 43       25-KK-MSQC-027  
+790    IBRAHIM AHMED                  25-KK-TSSSG-075  Active       The Smart School, Soan 499      25-KK-TSSSG-075 
+249    IBRAHIM AHTSHAM                25-KK-MSQC-042   Active       Mazen Schools Quaid Ca 168      25-KK-MSQC-042  
+520    Ibrahim Khan                   25-KK-KKS-020    Active       Kid Kare School        169      25-KK-KKS-020   
+294    IBRAHIM QURESHI                25-KK-MSSGC-013  Active       Mazen School Soan Gard 170      25-KK-MSSGC-013 
+616    Ifra Ahsan                     25-KK-MSQC-114   Active       Mazen Schools Quaid Ca 171      25-KK-MSQC-114  
+896    IMAN ZAHRA                     25-KK-TSSSG-181  Active       The Smart School, Soan 605      25-KK-TSSSG-181 
+366    INAAYA ASAD                    25-KK-MSSGC-085  Active       Mazen School Soan Gard 172      25-KK-MSSGC-085 
+831    INAM ULLAH                     25-KK-TSSSG-116  Active       The Smart School, Soan 540      25-KK-TSSSG-116 
+523    Inshirah Ultamish              25-KK-KKS-023    Active       Kid Kare School        173      25-KK-KKS-023   
+806    IRFA GILLANI                   25-KK-TSSSG-091  Active       The Smart School, Soan 515      25-KK-TSSSG-091 
+538    Irhaa Asjid                    25-KK-KKS-038    Active       Kid Kare School        174      25-KK-KKS-038   
+727    IRHA MOBEEN                    25-KK-TSSSG-012  Active       The Smart School, Soan 436      25-KK-TSSSG-012 
+465    IRMISH TAYYAB ABBASI           25-KK-MSSGC-092  Active       Mazen School Soan Gard 175      25-KK-MSSGC-092 
+582    Isa Ehsan                      25-KK-MSQC-081   Active       Mazen Schools Quaid Ca 176      25-KK-MSQC-081  
+533    Izan Zeeshan                   25-KK-KKS-033    Active       Kid Kare School        177      25-KK-KKS-033   
+319    IZZAH SAMI                     25-KK-MSSGC-038  Active       Mazen School Soan Gard 178      25-KK-MSSGC-038 
+744    JAVERIA AMIN                   25-KK-TSSSG-029  Active       The Smart School, Soan 453      25-KK-TSSSG-029 
+663    Javeria Waqas                  25-KK-MSS-033    Left         Momentians School Syst 179      25-KK-MSS-033   
+662    Jazib Bin Sheraz               25-KK-MSS-032    Left         Momentians School Syst 180      25-KK-MSS-032   
+504    Jinnah Khan                    25-KK-KKS-004    Active       Kid Kare School        181      25-KK-KKS-004   
+240    KEHSEEN AZEEM                  25-KK-MSQC-033   Active       Mazen Schools Quaid Ca 182      25-KK-MSQC-033  
+832    KHADIJA AWAIS                  25-KK-TSSSG-117  Active       The Smart School, Soan 541      25-KK-TSSSG-117 
+811    KHIRAD FATIMA                  25-KK-TSSSG-096  Active       The Smart School, Soan 520      25-KK-TSSSG-096 
+609    Kumail                         25-KK-TCS-030    Active       The Creative School    184      25-KK-TCS-030   
+499    Labiqa Zaheer                  25-KK-TCS-022    Active       The Creative School    185      25-KK-TCS-022   
+128    M.Abbas                        25-KK-TRES-033   Left         TRES                   186      25-KK-TRES-033  
+676    M Abrahim Mughal               25-KK-MSS-046    Left         Momentians School Syst 187      25-KK-MSS-046   
+169    Mahad Mustafa                  25-KK-TRES-045   Left         TRES                   189      25-KK-TRES-045  
+132    M.Ahmed Habib                  25-KK-TRES-034   Left         TRES                   190      25-KK-TRES-034  
+455    Mahnoor Fatima                 25-KK-TGPCS-064  Active       The Generation Pre Cad 191      25-KK-TGPCS-064 
+658    Mahrukh Zaheer                 25-KK-MSS-028    Left         Momentians School Syst 192      25-KK-MSS-028   
+651    M Ahtisham                     25-KK-MSS-021    Left         Momentians School Syst 193      25-KK-MSS-021   
+557    Mahveen Taimoor Khan           25-KK-KKS-055    Active       Kid Kare School        194      25-KK-KKS-055   
+876    M.Akbar                        25-KK-TSSSG-161  Active       The Smart School, Soan 585      25-KK-TSSSG-161 
+736    M.ALI                          25-KK-TSSSG-021  Active       The Smart School, Soan 445      25-KK-TSSSG-021 
+505    Malik Araiz                    25-KK-KKS-005    Active       Kid Kare School        195      25-KK-KKS-005   
+809    MALIK AYAN JAMIL               25-KK-TSSSG-094  Active       The Smart School, Soan 518      25-KK-TSSSG-094 
+649    Malik Haroon Rashid            25-KK-MSS-019    Left         Momentians School Syst 196      25-KK-MSS-019   
+793    MALIK NAEEM                    25-KK-TSSSG-078  Active       The Smart School, Soan 502      25-KK-TSSSG-078 
+808    M.AMIR                         25-KK-TSSSG-093  Active       The Smart School, Soan 517      25-KK-TSSSG-093 
+762    MANAHIL SHAHZAD                25-KK-TSSSG-047  Active       The Smart School, Soan 471      25-KK-TSSSG-047 
+652    M Anas                         25-KK-MSS-022    Left         Momentians School Syst 197      25-KK-MSS-022   
+800    MANNAT AMIN                    25-KK-TSSSG-085  Active       The Smart School, Soan 509      25-KK-TSSSG-085 
+770    M.ARHAM                        25-KK-TSSSG-055  Active       The Smart School, Soan 479      25-KK-TSSSG-055 
+835    M.ARHAM                        25-KK-TSSSG-120  Active       The Smart School, Soan 544      25-KK-TSSSG-120 
+784    M.ARHAM ABEER                  25-KK-TSSSG-069  Active       The Smart School, Soan 493      25-KK-TSSSG-069 
+510    M Arham Khattak                25-KK-KKS-010    Active       Kid Kare School        198      25-KK-KKS-010   
+556    M Arham Qureshi                25-KK-KKS-054    Active       Kid Kare School        199      25-KK-KKS-054   
+686    Mariam Mazhar                  25-KK-MSS-056    Left         Momentians School Syst 200      25-KK-MSS-056   
+693    Maria Shoaib                   25-KK-MSQC-116   Active       Mazen Schools Quaid Ca 201      25-KK-MSQC-116  
+925    M.Arish                        26-KK-TCS-025    Active       The Creative School    664      26-KK-TCS-025   
+833    MARWA                          25-KK-TSSSG-118  Active       The Smart School, Soan 542      25-KK-TSSSG-118 
+289    MARWA JEHANZAIB                25-KK-MSSGC-008  Active       Mazen School Soan Gard 202      25-KK-MSSGC-008 
+834    MARYAM                         25-KK-TSSSG-119  Active       The Smart School, Soan 543      25-KK-TSSSG-119 
+419    Maryam Ali                     25-KK-TGPCS-034  Active       The Generation Pre Cad 203      25-KK-TGPCS-034 
+789    MARYAM AWAIS                   25-KK-TSSSG-074  Active       The Smart School, Soan 498      25-KK-TSSSG-074 
+209    MARYAM BINT E ZOHAIB           25-KK-MSQC-002   Active       Mazen Schools Quaid Ca 205      25-KK-MSQC-002  
+512    Maryam Ejaz Khan               25-KK-KKS-012    Active       Kid Kare School        206      25-KK-KKS-012   
+595    Maryam Hashmi                  25-KK-MSQC-094   Active       Mazen Schools Quaid Ca 207      25-KK-MSQC-094  
+310    MARYAM QADIR ABBASI            25-KK-MSSGC-029  Active       Mazen School Soan Gard 208      25-KK-MSSGC-029 
+225    MARYAM RAHEEL                  25-KK-MSQC-018   Active       Mazen Schools Quaid Ca 209      25-KK-MSQC-018  
+855    Maryam Saqib                   25-KK-TSSSG-140  Active       The Smart School, Soan 564      25-KK-TSSSG-140 
+546    M Ashar Jahanzaib              25-KK-KKS-044    Active       Kid Kare School        210      25-KK-KKS-044   
+737    MATHIUS SHAMOON                25-KK-TSSSG-022  Active       The Smart School, Soan 446      25-KK-TSSSG-022 
+760    MAWADDA                        25-KK-TSSSG-045  Active       The Smart School, Soan 469      25-KK-TSSSG-045 
+745    M.AYAN                         25-KK-TSSSG-030  Active       The Smart School, Soan 454      25-KK-TSSSG-030 
+803    M.AYAN ALTAF                   25-KK-TSSSG-088  Active       The Smart School, Soan 512      25-KK-TSSSG-088 
+674    M Azan Fazooq                  25-KK-MSS-044    Left         Momentians School Syst 211      25-KK-MSS-044   
+883    M.BALAJ                        25-KK-TSSSG-168  Active       The Smart School, Soan 592      25-KK-TSSSG-168 
+503    M Bin Junaid                   25-KK-KKS-003    Active       Kid Kare School        212      25-KK-KKS-003   
+681    M Dawood Awais                 25-KK-MSS-051    Left         Momentians School Syst 213      25-KK-MSS-051   
+734    MEERAB                         25-KK-TSSSG-019  Active       The Smart School, Soan 443      25-KK-TSSSG-019 
+217    MEERAB FATIMA                  25-KK-MSQC-010   Active       Mazen Schools Quaid Ca 214      25-KK-MSQC-010  
+314    MEERAB KHAN                    25-KK-MSSGC-033  Active       Mazen School Soan Gard 215      25-KK-MSSGC-033 
+799    MEERUB USMAN                   25-KK-TSSSG-084  Active       The Smart School, Soan 508      25-KK-TSSSG-084 
+589    Mehar Ali                      25-KK-MSQC-088   Active       Mazen Schools Quaid Ca 216      25-KK-MSQC-088  
+317    MEHAR BANO                     25-KK-MSSGC-036  Active       Mazen School Soan Gard 217      25-KK-MSSGC-036 
+534    Mehrmah Fawad                  25-KK-KKS-034    Active       Kid Kare School        218      25-KK-KKS-034   
+721    M.FAHAD                        25-KK-TSSSG-006  Active       The Smart School, Soan 430      25-KK-TSSSG-006 
+837    M.FAHEEM                       25-KK-TSSSG-122  Active       The Smart School, Soan 546      25-KK-TSSSG-122 
+741    M.FAIZAN                       25-KK-TSSSG-026  Active       The Smart School, Soan 450      25-KK-TSSSG-026 
+813    M.HAMDAN GHANI                 25-KK-TSSSG-098  Active       The Smart School, Soan 522      25-KK-TSSSG-098 
+820    M.HAMMAD                       25-KK-TSSSG-105  Active       The Smart School, Soan 529      25-KK-TSSSG-105 
+802    M.HAMZA SAQIB                  25-KK-TSSSG-087  Active       The Smart School, Soan 511      25-KK-TSSSG-087 
+753    M.HASHIM                       25-KK-TSSSG-038  Active       The Smart School, Soan 462      25-KK-TSSSG-038 
+720    M.HASHIR USMAN                 25-KK-TSSSG-005  Active       The Smart School, Soan 429      25-KK-TSSSG-005 
+839    M.HASSAN                       25-KK-TSSSG-124  Active       The Smart School, Soan 548      25-KK-TSSSG-124 
+511    M Husnain                      25-KK-KKS-011    Active       Kid Kare School        219      25-KK-KKS-011   
+792    MIAN RAYYAN                    25-KK-TSSSG-077  Active       The Smart School, Soan 501      25-KK-TSSSG-077 
+625    M Ibrahim                      25-KK-TGPCS-040  Active       The Generation Pre Cad 220      25-KK-TGPCS-040 
+838    M.IBRAHIM                      25-KK-TSSSG-123  Active       The Smart School, Soan 547      25-KK-TSSSG-123 
+565    Mikaeel Ahmed                  25-KK-KKS-063    Active       Kid Kare School        221      25-KK-KKS-063   
+613    MIKAEL ABDULLAH                25-KK-MSQC-111   Active       Mazen Schools Quaid Ca 222      25-KK-MSQC-111  
+779    MINAHIL BANGISH                25-KK-TSSSG-064  Active       The Smart School, Soan 488      25-KK-TSSSG-064 
+547    Minahil Fatima                 25-KK-KKS-045    Active       Kid Kare School        223      25-KK-KKS-045   
+457    Minahil waseem                 25-KK-TGPCS-066  Active       The Generation Pre Cad 224      25-KK-TGPCS-066 
+341    MINHA IRFAN                    25-KK-MSSGC-060  Active       Mazen School Soan Gard 225      25-KK-MSSGC-060 
+541    MINSA BATOOL                   25-KK-MSSGC-129  Active       Mazen School Soan Gard 226      25-KK-MSSGC-129 
+321    MIRHA ADNAN                    25-KK-MSSGC-040  Active       Mazen School Soan Gard 227      25-KK-MSSGC-040 
+134    Mirha Mobeen                   25-KK-TRES-035   Left         TRES                   228      25-KK-TRES-035  
+481    MIRHA WAQAS                    25-KK-MSSGC-115  Active       Mazen School Soan Gard 229      25-KK-MSSGC-115 
+752    M.JASIM                        25-KK-TSSSG-037  Active       The Smart School, Soan 461      25-KK-TSSSG-037 
+726    M.JUNAID ANWAR                 25-KK-TSSSG-011  Active       The Smart School, Soan 435      25-KK-TSSSG-011 
+869    M.Juraij                       25-KK-TSSSG-154  Active       The Smart School, Soan 578      25-KK-TSSSG-154 
+742    M.KAMIL SAQIB                  25-KK-TSSSG-027  Active       The Smart School, Soan 451      25-KK-TSSSG-027 
+672    M Musa Rashid                  25-KK-MSS-042    Left         Momentians School Syst 230      25-KK-MSS-042   
+851    M.Mustafa                      25-KK-TSSSG-136  Active       The Smart School, Soan 560      25-KK-TSSSG-136 
+661    M Mustafa Mughal               25-KK-MSS-031    Left         Momentians School Syst 231      25-KK-MSS-031   
+521    M Nayel                        25-KK-KKS-021    Active       Kid Kare School        232      25-KK-KKS-021   
+275    MOHAMAMD SAAD KHAN             25-KK-MSQC-068   Active       Mazen Schools Quaid Ca 233      25-KK-MSQC-068  
+282    MOHID HAIDER                   25-KK-MSSGC-001  Active       Mazen School Soan Gard 236      25-KK-MSSGC-001 
+562    Mohid Qasim                    25-KK-KKS-060    Active       Kid Kare School        237      25-KK-KKS-060   
+318    MOMIN WAQAS BHATTI             25-KK-MSSGC-037  Active       Mazen School Soan Gard 238      25-KK-MSSGC-037 
+667    M Qasim Ali                    25-KK-MSS-037    Left         Momentians School Syst 239      25-KK-MSS-037   
+654    M Rayyan                       25-KK-MSS-024    Left         Momentians School Syst 240      25-KK-MSS-024   
+880    M.SAAD                         25-KK-TSSSG-165  Active       The Smart School, Soan 589      25-KK-TSSSG-165 
+731    M.SALIM                        25-KK-TSSSG-016  Active       The Smart School, Soan 440      25-KK-TSSSG-016 
+502    M Samar Awan                   25-KK-KKS-002    Active       Kid Kare School        241      25-KK-KKS-002   
+500    M. Shahwaiz                    25-KK-TCS-023    Active       The Creative School    242      25-KK-TCS-023   
+673    M Shahzaib                     25-KK-MSS-043    Left         Momentians School Syst 243      25-KK-MSS-043   
+444    M Subhan                       25-KK-TGPCS-057  Active       The Generation Pre Cad 244      25-KK-TGPCS-057 
+732    M.TAHA BILAL                   25-KK-TSSSG-017  Active       The Smart School, Soan 441      25-KK-TSSSG-017 
+795    M.TANVEER                      25-KK-TSSSG-080  Active       The Smart School, Soan 504      25-KK-TSSSG-080 
+389    Mudasir Gull                   25-KK-MSQC-075   Active       Mazen Schools Quaid Ca 246      25-KK-MSQC-075  
+701    Mudassir Rehman                25-KK-TCS-041    Active       The Creative School    247      25-KK-TCS-041   
+488    MUHAMMAD ABDULLA               25-KK-MSSGC-122  Active       Mazen School Soan Gard 248      25-KK-MSSGC-122 
+597    Muhammad Abdullah              25-KK-MSQC-096   Active       Mazen Schools Quaid Ca 249      25-KK-MSQC-096  
+252    MUHAMMAD ABDUL RAFAY           25-KK-MSQC-045   Active       Mazen Schools Quaid Ca 250      25-KK-MSQC-045  
+587    Muhammad Ahmad                 25-KK-MSQC-086   Active       Mazen Schools Quaid Ca 251      25-KK-MSQC-086  
+575    Muhammad Ahmad Khan            25-KK-MSQC-072   Active       Mazen Schools Quaid Ca 252      25-KK-MSQC-072  
+70     Muhammad Ahmed Irfan           24-KK-TGPCS-038  Active       The Generation Pre Cad 253      24-KK-TGPCS-038 
+483    MUHAMMAD ALI                   25-KK-MSSGC-117  Active       Mazen School Soan Gard 254      25-KK-MSSGC-117 
+610    MUHAMMAD ALI                   25-KK-MSQC-108   Active       Mazen Schools Quaid Ca 255      25-KK-MSQC-108  
+348    MUHAMMAD ALI MURTAZA           25-KK-MSSGC-067  Active       Mazen School Soan Gard 256      25-KK-MSSGC-067 
+486    MUHAMMAD  ARHAM ASIM           25-KK-MSSGC-120  Active       Mazen School Soan Gard 257      25-KK-MSSGC-120 
+69     Muhammad Arhum Irfan           24-KK-TGPCS-037  Active       The Generation Pre Cad 258      24-KK-TGPCS-037 
+363    MUHAMMAD ARSLAN AWAN           25-KK-MSSGC-082  Active       Mazen School Soan Gard 259      25-KK-MSSGC-082 
+699    Muhammad Ashar                 25-KK-TCS-039    Active       The Creative School    260      25-KK-TCS-039   
+710    Muhammad Ayan                  25-KK-TGPCS-045  Active       The Generation Pre Cad 667      25-KK-TGPCS-045 
+270    MUHAMMAD AYAN                  25-KK-MSQC-063   Active       Mazen Schools Quaid Ca 261      25-KK-MSQC-063  
+344    MUHAMMAD AZAN DAR              25-KK-MSSGC-063  Active       Mazen School Soan Gard 262      25-KK-MSSGC-063 
+576    Muhammad Bin Farhan            25-KK-MSQC-073   Active       Mazen Schools Quaid Ca 264      25-KK-MSQC-073  
+335    MUHAMMAD BIN TAUQEER           25-KK-MSSGC-054  Active       Mazen School Soan Gard 265      25-KK-MSSGC-054 
+214    MUHAMMAD BURHAN AQEEL HASHMI   25-KK-MSQC-007   Active       Mazen Schools Quaid Ca 266      25-KK-MSQC-007  
+322    MUHAMMAD FAHAD                 25-KK-MSSGC-041  Active       Mazen School Soan Gard 267      25-KK-MSSGC-041 
+702    Muhammad Faizan                25-KK-TCS-042    Active       The Creative School    268      25-KK-TCS-042   
+256    MUHAMMAD FAROOQ  HASSAN        25-KK-MSQC-049   Active       Mazen Schools Quaid Ca 269      25-KK-MSQC-049  
+351    MUHAMMAD HADI RIZVI            25-KK-MSSGC-070  Active       Mazen School Soan Gard 270      25-KK-MSSGC-070 
+487    MUHAMMAD HAMZA                 25-KK-MSSGC-121  Active       Mazen School Soan Gard 271      25-KK-MSSGC-121 
+906    MUHAMMAD HAMZA                 25-KK-TSSSG-191  Active       The Smart School, Soan 615      25-KK-TSSSG-191 
+476    MUHAMMAD HASHIM ALI            25-KK-MSSGC-110  Active       Mazen School Soan Gard 272      25-KK-MSSGC-110 
+590    Muhammad Hashir Imran          25-KK-MSQC-089   Active       Mazen Schools Quaid Ca 273      25-KK-MSQC-089  
+568    Muhammad Hassan                25-KK-TCS-025    Active       The Creative School    275      25-KK-TCS-025   
+585    Muhammad Hassan                25-KK-MSQC-084   Active       Mazen Schools Quaid Ca 274      25-KK-MSQC-084  
+913    MUHAMMAD HASSAN                25-KK-TSSSG-198  Active       The Smart School, Soan 622      25-KK-TSSSG-198 
+928    MUHAMMAD HASSAN                26-KK-MSQC-101   Active       Mazen Schools Quaid Ca 670      26-KK-MSQC-101  
+368    MUHAMMAD HASSAN                25-KK-MSSGC-087  Active       Mazen School Soan Gard 276      25-KK-MSSGC-087 
+535    Muhammad Hassan Khan           25-KK-KKS-035    Active       Kid Kare School        277      25-KK-KKS-035   
+612    MUHAMMAD HUDDA                 25-KK-MSQC-110   Active       Mazen Schools Quaid Ca 278      25-KK-MSQC-110  
+679    Muhammad Ibrahim               25-KK-MSS-049    Left         Momentians School Syst 279      25-KK-MSS-049   
+464    MUHAMMAD IBRAHIM               25-KK-MSSGC-091  Active       Mazen School Soan Gard 282      25-KK-MSSGC-091 
+895    MUHAMMAD IBRAHIM               25-KK-TSSSG-180  Active       The Smart School, Soan 604      25-KK-TSSSG-180 
+218    MUHAMMAD IBRAHIM               25-KK-MSQC-011   Active       Mazen Schools Quaid Ca 281      25-KK-MSQC-011  
+480    MUHAMMAD IBRAHIM               25-KK-MSSGC-114  Active       Mazen School Soan Gard 280      25-KK-MSSGC-114 
+239    MUHAMMAD IBRAHIM HASHMI        25-KK-MSQC-032   Active       Mazen Schools Quaid Ca 283      25-KK-MSQC-032  
+932    MUHAMMAD IBRAHIM SAFDAR        26-KK-MSSGC-103  Active       Mazen School Soan Gard 674      26-KK-MSSGC-103 
+210    MUHAMMAD IBRAHIM SAFDAR        25-KK-MSQC-003   Active       Mazen Schools Quaid Ca 285      25-KK-MSQC-003  
+717    Muhammad IRTAZA                25-KK-TSSSG-002  Active       The Smart School, Soan 426      25-KK-TSSSG-002 
+324    MUHAMMAD IRTAZA ALI            25-KK-MSSGC-043  Active       Mazen School Soan Gard 286      25-KK-MSSGC-043 
+235    MUHAMMAD MAHAD                 25-KK-MSQC-028   Active       Mazen Schools Quaid Ca 288      25-KK-MSQC-028  
+343    MUHAMMAD MOHID FERAZ           25-KK-MSSGC-062  Active       Mazen School Soan Gard 289      25-KK-MSSGC-062 
+292    MUHAMMAD MOIZ KHAN             25-KK-MSSGC-011  Active       Mazen School Soan Gard 290      25-KK-MSSGC-011 
+714    Muhammad Mubeen                25-KK-MSQC-119   Active       Mazen Schools Quaid Ca 422      25-KK-MSQC-119  
+222    MUHAMMAD MUHIB AASIM           25-KK-MSQC-015   Active       Mazen Schools Quaid Ca 291      25-KK-MSQC-015  
+367    MUHAMMAD MUSA                  25-KK-MSSGC-086  Active       Mazen School Soan Gard 292      25-KK-MSSGC-086 
+298    MUHAMMAD RAHYM UMAIR           25-KK-MSSGC-017  Active       Mazen School Soan Gard 294      25-KK-MSSGC-017 
+689    Muhammad Rehan                 25-KK-MSS-059    Left         Momentians School Syst 295      25-KK-MSS-059   
+493    MUHAMMAD ROHAAN                25-KK-MSSGC-127  Active       Mazen School Soan Gard 296      25-KK-MSSGC-127 
+320    MUHAMMAD SAAD                  25-KK-MSSGC-039  Active       Mazen School Soan Gard 297      25-KK-MSSGC-039 
+285    MUHAMMAD SAAD KHOKHAR          25-KK-MSSGC-004  Active       Mazen School Soan Gard 298      25-KK-MSSGC-004 
+684    Muhammad Sameer                25-KK-MSS-054    Left         Momentians School Syst 299      25-KK-MSS-054   
+355    MUHAMMAD SARIM                 25-KK-MSSGC-074  Active       Mazen School Soan Gard 300      25-KK-MSSGC-074 
+300    MUHAMMAD SHAFAY                25-KK-MSSGC-019  Active       Mazen School Soan Gard 301      25-KK-MSSGC-019 
+79     Muhammad Shahbaz Ali           24-KK-TCS-036    Active       The Creative School    302      24-KK-TCS-036   
+591    Muhammad Shaheer Khan          25-KK-MSQC-090   Active       Mazen Schools Quaid Ca 303      25-KK-MSQC-090  
+886    Muhammad SHAHZAIN              25-KK-TSSSG-171  Active       The Smart School, Soan 595      25-KK-TSSSG-171 
+891    MUHAMMAD SOHAIL                25-KK-TSSSG-176  Active       The Smart School, Soan 600      25-KK-TSSSG-176 
+265    MUHAMMAD TAHA SHAH             25-KK-MSQC-058   Active       Mazen Schools Quaid Ca 304      25-KK-MSQC-058  
+211    MUHAMMAD UMER NOSHAD           25-KK-MSQC-004   Active       Mazen Schools Quaid Ca 305      25-KK-MSQC-004  
+696    Muhammad Usman                 25-KK-TCS-036    Active       The Creative School    306      25-KK-TCS-036   
+231    MUHAMMAD WALI WAQAS            25-KK-MSQC-024   Active       Mazen Schools Quaid Ca 307      25-KK-MSQC-024  
+276    MUHAMMAD YAHYA SHAHID          25-KK-MSQC-069   Active       Mazen Schools Quaid Ca 308      25-KK-MSQC-069  
+914    MUHAMMAD YASIR                 25-KK-TSSSG-199  Active       The Smart School, Soan 623      25-KK-TSSSG-199 
+402    Muhammad Zain Khan             25-KK-MSSGC-101  Passed out   Mazen School Soan Gard 309      25-KK-MSSGC-101 
+601    Muhammad Zakria                25-KK-MSQC-100   Active       Mazen Schools Quaid Ca 310      25-KK-MSQC-100  
+897    MUHAMMAD ZAVIYAR               25-KK-TSSSG-182  Active       The Smart School, Soan 606      25-KK-TSSSG-182 
+593    Muhammad Zayyan                25-KK-MSQC-092   Active       Mazen Schools Quaid Ca 311      25-KK-MSQC-092  
+484    MUHAMMAD ZAYYAN FAISAL         25-KK-MSSGC-118  Active       Mazen School Soan Gard 312      25-KK-MSSGC-118 
+885    MUHAMMAD ZUKHRUF BIN NOUMAN    25-KK-TSSSG-170  Active       The Smart School, Soan 594      25-KK-TSSSG-170 
+142    Muhammed Ali                   25-KK-TRES-039   Left         TRES                   313      25-KK-TRES-039  
+877    M.Umair                        25-KK-TSSSG-162  Active       The Smart School, Soan 586      25-KK-TSSSG-162 
+738    M.UMAR ATIF                    25-KK-TSSSG-023  Active       The Smart School, Soan 447      25-KK-TSSSG-023 
+660    Muntaha Saleem                 25-KK-MSS-030    Left         Momentians School Syst 315      25-KK-MSS-030   
+548    Muntaha Shehzad                25-KK-KKS-046    Active       Kid Kare School        316      25-KK-KKS-046   
+781    MURAD ALI                      25-KK-TSSSG-066  Active       The Smart School, Soan 490      25-KK-TSSSG-066 
+730    MUSA                           25-KK-TSSSG-015  Active       The Smart School, Soan 439      25-KK-TSSSG-015 
+604    Musa Bin Umar                  25-KK-MSQC-103   Active       Mazen Schools Quaid Ca 317      25-KK-MSQC-103  
+599    Musa Ehsan                     25-KK-MSQC-098   Active       Mazen Schools Quaid Ca 318      25-KK-MSQC-098  
+899    MUSA GHORI                     25-KK-TSSSG-184  Active       The Smart School, Soan 608      25-KK-TSSSG-184 
+656    Muskan Waqas                   25-KK-MSS-026    Left         Momentians School Syst 320      25-KK-MSS-026   
+878    Mustafa Bilal                  25-KK-TSSSG-163  Active       The Smart School, Soan 587      25-KK-TSSSG-163 
+497    MUTAHIR NADEEM                 25-KK-MSSGC-128  Active       Mazen School Soan Gard 321      25-KK-MSSGC-128 
+776    MUZAHIR AL-MEHDI               25-KK-TSSSG-061  Active       The Smart School, Soan 485      25-KK-TSSSG-061 
+884    MUZAMMIL                       25-KK-TSSSG-169  Active       The Smart School, Soan 593      25-KK-TSSSG-169 
+624    M.waleed                       25-KK-TGPCS-037  Active       The Generation Pre Cad 322      25-KK-TGPCS-037 
+923    M. Wasif                       26-KK-TCS-023    Active       The Creative School    662      26-KK-TCS-023   
+645    M Yahya Awais                  25-KK-MSS-015    Left         Momentians School Syst 323      25-KK-MSS-015   
+769    M.ZAIN BASHIR                  25-KK-TSSSG-054  Active       The Smart School, Soan 478      25-KK-TSSSG-054 
+482    NABEERA ZAHRA                  25-KK-MSSGC-116  Active       Mazen School Soan Gard 324      25-KK-MSSGC-116 
+927    Najam                          26-KK-TGPCS-032  Active       The Generation Pre Cad 666      26-KK-TGPCS-032 
+926    Nalain Fatima                  26-KK-TGPCS-031  Active       The Generation Pre Cad 665      26-KK-TGPCS-031 
+724    NASEEM BIBI                    25-KK-TSSSG-009  Active       The Smart School, Soan 433      25-KK-TSSSG-009 
+352    NASHMIA HUMAIR                 25-KK-MSSGC-071  Active       Mazen School Soan Gard 325      25-KK-MSSGC-071 
+549    Noorain Ahmed                  25-KK-KKS-047    Active       Kid Kare School        326      25-KK-KKS-047   
+670    Noor Fatima                    25-KK-MSS-040    Left         Momentians School Syst 327      25-KK-MSS-040   
+668    Noor UL Huda                   25-KK-MSS-038    Left         Momentians School Syst 328      25-KK-MSS-038   
+735    OLAIKA                         25-KK-TSSSG-020  Active       The Smart School, Soan 444      25-KK-TSSSG-020 
+213    PARISHAY FATIMA                25-KK-MSQC-006   Active       Mazen Schools Quaid Ca 329      25-KK-MSQC-006  
+683    Rafay Raza                     25-KK-MSS-053    Left         Momentians School Syst 330      25-KK-MSS-053   
+237    RAHIM ARIF                     25-KK-MSQC-030   Active       Mazen Schools Quaid Ca 331      25-KK-MSQC-030  
+761    RAMEEN BILAL                   25-KK-TSSSG-046  Active       The Smart School, Soan 470      25-KK-TSSSG-046 
+840    RAYED MALIK                    25-KK-TSSSG-125  Active       The Smart School, Soan 549      25-KK-TSSSG-125 
+711    Rayyan Ahmed                   25-KK-TGPCS-053  Active       The Generation Pre Cad 668      25-KK-TGPCS-053 
+844    REHAB                          25-KK-TSSSG-129  Active       The Smart School, Soan 553      25-KK-TSSSG-129 
+665    Rehan Ahmad                    25-KK-MSS-035    Left         Momentians School Syst 333      25-KK-MSS-035   
+644    Rehan Sarfaraz                 25-KK-MSS-014    Left         Momentians School Syst 334      25-KK-MSS-014   
+646    Renum Zohaib                   25-KK-MSS-016    Left         Momentians School Syst 335      25-KK-MSS-016   
+468    ROHAAN SHAHID                  25-KK-MSSGC-077  Active       Mazen School Soan Gard 336      25-KK-MSSGC-077 
+498    Rohail Ahmed                   25-KK-TCS-021    Active       The Creative School    337      25-KK-TCS-021   
+416    Rohan Niaz                     25-KK-TGPCS-030  Active       The Generation Pre Cad 338      25-KK-TGPCS-030 
+774    ROMAN ZULQARNAN                25-KK-TSSSG-059  Active       The Smart School, Soan 483      25-KK-TSSSG-059 
+866    Rubab                          25-KK-TSSSG-151  Active       The Smart School, Soan 575      25-KK-TSSSG-151 
+874    Ruhma Ahmad                    25-KK-TSSSG-159  Active       The Smart School, Soan 583      25-KK-TSSSG-159 
+708    Saad babar                     25-KK-TGPCS-042  Active       The Generation Pre Cad 339      25-KK-TGPCS-042 
+857    Saad Waseem                    25-KK-TSSSG-142  Active       The Smart School, Soan 566      25-KK-TSSSG-142 
+841    SAFINA                         25-KK-TSSSG-126  Active       The Smart School, Soan 550      25-KK-TSSSG-126 
+814    SAGHIR ALI                     25-KK-TSSSG-099  Active       The Smart School, Soan 523      25-KK-TSSSG-099 
+850    Saim Shamoon                   25-KK-TSSSG-135  Active       The Smart School, Soan 559      25-KK-TSSSG-135 
+558    Salar Hasan                    25-KK-KKS-056    Active       Kid Kare School        340      25-KK-KKS-056   
+475    SALEHA HUMAIR                  25-KK-MSSGC-109  Active       Mazen School Soan Gard 341      25-KK-MSSGC-109 
+229    SALWA ABISH ADIL               25-KK-MSQC-022   Active       Mazen Schools Quaid Ca 342      25-KK-MSQC-022  
+288    SAMI IBRAHIM                   25-KK-MSSGC-007  Active       Mazen School Soan Gard 343      25-KK-MSSGC-007 
+293    SANIYA KHAN                    25-KK-MSSGC-012  Active       Mazen School Soan Gard 344      25-KK-MSSGC-012 
+722    SARA HABIB                     25-KK-TSSSG-007  Active       The Smart School, Soan 431      25-KK-TSSSG-007 
+611    SARIM KHAN                     25-KK-MSQC-109   Active       Mazen Schools Quaid Ca 346      25-KK-MSQC-109  
+97     Sayed Ashar Hussnain           24-KK-TGPCS-044  Active       The Generation Pre Cad 347      24-KK-TGPCS-044 
+262    SHABBIR EHSAN                  25-KK-MSQC-055   Active       Mazen Schools Quaid Ca 348      25-KK-MSQC-055  
+733    SHAFAY HUSSAIN                 25-KK-TSSSG-018  Active       The Smart School, Soan 442      25-KK-TSSSG-018 
+771    SHAHINA                        25-KK-TSSSG-056  Active       The Smart School, Soan 480      25-KK-TSSSG-056 
+550    Shahmaaz Taimoor Khan          25-KK-KKS-048    Active       Kid Kare School        349      25-KK-KKS-048   
+894    SHAHMEER                       25-KK-TSSSG-179  Active       The Smart School, Soan 603      25-KK-TSSSG-179 
+569    Shahwaiz Sikandar              25-KK-TCS-026    Active       The Creative School    350      25-KK-TCS-026   
+748    SHAJIA                         25-KK-TSSSG-033  Active       The Smart School, Soan 457      25-KK-TSSSG-033 
+782    SHANAYA SHAMOON                25-KK-TSSSG-067  Active       The Smart School, Soan 491      25-KK-TSSSG-067 
+513    Shayan Naeem                   25-KK-KKS-013    Active       Kid Kare School        351      25-KK-KKS-013   
+551    Shehryar Ali Khan              25-KK-KKS-049    Active       Kid Kare School        352      25-KK-KKS-049   
+868    Shifa Nabi                     25-KK-TSSSG-153  Active       The Smart School, Soan 577      25-KK-TSSSG-153 
+816    SHURAIKH                       25-KK-TSSSG-101  Active       The Smart School, Soan 525      25-KK-TSSSG-101 
+536    Sibel Kamran                   25-KK-KKS-036    Active       Kid Kare School        353      25-KK-KKS-036   
+807    SIDRA-TUL-MUNTAHA              25-KK-TSSSG-092  Active       The Smart School, Soan 516      25-KK-TSSSG-092 
+566    Simrah Sohail                  25-KK-KKS-064    Active       Kid Kare School        354      25-KK-KKS-064   
+743    S.KHADIJA FATIMA               25-KK-TSSSG-028  Active       The Smart School, Soan 452      25-KK-TSSSG-028 
+574    S M Azhaan Ali Gilani          25-KK-MSQC-071   Active       Mazen Schools Quaid Ca 355      25-KK-MSQC-071  
+707    Sukaina Fatima                 25-KK-MSSGC-113  Active       Mazen School Soan Gard 356      25-KK-MSSGC-113 
+908    S.W.BILAL                      25-KK-TSSSG-193  Active       The Smart School, Soan 617      25-KK-TSSSG-193 
+342    SYEDA AALIA                    25-KK-MSSGC-061  Active       Mazen School Soan Gard 359      25-KK-MSSGC-061 
+842    SYEDA ABEEHA SHAH              25-KK-TSSSG-127  Active       The Smart School, Soan 551      25-KK-TSSSG-127 
+257    SYEDA ABIHA ZAHRA              25-KK-MSQC-050   Active       Mazen Schools Quaid Ca 360      25-KK-MSQC-050  
+603    Syed Abdullah                  25-KK-MSQC-102   Active       Mazen Schools Quaid Ca 361      25-KK-MSQC-102  
+594    Syed Abdul Rafay Wasti         25-KK-MSQC-093   Active       Mazen Schools Quaid Ca 362      25-KK-MSQC-093  
+758    SYEDA ESHAAL                   25-KK-TSSSG-043  Active       The Smart School, Soan 467      25-KK-TSSSG-043 
+843    SYEDA FIZZA ALI                25-KK-TSSSG-128  Active       The Smart School, Soan 552      25-KK-TSSSG-128 
+910    SYED ALI SHAH                  25-KK-TSSSG-195  Active       The Smart School, Soan 619      25-KK-TSSSG-195 
+819    SYEDA ROOHI FATIMA             25-KK-TSSSG-104  Active       The Smart School, Soan 528      25-KK-TSSSG-104 
+223    SYEDA TASHBEEH E ZAINAB        25-KK-MSQC-016   Active       Mazen Schools Quaid Ca 363      25-KK-MSQC-016  
+607    Syeda Tawassul Zahra           25-KK-MSQC-106   Active       Mazen Schools Quaid Ca 364      25-KK-MSQC-106  
+560    Syeda Tayyaba Batool           25-KK-KKS-058    Active       Kid Kare School        365      25-KK-KKS-058   
+522    Syeda Zainab Ali               25-KK-KKS-022    Active       Kid Kare School        366      25-KK-KKS-022   
+406    Syeda Zunash Farhan            25-KK-MSSGC-105  Passed out   Mazen School Soan Gard 367      25-KK-MSSGC-105 
+354    SYED MAAZ MATEEN               25-KK-MSSGC-073  Active       Mazen School Soan Gard 368      25-KK-MSSGC-073 
+559    Syed M. Ali                    25-KK-KKS-057    Active       Kid Kare School        369      25-KK-KKS-057   
+259    SYED M ALI HASSAN              25-KK-MSQC-052   Active       Mazen Schools Quaid Ca 370      25-KK-MSQC-052  
+469    SYED M. MUJTABA HUSSAIN        25-KK-MSSGC-081  Active       Mazen School Soan Gard 371      25-KK-MSSGC-081 
+258    SYED MOMIN WASTI               25-KK-MSQC-051   Active       Mazen Schools Quaid Ca 372      25-KK-MSQC-051  
+540    Syed Muhammad Essa             25-KK-KKS-040    Active       Kid Kare School        373      25-KK-KKS-040   
+491    SYED MUHAMMAD HADI SHABBIR KAZ 25-KK-MSSGC-125  Active       Mazen School Soan Gard 374      25-KK-MSSGC-125 
+339    SYED MUHAMMAD MEHDI RAZA ABIDI 25-KK-MSSGC-058  Active       Mazen School Soan Gard 375      25-KK-MSSGC-058 
+268    SYED SHAHEER TALHA             25-KK-MSQC-061   Active       Mazen Schools Quaid Ca 376      25-KK-MSQC-061  
+405    Syed Zuraiz Farhan             25-KK-MSSGC-104  Passed out   Mazen School Soan Gard 377      25-KK-MSSGC-104 
+158    Syeed Akbar Raza               25-KK-TRES-041   Left         TRES                   378      25-KK-TRES-041  
+175    Syeed Mir Abdul Qadir          25-KK-TRES-046   Left         TRES                   379      25-KK-TRES-046  
+224    TAHIRA SHAKEEL                 25-KK-MSQC-017   Active       Mazen Schools Quaid Ca 380      25-KK-MSQC-017  
+754    TAJ AZMAT ALI                  25-KK-TSSSG-039  Active       The Smart School, Soan 463      25-KK-TSSSG-039 
+526    Talha Ahmed                    25-KK-KKS-026    Active       Kid Kare School        381      25-KK-KKS-026   
+723    TALHA FAISAL                   25-KK-TSSSG-008  Active       The Smart School, Soan 432      25-KK-TSSSG-008 
+361    TALHA SHAHZAIB                 25-KK-MSSGC-080  Active       Mazen School Soan Gard 382      25-KK-MSSGC-080 
+852    Tayyab Ishfaq                  25-KK-TSSSG-137  Active       The Smart School, Soan 561      25-KK-TSSSG-137 
+514    Tehreem Adil                   25-KK-KKS-014    Active       Kid Kare School        383      25-KK-KKS-014   
+918    test                           26-KK-T-016      Left         TRES                   645      26-KK-T-016     
+315    UMAIMA MARYAM                  25-KK-MSSGC-034  Active       Mazen School Soan Gard 384      25-KK-MSSGC-034 
+408    Umammah Shaheryar              25-KK-MSSGC-107  Passed out   Mazen School Soan Gard 385      25-KK-MSSGC-107 
+305    UM-E-AIMAN SHAMRAIZ            25-KK-MSSGC-024  Active       Mazen School Soan Gard 386      25-KK-MSSGC-024 
+640    Umer Bin Rashid                25-KK-MSS-010    Left         Momentians School Syst 387      25-KK-MSS-010   
+804    UMER KHASHIF                   25-KK-TSSSG-089  Active       The Smart School, Soan 513      25-KK-TSSSG-089 
+798    UMER USAMA                     25-KK-TSSSG-083  Active       The Smart School, Soan 507      25-KK-TSSSG-083 
+725    UMME HANI                      25-KK-TSSSG-010  Active       The Smart School, Soan 434      25-KK-TSSSG-010 
+872    ummer-Abi-Waqas                25-KK-TSSSG-157  Active       The Smart School, Soan 581      25-KK-TSSSG-157 
+845    UMM E UNAIZA                   25-KK-TSSSG-130  Active       The Smart School, Soan 554      25-KK-TSSSG-130 
+141    Urwah Khurram                  25-KK-TRES-038   Left         TRES                   388      25-KK-TRES-038  
+312    URWAH SAMI                     25-KK-MSSGC-031  Active       Mazen School Soan Gard 389      25-KK-MSSGC-031 
+193    Usman Iqbal  Malik             25-KK-TRES-001   Left         TRES                   390      25-KK-TRES-001  
+409    Usman Zahid                    25-KK-MSSGC-108  Passed out   Mazen School Soan Gard 391      25-KK-MSSGC-108 
+250    WAHAJ AHMAD                    25-KK-MSQC-043   Active       Mazen Schools Quaid Ca 393      25-KK-MSQC-043  
+460    Waiz                           25-KK-HT(B-002   Active       Home Tuition (Mr. Baba 394      25-KK-HT(B-002  
+571    Wania khan                     25-KK-TCS-028    Active       The Creative School    396      25-KK-TCS-028   
+337    WASHMA SHEIKH                  25-KK-MSSGC-056  Active       Mazen School Soan Gard 397      25-KK-MSSGC-056 
+489    XAYYAN ARSALAN                 25-KK-MSSGC-123  Active       Mazen School Soan Gard 398      25-KK-MSSGC-123 
+564    Yahya Ahmed                    25-KK-KKS-062    Active       Kid Kare School        399      25-KK-KKS-062   
+527    Yahya Durrani                  25-KK-KKS-027    Active       Kid Kare School        400      25-KK-KKS-027   
+859    Yahya Faisal                   25-KK-TSSSG-144  Active       The Smart School, Soan 568      25-KK-TSSSG-144 
+765    YASNA TANVIR                   25-KK-TSSSG-050  Active       The Smart School, Soan 474      25-KK-TSSSG-050 
+647    Yazdan Haider                  25-KK-MSS-017    Left         Momentians School Syst 401      25-KK-MSS-017   
+602    Zahra Ahmed Awan               25-KK-MSQC-101   Active       Mazen Schools Quaid Ca 402      25-KK-MSQC-101  
+879    Zahra Eman                     25-KK-TSSSG-164  Active       The Smart School, Soan 588      25-KK-TSSSG-164 
+787    ZAHRA FATIMA                   25-KK-TSSSG-072  Active       The Smart School, Soan 496      25-KK-TSSSG-072 
+506    Zainab Ali                     25-KK-KKS-006    Active       Kid Kare School        403      25-KK-KKS-006   
+332    ZAIN ABBAS                     25-KK-MSSGC-051  Active       Mazen School Soan Gard 404      25-KK-MSSGC-051 
+867    Zainab Fatima                  25-KK-TSSSG-152  Active       The Smart School, Soan 576      25-KK-TSSSG-152 
+605    Zainab Fatima                  25-KK-MSQC-104   Active       Mazen Schools Quaid Ca 405      25-KK-MSQC-104  
+847    ZAINAB TAHIR                   25-KK-TSSSG-132  Active       The Smart School, Soan 556      25-KK-TSSSG-132 
+694    Zainb Shoaib                   25-KK-MSQC-117   Active       Mazen Schools Quaid Ca 407      25-KK-MSQC-117  
+357    ZARA ASAD                      25-KK-MSSGC-076  Active       Mazen School Soan Gard 408      25-KK-MSSGC-076 
+515    Zara Nouman                    25-KK-KKS-015    Active       Kid Kare School        409      25-KK-KKS-015   
+846    ZARA QUDSIA                    25-KK-TSSSG-131  Active       The Smart School, Soan 555      25-KK-TSSSG-131 
+709    Zargham Shabaz                 25-KK-MSQC-099   Active       Mazen Schools Quaid Ca 669      25-KK-MSQC-099  
+144    Zarish Fatima                  25-KK-TRES-040   Left         TRES                   410      25-KK-TRES-040  
+329    ZARMISHA ZEESHAN               25-KK-MSSGC-048  Active       Mazen School Soan Gard 411      25-KK-MSSGC-048 
+311    ZAYYAN HASSAN                  25-KK-MSSGC-030  Active       Mazen School Soan Gard 412      25-KK-MSSGC-030 
+606    Zoha Khan                      25-KK-MSQC-105   Active       Mazen Schools Quaid Ca 413      25-KK-MSQC-105  
+751    ZOHA TOUQEER                   25-KK-TSSSG-036  Active       The Smart School, Soan 460      25-KK-TSSSG-036 
+552    Zoya Hasan                     25-KK-KKS-050    Active       Kid Kare School        414      25-KK-KKS-050   
+470    ZOYA SHEHZAD KHAN              25-KK-MSSGC-084  Active       Mazen School Soan Gard 415      25-KK-MSSGC-084 
+553    Zuha Asjid                     25-KK-KKS-051    Active       Kid Kare School        416      25-KK-KKS-051   
+232    ZUHA SALMAN                    25-KK-MSQC-025   Active       Mazen Schools Quaid Ca 417      25-KK-MSQC-025  
+577    Zumar Muddaser                 25-KK-MSQC-074   Active       Mazen Schools Quaid Ca 418      25-KK-MSQC-074  
+796    ZUNAIRA ABDUL KARIM            25-KK-TSSSG-081  Active       The Smart School, Soan 505      25-KK-TSSSG-081 
+176    Zuraiz Asfan Yaar              25-KK-TRES-047   Left         TRES                   419      25-KK-TRES-047  
+858    Zyna Faisal                    25-KK-TSSSG-143  Active       The Smart School, Soan 567      25-KK-TSSSG-143 
+
+==============================================================================================================
+  TABLE: students_customuser  WHERE role=Student   (total rows: 635)
+==============================================================================================================
+ID     First Name           Last Name            Username             Email                          Active  
+-------------------------------------------------------------------------------------------------------------
+627                                              yahya faisal gul     yahyagulfaisal@gmail.com       True    
+629                                              M.Mustafa Bilal      abdullahrox007@gmail.com       True    
+630                                              M_Mustafa_Bilal                                     True    
+625                                              usman                                               True    
+626                                              yahya                                               True    
+628                                               M. Mustafa Bilal    muhammadmustafabilal89@gmail.c True    
+421                                              syedtaiq             syedtaiq14@gmail.com           True    
+15     AARIZ                BIN QASIM            25-KK-MSSGC-032                                     True    
+16     Aayaat               Amna                 25-KK-MSS-011                                       True    
+659    Abdul                                     26-KK-MSQC-100                                      True    
+658    Abdul                                     26-KK-MSSGC-101                                     True    
+17     Abdul                Ahad                 25-KK-MSQC-095                                      True    
+18     Abdul                Ahad                 25-KK-TGPCS-060                                     True    
+20     Abdul                Aziz Ul Islam        25-KK-KKS-007                                       True    
+21     Abdul                Hadi                 25-KK-MSS-055                                       True    
+22     Abdul                Hanan                25-KK-MSQC-076                                      True    
+23     Abdul                Hannan               25-KK-TCS-045                                       True    
+24     Abdul                Haseeb               25-KK-MSS-047                                       True    
+28     Abdul                Muqeet               25-KK-MSQC-082                                      True    
+29     Abdul                Rafay                25-KK-MSS-045                                       True    
+31     Abdul                Rehman               25-KK-MSS-034                                       True    
+33     Abdul                Rehman Waseem        25-KK-TGPCS-059                                     True    
+35     Abdul                Wasay                25-KK-TGPCS-052                                     True    
+34     Abdul                Wasay                25-KK-MSS-018                                       True    
+37     Abdul                Wasay Waseem         24-KK-TGPCS-068                                     True    
+510    ABDUL                                     25-KK-TSSSG-086                                     True    
+545    ABDUL                                     25-KK-TSSSG-121                                     True    
+519    ABDUL                                     25-KK-TSSSG-095                                     True    
+456    ABDUL                                     25-KK-TSSSG-032                                     True    
+618    ABDUL                                     25-KK-TSSSG-194                                     True    
+613    ABDUL                                     25-KK-TSSSG-189                                     True    
+497    ABDUL                                     25-KK-TSSSG-073                                     True    
+607    ABDUL                                     25-KK-TSSSG-183                                     True    
+19     ABDUL                AHAD KHOKAR          25-KK-MSSGC-112                                     True    
+30     ABDUL                RAFAY                25-KK-MSQC-065                                      True    
+36     ABDUL                WASAY                25-KK-MSQC-064                                      True    
+32     Abdull               Rehman               25-KK-TGPCS-044                                     True    
+25     Abdullah             Abbasi               24-KK-TCS-041                                       True    
+26     Abdullah             Berlas               25-KK-KKS-029                                       True    
+27     Abdullah             Nauman               25-KK-MSQC-091                                      True    
+531    ABDULLAH                                  25-KK-TSSSG-107                                     True    
+449    ABDULLAH                                  25-KK-TSSSG-025                                     True    
+620    ABDULLAH                                  25-KK-TSSSG-196                                     True    
+672    Abeeha                                    26-KK-FS-002                                        True    
+38     Abeeha               Hasani               25-KK-KKS-001                                       True    
+530    ABEEHA                                    25-KK-TSSSG-106                                     True    
+459    ABEERA                                    25-KK-TSSSG-035                                     True    
+39     Abia                 Adnan                25-KK-TGPCS-041                                     True    
+40     Abiha                Mansoor              24-KK-TGPCS-043                                     True    
+41     ABRAM                BULAND               25-KK-MSSGC-075                                     True    
+42     Abrish               Fatima               25-KK-TGPCS-032                                     True    
+43     ABRISH               FATIMA               25-KK-MSQC-027                                      True    
+44     ABRISH               FATIMA               25-KK-MSQC-112                                      True    
+45     Abu                  Bakar                25-KK-KKS-052                                       True    
+46     Aena                 Raham                24-KK-TCS-033                                       True    
+48     Affan                khan                 25-KK-TCS-031                                       True    
+47     AFFAN                AHMAD                25-KK-MSQC-044                                      True    
+49     Ahad                 Usman                25-KK-TGPCS-063                                     True    
+50     AHDA                 RANA                 25-KK-MSQC-023                                      True    
+51     Ahmad                Bilal                25-KK-MSS-058                                       True    
+52     Ahmad                Farooq               25-KK-MSSGC-098                                     True    
+621    AHMAD                                     25-KK-TSSSG-197                                     True    
+53     AHMAD                IBRAHIM              25-KK-MSQC-026                                      True    
+56     Ahmed                Zubair               25-KK-TGPCS-029                                     True    
+521    AHMED                                     25-KK-TSSSG-097                                     True    
+54     AHMED                ALI AHSAN            25-KK-MSSGC-044                                     True    
+55     AHMED                IBNE MUHAMMAD        25-KK-MSSGC-027                                     True    
+58     Aima                 Sial                 25-KK-TGPCS-036                                     True    
+57     AIMA                 SAAD                 25-KK-MSQC-056                                      True    
+448    AIMAN                                     25-KK-TSSSG-024                                     True    
+59     Aiza                 Ali                  25-KK-MSSGC-099                                     True    
+60     AIZAH                FATIMA♥️             25-KK-MSQC-066                                      True    
+482    AKAASH                                    25-KK-TSSSG-058                                     True    
+61     ALEEZA               ARZOO                25-KK-MSSGC-079                                     True    
+573    Ali                                       25-KK-TSSSG-149                                     True    
+616    ALI                                       25-KK-TSSSG-192                                     True    
+514    ALI                                       25-KK-TSSSG-090                                     True    
+611    ALI                                       25-KK-TSSSG-187                                     True    
+62     ALI                  AHMED                25-KK-MSSGC-006                                     True    
+63     ALI                  MUSTAFA RAIZ         25-KK-MSSGC-111                                     True    
+64     Alina                waseem               25-KK-TGPCS-065                                     True    
+526    ALIZAY                                    25-KK-TSSSG-102                                     True    
+473    ALLAG                                     25-KK-TSSSG-049                                     True    
+532    ALMA                                      25-KK-TSSSG-108                                     True    
+65     AMEER                HAMZA BIN NAVEED     25-KK-MSQC-038                                      True    
+66     AMMAR                ATTIQUE AWAN         25-KK-MSQC-057                                      True    
+67     Amna                 Bukhari              25-KK-MSSGC-100                                     True    
+68     Amna                 Mudassir             25-KK-TCS-024                                       True    
+69     Amna                 Mushtaq              25-KK-MSS-050                                       True    
+70     Amna                 Rahat                25-KK-TGPCS-054                                     True    
+596    AMNA                                      25-KK-TSSSG-172                                     True    
+72     Anabia               Binte Naman          25-KK-MSQC-113                                      True    
+597    ANABIA                                    25-KK-TSSSG-173                                     True    
+602    ANABIA                                    25-KK-TSSSG-178                                     True    
+71     ANABIA               BILAL                25-KK-MSSGC-083                                     True    
+557    Anas                                      25-KK-TSSSG-133                                     True    
+73     Anaya                Ali                  25-KK-KKS-059                                       True    
+75     Anaya                Kashif               25-KK-TGPCS-033                                     True    
+76     Anaya                Shah                 25-KK-KKS-030                                       True    
+74     ANAYA                IMRAN                25-KK-MSSGC-119                                     True    
+77     Anisha               Sheraz               25-KK-MSS-025                                       True    
+78     Anoosh               Asad                 25-KK-MSQC-080                                      True    
+79     Anum                 Mazhar               25-KK-MSS-057                                       True    
+80     Anumta                                    25-KK-MSS-041                                       True    
+599    AQSA                                      25-KK-TSSSG-175                                     True    
+574    Areesha                                   25-KK-TSSSG-150                                     True    
+472    AREESHA                                   25-KK-TSSSG-048                                     True    
+572    Arfa                                      25-KK-TSSSG-148                                     True    
+660    Arham                                     26-KK-MSSGC-102                                     True    
+81     Arham                Ahmed                25-KK-KKS-016                                       True    
+142    ARHAM                NASIR                25-KK-MSSGC-102                                     True    
+82     ARHAM                NASIR                25-KK-MSSGC-057                                     True    
+83     Arish                                     25-KK-HT(B-001                                      True    
+601    ARSALAN                                   25-KK-TSSSG-177                                     True    
+259    ARSLAN               AWAN                 25-KK-MSSGC-082                                     True    
+85     Asad                 Ali                  24-KK-TCS-043                                       True    
+84     ASAD                 ABBAS                25-KK-MSQC-054                                      True    
+86     Asheer               Abbas                25-KK-MSQC-085                                      True    
+87     Ayan                 Nabi                 24-KK-TGPCS-040                                     True    
+88     Ayan                 Sheraz               25-KK-TGPCS-051                                     True    
+90     Ayat                 Hayat                24-KK-TGPCS-049                                     True    
+91     Ayat                 Noor                 25-KK-TCS-029                                       True    
+92     Ayat                 ul Hira              25-KK-TCS-034                                       True    
+477    AYAT                                      25-KK-TSSSG-053                                     True    
+89     AYAT                 GHUFRAN              25-KK-MSQC-012                                      True    
+93     Ayesha               Hussain              25-KK-MSQC-118                                      True    
+94     Ayesha               Mehmood              25-KK-TCS-040                                       True    
+96     Ayesha               Naz                  25-KK-MSS-036                                       True    
+97     Ayesha               Siddiqui             25-KK-TCS-032                                       True    
+98     Ayesha               Waqas                25-KK-MSQC-097                                      True    
+95     AYESHA               NADEEM               25-KK-MSSGC-089                                     True    
+99     Ayeza                Farhad               25-KK-MSQC-083                                      True    
+100    Ayilah               Usman                25-KK-KKS-028                                       True    
+101    Ayiza                Usman                25-KK-KKS-008                                       True    
+102    Ayra                 Sheheryar            25-KK-KKS-041                                       True    
+533    AYRA                                      25-KK-TSSSG-109                                     True    
+466    AZAN                                      25-KK-TSSSG-042                                     True    
+103    Baraka               Suleman              25-KK-KKS-031                                       True    
+104    BAREERA              HAROON               25-KK-MSSGC-078                                     True    
+105    Bareerah             Hassan               25-KK-MSS-023                                       True    
+106    Barira               Arshad               25-KK-TCS-044                                       True    
+107    Bariya               Hurain               25-KK-TGPCS-062                                     True    
+571    Batool                                    25-KK-TSSSG-147                                     True    
+663    Bibi                                      26-KK-TCS-024                                       True    
+661    Bibi                                      26-KK-TCS-022                                       True    
+465    BILAL                                     25-KK-TSSSG-041                                     True    
+475    BILAL                                     25-KK-TSSSG-051                                     True    
+673    Burhan                                    26-KK-TGPCS-029                                     True    
+108    Burhan               Zafar                25-KK-TGPCS-050                                     True    
+109    Daim                 Ali                  25-KK-MSS-039                                       True    
+524    DAMAN                                     25-KK-TSSSG-100                                     True    
+110    Daneen               Asim                 25-KK-KKS-017                                       True    
+111    Dania                Adnan                24-KK-TGPCS-053                                     True    
+534    DANIYAL                                   25-KK-TSSSG-110                                     True    
+112    DAUD                 AHMED                25-KK-MSQC-040                                      True    
+113    DAWOOD               AHSAN                25-KK-MSQC-031                                      True    
+437    DILAWAR                                   25-KK-TSSSG-013                                     True    
+114    Dua                  Adnan                25-KK-TGPCS-046                                     True    
+116    Dua                  e Amman              25-KK-MSSGC-106                                     True    
+115    DUA                  ATIF                 25-KK-MSSGC-016                                     True    
+117    Eesa                 Yasir Awan           25-KK-KKS-018                                       True    
+118    EIMAAN               ABDUL QUDUS PIRACHA  25-KK-MSSGC-002                                     True    
+570    Eman                                      25-KK-TSSSG-146                                     True    
+119    Eman                 Malik                25-KK-KKS-042                                       True    
+506    EMAN                                      25-KK-TSSSG-082                                     True    
+610    EMAN                                      25-KK-TSSSG-186                                     True    
+121    Esha                 Noor                 25-KK-MSS-020                                       True    
+120    ESHAAL               RADIA                25-KK-MSQC-067                                      True    
+535    ESHAL                                     25-KK-TSSSG-111                                     True    
+122    ESSA                 KHAN                 25-KK-MSSGC-049                                     True    
+123    Fabeha               Jibran               25-KK-MSQC-070                                      True    
+124    Fahad                Zubair               25-KK-TRES-048                                      True    
+503    FAHEEM                                    25-KK-TSSSG-079                                     True    
+579    Faiqa                                     25-KK-TSSSG-155                                     True    
+582    Faiz                                      25-KK-TSSSG-158                                     True    
+125    Faizan               Naeem                25-KK-KKS-053                                       True    
+455    FARIA                                     25-KK-TSSSG-031                                     True    
+580    Fartiq                                    25-KK-TSSSG-156                                     True    
+671    Faseeah              Noor                 26-KK-FS-001                                        True    
+565    Fatima                                    25-KK-TSSSG-141                                     True    
+126    Fatima               Bilal                25-KK-KKS-024                                       True    
+128    Fatima               Majid                25-KK-MSSGC-103                                     True    
+129    Fatima               Saad                 25-KK-TRES-043                                      True    
+131    Fatima               Tariq                25-KK-KKS-065                                       True    
+133    Fatima               Usman                25-KK-MSQC-107                                      True    
+492    FATIMA                                    25-KK-TSSSG-068                                     True    
+590    FATIMA                                    25-KK-TSSSG-166                                     True    
+536    FATIMA                                    25-KK-TSSSG-112                                     True    
+537    FATIMA                                    25-KK-TSSSG-113                                     True    
+127    FATIMA               JEHANZEB             25-KK-MSSGC-096                                     True    
+130    FATIMA               SAAD ABBAS           25-KK-MSSGC-090                                     True    
+132    FATIMA               UMAR                 25-KK-MSSGC-130                                     True    
+476    FIZZA                                     25-KK-TSSSG-052                                     True    
+134    Ghazan               Mohsin               25-KK-KKS-032                                       True    
+135    Guleena              Saleem               25-KK-KKS-025                                       True    
+136    Habibah              Khan                 25-KK-KKS-043                                       True    
+137    Hadia                Sarfaraz             25-KK-MSS-048                                       True    
+138    HAFSA                RAHEEL               25-KK-MSQC-035                                      True    
+558    Haider                                    25-KK-TSSSG-134                                     True    
+140    Haider               Attique Awan         25-KK-MSQC-078                                      True    
+141    Haider               Farid                25-KK-MSSGC-097                                     True    
+495    HAIDER                                    25-KK-TSSSG-071                                     True    
+539    HAIDER                                    25-KK-TSSSG-115                                     True    
+139    HAIDER               ALI                  25-KK-MSQC-053                                      True    
+487    HAJIRA                                    25-KK-TSSSG-063                                     True    
+569    Hajra                                     25-KK-TSSSG-145                                     True    
+563    Hamayun                                   25-KK-TSSSG-139                                     True    
+527    HAMID                                     25-KK-TSSSG-103                                     True    
+609    HAMZA                                     25-KK-TSSSG-185                                     True    
+143    HAMZA                ALI BHATTI           25-KK-MSSGC-094                                     True    
+144    Haneen               Ameer                25-KK-KKS-039                                       True    
+464    HANEEN                                    25-KK-TSSSG-040                                     True    
+148    Hani                 Talal                25-KK-MSS-027                                       True    
+562    Hania                                     25-KK-TSSSG-138                                     True    
+146    Hania                Hammad               25-KK-MSQC-079                                      True    
+427    HANIA                                     25-KK-TSSSG-003                                     True    
+145    HANIA                AAMIR                25-KK-MSSGC-126                                     True    
+147    HANISH               FATIMA               25-KK-MSQC-029                                      True    
+149    HANIYA               ASAD                 25-KK-MSSGC-124                                     True    
+150    HANIYA               QAISER               25-KK-MSSGC-088                                     True    
+151    HANIYA               SHAHID               25-KK-MSQC-021                                      True    
+152    Hareem               Akbar                25-KK-TGPCS-047                                     True    
+153    Hareem               Bilal                25-KK-MSS-029                                       True    
+156    Hareem               Naz                  25-KK-MSS-013                                       True    
+468    HAREEM                                    25-KK-TSSSG-044                                     True    
+458    HAREEM                                    25-KK-TSSSG-034                                     True    
+538    HAREEM                                    25-KK-TSSSG-114                                     True    
+486    HAREEM                                    25-KK-TSSSG-062                                     True    
+154    HAREEM               FATIMA               25-KK-MSSGC-015                                     True    
+155    HAREEM               KHAN                 25-KK-MSSGC-009                                     True    
+591    HASHIR                                    25-KK-TSSSG-167                                     True    
+157    Hasnain              Abdul Malik          24-KK-TCS-048                                       True    
+158    Hassan               Ali                  25-KK-TRES-042                                      True    
+159    Hassan               Mehmood              24-KK-TCS-054                                       True    
+438    HAYYAN                                    25-KK-TSSSG-014                                     True    
+160    Heram                Sarfaraz             25-KK-MSS-052                                       True    
+481    HIBA                                      25-KK-TSSSG-057                                     True    
+598    HILAL                                     25-KK-TSSSG-174                                     True    
+161    Hina                 Hassan               24-KK-TCS-052                                       True    
+162    Hoorab               Bilal                25-KK-MSS-012                                       True    
+163    Hoorab               Farhan               25-KK-TRES-036                                      True    
+164    Hoorain              Ahmed                25-KK-KKS-037                                       True    
+165    Hurain               Ahasan               25-KK-MSQC-115                                      True    
+166    Hurain               Usman                25-KK-TGPCS-048                                     True    
+167    Hurrain              Fatima               25-KK-MSQC-087                                      True    
+614    HUSAIN                                    25-KK-TSSSG-190                                     True    
+612    HUSNA                                     25-KK-TSSSG-188                                     True    
+584    Hussain                                   25-KK-TSSSG-160                                     True    
+632    Huzaifa                                   25-KK-TGPCS-058                                     True    
+631    Huzaifa                                   25-KK-TGPCS-055                                     True    
+428    HUZAIFA                                   25-KK-TSSSG-004                                     True    
+169    Ibrahim              Khan                 25-KK-KKS-020                                       True    
+499    IBRAHIM                                   25-KK-TSSSG-075                                     True    
+168    IBRAHIM              AHTSHAM              25-KK-MSQC-042                                      True    
+170    IBRAHIM              QURESHI              25-KK-MSSGC-013                                     True    
+171    Ifra                 Ahsan                25-KK-MSQC-114                                      True    
+605    IMAM                                      25-KK-TSSSG-181                                     True    
+172    INAAYA               ASAD                 25-KK-MSSGC-085                                     True    
+540    Inam                                      25-KK-TSSSG-116                                     True    
+173    Inshirah             Ultamish             25-KK-KKS-023                                       True    
+515    IRFA                                      25-KK-TSSSG-091                                     True    
+436    IRHA                                      25-KK-TSSSG-012                                     True    
+174    Irhaa                Asjid                25-KK-KKS-038                                       True    
+175    IRMISH               TAYYAB ABBASI        25-KK-MSSGC-092                                     True    
+176    Isa                  Ehsan                25-KK-MSQC-081                                      True    
+177    Izan                 Zeeshan              25-KK-KKS-033                                       True    
+178    IZZAH                SAMI                 25-KK-MSSGC-038                                     True    
+179    Javeria              Waqas                25-KK-MSS-033                                       True    
+453    JAVERIA                                   25-KK-TSSSG-029                                     True    
+180    Jazib                Bin Sheraz           25-KK-MSS-032                                       True    
+181    Jinnah               Khan                 25-KK-KKS-004                                       True    
+489    KASHAN                                    25-KK-TSSSG-065                                     True    
+182    KEHSEEN              AZEEM                25-KK-MSQC-033                                      True    
+541    KHADIJA                                   25-KK-TSSSG-117                                     True    
+520    KHIRAD                                    25-KK-TSSSG-096                                     True    
+183    Konain               Sheraz               25-KK-TGPCS-038                                     True    
+184    Kumail                                    25-KK-TCS-030                                       True    
+185    Labiqa               Zaheer               25-KK-TCS-022                                       True    
+187    M                    Abrahim Mughal       25-KK-MSS-046                                       True    
+193    M                    Ahtisham             25-KK-MSS-021                                       True    
+197    M                    Anas                 25-KK-MSS-022                                       True    
+198    M                    Arham Khattak        25-KK-KKS-010                                       True    
+199    M                    Arham Qureshi        25-KK-KKS-054                                       True    
+210    M                    Ashar Jahanzaib      25-KK-KKS-044                                       True    
+211    M                    Azan Fazooq          25-KK-MSS-044                                       True    
+212    M                    Bin Junaid           25-KK-KKS-003                                       True    
+213    M                    Dawood Awais         25-KK-MSS-051                                       True    
+219    M                    Husnain              25-KK-KKS-011                                       True    
+220    M                    Ibrahim              25-KK-TGPCS-040                                     True    
+230    M                    Musa Rashid          25-KK-MSS-042                                       True    
+231    M                    Mustafa Mughal       25-KK-MSS-031                                       True    
+232    M                    Nayel                25-KK-KKS-021                                       True    
+239    M                    Qasim Ali            25-KK-MSS-037                                       True    
+240    M                    Rayyan               25-KK-MSS-024                                       True    
+241    M                    Samar Awan           25-KK-KKS-002                                       True    
+243    M                    Shahzaib             25-KK-MSS-043                                       True    
+244    M                    Subhan               25-KK-TGPCS-057                                     True    
+314    M                    Umar Haroon          25-KK-TCS-033                                       True    
+323    M                    Yahya Awais          25-KK-MSS-015                                       True    
+662    M.                                        26-KK-TCS-023                                       True    
+242    M.                   Shahwaiz             25-KK-TCS-023                                       True    
+186    M.Abbas                                   25-KK-TRES-033                                      True    
+188    Madiha               Ali                  24-KK-TCS-047                                       True    
+189    Mahad                Mustafa              25-KK-TRES-045                                      True    
+190    M.Ahmed              Habib                25-KK-TRES-034                                      True    
+191    Mahnoor              Fatima               25-KK-TGPCS-064                                     True    
+192    Mahrukh              Zaheer               25-KK-MSS-028                                       True    
+194    Mahveen              Taimoor Khan         25-KK-KKS-055                                       True    
+585    M.Akbar                                   25-KK-TSSSG-161                                     True    
+445    M.ALI                                     25-KK-TSSSG-021                                     True    
+195    Malik                Araiz                25-KK-KKS-005                                       True    
+196    Malik                Haroon Rashid        25-KK-MSS-019                                       True    
+502    MALIK                                     25-KK-TSSSG-078                                     True    
+518    MALIK                                     25-KK-TSSSG-094                                     True    
+517    M.AMIR                                    25-KK-TSSSG-093                                     True    
+484    M.ANAS                                    25-KK-TSSSG-060                                     True    
+509    MANNAT                                    25-KK-TSSSG-085                                     True    
+544    M.ARHAM                                   25-KK-TSSSG-120                                     True    
+493    M.ARHAM                                   25-KK-TSSSG-069                                     True    
+479    M.ARHAM                                   25-KK-TSSSG-055                                     True    
+201    Maria                Shoaib               25-KK-MSQC-116                                      True    
+200    Mariam               Mazhar               25-KK-MSS-056                                       True    
+664    M.Arish                                   26-KK-TCS-025                                       True    
+542    MARWA                                     25-KK-TSSSG-118                                     True    
+202    MARWA                JEHANZAIB            25-KK-MSSGC-008                                     True    
+564    Maryam                                    25-KK-TSSSG-140                                     True    
+203    Maryam               Ali                  25-KK-TGPCS-034                                     True    
+204    Maryam               bibi                 25-KK-TCS-035                                       True    
+206    Maryam               Ejaz Khan            25-KK-KKS-012                                       True    
+207    Maryam               Hashmi               25-KK-MSQC-094                                      True    
+498    MARYAM                                    25-KK-TSSSG-074                                     True    
+205    MARYAM               BINT E ZOHAIB        25-KK-MSQC-002                                      True    
+208    MARYAM               QADIR ABBASI         25-KK-MSSGC-029                                     True    
+209    MARYAM               RAHEEL               25-KK-MSQC-018                                      True    
+543    MARYUM                                    25-KK-TSSSG-119                                     True    
+446    MATHIUS                                   25-KK-TSSSG-022                                     True    
+469    MAWADDA                                   25-KK-TSSSG-045                                     True    
+454    M.AYAN                                    25-KK-TSSSG-030                                     True    
+512    M.AYAN                                    25-KK-TSSSG-088                                     True    
+592    M.BALAJ                                   25-KK-TSSSG-168                                     True    
+443    MEERAB                                    25-KK-TSSSG-019                                     True    
+214    MEERAB               FATIMA               25-KK-MSQC-010                                      True    
+215    MEERAB               KHAN                 25-KK-MSSGC-033                                     True    
+508    MEERUB                                    25-KK-TSSSG-084                                     True    
+216    Mehar                Ali                  25-KK-MSQC-088                                      True    
+217    MEHAR                BANO                 25-KK-MSSGC-036                                     True    
+218    Mehrmah              Fawad                25-KK-KKS-034                                       True    
+430    M.FAHAD                                   25-KK-TSSSG-006                                     True    
+546    M.FAHEER                                  25-KK-TSSSG-122                                     True    
+450    M.FAIZAN                                  25-KK-TSSSG-026                                     True    
+522    M.HAMDAN                                  25-KK-TSSSG-098                                     True    
+529    M.HAMMAD                                  25-KK-TSSSG-105                                     True    
+511    M.HAMZA                                   25-KK-TSSSG-087                                     True    
+429    M.HASHIR                                  25-KK-TSSSG-005                                     True    
+462    M.HASIM                                   25-KK-TSSSG-038                                     True    
+548    M.HASSAN                                  25-KK-TSSSG-124                                     True    
+501    MIAN                                      25-KK-TSSSG-077                                     True    
+547    M.IBRAHIM                                 25-KK-TSSSG-123                                     True    
+221    Mikaeel              Ahmed                25-KK-KKS-063                                       True    
+222    MIKAEL               ABDULLAH             25-KK-MSQC-111                                      True    
+223    Minahil              Fatima               25-KK-KKS-045                                       True    
+224    Minahil              waseem               25-KK-TGPCS-066                                     True    
+488    MINAHIL                                   25-KK-TSSSG-064                                     True    
+471    MINAHIL                                   25-KK-TSSSG-047                                     True    
+225    MINHA                IRFAN                25-KK-MSSGC-060                                     True    
+226    MINSA                BATOOL               25-KK-MSSGC-129                                     True    
+228    Mirha                Mobeen               25-KK-TRES-035                                      True    
+227    MIRHA                ADNAN                25-KK-MSSGC-040                                     True    
+229    MIRHA                WAQAS                25-KK-MSSGC-115                                     True    
+461    M.JASIM                                   25-KK-TSSSG-037                                     True    
+435    M.JUNAID                                  25-KK-TSSSG-011                                     True    
+578    M.Juraij                                  25-KK-TSSSG-154                                     True    
+451    M.KAMIL                                   25-KK-TSSSG-027                                     True    
+560    M.Mustafa                                 25-KK-TSSSG-136                                     True    
+233    MOHAMAMD             SAAD KHAN            25-KK-MSQC-068                                      True    
+234    MOHAMMAD             ZAVIYAR SHAHID       25-KK-MSQC-039                                      True    
+235    MohibUllah           Salar                25-KK-TGPCS-039                                     True    
+237    Mohid                Qasim                25-KK-KKS-060                                       True    
+236    MOHID                HAIDER               25-KK-MSSGC-001                                     True    
+238    MOMIN                WAQAS BHATTI         25-KK-MSSGC-037                                     True    
+589    M.SAAD                                    25-KK-TSSSG-165                                     True    
+440    M.SALIM                                   25-KK-TSSSG-016                                     True    
+441    M.TAHA                                    25-KK-TSSSG-017                                     True    
+504    M.TANVEER                                 25-KK-TSSSG-080                                     True    
+245    Mubarak                                   24-KK-TCS-039                                       True    
+246    Mudasir              Gull                 25-KK-MSQC-075                                      True    
+247    Mudassir             Rehman               25-KK-TCS-041                                       True    
+422    Muhammad                                  25-KK-MSQC-119                                      True    
+595    Muhammad                                  25-KK-TSSSG-171                                     True    
+426    Muhammad                                  25-KK-TSSSG-002                                     True    
+249    Muhammad             Abdullah             25-KK-MSQC-096                                      True    
+251    Muhammad             Ahmad                25-KK-MSQC-086                                      True    
+252    Muhammad             Ahmad Khan           25-KK-MSQC-072                                      True    
+253    Muhammad             Ahmed Irfan          24-KK-TGPCS-038                                     True    
+258    Muhammad             Arhum Irfan          24-KK-TGPCS-037                                     True    
+260    Muhammad             Ashar                25-KK-TCS-039                                       True    
+667    Muhammad             Ayan                 25-KK-TGPCS-045                                     True    
+263    Muhammad             Azan Khan            24-KK-TCS-045                                       True    
+264    Muhammad             Bin Farhan           25-KK-MSQC-073                                      True    
+268    Muhammad             Faizan               25-KK-TCS-042                                       True    
+273    Muhammad             Hashir Imran         25-KK-MSQC-089                                      True    
+274    Muhammad             Hassan               25-KK-MSQC-084                                      True    
+275    Muhammad             Hassan               25-KK-TCS-025                                       True    
+277    Muhammad             Hassan Khan          25-KK-KKS-035                                       True    
+279    Muhammad             Ibrahim              25-KK-MSS-049                                       True    
+284    Muhammad             Ibrahim Rehan        24-KK-TCS-051                                       True    
+287    Muhammad             Khizar Khan          24-KK-TCS-044                                       True    
+293    Muhammad             Muzammil             25-KK-TCS-043                                       True    
+295    Muhammad             Rehan                25-KK-MSS-059                                       True    
+299    Muhammad             Sameer               25-KK-MSS-054                                       True    
+302    Muhammad             Shahbaz Ali          24-KK-TCS-036                                       True    
+303    Muhammad             Shaheer Khan         25-KK-MSQC-090                                      True    
+306    Muhammad             Usman                25-KK-TCS-036                                       True    
+309    Muhammad             Zain Khan            25-KK-MSSGC-101                                     True    
+310    Muhammad             Zakria               25-KK-MSQC-100                                      True    
+311    Muhammad             Zayyan               25-KK-MSQC-092                                      True    
+670    MUHAMMAD                                  26-KK-MSQC-101                                      True    
+674    MUHAMMAD                                  26-KK-MSSGC-103                                     True    
+615    MUHAMMAD                                  25-KK-TSSSG-191                                     True    
+622    MUHAMMAD                                  25-KK-TSSSG-198                                     True    
+606    MUHAMMAD                                  25-KK-TSSSG-182                                     True    
+623    MUHAMMAD                                  25-KK-TSSSG-199                                     True    
+600    MUHAMMAD                                  25-KK-TSSSG-176                                     True    
+594    MUHAMMAD                                  25-KK-TSSSG-170                                     True    
+604    MUHAMMAD                                  25-KK-TSSSG-180                                     True    
+248    MUHAMMAD             ABDULLA              25-KK-MSSGC-122                                     True    
+250    MUHAMMAD             ABDUL RAFAY          25-KK-MSQC-045                                      True    
+254    MUHAMMAD             ALI                  25-KK-MSSGC-117                                     True    
+255    MUHAMMAD             ALI                  25-KK-MSQC-108                                      True    
+256    MUHAMMAD             ALI MURTAZA          25-KK-MSSGC-067                                     True    
+257    MUHAMMAD             ARHAM ASIM           25-KK-MSSGC-120                                     True    
+261    MUHAMMAD             AYAN                 25-KK-MSQC-063                                      True    
+262    MUHAMMAD             AZAN DAR             25-KK-MSSGC-063                                     True    
+265    MUHAMMAD             BIN TAUQEER          25-KK-MSSGC-054                                     True    
+266    MUHAMMAD             BURHAN AQEEL HASHMI  25-KK-MSQC-007                                      True    
+267    MUHAMMAD             FAHAD                25-KK-MSSGC-041                                     True    
+269    MUHAMMAD             FAROOQ HASSAN        25-KK-MSQC-049                                      True    
+270    MUHAMMAD             HADI RIZVI           25-KK-MSSGC-070                                     True    
+271    MUHAMMAD             HAMZA                25-KK-MSSGC-121                                     True    
+272    MUHAMMAD             HASHIM ALI           25-KK-MSSGC-110                                     True    
+276    MUHAMMAD             HASSAN               25-KK-MSSGC-087                                     True    
+278    MUHAMMAD             HUDDA                25-KK-MSQC-110                                      True    
+282    MUHAMMAD             IBRAHIM              25-KK-MSSGC-091                                     True    
+280    MUHAMMAD             IBRAHIM              25-KK-MSSGC-114                                     True    
+281    MUHAMMAD             IBRAHIM              25-KK-MSQC-011                                      True    
+283    MUHAMMAD             IBRAHIM HASHMI       25-KK-MSQC-032                                      True    
+285    MUHAMMAD             IBRAHIM SAFDAR       25-KK-MSQC-003                                      True    
+286    MUHAMMAD             IRTAZA ALI           25-KK-MSSGC-043                                     True    
+288    MUHAMMAD             MAHAD                25-KK-MSQC-028                                      True    
+289    MUHAMMAD             MOHID FERAZ          25-KK-MSSGC-062                                     True    
+290    MUHAMMAD             MOIZ KHAN            25-KK-MSSGC-011                                     True    
+291    MUHAMMAD             MUHIB AASIM          25-KK-MSQC-015                                      True    
+294    MUHAMMAD             RAHYM UMAIR          25-KK-MSSGC-017                                     True    
+296    MUHAMMAD             ROHAAN               25-KK-MSSGC-127                                     True    
+297    MUHAMMAD             SAAD                 25-KK-MSSGC-039                                     True    
+298    MUHAMMAD             SAAD KHOKHAR         25-KK-MSSGC-004                                     True    
+301    MUHAMMAD             SHAFAY               25-KK-MSSGC-019                                     True    
+304    MUHAMMAD             TAHA SHAH            25-KK-MSQC-058                                      True    
+305    MUHAMMAD             UMER NOSHAD          25-KK-MSQC-004                                      True    
+307    MUHAMMAD             WALI WAQAS           25-KK-MSQC-024                                      True    
+308    MUHAMMAD             YAHYA SHAHID         25-KK-MSQC-069                                      True    
+312    MUHAMMAD             ZAYYAN FAISAL        25-KK-MSSGC-118                                     True    
+313    Muhammed             Ali                  25-KK-TRES-039                                      True    
+586    M.Umair                                   25-KK-TSSSG-162                                     True    
+447    M.UMAR                                    25-KK-TSSSG-023                                     True    
+315    Muntaha              Saleem               25-KK-MSS-030                                       True    
+316    Muntaha              Shehzad              25-KK-KKS-046                                       True    
+490    MURAD                                     25-KK-TSSSG-066                                     True    
+500    MURTAZA                                   25-KK-TSSSG-076                                     True    
+317    Musa                 Bin Umar             25-KK-MSQC-103                                      True    
+318    Musa                 Ehsan                25-KK-MSQC-098                                      True    
+439    MUSA                                      25-KK-TSSSG-015                                     True    
+608    MUSA                                      25-KK-TSSSG-184                                     True    
+292    MUSA                 KASHIF               25-KK-MSSGC-086                                     True    
+319    Muskan               Arshad               24-KK-TCS-053                                       True    
+320    Muskan               Waqas                25-KK-MSS-026                                       True    
+587    Mustafa                                   25-KK-TSSSG-163                                     True    
+321    MUTAHIR              NADEEM               25-KK-MSSGC-128                                     True    
+485    MUZAHIR                                   25-KK-TSSSG-061                                     True    
+593    MUZAMMIL                                  25-KK-TSSSG-169                                     True    
+322    M.waleed                                  25-KK-TGPCS-037                                     True    
+478    M.ZAIN                                    25-KK-TSSSG-054                                     True    
+324    NABEERA              ZAHRA                25-KK-MSSGC-116                                     True    
+666    Najam                                     26-KK-TGPCS-032                                     True    
+665    Nalain                                    26-KK-TGPCS-031                                     True    
+433    NASEEM                                    25-KK-TSSSG-009                                     True    
+325    NASHMIA              HUMAIR               25-KK-MSSGC-071                                     True    
+327    Noor                 Fatima               25-KK-MSS-040                                       True    
+328    Noor                 UL Huda              25-KK-MSS-038                                       True    
+326    Noorain              Ahmed                25-KK-KKS-047                                       True    
+444    OLAIKA                                    25-KK-TSSSG-020                                     True    
+329    PARISHAY             FATIMA               25-KK-MSQC-006                                      True    
+330    Rafay                Raza                 25-KK-MSS-053                                       True    
+331    RAHIM                ARIF                 25-KK-MSQC-030                                      True    
+470    RAMEEN                                    25-KK-TSSSG-046                                     True    
+549    RAYEEL                                    25-KK-TSSSG-125                                     True    
+668    Rayyan               Ahmed                25-KK-TGPCS-053                                     True    
+332    Rayyan               Kashif               25-KK-TGPCS-056                                     True    
+553    REHAB                                     25-KK-TSSSG-129                                     True    
+333    Rehan                Ahmad                25-KK-MSS-035                                       True    
+334    Rehan                Sarfaraz             25-KK-MSS-014                                       True    
+335    Renum                Zohaib               25-KK-MSS-016                                       True    
+336    ROHAAN               SHAHID               25-KK-MSSGC-077                                     True    
+337    Rohail               Ahmed                25-KK-TCS-021                                       True    
+338    Rohan                Niaz                 25-KK-TGPCS-030                                     True    
+483    ROMAN                                     25-KK-TSSSG-059                                     True    
+575    Rubab                                     25-KK-TSSSG-151                                     True    
+583    Ruhma                                     25-KK-TSSSG-159                                     True    
+355    S                    M Azhaan Ali Gilani  25-KK-MSQC-071                                      True    
+566    Saad                                      25-KK-TSSSG-142                                     True    
+339    Saad                 babar                25-KK-TGPCS-042                                     True    
+550    SAFINA                                    25-KK-TSSSG-126                                     True    
+523    SAGHIR                                    25-KK-TSSSG-099                                     True    
+559    Saim                                      25-KK-TSSSG-135                                     True    
+340    Salar                Hasan                25-KK-KKS-056                                       True    
+341    SALEHA               HUMAIR               25-KK-MSSGC-109                                     True    
+342    SALWA                ABISH ADIL           25-KK-MSQC-022                                      True    
+343    SAMI                 IBRAHIM              25-KK-MSSGC-007                                     True    
+344    SANIYA               KHAN                 25-KK-MSSGC-012                                     True    
+345    Saqlain              Abdul Malik          24-KK-TCS-046                                       True    
+431    SARA                                      25-KK-TSSSG-007                                     True    
+346    SARIM                KHAN                 25-KK-MSQC-109                                      True    
+300    SARIM                shk                  25-KK-MSSGC-074                                     True    
+347    Sayed                Ashar Hussnain       24-KK-TGPCS-044                                     True    
+348    SHABBIR              EHSAN                25-KK-MSQC-055                                      True    
+442    SHAFAY                                    25-KK-TSSSG-018                                     True    
+480    SHAHINA                                   25-KK-TSSSG-056                                     True    
+349    Shahmaaz             Taimoor Khan         25-KK-KKS-048                                       True    
+603    SHAHMEER                                  25-KK-TSSSG-179                                     True    
+350    Shahwaiz             Sikandar             25-KK-TCS-026                                       True    
+457    SHAJIA                                    25-KK-TSSSG-033                                     True    
+491    SHANAYA                                   25-KK-TSSSG-067                                     True    
+351    Shayan               Naeem                25-KK-KKS-013                                       True    
+352    Shehryar             Ali Khan             25-KK-KKS-049                                       True    
+577    Shifa                                     25-KK-TSSSG-153                                     True    
+525    SHURAIKH                                  25-KK-TSSSG-101                                     True    
+353    Sibel                Kamran               25-KK-KKS-036                                       True    
+516    SIDRA-TUL-MUNTAHA                         25-KK-TSSSG-092                                     True    
+354    Simrah               Sohail               25-KK-KKS-064                                       True    
+452    S.KHADIJA                                 25-KK-TSSSG-028                                     True    
+356    Sukaina              Fatima               25-KK-MSSGC-113                                     True    
+357    Sumbal               Ali                  24-KK-TCS-050                                       True    
+358    Sundas                                    25-KK-TGPCS-035                                     True    
+617    S.W.BILAL                                 25-KK-TSSSG-193                                     True    
+361    Syed                 Abdullah             25-KK-MSQC-102                                      True    
+362    Syed                 Abdul Rafay Wasti    25-KK-MSQC-093                                      True    
+369    Syed                 M. Ali               25-KK-KKS-057                                       True    
+373    Syed                 Muhammad Essa        25-KK-KKS-040                                       True    
+377    Syed                 Zuraiz Farhan        25-KK-MSSGC-104                                     True    
+619    SYED                                      25-KK-TSSSG-195                                     True    
+552    SYED                                      25-KK-TSSSG-128                                     True    
+551    SYED                                      25-KK-TSSSG-127                                     True    
+368    SYED                 MAAZ MATEEN          25-KK-MSSGC-073                                     True    
+370    SYED                 M ALI HASSAN         25-KK-MSQC-052                                      True    
+371    SYED                 M. MUJTABA HUSSAIN   25-KK-MSSGC-081                                     True    
+372    SYED                 MOMIN WASTI          25-KK-MSQC-051                                      True    
+374    SYED                 MUHAMMAD HADI SHABBI 25-KK-MSSGC-125                                     True    
+375    SYED                 MUHAMMAD MEHDI RAZA  25-KK-MSSGC-058                                     True    
+376    SYED                 SHAHEER TALHA        25-KK-MSQC-061                                      True    
+364    Syeda                Tawassul Zahra       25-KK-MSQC-106                                      True    
+365    Syeda                Tayyaba Batool       25-KK-KKS-058                                       True    
+366    Syeda                Zainab Ali           25-KK-KKS-022                                       True    
+367    Syeda                Zunash Farhan        25-KK-MSSGC-105                                     True    
+467    SYEDA                                     25-KK-TSSSG-043                                     True    
+528    SYEDA                                     25-KK-TSSSG-104                                     True    
+359    SYEDA                AALIA                25-KK-MSSGC-061                                     True    
+360    SYEDA                ABIHA ZAHRA          25-KK-MSQC-050                                      True    
+363    SYEDA                TASHBEEH E ZAINAB    25-KK-MSQC-016                                      True    
+378    Syeed                Akbar Raza           25-KK-TRES-041                                      True    
+379    Syeed                Mir Abdul Qadir      25-KK-TRES-046                                      True    
+380    TAHIRA               SHAKEEL              25-KK-MSQC-017                                      True    
+463    TAJ                                       25-KK-TSSSG-039                                     True    
+381    Talha                Ahmed                25-KK-KKS-026                                       True    
+432    TALHA                                     25-KK-TSSSG-008                                     True    
+382    TALHA                SHAHZAIB             25-KK-MSSGC-080                                     True    
+561    Tayyab                                    25-KK-TSSSG-137                                     True    
+383    Tehreem              Adil                 25-KK-KKS-014                                       True    
+645    test                                      26-KK-T-016                                         True    
+624    test                                      25-KK-TCS-027                                       True    
+425    test                                      25-KK-TSSSG-001                                     True    
+420    test                                      25-KK-TGPCS-031                                     True    
+384    UMAIMA               MARYAM               25-KK-MSSGC-034                                     True    
+385    Umammah              Shaheryar            25-KK-MSSGC-107                                     True    
+386    UM-E-AIMAN           SHAMRAIZ             25-KK-MSSGC-024                                     True    
+387    Umer                 Bin Rashid           25-KK-MSS-010                                       True    
+513    UMER                                      25-KK-TSSSG-089                                     True    
+507    UMER                                      25-KK-TSSSG-083                                     True    
+554    UMM                                       25-KK-TSSSG-130                                     True    
+434    UMME                                      25-KK-TSSSG-010                                     True    
+581    ummer-Abi-Waqas                           25-KK-TSSSG-157                                     True    
+388    Urwah                Khurram              25-KK-TRES-038                                      True    
+389    URWAH                SAMI                 25-KK-MSSGC-031                                     True    
+390    Usman                Iqbal Malik          25-KK-TRES-001                                      True    
+391    Usman                Zahid                25-KK-MSSGC-108                                     True    
+392    Uswa                 Yasir Abbasi         25-KK-TGPCS-049                                     True    
+393    WAHAJ                AHMAD                25-KK-MSQC-043                                      True    
+394    Waiz                                      25-KK-HT(B-002                                      True    
+395    Wali                 Ullah                25-KK-TGPCS-043                                     True    
+396    Wania                khan                 25-KK-TCS-028                                       True    
+397    WASHMA               SHEIKH               25-KK-MSSGC-056                                     True    
+398    XAYYAN               ARSALAN              25-KK-MSSGC-123                                     True    
+568    Yahya                                     25-KK-TSSSG-144                                     True    
+399    Yahya                Ahmed                25-KK-KKS-062                                       True    
+400    Yahya                Durrani              25-KK-KKS-027                                       True    
+474    YASNA                                     25-KK-TSSSG-050                                     True    
+494    YASNA                                     25-KK-TSSSG-070                                     True    
+401    Yazdan               Haider               25-KK-MSS-017                                       True    
+588    Zahra                                     25-KK-TSSSG-164                                     True    
+402    Zahra                Ahmed Awan           25-KK-MSQC-101                                      True    
+496    ZAHRA                                     25-KK-TSSSG-072                                     True    
+404    ZAIN                 ABBAS                25-KK-MSSGC-051                                     True    
+576    Zainab                                    25-KK-TSSSG-152                                     True    
+403    Zainab               Ali                  25-KK-KKS-006                                       True    
+405    Zainab               Fatima               25-KK-MSQC-104                                      True    
+406    Zainab               Rehan                25-KK-TCS-038                                       True    
+556    ZAINAB                                    25-KK-TSSSG-132                                     True    
+407    Zainb                Shoaib               25-KK-MSQC-117                                      True    
+409    Zara                 Nouman               25-KK-KKS-015                                       True    
+408    ZARA                 ASAD                 25-KK-MSSGC-076                                     True    
+669    Zargham              Shabaz               25-KK-MSQC-099                                      True    
+410    Zarish               Fatima               25-KK-TRES-040                                      True    
+411    ZARMISHA             ZEESHAN              25-KK-MSSGC-048                                     True    
+412    ZAYYAN               HASSAN               25-KK-MSSGC-030                                     True    
+413    Zoha                 Khan                 25-KK-MSQC-105                                      True    
+460    ZOHA                                      25-KK-TSSSG-036                                     True    
+555    ZOHRA                                     25-KK-TSSSG-131                                     True    
+414    Zoya                 Hasan                25-KK-KKS-050                                       True    
+415    ZOYA                 SHEHZAD KHAN         25-KK-MSSGC-084                                     True    
+416    Zuha                 Asjid                25-KK-KKS-051                                       True    
+417    ZUHA                 SALMAN               25-KK-MSQC-025                                      True    
+418    Zumar                Muddaser             25-KK-MSQC-074                                      True    
+505    ZUNAIRA                                   25-KK-TSSSG-081                                     True    
+419    Zuraiz               Asfan Yaar           25-KK-TRES-047                                      True    
+423    zxc                                       25-KK-T-016                                         True    
+567    Zyna                                      25-KK-TSSSG-143                                     True    
+
+==============================================================================================================
+  COMPARISON SUMMARY
+==============================================================================================================
+  Students (students_student)              : 581
+  CustomUsers with role=Student             : 635
+  Students linked to a CustomUser           : 581
+  Students WITHOUT a linked CustomUser      : 0
+  CustomUsers(Student) WITHOUT a Student row: 54
+
+
+-------------------------------------------------------------------------------------
+  CustomUsers(Student) with NO Student row  (54 rows)
+-------------------------------------------------------------------------------------
+ID     First Name           Last Name            Username             Email                         
+----------------------------------------------------------------------------------------------------
+627                                              yahya faisal gul     yahyagulfaisal@gmail.com      
+629                                              M.Mustafa Bilal      abdullahrox007@gmail.com      
+630                                              M_Mustafa_Bilal                                    
+625                                              usman                                              
+626                                              yahya                                              
+628                                               M. Mustafa Bilal    muhammadmustafabilal89@gmail.c
+421                                              syedtaiq             syedtaiq14@gmail.com          
+658    Abdul                                     26-KK-MSSGC-101                                    
+18     Abdul                Ahad                 25-KK-TGPCS-060                                    
+35     Abdul                Wasay                25-KK-TGPCS-052                                    
+25     Abdullah             Abbasi               24-KK-TCS-041                                      
+42     Abrish               Fatima               25-KK-TGPCS-032                                    
+48     Affan                khan                 25-KK-TCS-031                                      
+56     Ahmed                Zubair               25-KK-TGPCS-029                                    
+75     Anaya                Kashif               25-KK-TGPCS-033                                    
+85     Asad                 Ali                  24-KK-TCS-043                                      
+87     Ayan                 Nabi                 24-KK-TGPCS-040                                    
+88     Ayan                 Sheraz               25-KK-TGPCS-051                                    
+90     Ayat                 Hayat                24-KK-TGPCS-049                                    
+108    Burhan               Zafar                25-KK-TGPCS-050                                    
+111    Dania                Adnan                24-KK-TGPCS-053                                    
+112    DAUD                 AHMED                25-KK-MSQC-040                                     
+114    Dua                  Adnan                25-KK-TGPCS-046                                    
+151    HANIYA               SHAHID               25-KK-MSQC-021                                     
+157    Hasnain              Abdul Malik          24-KK-TCS-048                                      
+159    Hassan               Mehmood              24-KK-TCS-054                                      
+631    Huzaifa                                   25-KK-TGPCS-055                                    
+489    KASHAN                                    25-KK-TSSSG-065                                    
+183    Konain               Sheraz               25-KK-TGPCS-038                                    
+314    M                    Umar Haroon          25-KK-TCS-033                                      
+188    Madiha               Ali                  24-KK-TCS-047                                      
+484    M.ANAS                                    25-KK-TSSSG-060                                    
+204    Maryam               bibi                 25-KK-TCS-035                                      
+234    MOHAMMAD             ZAVIYAR SHAHID       25-KK-MSQC-039                                     
+235    MohibUllah           Salar                25-KK-TGPCS-039                                    
+245    Mubarak                                   24-KK-TCS-039                                      
+263    Muhammad             Azan Khan            24-KK-TCS-045                                      
+284    Muhammad             Ibrahim Rehan        24-KK-TCS-051                                      
+287    Muhammad             Khizar Khan          24-KK-TCS-044                                      
+293    Muhammad             Muzammil             25-KK-TCS-043                                      
+500    MURTAZA                                   25-KK-TSSSG-076                                    
+319    Muskan               Arshad               24-KK-TCS-053                                      
+332    Rayyan               Kashif               25-KK-TGPCS-056                                    
+345    Saqlain              Abdul Malik          24-KK-TCS-046                                      
+357    Sumbal               Ali                  24-KK-TCS-050                                      
+358    Sundas                                    25-KK-TGPCS-035                                    
+624    test                                      25-KK-TCS-027                                      
+425    test                                      25-KK-TSSSG-001                                    
+420    test                                      25-KK-TGPCS-031                                    
+392    Uswa                 Yasir Abbasi         25-KK-TGPCS-049                                    
+395    Wali                 Ullah                25-KK-TGPCS-043                                    
+494    YASNA                                     25-KK-TSSSG-070                                    
+406    Zainab               Rehan                25-KK-TCS-038                                      
+423    zxc                                       25-KK-T-016                                        
+
+Done.
