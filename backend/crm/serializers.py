@@ -67,6 +67,67 @@ class LeadSerializer(serializers.ModelSerializer):
         return data
 
 
+class LeadCardSerializer(LeadSerializer):
+    """Lead serializer with activity data for card display"""
+
+    recent_activities = serializers.SerializerMethodField()
+    next_scheduled_activity = serializers.SerializerMethodField()
+    last_activity_date = serializers.SerializerMethodField()
+    days_since_last_activity = serializers.SerializerMethodField()
+
+    class Meta(LeadSerializer.Meta):
+        fields = LeadSerializer.Meta.fields + [
+            'recent_activities',
+            'next_scheduled_activity',
+            'last_activity_date',
+            'days_since_last_activity',
+        ]
+
+    def get_recent_activities(self, obj):
+        """Return last 5 activities for card display"""
+        activities = obj.activities.order_by('-scheduled_date')[:5]
+        return [
+            {
+                'id': a.id,
+                'activity_type': a.activity_type,
+                'subject': a.subject,
+                'status': a.status,
+                'scheduled_date': a.scheduled_date,
+                'outcome': a.outcome,
+            }
+            for a in activities
+        ]
+
+    def get_next_scheduled_activity(self, obj):
+        """Return the next upcoming scheduled activity"""
+        from django.utils import timezone
+        next_activity = obj.activities.filter(
+            status='Scheduled',
+            scheduled_date__gte=timezone.now()
+        ).order_by('scheduled_date').first()
+        if next_activity:
+            return {
+                'activity_type': next_activity.activity_type,
+                'subject': next_activity.subject,
+                'scheduled_date': next_activity.scheduled_date,
+            }
+        return None
+
+    def get_last_activity_date(self, obj):
+        """Return date of most recent activity"""
+        latest = obj.activities.order_by('-scheduled_date').first()
+        return latest.scheduled_date if latest else None
+
+    def get_days_since_last_activity(self, obj):
+        """Return number of days since last activity"""
+        from django.utils import timezone
+        latest = obj.activities.order_by('-scheduled_date').first()
+        if latest and latest.scheduled_date:
+            delta = timezone.now() - latest.scheduled_date
+            return delta.days
+        return None
+
+
 class LeadDetailSerializer(LeadSerializer):
     """Detailed Lead serializer with activities"""
     

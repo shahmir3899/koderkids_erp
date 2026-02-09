@@ -37,3 +37,35 @@ class LoanSerializer(serializers.ModelSerializer):
             "id", "borrower", "loan_amount", "paid_amount", "remaining_balance",
             "installment_amount", "due_date", "status", "notes", "created_by"
         ]
+
+
+class BulkTransactionSerializer(serializers.Serializer):
+    """
+    Serializer for bulk transaction creation.
+    Accepts an array of transaction objects.
+    """
+    transactions = serializers.ListField(
+        child=serializers.DictField(),
+        min_length=1,
+        max_length=100,  # Limit to prevent abuse
+        help_text="List of transaction objects to create"
+    )
+
+    def validate_transactions(self, value):
+        """Validate each transaction has required fields."""
+        required_fields = {'amount', 'category', 'date'}
+
+        for idx, txn in enumerate(value):
+            missing = required_fields - set(txn.keys())
+            if missing:
+                raise serializers.ValidationError(
+                    f"Transaction at index {idx} missing required fields: {missing}"
+                )
+
+            # Validate amount is positive
+            if float(txn.get('amount', 0)) <= 0:
+                raise serializers.ValidationError(
+                    f"Transaction at index {idx} must have a positive amount"
+                )
+
+        return value

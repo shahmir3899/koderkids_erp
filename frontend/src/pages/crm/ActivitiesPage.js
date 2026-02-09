@@ -2,8 +2,7 @@
 // ACTIVITIES PAGE - CRM Activity Management
 // ============================================
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 
 // Design Constants
@@ -13,9 +12,7 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  SHADOWS,
   TRANSITIONS,
-  LAYOUT,
   MIXINS,
   TOUCH_TARGETS,
 } from '../../utils/designConstants';
@@ -24,12 +21,12 @@ import {
 import { useResponsive } from '../../hooks/useResponsive';
 
 // Common Components
-import { DataTable } from '../../components/common/tables/DataTable';
 import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { LoadingSpinner } from '../../components/common/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 
 // CRM Components
+import { ActivityTimeline } from '../../components/crm/ActivityTimeline';
 import { CreateActivityModal } from '../../components/crm/CreateActivityModal';
 import { EditActivityModal } from '../../components/crm/EditActivityModal';
 
@@ -90,56 +87,7 @@ const StatCard = ({ label, value, valueColor = null, icon = null, isMobile = fal
   );
 };
 
-// ============================================
-// ACTION BUTTON COMPONENT WITH HOVER
-// ============================================
-const ActionButton = ({ onClick, variant = 'primary', title, children, isMobile = false }) => {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const getColors = () => {
-    switch (variant) {
-      case 'primary':
-        return { bg: 'rgba(59, 130, 246, 0.2)', hoverBg: 'rgba(59, 130, 246, 0.35)', text: '#60A5FA', shadow: 'rgba(59, 130, 246, 0.3)' };
-      case 'success':
-        return { bg: 'rgba(16, 185, 129, 0.2)', hoverBg: 'rgba(16, 185, 129, 0.35)', text: '#34D399', shadow: 'rgba(16, 185, 129, 0.3)' };
-      case 'danger':
-        return { bg: 'rgba(239, 68, 68, 0.2)', hoverBg: 'rgba(239, 68, 68, 0.35)', text: '#F87171', shadow: 'rgba(239, 68, 68, 0.3)' };
-      default:
-        return { bg: 'rgba(255, 255, 255, 0.1)', hoverBg: 'rgba(255, 255, 255, 0.2)', text: COLORS.text.white, shadow: 'rgba(255, 255, 255, 0.1)' };
-    }
-  };
-
-  const colors = getColors();
-
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.md}`,
-        fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.sm,
-        fontWeight: FONT_WEIGHTS.medium,
-        backgroundColor: isHovered ? colors.hoverBg : colors.bg,
-        color: colors.text,
-        borderRadius: BORDER_RADIUS.md,
-        border: 'none',
-        cursor: 'pointer',
-        transition: `all ${TRANSITIONS.normal}`,
-        transform: isHovered ? 'translateY(-1px)' : 'translateY(0)',
-        boxShadow: isHovered ? `0 4px 12px ${colors.shadow}` : 'none',
-        minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
-        minWidth: isMobile ? TOUCH_TARGETS.minimum : 'auto',
-      }}
-    >
-      {children}
-    </button>
-  );
-};
-
 function ActivitiesPage() {
-  const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
 
   // State
@@ -246,13 +194,6 @@ function ActivitiesPage() {
     option: {
       ...MIXINS.selectOption,
     },
-    tableContainer: {
-      ...MIXINS.glassmorphicCard,
-      borderRadius: BORDER_RADIUS.lg,
-      overflow: 'hidden',
-      overflowX: 'auto',
-      WebkitOverflowScrolling: 'touch', // iOS smooth scrolling
-    },
     activeFilters: {
       display: 'flex',
       alignItems: 'center',
@@ -260,11 +201,6 @@ function ActivitiesPage() {
       fontSize: FONT_SIZES.sm,
       color: COLORS.text.whiteMedium,
       marginTop: SPACING.lg,
-      flexWrap: 'wrap',
-    },
-    actionsContainer: {
-      display: 'flex',
-      gap: isMobile ? SPACING.xs : SPACING.sm,
       flexWrap: 'wrap',
     },
   }), [isMobile]);
@@ -366,111 +302,6 @@ function ActivitiesPage() {
       toast.error('Failed to delete activity');
     }
   };
-
-  // Table columns - responsive
-  const tableColumns = useMemo(() => {
-    const baseColumns = [
-      {
-        key: 'activity_type',
-        label: 'Type',
-        render: (value, row) => (
-          <div>
-            <span style={styles.activityTypeBadge(row?.activity_type)}>
-              {row?.activity_type || '—'}
-            </span>
-            {/* Show subject inline on mobile */}
-            {isMobile && row?.subject && (
-              <div style={{ marginTop: SPACING.xs, fontSize: FONT_SIZES.sm, color: COLORS.text.white }}>
-                {row.subject}
-              </div>
-            )}
-            {/* Show lead name on mobile */}
-            {isMobile && row?.lead_name && (
-              <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteMedium, marginTop: '2px' }}>
-                Lead: {row.lead_name}
-              </div>
-            )}
-          </div>
-        ),
-      },
-    ];
-
-    // Only show these columns on non-mobile
-    if (!isMobile) {
-      baseColumns.push(
-        {
-          key: 'subject',
-          label: 'Subject',
-          render: (value, row) => row?.subject || '—',
-        },
-        {
-          key: 'lead_name',
-          label: 'Lead',
-          render: (value, row) => row?.lead_name || '—',
-        }
-      );
-    }
-
-    baseColumns.push({
-      key: 'scheduled_date',
-      label: isMobile ? 'When' : 'Scheduled',
-      render: (value, row) => row?.scheduled_date
-        ? isMobile
-          ? new Date(row.scheduled_date).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-            })
-          : new Date(row.scheduled_date).toLocaleString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
-        : '—',
-    });
-
-    baseColumns.push({
-      key: 'status',
-      label: 'Status',
-      render: (value, row) => (
-        <span style={styles.statusBadge(row?.status)}>
-          {row?.status || '—'}
-        </span>
-      ),
-    });
-
-    // Hide assigned to on mobile
-    if (!isMobile) {
-      baseColumns.push({
-        key: 'assigned_to_name',
-        label: 'Assigned To',
-        render: (value, row) => row?.assigned_to_name || 'Unassigned',
-      });
-    }
-
-    baseColumns.push({
-      key: 'actions',
-      label: 'Actions',
-      render: (value, row) => (
-        <div style={responsiveStyles.actionsContainer}>
-          <ActionButton onClick={() => handleEdit(row)} variant="primary" title="Edit activity" isMobile={isMobile}>
-            {isMobile ? '✏️' : 'Edit'}
-          </ActionButton>
-          {row.status === 'Scheduled' && (
-            <ActionButton onClick={() => handleComplete(row.id)} variant="success" title="Mark as completed" isMobile={isMobile}>
-              {isMobile ? '✅' : 'Complete'}
-            </ActionButton>
-          )}
-          <ActionButton onClick={() => handleDelete(row.id)} variant="danger" title="Delete activity" isMobile={isMobile}>
-            {isMobile ? '🗑️' : 'Delete'}
-          </ActionButton>
-        </div>
-      ),
-    });
-
-    return baseColumns;
-  }, [isMobile, responsiveStyles]);
 
   // Render
   return (
@@ -609,20 +440,19 @@ function ActivitiesPage() {
       {/* Error Display */}
       {error && <ErrorDisplay message={error} onRetry={loadActivities} />}
 
-      {/* Data Table */}
+      {/* Activities Timeline */}
       {loading.fetch ? (
         <div style={styles.loadingContainer}>
           <LoadingSpinner message="Loading activities..." />
         </div>
       ) : (
-        <div style={responsiveStyles.tableContainer}>
-          <DataTable
-            data={filteredActivities}
-            columns={tableColumns}
-            loading={loading.fetch}
-            emptyMessage="No activities found"
-          />
-        </div>
+        <ActivityTimeline
+          activities={filteredActivities}
+          onActivityClick={handleEdit}
+          onComplete={handleComplete}
+          onDelete={handleDelete}
+          isMobile={isMobile}
+        />
       )}
 
       {/* Create Activity Modal */}
@@ -651,121 +481,13 @@ function ActivitiesPage() {
 // ============================================
 // STYLES
 // ============================================
-const ACTIVITY_TYPE_COLORS = {
-  Call: { bg: 'rgba(59, 130, 246, 0.35)', text: '#FFFFFF', border: 'rgba(59, 130, 246, 0.5)' },
-  Meeting: { bg: 'rgba(139, 92, 246, 0.35)', text: '#FFFFFF', border: 'rgba(139, 92, 246, 0.5)' },
-};
-
-const STATUS_COLORS = {
-  Scheduled: { bg: 'rgba(245, 158, 11, 0.2)', text: '#FBBF24', border: 'rgba(245, 158, 11, 0.3)' },
-  Completed: { bg: 'rgba(16, 185, 129, 0.2)', text: '#34D399', border: 'rgba(16, 185, 129, 0.3)' },
-  Cancelled: { bg: 'rgba(239, 68, 68, 0.2)', text: '#F87171', border: 'rgba(239, 68, 68, 0.3)' },
-  default: { bg: 'rgba(255, 255, 255, 0.1)', text: COLORS.text.whiteMedium, border: 'rgba(255, 255, 255, 0.2)' },
-};
-
 const styles = {
-  // Page Layout
-  pageContainer: {
-    padding: SPACING.xl,
-    background: COLORS.background.gradient,
-    minHeight: '100vh',
-  },
-  headerSection: {
-    marginBottom: SPACING.xl,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  pageTitle: {
-    fontSize: FONT_SIZES['2xl'],
-    fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.text.white,
-    marginBottom: SPACING.sm,
-  },
-  pageSubtitle: {
-    fontSize: FONT_SIZES.base,
-    color: COLORS.text.whiteMedium,
-  },
-  primaryButton: {
-    padding: `${SPACING.sm} ${SPACING.lg}`,
-    background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
-    color: COLORS.text.white,
-    borderRadius: BORDER_RADIUS.lg,
-    border: 'none',
-    fontSize: FONT_SIZES.base,
-    fontWeight: FONT_WEIGHTS.medium,
-    cursor: 'pointer',
-    transition: TRANSITIONS.normal,
-    boxShadow: '0 4px 15px rgba(176, 97, 206, 0.4)',
-  },
-
-  // Stats Grid
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
-
-  // Filters Section
-  filtersContainer: {
-    ...MIXINS.glassmorphicCard,
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.xl,
-  },
-  filtersRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: SPACING.lg,
-    alignItems: 'flex-end',
-  },
-  filterField: {
-    flex: 1,
-    minWidth: '200px',
-  },
-  filterFieldSmall: {
-    minWidth: '150px',
-  },
   filterLabel: {
     display: 'block',
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
     color: COLORS.text.whiteMedium,
     marginBottom: SPACING.xs,
-  },
-  input: {
-    width: '100%',
-    padding: `${SPACING.sm} ${SPACING.lg}`,
-    ...MIXINS.glassmorphicSubtle,
-    borderRadius: BORDER_RADIUS.lg,
-    fontSize: FONT_SIZES.base,
-    outline: 'none',
-    color: COLORS.text.white,
-  },
-  select: {
-    width: '100%',
-    padding: `${SPACING.sm} ${SPACING.lg}`,
-    ...MIXINS.glassmorphicSelect,
-    borderRadius: BORDER_RADIUS.lg,
-    fontSize: FONT_SIZES.base,
-    outline: 'none',
-    color: COLORS.text.white,
-    cursor: 'pointer',
-  },
-  option: {
-    ...MIXINS.selectOption,
-  },
-
-  // Active Filters
-  activeFilters: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text.whiteMedium,
-    marginTop: SPACING.lg,
-    flexWrap: 'wrap',
   },
   filterTag: (color) => {
     const colorMap = {
@@ -807,52 +529,10 @@ const styles = {
     fontSize: FONT_SIZES.sm,
     transition: TRANSITIONS.normal,
   },
-
-  // Table
-  tableContainer: {
-    ...MIXINS.glassmorphicCard,
-    borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
-  },
   loadingContainer: {
     ...MIXINS.glassmorphicCard,
     padding: SPACING['2xl'],
     borderRadius: BORDER_RADIUS.lg,
-  },
-
-  // Table Cell Styles
-  activityTypeBadge: (type) => {
-    const colorScheme = ACTIVITY_TYPE_COLORS[type] || ACTIVITY_TYPE_COLORS.Call;
-    return {
-      padding: `${SPACING.xs} ${SPACING.sm}`,
-      borderRadius: BORDER_RADIUS.md,
-      fontSize: FONT_SIZES.xs,
-      fontWeight: FONT_WEIGHTS.semibold,
-      backgroundColor: colorScheme.bg,
-      color: colorScheme.text,
-      border: `1px solid ${colorScheme.border}`,
-    };
-  },
-  statusBadge: (status) => {
-    const colorScheme = STATUS_COLORS[status] || STATUS_COLORS.default;
-    return {
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: `${SPACING.xs} ${SPACING.sm}`,
-      borderRadius: BORDER_RADIUS.full,
-      fontSize: FONT_SIZES.xs,
-      fontWeight: FONT_WEIGHTS.semibold,
-      backgroundColor: colorScheme.bg,
-      color: colorScheme.text,
-      border: `1px solid ${colorScheme.border}`,
-    };
-  },
-
-  // Action Links
-  actionsContainer: {
-    display: 'flex',
-    gap: SPACING.sm,
-    flexWrap: 'wrap',
   },
 };
 

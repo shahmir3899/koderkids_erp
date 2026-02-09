@@ -1890,22 +1890,24 @@ def my_student_data(request):
         return Response({"error": "Student profile not found"}, status=404)
 
     # 3. Construct Data
+    # Student.name is the single source of truth for student names
     data = {
         # --- FROM AUTH TABLE ---
         "user_id": user.id,
         "username": user.username,
         "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "full_name": f"{user.first_name} {user.last_name}".strip() or user.username,
 
-        # --- FROM STUDENT TABLE ---
+        # --- FROM STUDENT TABLE (name is source of truth) ---
+        "name": student.name,
+        "full_name": student.name if student.name and student.name != 'Unknown' else user.username,
         "id": student.id,
         "reg_num": student.reg_num,
         "school": student.school.name,
         "class": student.student_class,
         "phone": student.phone,
         "address": student.address,
+        "date_of_birth": student.date_of_birth,
+        "status": student.status,
         
         # Photo: User table (centralized)
         "profile_photo_url": user.profile_photo_url,
@@ -2267,17 +2269,16 @@ def my_student_data(request):
     except AttributeError:
         return Response({"error": "Student profile not found"}, status=404)
 
-    # 3. Construct Data (Mapping fields to correct tables)
+    # 3. Construct Data (Student.name is the single source of truth)
     data = {
         # --- FROM AUTH TABLE (students_customuser) ---
         "user_id": user.id,
         "username": user.username,
         "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "full_name": f"{user.first_name} {user.last_name}".strip() or user.username,
 
-        # --- FROM STUDENT TABLE (students_student) ---
+        # --- FROM STUDENT TABLE (name is source of truth) ---
+        "name": student.name,
+        "full_name": student.name if student.name and student.name != 'Unknown' else user.username,
         "id": student.id,
         "reg_num": student.reg_num,
         "school": student.school.name,

@@ -37,8 +37,7 @@ export const StudentSettingsModal = ({
   onProfileUpdate,
 }) => {
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
+    name: '',
     email: '',
     phone: '',
     address: '',
@@ -53,8 +52,7 @@ export const StudentSettingsModal = ({
   useEffect(() => {
     if (profile) {
       setFormData({
-        first_name: profile.first_name || '',
-        last_name: profile.last_name || '',
+        name: profile.name || '',
         email: profile.email || '',
         phone: profile.phone || '',
         address: profile.address || '',
@@ -212,29 +210,17 @@ export const StudentSettingsModal = ({
         {activeTab === 'personal' && (
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.formGrid}>
-              {/* First Name */}
+              {/* Name */}
               <div style={styles.formGroup}>
-                <label style={styles.label}>First Name</label>
+                <label style={styles.label}>Full Name</label>
                 <input
                   type="text"
-                  name="first_name"
-                  value={formData.first_name}
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
                   style={styles.input}
-                  placeholder="Enter first name"
-                />
-              </div>
-
-              {/* Last Name */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Last Name</label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Enter last name"
+                  className="student-settings-input"
+                  placeholder="Enter full name"
                 />
               </div>
 

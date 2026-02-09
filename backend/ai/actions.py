@@ -375,6 +375,102 @@ TASK_ACTIONS: Dict[str, ActionDefinition] = {
 }
 
 # ============================================
+# TRANSACTION RECONCILIATION AGENT ACTIONS
+# ============================================
+TRANSACTION_ACTIONS: Dict[str, ActionDefinition] = {
+    "UPLOAD_STATEMENT": ActionDefinition(
+        name="UPLOAD_STATEMENT",
+        action_type=ActionType.READ,
+        required_params=[],  # file_data added by frontend
+        optional_params=["account_id", "file_type"],
+        handler="parse_bank_statement",
+        requires_confirmation=False,
+        description="Parse uploaded bank statement (PDF/Excel/Image)"
+    ),
+    "COMPARE_BALANCES": ActionDefinition(
+        name="COMPARE_BALANCES",
+        action_type=ActionType.READ,
+        required_params=["account_id"],
+        optional_params=["statement_balance", "statement_date"],
+        handler="compare_account_balances",
+        requires_confirmation=False,
+        description="Compare statement closing balance with database balance"
+    ),
+    "FIND_MISSING_ENTRIES": ActionDefinition(
+        name="FIND_MISSING_ENTRIES",
+        action_type=ActionType.READ,
+        required_params=["account_id"],
+        optional_params=["date_from", "date_to"],
+        handler="find_missing_transactions",
+        requires_confirmation=False,
+        description="Find transactions in statement not in database"
+    ),
+    "PREVIEW_RECONCILIATION": ActionDefinition(
+        name="PREVIEW_RECONCILIATION",
+        action_type=ActionType.READ,
+        required_params=["account_id"],
+        optional_params=[],
+        handler="preview_reconciliation",
+        requires_confirmation=False,
+        description="Preview what will be added/modified to reconcile"
+    ),
+    "EXECUTE_RECONCILIATION": ActionDefinition(
+        name="EXECUTE_RECONCILIATION",
+        action_type=ActionType.WRITE,
+        required_params=["account_id"],
+        optional_params=["transactions_to_add", "update_balance", "new_balance"],
+        handler="execute_reconciliation",
+        requires_confirmation=True,
+        description="Create missing transactions and update account balance"
+    ),
+    "GET_ACCOUNT_TRANSACTIONS": ActionDefinition(
+        name="GET_ACCOUNT_TRANSACTIONS",
+        action_type=ActionType.READ,
+        required_params=["account_id"],
+        optional_params=["date_from", "date_to", "limit"],
+        handler="get_account_transactions",
+        requires_confirmation=False,
+        description="Get recent transactions for an account"
+    ),
+    "UPDATE_ACCOUNT_BALANCE": ActionDefinition(
+        name="UPDATE_ACCOUNT_BALANCE",
+        action_type=ActionType.WRITE,
+        required_params=["account_id", "new_balance"],
+        optional_params=["reason"],
+        handler="update_account_balance",
+        requires_confirmation=True,
+        description="Adjust balance via adjustment transaction (maintains audit trail)"
+    ),
+    "GET_ACCOUNTS": ActionDefinition(
+        name="GET_ACCOUNTS",
+        action_type=ActionType.READ,
+        required_params=[],
+        optional_params=["account_type"],
+        handler="get_accounts_list",
+        requires_confirmation=False,
+        description="List all accounts with balances"
+    ),
+    "CREATE_TRANSACTION": ActionDefinition(
+        name="CREATE_TRANSACTION",
+        action_type=ActionType.WRITE,
+        required_params=["transaction_type", "amount", "date"],
+        optional_params=["account_id", "from_account", "to_account", "category", "school_id", "notes"],
+        handler="create_single_transaction",
+        requires_confirmation=False,
+        description="Create a single transaction (income/expense)"
+    ),
+    "BULK_CREATE_TRANSACTIONS": ActionDefinition(
+        name="BULK_CREATE_TRANSACTIONS",
+        action_type=ActionType.WRITE,
+        required_params=["transactions"],
+        optional_params=["account_id"],
+        handler="bulk_create_transactions",
+        requires_confirmation=True,
+        description="Create multiple transactions at once"
+    ),
+}
+
+# ============================================
 # SPECIAL ACTIONS (All Agents)
 # ============================================
 SPECIAL_ACTIONS: Dict[str, ActionDefinition] = {
@@ -405,6 +501,7 @@ AGENT_ACTIONS = {
     "hr": {**HR_ACTIONS, **SPECIAL_ACTIONS},
     "broadcast": {**BROADCAST_ACTIONS, **SPECIAL_ACTIONS},
     "task": {**TASK_ACTIONS, **SPECIAL_ACTIONS},
+    "transaction": {**TRANSACTION_ACTIONS, **SPECIAL_ACTIONS},
 }
 
 

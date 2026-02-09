@@ -104,7 +104,7 @@ export const AssignSchoolsModal = ({
     if (onAssign) {
       await onAssign({
         school_ids: selectedSchools,
-        send_email: sendEmail && user.email
+        send_email: !!(sendEmail && user.email)
       });
     }
   };

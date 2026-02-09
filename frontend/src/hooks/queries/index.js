@@ -28,6 +28,7 @@ export {
   useUpdateTransaction,
   useDeleteTransaction,
   useAddCategory,
+  useBulkCreateTransactions,
   transactionKeys,
 } from './useTransactionsQuery';
 

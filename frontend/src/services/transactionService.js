@@ -63,4 +63,44 @@ export const transactionService = {
       headers: getAuthHeaders(),
     });
   },
+
+  // ============================================
+  // BULK OPERATIONS (Phase 2 Optimization)
+  // ============================================
+
+  /**
+   * Create multiple transactions in a single request.
+   * Uses the unified transaction API for better performance.
+   *
+   * @param {string} type - Transaction type ('income', 'expense', 'transfer')
+   * @param {Array} transactions - Array of transaction objects
+   * @returns {Promise} Response with created transactions
+   *
+   * @example
+   * await transactionService.bulkCreateTransactions('income', [
+   *   { date: '2025-01-15', amount: 5000, category: 'Sales', to_account: 1 },
+   *   { date: '2025-01-16', amount: 3000, category: 'Sales', to_account: 1 },
+   * ]);
+   */
+  bulkCreateTransactions: async (type, transactions) => {
+    return await axios.post(
+      `${API_URL}/api/transactions/${type}/bulk/`,
+      { transactions },
+      { headers: getAuthHeaders() }
+    );
+  },
+
+  /**
+   * Get transactions using the unified API endpoint.
+   * Alternative to getTransactions with caching benefits.
+   *
+   * @param {string} type - Transaction type ('income', 'expense', 'transfer')
+   * @param {Object} params - Query parameters
+   */
+  getTransactionsUnified: async (type, params = {}) => {
+    return await axios.get(`${API_URL}/api/transactions/${type}/`, {
+      headers: getAuthHeaders(),
+      params,
+    });
+  },
 };

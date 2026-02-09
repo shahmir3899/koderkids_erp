@@ -14,6 +14,7 @@ from decimal import Decimal
 from .models import Lead, Activity, BDMTarget
 from .serializers import (
     LeadSerializer,
+    LeadCardSerializer,
     LeadDetailSerializer,
     ActivitySerializer,
     BDMTargetSerializer,
@@ -71,10 +72,15 @@ class LeadViewSet(viewsets.ModelViewSet):
                 Q(contact_person__icontains=search)
             )
         
-        return queryset.select_related('assigned_to', 'created_by', 'converted_to_school')
-    
+        queryset = queryset.select_related('assigned_to', 'created_by', 'converted_to_school')
+        if self.action == 'list':
+            queryset = queryset.prefetch_related('activities')
+        return queryset
+
     def get_serializer_class(self):
-        """Use detailed serializer for retrieve action"""
+        """Use card serializer for list, detail for retrieve"""
+        if self.action == 'list':
+            return LeadCardSerializer
         if self.action == 'retrieve':
             return LeadDetailSerializer
         return LeadSerializer

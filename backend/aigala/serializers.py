@@ -242,7 +242,8 @@ class GalleryListSerializer(serializers.ModelSerializer):
     def get_created_by_name(self, obj):
         """Get the name of the user who created the gallery."""
         if obj.created_by:
-            return obj.created_by.name or obj.created_by.username
+            full_name = obj.created_by.get_full_name()
+            return full_name if full_name else obj.created_by.username
         return None
 
 

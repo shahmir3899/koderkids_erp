@@ -29,6 +29,7 @@ export const TransactionForm = ({
   handleSubmit,
   isEditing,
   loading,
+  hideSubmitButton = false,
 }) => {
   const [newCategory, setNewCategory] = useState('');
   const [hoveredButton, setHoveredButton] = useState(null);
@@ -138,7 +139,7 @@ export const TransactionForm = ({
                   hoveredButton === `income-${acc.id}`
                 )}
               >
-                {acc.account_name} (PKR {acc.current_balance.toLocaleString()})
+                {acc.account_name} (PKR {(acc.current_balance ?? 0).toLocaleString()})
               </button>
             ))}
           </div>
@@ -163,7 +164,7 @@ export const TransactionForm = ({
                   hoveredButton === `expense-${acc.id}`
                 )}
               >
-                {acc.account_name} (PKR {acc.current_balance.toLocaleString()})
+                {acc.account_name} (PKR {(acc.current_balance ?? 0).toLocaleString()})
               </button>
             ))}
           </div>
@@ -302,21 +303,23 @@ export const TransactionForm = ({
         />
       </div>
 
-      {/* Submit Button */}
-      <Button
-        type="submit"
-        variant="primary"
-        disabled={loading.submit || loading.accounts}
-        style={styles.submitButton}
-      >
-        {loading.submit
-          ? isEditing
-            ? 'Updating...'
-            : 'Saving...'
-          : isEditing
-          ? 'Update Transaction'
-          : 'Save Transaction'}
-      </Button>
+      {/* Submit Button - hidden when used in modal */}
+      {!hideSubmitButton && (
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={loading.submit || loading.accounts}
+          style={styles.submitButton}
+        >
+          {loading.submit
+            ? isEditing
+              ? 'Updating...'
+              : 'Saving...'
+            : isEditing
+            ? 'Update Transaction'
+            : 'Save Transaction'}
+        </Button>
+      )}
     </form>
   );
 };

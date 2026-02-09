@@ -133,6 +133,17 @@ class ActionExecutor:
             # Task actions
             'CREATE_TASK': self._execute_create_task,
             'CREATE_BULK_TASKS': self._execute_create_bulk_tasks,
+
+            # Transaction reconciliation actions
+            'UPLOAD_STATEMENT': self._execute_upload_statement,
+            'COMPARE_BALANCES': self._execute_compare_balances,
+            'FIND_MISSING_ENTRIES': self._execute_find_missing_entries,
+            'PREVIEW_RECONCILIATION': self._execute_preview_reconciliation,
+            'EXECUTE_RECONCILIATION': self._execute_reconciliation,
+            'UPDATE_ACCOUNT_BALANCE': self._execute_update_account_balance,
+            'GET_ACCOUNT_TRANSACTIONS': self._execute_get_account_transactions,
+            'GET_ACCOUNTS': self._execute_get_accounts,
+            'GET_ACCOUNT_DETAILS': self._execute_get_account_details,
         }
 
         executor_fn = executors.get(action_name)
@@ -2543,5 +2554,827 @@ class ActionExecutor:
                 "priority": priority,
                 "target_role": target_role,
                 "failed_employees": failed_employees
+            }
+        }
+
+    # ========== TRANSACTION RECONCILIATION ACTIONS ==========
+
+    def _execute_upload_statement(self, params: Dict) -> Dict:
+        """
+        Parse uploaded bank statement file.
+        File data should be passed from the view with parsed result.
+        """
+        # The actual parsing happens in the view before this is called
+        # This executor receives the already-parsed data
+        parsed_data = params.get('parsed_data')
+
+        if not parsed_data:
+            return {
+                "success": False,
+                "message": "No parsed statement data provided.",
+                "data": None,
+                "error": "Statement must be uploaded first"
+            }
+
+        # Format the response
+        closing_balance = parsed_data.get('closing_balance')
+        txn_count = parsed_data.get('summary', {}).get('transaction_count', 0)
+        account_name = parsed_data.get('account_name', 'Unknown')
+
+        message = f"📄 **Statement Parsed Successfully**\n\n"
+        message += f"**Account:** {account_name}\n"
+
+        if closing_balance:
+            message += f"**Closing Balance:** PKR {float(closing_balance):,.0f}\n"
+
+        message += f"**Transactions Found:** {txn_count}\n\n"
+        message += "What would you like to do?\n"
+        message += "• **Compare balance** - Check against database\n"
+        message += "• **Find missing entries** - Identify gaps"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": parsed_data
+        }
+
+    def _execute_compare_balances(self, params: Dict) -> Dict:
+        """Compare statement balance with database account balance."""
+        from finance.models import Account
+
+        account_id = params.get('account_id')
+        statement_balance = params.get('statement_balance')
+
+        if not account_id:
+            return {
+                "success": False,
+                "message": "Please specify which account to compare.",
+                "data": None,
+                "error": "account_id is required"
+            }
+
+        try:
+            account = Account.objects.get(id=account_id)
+        except Account.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Account with ID {account_id} not found.",
+                "data": None,
+                "error": "Account not found"
+            }
+
+        db_balance = float(account.current_balance or 0)
+
+        if statement_balance is None:
+            # Just return the current DB balance
+            return {
+                "success": True,
+                "message": f"**{account.account_name}**\n\nCurrent database balance: **PKR {db_balance:,.0f}**\n\nProvide the statement closing balance to compare.",
+                "data": {
+                    "account_id": account.id,
+                    "account_name": account.account_name,
+                    "db_balance": db_balance
+                }
+            }
+
+        statement_balance = float(statement_balance)
+        difference = db_balance - statement_balance
+
+        if abs(difference) < 0.01:  # Match within 1 paisa
+            status = "MATCH ✅"
+            message = f"**Balance Comparison: {account.account_name}**\n\n"
+            message += f"📊 Database Balance: PKR {db_balance:,.0f}\n"
+            message += f"📋 Statement Balance: PKR {statement_balance:,.0f}\n\n"
+            message += "✅ **Balances match!** No reconciliation needed."
+        else:
+            status = "MISMATCH ⚠️"
+            message = f"**Balance Comparison: {account.account_name}**\n\n"
+            message += f"📊 Database Balance: PKR {db_balance:,.0f}\n"
+            message += f"📋 Statement Balance: PKR {statement_balance:,.0f}\n"
+            message += f"📉 Difference: PKR {abs(difference):,.0f} "
+            message += "(DB higher)" if difference > 0 else "(Statement higher)"
+            message += "\n\n"
+            message += "⚠️ **Balances don't match!**\n\n"
+            message += "Would you like to:\n"
+            message += "• **Find missing entries** - Check for transactions not recorded\n"
+            message += "• **Update balance** - Set database balance to statement value\n"
+            message += "• **Reconcile** - Apply all changes"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "account_id": account.id,
+                "account_name": account.account_name,
+                "db_balance": db_balance,
+                "statement_balance": statement_balance,
+                "difference": difference,
+                "status": status
+            }
+        }
+
+    def _execute_find_missing_entries(self, params: Dict) -> Dict:
+        """Find transactions in statement that are not in the database."""
+        from finance.models import Account, Transaction
+        from django.db.models import Q
+        from django.core.cache import cache
+        from datetime import datetime
+
+        account_id = params.get('account_id')
+        date_from = params.get('date_from')
+        date_to = params.get('date_to')
+        statement_transactions = params.get('statement_transactions', [])
+
+        # Try to get cached statement if no transactions provided
+        if not statement_transactions and self.user:
+            # Try account-specific cache first, then default
+            cache_key = f"statement_{self.user.id}_{account_id}"
+            cached_data = cache.get(cache_key)
+            if not cached_data:
+                cache_key = f"statement_{self.user.id}_default"
+                cached_data = cache.get(cache_key)
+
+            if cached_data and isinstance(cached_data, dict):
+                statement_transactions = cached_data.get('transactions', [])
+                # Also get date range from statement if not provided
+                if not date_from and cached_data.get('statement_period', {}).get('from'):
+                    date_from = cached_data['statement_period']['from']
+                if not date_to and cached_data.get('statement_period', {}).get('to'):
+                    date_to = cached_data['statement_period']['to']
+
+        if not account_id:
+            return {
+                "success": False,
+                "message": "Please specify which account to check.",
+                "data": None,
+                "error": "account_id is required"
+            }
+
+        try:
+            account = Account.objects.get(id=account_id)
+        except Account.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Account with ID {account_id} not found.",
+                "data": None,
+                "error": "Account not found"
+            }
+
+        # Build query - transactions where account is either from_account or to_account
+        query = Q(from_account=account) | Q(to_account=account)
+
+        if date_from:
+            if isinstance(date_from, str):
+                date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+            query &= Q(date__gte=date_from)
+        if date_to:
+            if isinstance(date_to, str):
+                date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+            query &= Q(date__lte=date_to)
+
+        # Get DB transactions
+        db_transactions = Transaction.objects.filter(query).order_by('-date')
+
+        # Calculate totals - incoming vs outgoing for this account
+        db_incoming = sum(float(t.amount or 0) for t in db_transactions if t.to_account_id == account.id)
+        db_outgoing = sum(float(t.amount or 0) for t in db_transactions if t.from_account_id == account.id)
+        db_count = db_transactions.count()
+
+        message = f"**Transaction Analysis: {account.account_name}**\n\n"
+        message += f"📊 **Database Records:**\n"
+        message += f"• Total Transactions: {db_count}\n"
+        message += f"• Total Incoming: PKR {db_incoming:,.0f}\n"
+        message += f"• Total Outgoing: PKR {db_outgoing:,.0f}\n"
+
+        if date_from or date_to:
+            date_range = []
+            if date_from:
+                date_range.append(f"from {date_from}")
+            if date_to:
+                date_range.append(f"to {date_to}")
+            message += f"• Period: {' '.join(date_range)}\n"
+
+        message += "\n"
+
+        missing_entries = []
+
+        # If statement transactions provided, compare
+        if statement_transactions:
+            stmt_count = len(statement_transactions)
+            stmt_deposits = sum(float(t.get('deposit', 0) or 0) for t in statement_transactions)
+            stmt_withdrawals = sum(float(t.get('withdrawal', 0) or 0) for t in statement_transactions)
+
+            message += f"📋 **Statement Records:**\n"
+            message += f"• Total Transactions: {stmt_count}\n"
+            message += f"• Total Deposits: PKR {stmt_deposits:,.0f}\n"
+            message += f"• Total Withdrawals: PKR {stmt_withdrawals:,.0f}\n\n"
+
+            # Build a set of (date, amount, type) from DB for matching
+            # For deposits to this account: to_account = account, type could be Income/Transfer
+            # For withdrawals from this account: from_account = account, type could be Expense/Transfer
+            db_deposit_keys = set()
+            db_withdrawal_keys = set()
+
+            for txn in db_transactions:
+                txn_date = txn.date.strftime('%Y-%m-%d') if txn.date else None
+                amount = float(txn.amount or 0)
+
+                if txn.to_account_id == account.id:
+                    # This is a deposit/incoming to this account
+                    db_deposit_keys.add((txn_date, round(amount, 2)))
+                if txn.from_account_id == account.id:
+                    # This is a withdrawal/outgoing from this account
+                    db_withdrawal_keys.add((txn_date, round(amount, 2)))
+
+            # Find missing entries from statement
+            for stmt_txn in statement_transactions:
+                stmt_date = stmt_txn.get('date', '')
+                if isinstance(stmt_date, str) and stmt_date:
+                    # Normalize date format
+                    try:
+                        parsed_date = datetime.strptime(stmt_date, '%Y-%m-%d')
+                        stmt_date = parsed_date.strftime('%Y-%m-%d')
+                    except:
+                        try:
+                            parsed_date = datetime.strptime(stmt_date, '%d-%m-%Y')
+                            stmt_date = parsed_date.strftime('%Y-%m-%d')
+                        except:
+                            pass
+
+                deposit = float(stmt_txn.get('deposit', 0) or 0)
+                withdrawal = float(stmt_txn.get('withdrawal', 0) or 0)
+                description = stmt_txn.get('description', 'N/A')
+
+                is_missing = False
+                txn_type = None
+                amount = 0
+
+                if deposit > 0:
+                    key = (stmt_date, round(deposit, 2))
+                    if key not in db_deposit_keys:
+                        is_missing = True
+                        txn_type = 'deposit'
+                        amount = deposit
+
+                if withdrawal > 0:
+                    key = (stmt_date, round(withdrawal, 2))
+                    if key not in db_withdrawal_keys:
+                        is_missing = True
+                        txn_type = 'withdrawal'
+                        amount = withdrawal
+
+                if is_missing:
+                    missing_entries.append({
+                        'date': stmt_date,
+                        'description': description,
+                        'type': txn_type,
+                        'amount': amount
+                    })
+
+            # Show results
+            if missing_entries:
+                message += f"⚠️ **Missing Entries Found: {len(missing_entries)}**\n\n"
+
+                # Group by type
+                missing_deposits = [e for e in missing_entries if e['type'] == 'deposit']
+                missing_withdrawals = [e for e in missing_entries if e['type'] == 'withdrawal']
+
+                if missing_deposits:
+                    total_missing_deposits = sum(e['amount'] for e in missing_deposits)
+                    message += f"📥 **Missing Deposits ({len(missing_deposits)}):** PKR {total_missing_deposits:,.0f}\n"
+                    for entry in missing_deposits[:10]:  # Show max 10
+                        message += f"  • {entry['date']}: PKR {entry['amount']:,.0f} - {entry['description'][:40]}\n"
+                    if len(missing_deposits) > 10:
+                        message += f"  ... and {len(missing_deposits) - 10} more\n"
+                    message += "\n"
+
+                if missing_withdrawals:
+                    total_missing_withdrawals = sum(e['amount'] for e in missing_withdrawals)
+                    message += f"📤 **Missing Withdrawals ({len(missing_withdrawals)}):** PKR {total_missing_withdrawals:,.0f}\n"
+                    for entry in missing_withdrawals[:10]:  # Show max 10
+                        message += f"  • {entry['date']}: PKR {entry['amount']:,.0f} - {entry['description'][:40]}\n"
+                    if len(missing_withdrawals) > 10:
+                        message += f"  ... and {len(missing_withdrawals) - 10} more\n"
+                    message += "\n"
+
+                message += "💡 Say **'reconcile'** or **'add missing entries'** to add these to the database."
+            else:
+                # No missing entries but check for amount differences
+                deposit_diff = stmt_deposits - db_incoming
+                withdrawal_diff = stmt_withdrawals - db_outgoing
+
+                if abs(deposit_diff) > 0.01 or abs(withdrawal_diff) > 0.01:
+                    message += "⚠️ **Amount Differences (transactions match but totals differ):**\n"
+                    if abs(deposit_diff) > 0.01:
+                        message += f"• Deposit difference: PKR {deposit_diff:,.0f}\n"
+                    if abs(withdrawal_diff) > 0.01:
+                        message += f"• Withdrawal difference: PKR {withdrawal_diff:,.0f}\n"
+                else:
+                    message += "✅ **All transactions match!** No missing entries found."
+        else:
+            message += "💡 Upload a statement to compare with database records."
+
+        # Cache missing entries for reconciliation
+        if missing_entries and self.user:
+            cache_key = f"missing_entries_{self.user.id}_{account_id}"
+            cache.set(cache_key, missing_entries, timeout=3600)  # 1 hour
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "account_id": account.id,
+                "account_name": account.account_name,
+                "db_transactions": db_count,
+                "db_incoming": db_incoming,
+                "db_outgoing": db_outgoing,
+                "date_from": str(date_from) if date_from else None,
+                "date_to": str(date_to) if date_to else None,
+                "missing_entries": missing_entries
+            }
+        }
+
+    def _execute_preview_reconciliation(self, params: Dict) -> Dict:
+        """Preview what changes reconciliation would make."""
+        from finance.models import Account
+
+        account_id = params.get('account_id')
+        new_balance = params.get('new_balance')
+        transactions_to_add = params.get('transactions_to_add', [])
+
+        if not account_id:
+            return {
+                "success": False,
+                "message": "Please specify which account to reconcile.",
+                "data": None,
+                "error": "account_id is required"
+            }
+
+        try:
+            account = Account.objects.get(id=account_id)
+        except Account.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Account with ID {account_id} not found.",
+                "data": None,
+                "error": "Account not found"
+            }
+
+        current_balance = float(account.current_balance or 0)
+
+        message = f"**Reconciliation Preview: {account.account_name}**\n\n"
+
+        changes = []
+
+        # Balance update
+        if new_balance is not None:
+            new_balance = float(new_balance)
+            if abs(current_balance - new_balance) > 0.01:
+                message += f"📊 **Balance Update:**\n"
+                message += f"• Current: PKR {current_balance:,.0f}\n"
+                message += f"• New: PKR {new_balance:,.0f}\n"
+                message += f"• Change: PKR {new_balance - current_balance:,.0f}\n\n"
+                changes.append('balance_update')
+
+        # Transactions to add
+        if transactions_to_add:
+            message += f"📝 **Transactions to Add:** {len(transactions_to_add)}\n"
+            total_deposits = sum(float(t.get('deposit', 0) or 0) for t in transactions_to_add)
+            total_withdrawals = sum(float(t.get('withdrawal', 0) or 0) for t in transactions_to_add)
+            message += f"• Total Deposits: PKR {total_deposits:,.0f}\n"
+            message += f"• Total Withdrawals: PKR {total_withdrawals:,.0f}\n\n"
+            changes.append('add_transactions')
+
+        if not changes:
+            message += "✅ No changes needed. Account is already reconciled."
+        else:
+            message += "⚠️ **This is a preview. No changes have been made.**\n\n"
+            message += "Say **\"apply\"** or **\"execute\"** to apply these changes."
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "account_id": account.id,
+                "account_name": account.account_name,
+                "current_balance": current_balance,
+                "new_balance": new_balance,
+                "transactions_to_add": len(transactions_to_add),
+                "changes": changes,
+                "is_preview": True
+            }
+        }
+
+    def _execute_reconciliation(self, params: Dict) -> Dict:
+        """Execute reconciliation: update balance and/or add missing transactions."""
+        from finance.models import Account, Transaction
+        from django.db import transaction as db_transaction
+        from django.core.cache import cache
+
+        account_id = params.get('account_id')
+        update_balance = params.get('update_balance', False)
+        new_balance = params.get('new_balance')
+        transactions_to_add = params.get('transactions_to_add', [])
+
+        # Try to retrieve cached missing entries if none provided
+        if not transactions_to_add and account_id and self.user:
+            cache_key = f"missing_entries_{self.user.id}_{account_id}"
+            cached_missing = cache.get(cache_key)
+            if cached_missing:
+                # Convert from our format to expected format
+                transactions_to_add = []
+                for entry in cached_missing:
+                    txn_data = {
+                        'date': entry.get('date'),
+                        'description': entry.get('description', 'Reconciliation entry'),
+                    }
+                    if entry.get('type') == 'deposit':
+                        txn_data['deposit'] = entry.get('amount', 0)
+                        txn_data['withdrawal'] = 0
+                    else:
+                        txn_data['withdrawal'] = entry.get('amount', 0)
+                        txn_data['deposit'] = 0
+                    transactions_to_add.append(txn_data)
+
+        if not account_id:
+            return {
+                "success": False,
+                "message": "Please specify which account to reconcile.",
+                "data": None,
+                "error": "account_id is required"
+            }
+
+        try:
+            account = Account.objects.get(id=account_id)
+        except Account.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Account with ID {account_id} not found.",
+                "data": None,
+                "error": "Account not found"
+            }
+
+        changes_made = []
+        old_balance = float(account.current_balance or 0)
+
+        try:
+            with db_transaction.atomic():
+                # Update balance if requested
+                if update_balance and new_balance is not None:
+                    new_balance = Decimal(str(new_balance))
+                    account.current_balance = new_balance
+                    account.save(update_fields=['current_balance'])
+                    changes_made.append(f"Balance updated: PKR {old_balance:,.0f} → PKR {float(new_balance):,.0f}")
+
+                # Add missing transactions
+                transactions_created = 0
+                for txn_data in transactions_to_add:
+                    deposit = float(txn_data.get('deposit', 0) or 0)
+                    withdrawal = float(txn_data.get('withdrawal', 0) or 0)
+
+                    # Determine transaction type based on deposit/withdrawal
+                    if deposit > 0:
+                        # Money coming in = Income
+                        Transaction.objects.create(
+                            date=txn_data.get('date'),
+                            transaction_type='Income',
+                            amount=Decimal(str(deposit)),
+                            category=txn_data.get('category', 'Reconciliation'),
+                            to_account=account,
+                            notes=txn_data.get('description', 'Reconciliation entry')
+                        )
+                        transactions_created += 1
+                    elif withdrawal > 0:
+                        # Money going out = Expense
+                        Transaction.objects.create(
+                            date=txn_data.get('date'),
+                            transaction_type='Expense',
+                            amount=Decimal(str(withdrawal)),
+                            category=txn_data.get('category', 'Reconciliation'),
+                            from_account=account,
+                            notes=txn_data.get('description', 'Reconciliation entry')
+                        )
+                        transactions_created += 1
+
+                if transactions_created > 0:
+                    changes_made.append(f"Created {transactions_created} transaction(s)")
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Reconciliation failed: {str(e)}",
+                "data": None,
+                "error": str(e)
+            }
+
+        if not changes_made:
+            return {
+                "success": True,
+                "message": f"No changes were necessary for {account.account_name}.",
+                "data": {"account_id": account.id, "changes": []}
+            }
+
+        message = f"✅ **Reconciliation Complete: {account.account_name}**\n\n"
+        for change in changes_made:
+            message += f"• {change}\n"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "account_id": account.id,
+                "account_name": account.account_name,
+                "old_balance": old_balance,
+                "new_balance": float(new_balance) if new_balance else old_balance,
+                "transactions_created": len(transactions_to_add),
+                "changes": changes_made
+            }
+        }
+
+    def _execute_update_account_balance(self, params: Dict) -> Dict:
+        """
+        Adjust account balance by creating an adjustment transaction.
+        This ensures data integrity - balance always matches sum of transactions.
+        """
+        from finance.models import Account, Transaction
+        from datetime import date
+
+        account_id = params.get('account_id')
+        new_balance = params.get('new_balance')
+        reason = params.get('reason', 'Balance adjustment via reconciliation')
+
+        if not account_id:
+            return {
+                "success": False,
+                "message": "Please specify which account to update.",
+                "data": None,
+                "error": "account_id is required"
+            }
+
+        if new_balance is None:
+            return {
+                "success": False,
+                "message": "Please provide the new balance amount.",
+                "data": None,
+                "error": "new_balance is required"
+            }
+
+        try:
+            account = Account.objects.get(id=account_id)
+        except Account.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Account with ID {account_id} not found.",
+                "data": None,
+                "error": "Account not found"
+            }
+
+        old_balance = float(account.current_balance or 0)
+        new_balance_float = float(new_balance)
+        difference = new_balance_float - old_balance
+
+        if abs(difference) < 0.01:
+            return {
+                "success": True,
+                "message": f"No adjustment needed. {account.account_name} balance is already PKR {old_balance:,.0f}",
+                "data": {
+                    "account_id": account.id,
+                    "account_name": account.account_name,
+                    "balance": old_balance,
+                    "adjustment": 0
+                }
+            }
+
+        # Create an adjustment transaction instead of directly modifying balance
+        # Positive difference = money coming IN (Income)
+        # Negative difference = money going OUT (Expense)
+        if difference > 0:
+            # Balance needs to increase - create Income transaction
+            Transaction.objects.create(
+                date=date.today(),
+                transaction_type='Income',
+                amount=Decimal(str(abs(difference))),
+                category='Balance Adjustment',
+                to_account=account,
+                notes=f"{reason}. Previous balance: PKR {old_balance:,.0f}"
+            )
+            direction = "increased"
+        else:
+            # Balance needs to decrease - create Expense transaction
+            Transaction.objects.create(
+                date=date.today(),
+                transaction_type='Expense',
+                amount=Decimal(str(abs(difference))),
+                category='Balance Adjustment',
+                from_account=account,
+                notes=f"{reason}. Previous balance: PKR {old_balance:,.0f}"
+            )
+            direction = "decreased"
+
+        # Refresh account to get updated balance
+        account.refresh_from_db()
+
+        return {
+            "success": True,
+            "message": f"✅ **Balance Adjusted: {account.account_name}**\n\n• Previous: PKR {old_balance:,.0f}\n• Adjustment: PKR {abs(difference):,.0f} ({direction})\n• New: PKR {float(account.current_balance):,.0f}\n\nAn adjustment transaction was created for audit trail.",
+            "data": {
+                "account_id": account.id,
+                "account_name": account.account_name,
+                "old_balance": old_balance,
+                "adjustment": difference,
+                "new_balance": float(account.current_balance),
+                "transaction_created": True
+            }
+        }
+
+    def _execute_get_account_transactions(self, params: Dict) -> Dict:
+        """Get transactions for an account."""
+        from finance.models import Account, Transaction
+        from django.db.models import Q
+        from datetime import datetime
+
+        account_id = params.get('account_id')
+        limit = params.get('limit', 20)
+        date_from = params.get('date_from')
+        date_to = params.get('date_to')
+
+        if not account_id:
+            return {
+                "success": False,
+                "message": "Please specify which account.",
+                "data": None,
+                "error": "account_id is required"
+            }
+
+        try:
+            account = Account.objects.get(id=account_id)
+        except Account.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Account with ID {account_id} not found.",
+                "data": None,
+                "error": "Account not found"
+            }
+
+        # Build query - transactions where account is either from_account or to_account
+        query = Q(from_account=account) | Q(to_account=account)
+
+        if date_from:
+            if isinstance(date_from, str):
+                date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+            query &= Q(date__gte=date_from)
+        if date_to:
+            if isinstance(date_to, str):
+                date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+            query &= Q(date__lte=date_to)
+
+        transactions = Transaction.objects.filter(query).order_by('-date')[:limit]
+
+        # Format response
+        txn_list = []
+        for txn in transactions:
+            # Determine if money is coming in or going out for this account
+            is_incoming = txn.to_account_id == account.id
+            is_outgoing = txn.from_account_id == account.id
+
+            txn_list.append({
+                'id': txn.id,
+                'date': str(txn.date) if txn.date else '',
+                'type': txn.transaction_type,
+                'category': txn.category or '',
+                'notes': (txn.notes or '')[:50],
+                'amount': float(txn.amount or 0),
+                'direction': 'in' if is_incoming else 'out'
+            })
+
+        # Build message
+        message = f"**Transactions: {account.account_name}**\n\n"
+
+        if not txn_list:
+            message += "No transactions found."
+        else:
+            message += f"Showing {len(txn_list)} most recent:\n\n"
+            for txn in txn_list[:10]:  # Show first 10 in message
+                direction = "+" if txn['direction'] == 'in' else "-"
+                notes_preview = f" - {txn['notes'][:20]}..." if txn['notes'] else ""
+                message += f"• {txn['date']}: {txn['category']} {direction}PKR {txn['amount']:,.0f}{notes_preview}\n"
+
+            if len(txn_list) > 10:
+                message += f"\n... and {len(txn_list) - 10} more"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "account_id": account.id,
+                "account_name": account.account_name,
+                "current_balance": float(account.current_balance or 0),
+                "transactions": txn_list,
+                "total_shown": len(txn_list)
+            }
+        }
+
+    def _execute_get_accounts(self, params: Dict) -> Dict:
+        """Get list of all accounts with balances."""
+        from finance.models import Account
+
+        accounts = Account.objects.all().order_by('account_name')
+
+        account_list = []
+        for acc in accounts:
+            account_list.append({
+                'id': acc.id,
+                'account_name': acc.account_name,
+                'account_type': acc.account_type,
+                'current_balance': float(acc.current_balance or 0)
+            })
+
+        # Build message
+        message = "**Accounts Overview**\n\n"
+
+        if not account_list:
+            message += "No accounts found."
+        else:
+            total_balance = 0
+            for acc in account_list:
+                message += f"• **{acc['account_name']}** ({acc['account_type']})\n"
+                message += f"  Balance: PKR {acc['current_balance']:,.0f}\n"
+                total_balance += acc['current_balance']
+
+            message += f"\n**Total across all accounts:** PKR {total_balance:,.0f}"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "accounts": account_list,
+                "total_accounts": len(account_list)
+            }
+        }
+
+    def _execute_get_account_details(self, params: Dict) -> Dict:
+        """Get detailed info for a specific account."""
+        from finance.models import Account, Transaction
+        from django.db.models import Q, Sum, Count
+
+        account_id = params.get('account_id')
+
+        if not account_id:
+            return {
+                "success": False,
+                "message": "Please specify which account.",
+                "data": None,
+                "error": "account_id is required"
+            }
+
+        try:
+            account = Account.objects.get(id=account_id)
+        except Account.DoesNotExist:
+            return {
+                "success": False,
+                "message": f"Account with ID {account_id} not found.",
+                "data": None,
+                "error": "Account not found"
+            }
+
+        # Get all transactions where this account is involved
+        all_txns = Transaction.objects.filter(
+            Q(from_account=account) | Q(to_account=account)
+        )
+
+        # Calculate totals - incoming and outgoing
+        total_incoming = sum(
+            float(t.amount or 0) for t in all_txns if t.to_account_id == account.id
+        )
+        total_outgoing = sum(
+            float(t.amount or 0) for t in all_txns if t.from_account_id == account.id
+        )
+        transaction_count = all_txns.count()
+
+        # Get last transaction date
+        last_txn = all_txns.order_by('-date').first()
+
+        message = f"**Account Details: {account.account_name}**\n\n"
+        message += f"• **Type:** {account.account_type}\n"
+        message += f"• **Current Balance:** PKR {float(account.current_balance or 0):,.0f}\n"
+        message += f"• **Total Transactions:** {transaction_count}\n"
+        message += f"• **Total Incoming:** PKR {total_incoming:,.0f}\n"
+        message += f"• **Total Outgoing:** PKR {total_outgoing:,.0f}\n"
+
+        if last_txn:
+            message += f"• **Last Transaction:** {last_txn.date}\n"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "account_id": account.id,
+                "account_name": account.account_name,
+                "account_type": account.account_type,
+                "current_balance": float(account.current_balance or 0),
+                "total_incoming": total_incoming,
+                "total_outgoing": total_outgoing,
+                "transaction_count": transaction_count,
+                "last_transaction_date": str(last_txn.date) if last_txn else None
             }
         }

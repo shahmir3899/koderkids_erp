@@ -297,6 +297,57 @@ export const buildTaskContext = (employees = []) => {
     };
 };
 
+/**
+ * Build context object for transaction agent
+ * @param {Array} accounts - List of accounts
+ * @returns {Object} Context for AI
+ */
+export const buildTransactionContext = (accounts = []) => {
+    return {
+        current_date: getTodayLocal(),
+        accounts: accounts.map(a => ({
+            id: a.id,
+            account_name: a.account_name,
+            account_type: a.account_type,
+            current_balance: parseFloat(a.current_balance || 0)
+        }))
+    };
+};
+
+/**
+ * Upload bank statement file for AI parsing
+ * @param {File} file - The file to upload
+ * @param {Number} accountId - Optional account ID
+ * @returns {Promise<Object>} Parsed statement data
+ */
+export const uploadStatementFile = async (file, accountId = null) => {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (accountId) {
+            formData.append('account_id', accountId);
+        }
+
+        const response = await silentAxios.post(
+            '/api/ai/upload/',
+            formData,
+            {
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'multipart/form-data'
+                }
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('AI upload error:', error);
+        return {
+            success: false,
+            error: error.response?.data?.error || 'File upload failed'
+        };
+    }
+};
+
 export default {
     checkAIHealth,
     executeAICommand,
@@ -308,5 +359,7 @@ export default {
     buildInventoryContext,
     buildHRContext,
     buildBroadcastContext,
-    buildTaskContext
+    buildTaskContext,
+    buildTransactionContext,
+    uploadStatementFile
 };

@@ -614,6 +614,9 @@ Current user message: {message}"""
                         })
                     final_params['resolved_employees'] = edited_employees
                     final_params['employee_ids'] = [e['id'] for e in edited_employees]
+            elif 'transactions_to_add' in edited_params:
+                # For reconciliation, use the reviewed transactions from frontend
+                final_params['transactions_to_add'] = edited_params['transactions_to_add']
             else:
                 # Single task - map frontend field names to backend param names
                 param_mapping = {

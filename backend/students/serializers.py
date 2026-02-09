@@ -44,54 +44,48 @@ class StudentSerializer(serializers.ModelSerializer):
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     """
-    Serializer for student profile that includes both Student and CustomUser fields.
-    
+    Serializer for student profile.
+
+    Single source of truth: Student.name (not CustomUser first_name/last_name).
+
     Editable Fields:
-    - first_name, last_name (CustomUser)
-    - phone, address (Student)
-    
+    - name (Student) — single name field, synced to CustomUser as shadow
+    - email (CustomUser)
+    - phone, address, date_of_birth (Student)
+
     Read-Only Fields:
-    - email, username (CustomUser)
+    - username (CustomUser)
     - reg_num, school, student_class, monthly_fee, status (Student)
     """
-    
+
     # ============================================
     # CUSTOMUSER FIELDS (from user relationship)
     # ============================================
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.EmailField(source='user.email', read_only=True)
-    
-    # Editable CustomUser fields
-    first_name = serializers.CharField(
-        source='user.first_name',
-        max_length=150,
+    email = serializers.EmailField(
+        source='user.email',
         required=False,
+        allow_null=True,
         allow_blank=True
     )
-    last_name = serializers.CharField(
-        source='user.last_name',
-        max_length=150,
-        required=False,
-        allow_blank=True
-    )
-    
-    # Computed field
+
+    # full_name returns Student.name (single source of truth)
     full_name = serializers.SerializerMethodField()
-    
+
     # Profile photo from CustomUser (centralized across all roles)
     profile_photo_url = serializers.URLField(
         source='user.profile_photo_url',
         read_only=True,
         allow_null=True
     )
-    
+
     # ============================================
     # STUDENT FIELDS (academic/contact info)
     # ============================================
     school_name = serializers.CharField(source='school.name', read_only=True)
     school_id = serializers.IntegerField(source='school.id', read_only=True)
-    
+
     class Meta:
         model = Student
         fields = [
@@ -99,11 +93,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'user_id',
             'username',
             'email',
-            'first_name',
-            'last_name',
             'full_name',
             'profile_photo_url',
-            
+
             # Student fields (read-only academic data)
             'id',
             'reg_num',
@@ -116,32 +108,29 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'date_of_birth',
             'status',
             'date_of_registration',
-            
+
             # Student fields (editable contact info)
             'phone',
             'address',
-            
+
             # Timestamps
             'created_at',
             'updated_at',
         ]
-        
+
         read_only_fields = [
             # Identity fields
             'user_id',
             'username',
-            # 'email',  # Now editable by students
 
             # Student admin-only fields
             'id',
             'reg_num',
-            'name',
             'gender',
             'school_id',
             'school_name',
             'student_class',
             'monthly_fee',
-            # 'date_of_birth',  # Now editable by students
             'status',
             'date_of_registration',
 
@@ -150,40 +139,39 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-    
+
     def get_full_name(self, obj):
-        """Compute full name from first_name and last_name"""
-        user = obj.user
-        full_name = f"{user.first_name} {user.last_name}".strip()
-        return full_name if full_name else user.username
-    
+        """Return Student.name as the single source of truth."""
+        return obj.name if obj.name and obj.name != 'Unknown' else obj.user.username
+
     @transaction.atomic
     def update(self, instance, validated_data):
         """
-        Update both CustomUser and Student models in a single transaction.
-        
-        Args:
-            instance: Student instance
-            validated_data: Validated data from serializer
-        
-        Returns:
-            Updated Student instance
+        Update Student and CustomUser models in a single transaction.
+        Student.name is the source of truth — synced to CustomUser as shadow.
         """
-        # Extract nested user data
+        # Extract nested user data (email)
         user_data = validated_data.pop('user', {})
-        
-        # Update CustomUser fields
+
+        # Update CustomUser fields (email)
         if user_data:
             user = instance.user
             for attr, value in user_data.items():
                 setattr(user, attr, value)
             user.save()
-        
-        # Update Student fields
+
+        # Update Student fields (name, phone, address, date_of_birth)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        
+
+        # Sync Student.name → CustomUser.first_name/last_name (shadow copy)
+        if 'name' in validated_data and instance.user:
+            parts = instance.name.strip().split(' ', 1)
+            instance.user.first_name = parts[0]
+            instance.user.last_name = parts[1] if len(parts) > 1 else ''
+            instance.user.save(update_fields=['first_name', 'last_name'])
+
         return instance
     
     def validate_phone(self, value):

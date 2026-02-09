@@ -4,11 +4,12 @@ from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 from django.apps import apps
 from students.models import School
-from django.db.models import Sum
+from django.db.models import Sum, F
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.core.cache import cache  # Added for cache invalidation
+from django.core.cache import cache
+from decimal import Decimal
 
 
 User = get_user_model()
@@ -88,109 +89,106 @@ class Transaction(models.Model):
             models.Index(fields=['school', 'date']),
         ]
 
+    def _update_account_balance(self, account_id, amount_delta):
+        """
+        Atomically update account balance using F() expression.
+        Single query, no race conditions.
+        """
+        if account_id:
+            Account.objects.filter(pk=account_id).update(
+                current_balance=F('current_balance') + amount_delta,
+                last_updated=now()
+            )
+
+    def _apply_balance_changes(self, txn_type, category, from_acc_id, to_acc_id, amount, reverse=False):
+        """
+        Apply balance changes for a transaction.
+        If reverse=True, reverses the effect (for updates/deletes).
+        """
+        multiplier = Decimal('-1') if reverse else Decimal('1')
+        amt = Decimal(str(amount)) * multiplier
+
+        # Loan transactions (both accounts affected)
+        if category in ("Loan Received", "Loan Paid") and from_acc_id and to_acc_id:
+            self._update_account_balance(from_acc_id, -amt)
+            self._update_account_balance(to_acc_id, amt)
+
+        # Income: credit to_account
+        elif txn_type == "Income" and to_acc_id:
+            self._update_account_balance(to_acc_id, amt)
+
+        # Expense: debit from_account
+        elif txn_type == "Expense" and from_acc_id:
+            self._update_account_balance(from_acc_id, -amt)
+
+        # Transfer: debit from_account, credit to_account
+        elif txn_type == "Transfer" and from_acc_id and to_acc_id:
+            self._update_account_balance(from_acc_id, -amt)
+            self._update_account_balance(to_acc_id, amt)
+
+    def _invalidate_cache(self):
+        """Clear finance-related caches."""
+        cache.delete('finance_summary')
+        cache.delete('loan_summary')
+
     def save(self, *args, **kwargs):
         with transaction.atomic():
-            original_transaction = None
+            # Fetch original for updates (to reverse old balance changes)
+            original = None
             if self.pk:
-                original_transaction = Transaction.objects.get(pk=self.pk)
+                original = Transaction.objects.select_related(
+                    'from_account', 'to_account'
+                ).filter(pk=self.pk).first()
 
+            # Save the transaction
             super().save(*args, **kwargs)
 
-            # Update account balances incrementally
-            if self.category == "Loan Received" and self.from_account and self.to_account:
-                self.from_account.current_balance -= self.amount
-                self.to_account.current_balance += self.amount
-                self.from_account.save(update_fields=['current_balance', 'last_updated'])
-                self.to_account.save(update_fields=['current_balance', 'last_updated'])
+            # Reverse original transaction effects first (if updating)
+            if original:
+                self._apply_balance_changes(
+                    original.transaction_type,
+                    original.category,
+                    original.from_account_id,
+                    original.to_account_id,
+                    original.amount,
+                    reverse=True
+                )
 
-            elif self.category == "Loan Paid" and self.from_account and self.to_account:
-                self.from_account.current_balance -= self.amount
-                self.to_account.current_balance += self.amount
-                self.from_account.save(update_fields=['current_balance', 'last_updated'])
-                self.to_account.save(update_fields=['current_balance', 'last_updated'])
+            # Apply new transaction balance changes
+            self._apply_balance_changes(
+                self.transaction_type,
+                self.category,
+                self.from_account_id,
+                self.to_account_id,
+                self.amount,
+                reverse=False
+            )
 
-            elif self.transaction_type == "Income" and self.to_account:
-                self.to_account.current_balance += self.amount
-                self.to_account.save(update_fields=['current_balance', 'last_updated'])
-
-            elif self.transaction_type == "Expense" and self.from_account:
-                self.from_account.current_balance -= self.amount
-                self.from_account.save(update_fields=['current_balance', 'last_updated'])
-
-            elif self.transaction_type == "Transfer" and self.from_account and self.to_account:
-                self.from_account.current_balance -= self.amount
-                self.to_account.current_balance += self.amount
-                self.from_account.save(update_fields=['current_balance', 'last_updated'])
-                self.to_account.save(update_fields=['current_balance', 'last_updated'])
-
-            # Reverse original transaction effects (for updates)
-            if original_transaction:
-                if original_transaction.transaction_type == "Income" and original_transaction.to_account:
-                    original_transaction.to_account.current_balance -= original_transaction.amount
-                    original_transaction.to_account.save(update_fields=['current_balance', 'last_updated'])
-
-                elif original_transaction.transaction_type == "Expense" and original_transaction.from_account:
-                    original_transaction.from_account.current_balance += original_transaction.amount
-                    original_transaction.from_account.save(update_fields=['current_balance', 'last_updated'])
-
-                elif original_transaction.transaction_type == "Transfer" and original_transaction.from_account and original_transaction.to_account:
-                    original_transaction.from_account.current_balance += original_transaction.amount
-                    original_transaction.to_account.current_balance -= original_transaction.amount
-                    original_transaction.from_account.save(update_fields=['current_balance', 'last_updated'])
-                    original_transaction.to_account.save(update_fields=['current_balance', 'last_updated'])
-
-                elif original_transaction.category == "Loan Received" and original_transaction.from_account and original_transaction.to_account:
-                    original_transaction.from_account.current_balance += original_transaction.amount
-                    original_transaction.to_account.current_balance -= original_transaction.amount
-                    original_transaction.from_account.save(update_fields=['current_balance', 'last_updated'])
-                    original_transaction.to_account.save(update_fields=['current_balance', 'last_updated'])
-
-                elif original_transaction.category == "Loan Paid" and original_transaction.from_account and original_transaction.to_account:
-                    original_transaction.from_account.current_balance += original_transaction.amount
-                    original_transaction.to_account.current_balance -= original_transaction.amount
-                    original_transaction.from_account.save(update_fields=['current_balance', 'last_updated'])
-                    original_transaction.to_account.save(update_fields=['current_balance', 'last_updated'])
-
-            # Cache invalidation
-            cache.delete('finance_summary')
-            cache.delete('loan_summary')
+            self._invalidate_cache()
 
     def delete(self, *args, **kwargs):
         with transaction.atomic():
-            from_account = self.from_account
-            to_account = self.to_account
+            # Store IDs before deletion
+            from_acc_id = self.from_account_id
+            to_acc_id = self.to_account_id
+            txn_type = self.transaction_type
+            category = self.category
+            amount = self.amount
+
+            # Delete the transaction
             super().delete(*args, **kwargs)
 
-            # Reverse balance updates
-            if self.category == "Loan Received" and from_account and to_account:
-                from_account.current_balance += self.amount
-                to_account.current_balance -= self.amount
-                from_account.save(update_fields=['current_balance', 'last_updated'])
-                to_account.save(update_fields=['current_balance', 'last_updated'])
+            # Reverse the balance changes
+            self._apply_balance_changes(
+                txn_type,
+                category,
+                from_acc_id,
+                to_acc_id,
+                amount,
+                reverse=True
+            )
 
-            elif self.category == "Loan Paid" and from_account and to_account:
-                from_account.current_balance += self.amount
-                to_account.current_balance -= self.amount
-                from_account.save(update_fields=['current_balance', 'last_updated'])
-                to_account.save(update_fields=['current_balance', 'last_updated'])
-
-            elif self.transaction_type == "Income" and to_account:
-                to_account.current_balance -= self.amount
-                to_account.save(update_fields=['current_balance', 'last_updated'])
-
-            elif self.transaction_type == "Expense" and from_account:
-                from_account.current_balance += self.amount
-                from_account.save(update_fields=['current_balance', 'last_updated'])
-
-            elif self.transaction_type == "Transfer" and from_account and to_account:
-                from_account.current_balance += self.amount
-                to_account.current_balance -= self.amount
-                from_account.save(update_fields=['current_balance', 'last_updated'])
-                to_account.save(update_fields=['current_balance', 'last_updated'])
-
-            # Cache invalidation
-            cache.delete('finance_summary')
-            cache.delete('loan_summary')
+            self._invalidate_cache()
 
     def __str__(self):
         return f"{self.transaction_type}: {self.amount} ({self.category}) - {self.school.name if self.school else 'No School'}"

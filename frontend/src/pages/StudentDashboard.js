@@ -5,8 +5,6 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { getCompleteStudentProfile } from '../services/studentService';
-
 // Dashboard Components
 import {
   StudentDashboardHeader,
@@ -51,62 +49,31 @@ const StudentDashboard = () => {
   // Responsive hook
   const { isMobile, isTablet } = useResponsive();
 
-  // Dashboard data states
+  // Dashboard data (single API: /api/students/my-data/)
   const [data, setData] = useState(null);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Profile states (separate!)
-  const [profile, setProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-
-  // Fetch dashboard data
+  // Single fetch — my-data has everything: profile + dashboard data
   useEffect(() => {
-    console.log('Fetching dashboard data...');
-    setDashboardLoading(true);
-
     axios.get(`${API_URL}/api/students/my-data/`, { headers: getAuthHeaders() })
       .then((res) => {
-        console.log('Dashboard data loaded:', res.data);
         setData(res.data);
-        setDashboardLoading(false);
+        setLoading(false);
       })
       .catch((err) => {
         console.error('Dashboard data error:', err);
         setError("Failed to load data");
-        setDashboardLoading(false);
+        setLoading(false);
       });
-  }, []);
-
-  // Fetch profile data (for header)
-  useEffect(() => {
-    const fetchProfile = async () => {
-      console.log('Fetching profile...');
-      setProfileLoading(true);
-      try {
-        const profileData = await getCompleteStudentProfile();
-        console.log('Profile loaded:', profileData);
-        setProfile(profileData);
-      } catch (error) {
-        console.error('Profile error:', error);
-      } finally {
-        setProfileLoading(false);
-      }
-    };
-
-    fetchProfile();
   }, []);
 
   // Handle profile updates (from settings modal)
   const handleProfileUpdate = (updatedProfile) => {
-    console.log('Updating profile:', updatedProfile);
-    // Update both data and profile states to reflect changes everywhere
     setData(prev => prev ? { ...prev, ...updatedProfile } : prev);
-    setProfile(prev => prev ? { ...prev, ...updatedProfile } : prev);
   };
 
-  // Show loading if either is still loading
-  const isLoading = dashboardLoading || profileLoading;
+  const isLoading = loading;
 
   // Get responsive styles
   const styles = getResponsiveStyles(isMobile, isTablet);
@@ -114,12 +81,6 @@ const StudentDashboard = () => {
   if (isLoading) {
     return (
       <div style={styles.pageContainer}>
-        <StudentDashboardHeader
-          profile={profile}
-          onProfileUpdate={handleProfileUpdate}
-          studentClass={null}
-          isMobile={isMobile}
-        />
         <div style={styles.loadingContainer}>
           <div style={styles.loadingSpinner} />
           <p style={styles.loadingText}>Loading your dashboard...</p>
@@ -131,12 +92,6 @@ const StudentDashboard = () => {
   if (error || !data) {
     return (
       <div style={styles.pageContainer}>
-        <StudentDashboardHeader
-          profile={profile}
-          onProfileUpdate={handleProfileUpdate}
-          studentClass={null}
-          isMobile={isMobile}
-        />
         <div style={styles.errorContainer}>
           <p style={styles.errorText}>{error || "No data available"}</p>
         </div>

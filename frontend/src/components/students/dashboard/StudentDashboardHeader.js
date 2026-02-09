@@ -53,7 +53,7 @@ const StudentDashboardHeader = ({
     return today.getMonth() === dob.getMonth() && today.getDate() === dob.getDate();
   };
 
-  const displayBirthdayName = birthdayName || (isBirthday() ? profile?.first_name : null);
+  const displayBirthdayName = birthdayName || (isBirthday() ? profile?.full_name : null);
 
   // Extract level from class name (e.g., "Level 2" from "Level 2 - Coding Basics")
   const getClassLevel = () => {
@@ -63,7 +63,7 @@ const StudentDashboardHeader = ({
   };
 
   const level = getClassLevel();
-  const firstName = profile?.first_name || profile?.full_name?.split(' ')[0] || 'Student';
+  const firstName = profile?.full_name || profile?.name || 'Student';
 
   return (
     <>
@@ -238,7 +238,7 @@ const getStyles = (isMobile) => ({
     gap: SPACING.xs,
   },
   schoolName: {
-    color: COLORS.primary,
+    color: '#FBBF24',
     fontWeight: FONT_WEIGHTS.semibold,
   },
   separator: {

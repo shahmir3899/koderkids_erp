@@ -14,6 +14,7 @@ import React, { useState, useMemo } from "react";
 import { toast } from "react-toastify";
 
 // React Query Hooks
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useTransactions,
   useAllTransactions,
@@ -24,10 +25,11 @@ import {
   useUpdateTransaction,
   useDeleteTransaction,
   useAddCategory,
+  useBulkCreateTransactions,
+  transactionKeys,
 } from "../hooks/queries";
 
-// API (only for transactionService reference types)
-import { transactionService } from "../services/transactionService";
+// Utils
 import { getTodayLocal } from "../utils/dateFormatters";
 
 // Design Constants
@@ -37,37 +39,40 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  SHADOWS,
-  TRANSITIONS,
   LAYOUT,
 } from '../utils/designConstants';
-
-// Responsive Hook
-import { useResponsive } from '../hooks/useResponsive';
 
 // Common Components
 import { CollapsibleSection } from "../components/common/cards/CollapsibleSection";
 import { DataTable } from "../components/common/tables/DataTable";
-import { LoadingSpinner } from "../components/common/ui/LoadingSpinner";
 import { ErrorDisplay } from "../components/common/ui/ErrorDisplay";
 import { Button } from "../components/common/ui/Button";
 import { PageHeader } from "../components/common/PageHeader";
+import { SegmentedControl } from "../components/common/ui/SegmentedControl";
 
 // Transaction Components
-import { TransactionStats } from "../components/transactions/TransactionStats";
-import { TransactionForm } from "../components/transactions/TransactionForm";
 import { TransactionFilters } from "../components/transactions/TransactionFilters";
 import { TransactionDetailsModal } from "../components/transactions/TransactionDetailsModal";
+import { TransactionFormModal } from "../components/transactions/TransactionFormModal";
+import TransactionAgentChat from "../components/transactions/TransactionAgentChat";
+
+// Static constants (defined outside component to avoid re-creation)
+const TRANSFER_CATEGORIES = ["Bank Transfer", "Cash Transfer"];
+
+// Safe number parsing helper - returns null for invalid/empty values
+const safeParseFloat = (value) => {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? null : parsed;
+};
 
 function TransactionsPage() {
   // ============================================
-  // RESPONSIVE HOOK
-  // ============================================
-  const { isMobile } = useResponsive();
-
-  // ============================================
   // STATE MANAGEMENT
   // ============================================
+
+  // React Query Client for cache invalidation
+  const queryClient = useQueryClient();
 
   // Tab State
   const [activeTab, setActiveTab] = useState("income");
@@ -76,19 +81,56 @@ function TransactionsPage() {
   const { data: accounts = [], isLoading: isLoadingAccounts } = useAccounts();
   const { data: schools = [] } = useTransactionSchools();
   const { incomeCategories = [], expenseCategories = [] } = useAllCategories();
-  const transferCategories = ["Bank Transfer", "Cash Transfer"];
 
   // Transactions query - depends on activeTab and filters
   const [shouldFetchAllTypes, setShouldFetchAllTypes] = useState(false);
 
-  // Single type transactions query
+  // Filter States (must be declared before serverFilters useMemo)
+  const [filters, setFilters] = useState({
+    search: "",
+    dateFrom: "",
+    dateTo: "",
+    school: "",
+    category: "",
+    minAmount: "",
+    maxAmount: "",
+    account: "",
+    accountType: "",
+  });
+
+  // Applied Filters (actually used for filtering)
+  const [appliedFilters, setAppliedFilters] = useState({
+    search: "",
+    dateFrom: "",
+    dateTo: "",
+    school: "",
+    category: "",
+    minAmount: "",
+    maxAmount: "",
+    account: "",
+    accountType: "",
+  });
+
+  // Server-side filters - sent to backend API for efficient filtering
+  const serverFilters = useMemo(() => ({
+    limit: 50,
+    offset: 0,
+    ordering: "-date",
+    // Only include filters that have values (backend handles these)
+    ...(appliedFilters.dateFrom && { date__gte: appliedFilters.dateFrom }),
+    ...(appliedFilters.dateTo && { date__lte: appliedFilters.dateTo }),
+    ...(appliedFilters.school && appliedFilters.school !== "null" && { school: appliedFilters.school }),
+    ...(appliedFilters.category && { category: appliedFilters.category }),
+  }), [appliedFilters.dateFrom, appliedFilters.dateTo, appliedFilters.school, appliedFilters.category]);
+
+  // Single type transactions query with server-side filtering
   const {
     data: singleTypeData,
     isLoading: isLoadingSingleType,
     refetch: refetchSingleType,
   } = useTransactions(
     activeTab,
-    { limit: 25, offset: 0, ordering: "-date" },
+    serverFilters,
     { enabled: !shouldFetchAllTypes }
   );
 
@@ -122,6 +164,7 @@ function TransactionsPage() {
   const updateTransactionMutation = useUpdateTransaction();
   const deleteTransactionMutation = useDeleteTransaction();
   const addCategoryMutation = useAddCategory();
+  const bulkCreateMutation = useBulkCreateTransactions();
 
   // Form State
   const [formData, setFormData] = useState({
@@ -141,6 +184,7 @@ function TransactionsPage() {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
 
   // Derived Loading States from React Query
   const loading = {
@@ -148,6 +192,7 @@ function TransactionsPage() {
     accounts: isLoadingAccounts,
     submit: createTransactionMutation.isPending || updateTransactionMutation.isPending,
     delete: deleteTransactionMutation.isPending,
+    bulk: bulkCreateMutation.isPending,
   };
 
   // Error State - derived from mutations
@@ -161,32 +206,6 @@ function TransactionsPage() {
     hasMore: singleTypeData?.next ? true : false,
   };
 
-  // Filter States (not applied until Search button clicked)
-  const [filters, setFilters] = useState({
-    search: "",
-    dateFrom: "",
-    dateTo: "",
-    school: "",
-    category: "",
-    minAmount: "",
-    maxAmount: "",
-    account: "", // Specific account for reconciliation
-    accountType: "", // Bank or Person account type
-  });
-
-  // Applied Filters (actually used for filtering)
-  const [appliedFilters, setAppliedFilters] = useState({
-    search: "",
-    dateFrom: "",
-    dateTo: "",
-    school: "",
-    category: "",
-    minAmount: "",
-    maxAmount: "",
-    account: "",
-    accountType: "",
-  });
-
   // ============================================
   // COMPUTED VALUES
   // ============================================
@@ -197,8 +216,8 @@ function TransactionsPage() {
       ? incomeCategories
       : activeTab === "expense"
       ? expenseCategories
-      : transferCategories;
-  }, [activeTab, incomeCategories, expenseCategories, transferCategories]);
+      : TRANSFER_CATEGORIES;
+  }, [activeTab, incomeCategories, expenseCategories]);
 
   // Separate accounts by type for better reconciliation
   const accountsByType = useMemo(() => {
@@ -210,11 +229,12 @@ function TransactionsPage() {
     };
   }, [accounts]);
 
-  // Filtered transactions (using APPLIED filters only)
+  // Filtered transactions - CLIENT-SIDE ONLY for filters that can't be server-side
+  // Note: date, school (except "null"), and category are now handled server-side
   const filteredTransactions = useMemo(() => {
     let filtered = [...transactions];
 
-    // Search filter
+    // Text search (must be client-side for full-text flexibility)
     if (appliedFilters.search) {
       const searchLower = appliedFilters.search.toLowerCase();
       filtered = filtered.filter(
@@ -227,92 +247,57 @@ function TransactionsPage() {
       );
     }
 
-    // Date range filter
-    if (appliedFilters.dateFrom) {
-      filtered = filtered.filter((tx) => tx.date >= appliedFilters.dateFrom);
-    }
-    if (appliedFilters.dateTo) {
-      filtered = filtered.filter((tx) => tx.date <= appliedFilters.dateTo);
+    // "No School" filter (special case - server can't handle null)
+    if (appliedFilters.school === "null") {
+      filtered = filtered.filter((tx) => !tx.school);
     }
 
-    // School filter
-    if (appliedFilters.school) {
-      if (appliedFilters.school === "null") {
-        filtered = filtered.filter((tx) => !tx.school);
-      } else {
-        filtered = filtered.filter((tx) => tx.school === parseInt(appliedFilters.school));
+    // Amount range filter (client-side - rarely used, keeps API simple)
+    if (appliedFilters.minAmount) {
+      const minAmount = safeParseFloat(appliedFilters.minAmount);
+      if (minAmount !== null) {
+        filtered = filtered.filter((tx) => {
+          const txAmount = safeParseFloat(tx.amount);
+          return txAmount !== null && txAmount >= minAmount;
+        });
+      }
+    }
+    if (appliedFilters.maxAmount) {
+      const maxAmount = safeParseFloat(appliedFilters.maxAmount);
+      if (maxAmount !== null) {
+        filtered = filtered.filter((tx) => {
+          const txAmount = safeParseFloat(tx.amount);
+          return txAmount !== null && txAmount <= maxAmount;
+        });
       }
     }
 
-    // Category filter
-    if (appliedFilters.category) {
-      filtered = filtered.filter((tx) => tx.category === appliedFilters.category);
-    }
-
-    // Amount range filter
-    if (appliedFilters.minAmount) {
-      filtered = filtered.filter((tx) => parseFloat(tx.amount) >= parseFloat(appliedFilters.minAmount));
-    }
-    if (appliedFilters.maxAmount) {
-      filtered = filtered.filter((tx) => parseFloat(tx.amount) <= parseFloat(appliedFilters.maxAmount));
-    }
-
-    // ============================================
-    // NEW: Account-based filtering for reconciliation
-    // ============================================
-    
-    // Filter by specific account (checks both from_account and to_account)
+    // Account reconciliation filters (client-side - requires cross-type data)
     if (appliedFilters.account) {
-      const accountId = parseInt(appliedFilters.account);
-      console.log("Filtering by account:", accountId);
-      console.log("Total transactions before filter:", filtered.length);
-      
-      filtered = filtered.filter(
-        (tx) => {
-          const matches = tx.from_account === accountId || tx.to_account === accountId;
-          if (matches) {
-            console.log("Match found:", tx);
-          }
-          return matches;
-        }
-      );
-      
-      console.log("Total transactions after account filter:", filtered.length);
+      const accountId = parseInt(appliedFilters.account, 10);
+      if (!isNaN(accountId)) {
+        filtered = filtered.filter((tx) => {
+          const fromAccount = tx.from_account != null ? parseInt(tx.from_account, 10) : null;
+          const toAccount = tx.to_account != null ? parseInt(tx.to_account, 10) : null;
+          return fromAccount === accountId || toAccount === accountId;
+        });
+      }
     }
 
-    // Filter by account type (Bank or Person)
     if (appliedFilters.accountType) {
       const accountsOfType = accounts
         .filter(acc => acc.account_type === appliedFilters.accountType)
         .map(acc => acc.id);
-      
-      console.log("Filtering by account type:", appliedFilters.accountType);
-      console.log("Accounts of this type:", accountsOfType);
-      console.log("Total transactions before filter:", filtered.length);
-      
+
       filtered = filtered.filter(
-        (tx) => 
-          accountsOfType.includes(tx.from_account) || 
+        (tx) =>
+          accountsOfType.includes(tx.from_account) ||
           accountsOfType.includes(tx.to_account)
       );
-      
-      console.log("Total transactions after account type filter:", filtered.length);
     }
 
     return filtered;
   }, [transactions, appliedFilters, accounts]);
-
-  // Calculate summary stats
-  const stats = useMemo(() => {
-    const totalAmount = filteredTransactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
-    const avgAmount = filteredTransactions.length > 0 ? totalAmount / filteredTransactions.length : 0;
-
-    return {
-      count: filteredTransactions.length,
-      total: totalAmount,
-      average: avgAmount,
-    };
-  }, [filteredTransactions]);
 
   // ============================================
   // DATA REFETCH HELPERS
@@ -427,7 +412,8 @@ function TransactionsPage() {
 
     const onSuccess = () => {
       toast.success(isEditing ? "Transaction updated successfully!" : "Transaction saved successfully!");
-      // Reset form
+      // Close modal and reset form
+      setShowFormModal(false);
       setIsEditing(false);
       setSelectedTransaction(null);
       setFormData({
@@ -476,6 +462,7 @@ function TransactionsPage() {
 
     setIsEditing(true);
     setSelectedTransaction(trx);
+    setShowFormModal(true); // Open the form modal for editing
 
     setFormData({
       date: trx.date ? trx.date.split("T")[0] : "",
@@ -499,8 +486,6 @@ function TransactionsPage() {
     const deleteEndpoint = originalTransactionType.toLowerCase() === "transfer"
       ? "transfers"
       : originalTransactionType.toLowerCase();
-
-    console.log(`Deleting transaction ${id} from endpoint: ${deleteEndpoint}`);
 
     deleteTransactionMutation.mutate(
       { type: deleteEndpoint, id },
@@ -594,19 +579,6 @@ function TransactionsPage() {
     }
   };
 
-  const getTransactionTypeColor = (type) => {
-    switch (type.toLowerCase()) {
-      case "income":
-        return COLORS.transaction.income;
-      case "expense":
-        return COLORS.transaction.expense;
-      case "transfer":
-        return COLORS.transaction.transfer;
-      default:
-        return COLORS.text.secondary;
-    }
-  };
-
   // Check if filters have been changed
   const hasUnappliedFilters = useMemo(() => {
     return JSON.stringify(filters) !== JSON.stringify(appliedFilters);
@@ -632,45 +604,67 @@ function TransactionsPage() {
         subtitle="Record and manage income, expenses, and transfers"
       />
 
-      {/* Tabs */}
-      <div style={styles.tabContainer}>
-        {["income", "expense", "transfers"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={styles.tab(activeTab === tab)}
-          >
-            {tab === "income" ? "💵 Income" : tab === "expense" ? "💸 Expense" : "🔄 Transfers"}
-          </button>
-        ))}
-      </div>
-
-      {/* Stats Cards */}
-      <TransactionStats 
-        stats={stats}
-        activeTab={activeTab}
-      />
-
-      {/* Transaction Form */}
-      <CollapsibleSection title={`${isEditing ? "✏️ Edit" : "➕ Add"} Transaction`} defaultOpen>
-        <TransactionForm
-          formData={formData}
-          setFormData={setFormData}
-          activeTab={activeTab}
-          currentCategories={currentCategories}
+      {/* AI Reconciliation Agent */}
+      <CollapsibleSection
+        title="🤖 Reconciliation Agent"
+        defaultOpen={false}
+      >
+        <TransactionAgentChat
           accounts={accounts}
-          schools={schools}
-          handleCategoryChange={handleCategoryChange}
-          handleAddCategory={handleAddCategory}
-          handleSubmit={handleSubmit}
-          isEditing={isEditing}
-          loading={loading}
+          onRefresh={() => {
+            queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+            queryClient.invalidateQueries({ queryKey: ['accounts'] });
+          }}
+          height="400px"
         />
       </CollapsibleSection>
 
-      {/* Filters with Search Button */}
-      <CollapsibleSection title="🔍 Filter Transactions for Reconciliation" defaultOpen={false}>
+      {/* Transaction Type Selector & Add Button */}
+      <div style={styles.headerRow}>
+        <SegmentedControl
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: 'income', label: 'Income', icon: '💵' },
+            { value: 'expense', label: 'Expense', icon: '💸' },
+            { value: 'transfers', label: 'Transfers', icon: '🔄' },
+          ]}
+          size="md"
+        />
+
+        <Button
+          onClick={() => {
+            setIsEditing(false);
+            setSelectedTransaction(null);
+            setFormData({
+              date: getTodayLocal(),
+              transaction_type: "income",
+              amount: "",
+              category: "",
+              notes: "",
+              from_account: null,
+              to_account: null,
+              received_from: null,
+              paid_to: null,
+              school: null,
+            });
+            setShowFormModal(true);
+          }}
+          variant="primary"
+          style={styles.addButton}
+        >
+          ➕ Add Transaction
+        </Button>
+      </div>
+
+      {/* Transactions Table */}
+      <CollapsibleSection
+        title={`📋 Transactions (${filteredTransactions.length} of ${transactions.length})`}
+        defaultOpen
+      >
+        {/* Inline Compact Filters */}
         <TransactionFilters
+          compact={true}
           filters={filters}
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}
@@ -681,40 +675,6 @@ function TransactionsPage() {
           accountsByType={accountsByType}
           hasUnappliedFilters={hasUnappliedFilters}
         />
-      </CollapsibleSection>
-
-      {/* Transactions Table */}
-      <CollapsibleSection 
-        title={`📋 Transactions (${filteredTransactions.length} of ${transactions.length})`} 
-        defaultOpen
-      >
-        {/* Active Filters Display */}
-        {Object.values(appliedFilters).some(v => v !== "") && (
-          <div style={styles.filterBadge}>
-            <p style={styles.filterBadgeText}>
-              🔍 Active Filters: 
-              {appliedFilters.account && ` Account (${accounts.find(a => a.id === parseInt(appliedFilters.account))?.account_name})`}
-              {appliedFilters.accountType && ` | Account Type (${appliedFilters.accountType})`}
-              {(appliedFilters.dateFrom || appliedFilters.dateTo) && (
-                ` | Date Range: ${
-                  appliedFilters.dateFrom 
-                    ? new Date(appliedFilters.dateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    : '...'
-                } - ${
-                  appliedFilters.dateTo 
-                    ? new Date(appliedFilters.dateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    : '...'
-                }`
-              )}
-              {appliedFilters.category && ` | Category (${appliedFilters.category})`}
-              {appliedFilters.school && ` | School (${schools.find(s => s.id === parseInt(appliedFilters.school))?.name || 'N/A'})`}
-              {appliedFilters.search && ` | Search (${appliedFilters.search})`}
-              {(appliedFilters.minAmount || appliedFilters.maxAmount) && (
-                ` | Amount: ${appliedFilters.minAmount ? `PKR ${parseFloat(appliedFilters.minAmount).toLocaleString()}` : '...'} - ${appliedFilters.maxAmount ? `PKR ${parseFloat(appliedFilters.maxAmount).toLocaleString()}` : '...'}`
-              )}
-            </p>
-          </div>
-        )}
 
         <DataTable
           data={filteredTransactions}
@@ -829,6 +789,40 @@ function TransactionsPage() {
           onClose={closeModal}
         />
       )}
+
+      {/* Transaction Form Modal */}
+      <TransactionFormModal
+        show={showFormModal}
+        onClose={() => {
+          setShowFormModal(false);
+          setIsEditing(false);
+          setSelectedTransaction(null);
+          setFormData({
+            date: getTodayLocal(),
+            transaction_type: "income",
+            amount: "",
+            category: "",
+            notes: "",
+            from_account: null,
+            to_account: null,
+            received_from: null,
+            paid_to: null,
+            school: null,
+          });
+        }}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        formData={formData}
+        setFormData={setFormData}
+        currentCategories={currentCategories}
+        accounts={accounts}
+        schools={schools}
+        handleCategoryChange={handleCategoryChange}
+        handleAddCategory={handleAddCategory}
+        handleSubmit={handleSubmit}
+        isEditing={isEditing}
+        loading={loading}
+      />
       </div>
     </div>
   );
@@ -854,29 +848,19 @@ const styles = {
     marginBottom: SPACING.xl,
     textAlign: 'center',
   },
-  tabContainer: {
+  headerRow: {
     display: 'flex',
-    gap: SPACING.sm,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.lg,
     marginBottom: SPACING.xl,
-    padding: SPACING.sm,
-    background: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: BORDER_RADIUS.xl,
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
   },
-  tab: (isActive) => ({
-    padding: `${SPACING.md} ${SPACING.xl}`,
-    fontSize: FONT_SIZES.base,
-    fontWeight: FONT_WEIGHTS.semibold,
-    border: 'none',
-    borderRadius: BORDER_RADIUS.lg,
-    cursor: 'pointer',
-    backgroundColor: isActive ? 'rgba(59, 130, 246, 0.8)' : 'transparent',
-    color: isActive ? COLORS.text.white : COLORS.text.whiteSubtle,
-    transition: `all ${TRANSITIONS.normal}`,
-    backdropFilter: isActive ? 'blur(8px)' : 'none',
-    boxShadow: isActive ? '0 4px 15px rgba(59, 130, 246, 0.3)' : 'none',
-  }),
+  addButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
   filterBadge: {
     marginBottom: SPACING.lg,
     padding: SPACING.lg,

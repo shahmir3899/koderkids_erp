@@ -7,7 +7,9 @@ REST API endpoints for AI agent operations.
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
+from django.core.cache import cache
 
 from .service import get_ai_service
 from .llm_client import get_llm_client
@@ -174,9 +176,9 @@ class AIExecuteView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if agent not in ['fee', 'inventory', 'hr', 'broadcast', 'task']:
+        if agent not in ['fee', 'inventory', 'hr', 'broadcast', 'task', 'transaction']:
             return Response(
-                {"error": f"Invalid agent: {agent}. Must be one of: fee, inventory, hr, broadcast, task"},
+                {"error": f"Invalid agent: {agent}. Must be one of: fee, inventory, hr, broadcast, task, transaction"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -410,3 +412,99 @@ class AIStatsView(APIView):
             "by_status": by_status,
             "avg_response_time_ms": int(avg_time)
         })
+
+
+class AIFileUploadView(APIView):
+    """
+    Handle file uploads for AI agent (bank statements, etc.).
+
+    POST /api/ai/upload/
+
+    Request body (multipart/form-data):
+        - file: The file to upload (PDF, Excel, CSV, Image)
+        - account_id: (optional) Account ID for context
+        - agent: (optional) Agent type (default: "transaction")
+
+    Response:
+        {
+            "success": true,
+            "data": {
+                "account_name": "Bank Islami",
+                "closing_balance": 165290.00,
+                "transactions": [...],
+                "summary": {
+                    "total_withdrawals": 50000,
+                    "total_deposits": 100000,
+                    "transaction_count": 25
+                }
+            }
+        }
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        account_id = request.data.get('account_id')
+
+        if not file:
+            return Response(
+                {"error": "No file provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get file extension
+        file_name = file.name
+        file_ext = file_name.split('.')[-1].lower() if '.' in file_name else ''
+
+        supported_formats = ['pdf', 'xlsx', 'xls', 'csv', 'png', 'jpg', 'jpeg']
+        if file_ext not in supported_formats:
+            return Response(
+                {"error": f"Unsupported file type: {file_ext}. Supported: {', '.join(supported_formats)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Parse the file
+            from .file_parser import BankStatementParser
+            parser = BankStatementParser()
+            result = parser.parse_file(file, file_ext)
+
+            # Convert Decimal values to float for JSON serialization
+            result = self._serialize_result(result)
+
+            # Cache the parsed result for follow-up actions
+            cache_key = f"statement_{request.user.id}_{account_id or 'default'}"
+            cache.set(cache_key, result, timeout=3600)  # 1 hour
+
+            return Response({
+                "success": True,
+                "data": result,
+                "cache_key": cache_key
+            })
+
+        except ImportError as e:
+            return Response(
+                {"error": f"Missing dependency: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to parse file: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def _serialize_result(self, data):
+        """Convert Decimal and date objects to JSON-serializable types."""
+        from decimal import Decimal
+        from datetime import date, datetime
+
+        if isinstance(data, dict):
+            return {k: self._serialize_result(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._serialize_result(item) for item in data]
+        elif isinstance(data, Decimal):
+            return float(data)
+        elif isinstance(data, (date, datetime)):
+            return str(data)
+        return data

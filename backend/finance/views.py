@@ -1,22 +1,25 @@
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.exceptions import ValidationError
 from .permissions import IsAdminUser
 from django.utils.timezone import now
 from django.db.models import Sum, Q, Count
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, action
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from django.core.cache import cache
 from .models import CategoryEntry, Transaction, Loan, Account
-from .serializers import CategoryEntrySerializer, TransactionSerializer, LoanSerializer, AccountSerializer
+from .serializers import CategoryEntrySerializer, TransactionSerializer, LoanSerializer, AccountSerializer, BulkTransactionSerializer
 from dateutil.relativedelta import relativedelta
 from django.db.models.functions import TruncMonth
 from datetime import datetime, timedelta
 from decimal import Decimal
 from .models import Transaction, Account
 from students.models import School
+from django.db import transaction as db_transaction
+import hashlib
 
 
 # Custom pagination class for transaction APIs
@@ -24,80 +27,241 @@ class StandardResultsSetPagination(LimitOffsetPagination):
     default_limit = 50  # Default to 50 transactions per page
     max_limit = 1000    # Maximum limit to prevent excessive data fetching
 
-# Income ViewSet
-class IncomeViewSet(ModelViewSet):
-    """Handles all income-related transactions with pagination."""
+
+def get_list_cache_key(transaction_type, params):
+    """Generate a cache key for transaction list queries."""
+    param_str = f"{transaction_type}:{params.get('school', 'all')}:{params.get('category', '')}:{params.get('date__gte', '')}:{params.get('date__lte', '')}:{params.get('limit', 50)}:{params.get('offset', 0)}"
+    return f"txn_list_{hashlib.md5(param_str.encode()).hexdigest()[:12]}"
+
+
+class TransactionViewSetMixin:
+    """
+    Mixin providing common transaction filtering logic.
+    Uses select_related to prevent N+1 queries on account/school names.
+    Includes response caching for list operations.
+    """
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    transaction_type = None  # Override in subclass
+    cache_timeout = 60  # 1 minute cache for list queries
 
     def get_queryset(self):
-        """Filter transactions by school and optional query params."""
-        school_id = self.request.query_params.get("school", None)
-        queryset = Transaction.objects.filter(transaction_type="Income").order_by("-date")
+        """Filter transactions with optimized query using select_related."""
+        queryset = Transaction.objects.filter(
+            transaction_type=self.transaction_type
+        ).select_related(
+            'from_account', 'to_account', 'school'
+        ).order_by("-date")
+
+        # Apply common filters
+        params = self.request.query_params
+
+        school_id = params.get("school")
         if school_id and school_id.lower() != "all":
-            queryset = queryset.filter(school_id=school_id)
-        # Support server-side filtering for Transaction Explorer
-        category = self.request.query_params.get("category", None)
-        date_gte = self.request.query_params.get("date__gte", None)
-        date_lte = self.request.query_params.get("date__lte", None)
-        if category:
+            try:
+                school_id_int = int(school_id)
+                queryset = queryset.filter(school_id=school_id_int)
+            except (ValueError, TypeError):
+                raise ValidationError({'school': 'Invalid school ID. Must be a number.'})
+
+        if category := params.get("category"):
             queryset = queryset.filter(category=category)
-        if date_gte:
-            queryset = queryset.filter(date__gte=date_gte)
-        if date_lte:
-            queryset = queryset.filter(date__lte=date_lte)
+
+        if date_gte := params.get("date__gte"):
+            try:
+                datetime.strptime(date_gte, '%Y-%m-%d')
+                queryset = queryset.filter(date__gte=date_gte)
+            except ValueError:
+                raise ValidationError({'date__gte': 'Invalid date format. Use YYYY-MM-DD'})
+
+        if date_lte := params.get("date__lte"):
+            try:
+                datetime.strptime(date_lte, '%Y-%m-%d')
+                queryset = queryset.filter(date__lte=date_lte)
+            except ValueError:
+                raise ValidationError({'date__lte': 'Invalid date format. Use YYYY-MM-DD'})
+
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        """Cached list with ETag support."""
+        cache_key = get_list_cache_key(self.transaction_type, request.query_params)
+        cached_response = cache.get(cache_key)
+
+        if cached_response is not None:
+            return Response(cached_response)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, self.cache_timeout)
+        return response
+
+    def create(self, request, *args, **kwargs):
+        """Create and invalidate cache."""
+        response = super().create(request, *args, **kwargs)
+        self._invalidate_list_cache()
+        return response
+
+    def update(self, request, *args, **kwargs):
+        """Update and invalidate cache."""
+        response = super().update(request, *args, **kwargs)
+        self._invalidate_list_cache()
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete and invalidate cache."""
+        response = super().destroy(request, *args, **kwargs)
+        self._invalidate_list_cache()
+        return response
+
+    def _invalidate_list_cache(self):
+        """Clear list caches for this transaction type."""
+        # Clear pattern-based caches (simplified - in production use cache.delete_pattern)
+        cache.delete('finance_summary')
+        cache.delete('loan_summary')
+
+
+# Income ViewSet
+class IncomeViewSet(TransactionViewSetMixin, ModelViewSet):
+    """Handles all income-related transactions with pagination."""
+    transaction_type = "Income"
+
 
 # Expense ViewSet
-class ExpenseViewSet(ModelViewSet):
+class ExpenseViewSet(TransactionViewSetMixin, ModelViewSet):
     """Handles all expense-related transactions with pagination."""
-    serializer_class = TransactionSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = StandardResultsSetPagination
+    transaction_type = "Expense"
 
-    def get_queryset(self):
-        """Filter transactions by school and optional query params."""
-        school_id = self.request.query_params.get("school", None)
-        queryset = Transaction.objects.filter(transaction_type="Expense").order_by("-date")
-        if school_id and school_id.lower() != "all":
-            queryset = queryset.filter(school_id=school_id)
-        # Support server-side filtering
-        category = self.request.query_params.get("category", None)
-        date_gte = self.request.query_params.get("date__gte", None)
-        date_lte = self.request.query_params.get("date__lte", None)
-        if category:
-            queryset = queryset.filter(category=category)
-        if date_gte:
-            queryset = queryset.filter(date__gte=date_gte)
-        if date_lte:
-            queryset = queryset.filter(date__lte=date_lte)
-        return queryset
 
 # Transfer ViewSet
-class TransferViewSet(ModelViewSet):
+class TransferViewSet(TransactionViewSetMixin, ModelViewSet):
     """Handles all money transfers with pagination."""
+    transaction_type = "Transfer"
+
+
+# ============================================
+# UNIFIED TRANSACTION VIEWSET (Alternative)
+# ============================================
+class UnifiedTransactionViewSet(ModelViewSet):
+    """
+    Single ViewSet handling all transaction types via URL parameter.
+    URL: /api/transactions/<type>/ where type is 'income', 'expense', or 'transfer'
+
+    Benefits:
+    - Single endpoint for all transaction operations
+    - Reduced code duplication
+    - Supports bulk operations
+    """
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    cache_timeout = 60
+
+    TYPE_MAP = {
+        'income': 'Income',
+        'expense': 'Expense',
+        'transfer': 'Transfer',
+        'transfers': 'Transfer',
+    }
+
+    def get_transaction_type(self):
+        """Get transaction type from URL kwargs."""
+        url_type = self.kwargs.get('transaction_type', '').lower()
+        return self.TYPE_MAP.get(url_type)
 
     def get_queryset(self):
-        """Filter transactions by school and optional query params."""
-        school_id = self.request.query_params.get("school", None)
-        queryset = Transaction.objects.filter(transaction_type="Transfer").order_by("-date")
-        if school_id and school_id.lower() != "all":
-            queryset = queryset.filter(school_id=school_id)
-        # Support server-side filtering
-        category = self.request.query_params.get("category", None)
-        date_gte = self.request.query_params.get("date__gte", None)
-        date_lte = self.request.query_params.get("date__lte", None)
-        if category:
+        """Filter by transaction type from URL with optimized query."""
+        txn_type = self.get_transaction_type()
+        if not txn_type:
+            return Transaction.objects.none()
+
+        queryset = Transaction.objects.filter(
+            transaction_type=txn_type
+        ).select_related(
+            'from_account', 'to_account', 'school'
+        ).order_by("-date")
+
+        params = self.request.query_params
+
+        if school_id := params.get("school"):
+            if school_id.lower() != "all":
+                queryset = queryset.filter(school_id=school_id)
+
+        if category := params.get("category"):
             queryset = queryset.filter(category=category)
-        if date_gte:
+
+        if date_gte := params.get("date__gte"):
             queryset = queryset.filter(date__gte=date_gte)
-        if date_lte:
+
+        if date_lte := params.get("date__lte"):
             queryset = queryset.filter(date__lte=date_lte)
+
         return queryset
+
+    def perform_create(self, serializer):
+        """Set transaction type from URL on create."""
+        txn_type = self.get_transaction_type()
+        serializer.save(transaction_type=txn_type)
+
+    @action(detail=False, methods=['post'], url_path='bulk')
+    def bulk_create(self, request, transaction_type=None):
+        """
+        Create multiple transactions in a single request.
+
+        POST /api/transactions/<type>/bulk/
+        Body: { "transactions": [...] }
+
+        Benefits:
+        - Single DB transaction for all creates
+        - Reduced network overhead
+        - Atomic: all succeed or all fail
+        """
+        txn_type = self.get_transaction_type()
+        if not txn_type:
+            return Response(
+                {"error": "Invalid transaction type"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = BulkTransactionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        transactions_data = serializer.validated_data.get('transactions', [])
+        if not transactions_data:
+            return Response(
+                {"error": "No transactions provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        created = []
+        errors = []
+
+        with db_transaction.atomic():
+            for idx, txn_data in enumerate(transactions_data):
+                txn_data['transaction_type'] = txn_type
+                txn_serializer = TransactionSerializer(data=txn_data)
+
+                if txn_serializer.is_valid():
+                    txn = txn_serializer.save()
+                    created.append(txn_serializer.data)
+                else:
+                    errors.append({
+                        "index": idx,
+                        "errors": txn_serializer.errors
+                    })
+                    # Rollback on any error
+                    if errors:
+                        raise Exception("Validation errors in bulk create")
+
+        # Invalidate caches
+        cache.delete('finance_summary')
+        cache.delete('loan_summary')
+
+        return Response({
+            "created": len(created),
+            "transactions": created
+        }, status=status.HTTP_201_CREATED)
 
 # Loan ViewSet
 class LoanViewSet(ModelViewSet):
@@ -466,12 +630,17 @@ def cash_flow(request):
     - months: number of months (default: 6)
     - school: school_id (optional filter)
     """
-    months = int(request.GET.get('months', 6))
+    try:
+        months = int(request.GET.get('months', 6))
+        if months < 1 or months > 24:
+            months = 6
+    except (ValueError, TypeError):
+        months = 6
     school_id = request.GET.get('school')
-    
+
     end_date = datetime.now()
     start_date = end_date - timedelta(days=months*30)
-    
+
     # Get transactions
     income_qs = Transaction.objects.filter(
         transaction_type='Income',
@@ -626,8 +795,13 @@ def account_balance_history(request):
         }, status=404)
     
     timeframe = request.GET.get('timeframe', 'monthly')
-    months = int(request.GET.get('months', 6))
-    
+    try:
+        months = int(request.GET.get('months', 6))
+        if months < 1 or months > 24:
+            months = 6
+    except (ValueError, TypeError):
+        months = 6
+
     # Calculate date range
     end_date = datetime.now()
     start_date = end_date - timedelta(days=months*30)

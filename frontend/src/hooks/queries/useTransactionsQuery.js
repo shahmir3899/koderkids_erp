@@ -25,6 +25,7 @@ export const transactionKeys = {
  * @returns {Object} Query result
  */
 export const useTransactions = (type, params = {}, options = {}) => {
+  const { enabled = true, ...restOptions } = options;
   return useQuery({
     queryKey: transactionKeys.list(type, params),
     queryFn: async () => {
@@ -32,7 +33,8 @@ export const useTransactions = (type, params = {}, options = {}) => {
       return response.data;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes - transactions change more frequently
-    ...options,
+    enabled: Boolean(enabled),
+    ...restOptions,
   });
 };
 
@@ -42,6 +44,7 @@ export const useTransactions = (type, params = {}, options = {}) => {
  * @returns {Object} Query result with all transaction types combined
  */
 export const useAllTransactions = (options = {}) => {
+  const { enabled = true, ...restOptions } = options;
   return useQuery({
     queryKey: [...transactionKeys.all, 'combined'],
     queryFn: async () => {
@@ -84,7 +87,8 @@ export const useAllTransactions = (options = {}) => {
       return allTransactions;
     },
     staleTime: 2 * 60 * 1000,
-    ...options,
+    enabled: Boolean(enabled),
+    ...restOptions,
   });
 };
 
@@ -94,6 +98,7 @@ export const useAllTransactions = (options = {}) => {
  * @returns {Object} Query result
  */
 export const useAccounts = (options = {}) => {
+  const { enabled = true, ...restOptions } = options;
   return useQuery({
     queryKey: transactionKeys.accounts,
     queryFn: async () => {
@@ -101,7 +106,8 @@ export const useAccounts = (options = {}) => {
       return response.data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes - accounts rarely change
-    ...options,
+    enabled: Boolean(enabled),
+    ...restOptions,
   });
 };
 
@@ -111,6 +117,7 @@ export const useAccounts = (options = {}) => {
  * @returns {Object} Query result
  */
 export const useTransactionSchools = (options = {}) => {
+  const { enabled = true, ...restOptions } = options;
   return useQuery({
     queryKey: transactionKeys.schools,
     queryFn: async () => {
@@ -118,7 +125,8 @@ export const useTransactionSchools = (options = {}) => {
       return response.data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
-    ...options,
+    enabled: Boolean(enabled),
+    ...restOptions,
   });
 };
 
@@ -129,6 +137,9 @@ export const useTransactionSchools = (options = {}) => {
  * @returns {Object} Query result
  */
 export const useCategories = (type, options = {}) => {
+  const { enabled, ...restOptions } = options;
+  // Default enabled to true if type exists, but allow override
+  const isEnabled = enabled !== undefined ? Boolean(enabled) : !!type;
   return useQuery({
     queryKey: transactionKeys.categories(type),
     queryFn: async () => {
@@ -136,8 +147,8 @@ export const useCategories = (type, options = {}) => {
       return response.data.map((c) => c.name);
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
-    enabled: !!type,
-    ...options,
+    enabled: isEnabled,
+    ...restOptions,
   });
 };
 
@@ -159,7 +170,7 @@ export const useAllCategories = (options = {}) => {
 };
 
 /**
- * Hook to create a transaction
+ * Hook to create a transaction with optimistic updates
  * @returns {Object} Mutation result
  */
 export const useCreateTransaction = () => {
@@ -167,17 +178,66 @@ export const useCreateTransaction = () => {
 
   return useMutation({
     mutationFn: ({ type, payload }) => transactionService.createTransaction(type, payload),
-    onSuccess: () => {
-      // Invalidate all transaction queries
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
-      // Also invalidate accounts since balances may have changed
+
+    // Optimistic update: immediately add to cache before server responds
+    onMutate: async ({ type, payload }) => {
+      // Cancel outgoing refetches to prevent overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: transactionKeys.lists() });
+
+      // Snapshot previous data for rollback
+      const previousQueries = queryClient.getQueriesData({ queryKey: transactionKeys.lists() });
+
+      // Optimistically update matching queries
+      queryClient.setQueriesData(
+        { queryKey: transactionKeys.lists() },
+        (old) => {
+          if (!old?.results) return old;
+          // Create optimistic transaction with temp ID
+          const optimisticTxn = {
+            ...payload,
+            id: `temp-${Date.now()}`,
+            _isOptimistic: true,
+          };
+          return {
+            ...old,
+            results: [optimisticTxn, ...old.results],
+            count: (old.count || 0) + 1,
+          };
+        }
+      );
+
+      return { previousQueries };
+    },
+
+    // Rollback on error
+    onError: (err, variables, context) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+
+    // Refetch after success to sync with server
+    onSuccess: (response, { type }) => {
+      // Invalidate only the specific type's list queries
+      queryClient.invalidateQueries({
+        queryKey: transactionKeys.lists(),
+        predicate: (query) => query.queryKey[2] === type || query.queryKey[1] === 'combined',
+      });
+      // Invalidate accounts for balance updates
       queryClient.invalidateQueries({ queryKey: transactionKeys.accounts });
+    },
+
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
     },
   });
 };
 
 /**
- * Hook to update a transaction
+ * Hook to update a transaction with optimistic updates
  * @returns {Object} Mutation result
  */
 export const useUpdateTransaction = () => {
@@ -185,15 +245,53 @@ export const useUpdateTransaction = () => {
 
   return useMutation({
     mutationFn: ({ type, id, payload }) => transactionService.updateTransaction(type, id, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+
+    onMutate: async ({ type, id, payload }) => {
+      await queryClient.cancelQueries({ queryKey: transactionKeys.lists() });
+
+      const previousQueries = queryClient.getQueriesData({ queryKey: transactionKeys.lists() });
+
+      // Optimistically update the transaction in cache
+      queryClient.setQueriesData(
+        { queryKey: transactionKeys.lists() },
+        (old) => {
+          if (!old?.results) return old;
+          return {
+            ...old,
+            results: old.results.map((txn) =>
+              txn.id === id ? { ...txn, ...payload, _isOptimistic: true } : txn
+            ),
+          };
+        }
+      );
+
+      return { previousQueries };
+    },
+
+    onError: (err, variables, context) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+
+    onSuccess: (response, { type }) => {
+      queryClient.invalidateQueries({
+        queryKey: transactionKeys.lists(),
+        predicate: (query) => query.queryKey[2] === type || query.queryKey[1] === 'combined',
+      });
       queryClient.invalidateQueries({ queryKey: transactionKeys.accounts });
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
     },
   });
 };
 
 /**
- * Hook to delete a transaction
+ * Hook to delete a transaction with optimistic updates
  * @returns {Object} Mutation result
  */
 export const useDeleteTransaction = () => {
@@ -201,9 +299,46 @@ export const useDeleteTransaction = () => {
 
   return useMutation({
     mutationFn: ({ type, id }) => transactionService.deleteTransaction(type, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+
+    onMutate: async ({ type, id }) => {
+      await queryClient.cancelQueries({ queryKey: transactionKeys.lists() });
+
+      const previousQueries = queryClient.getQueriesData({ queryKey: transactionKeys.lists() });
+
+      // Optimistically remove the transaction from cache
+      queryClient.setQueriesData(
+        { queryKey: transactionKeys.lists() },
+        (old) => {
+          if (!old?.results) return old;
+          return {
+            ...old,
+            results: old.results.filter((txn) => txn.id !== id),
+            count: Math.max((old.count || 0) - 1, 0),
+          };
+        }
+      );
+
+      return { previousQueries };
+    },
+
+    onError: (err, variables, context) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+
+    onSuccess: (response, { type }) => {
+      queryClient.invalidateQueries({
+        queryKey: transactionKeys.lists(),
+        predicate: (query) => query.queryKey[2] === type || query.queryKey[1] === 'combined',
+      });
       queryClient.invalidateQueries({ queryKey: transactionKeys.accounts });
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
     },
   });
 };
@@ -226,7 +361,46 @@ export const useAddCategory = () => {
   });
 };
 
-export default {
+/**
+ * Hook to bulk create transactions
+ * Creates multiple transactions in a single API call for better performance.
+ *
+ * @returns {Object} Mutation result
+ *
+ * @example
+ * const { mutate: bulkCreate } = useBulkCreateTransactions();
+ * bulkCreate({
+ *   type: 'income',
+ *   transactions: [
+ *     { date: '2025-01-15', amount: 5000, category: 'Sales', to_account: 1 },
+ *     { date: '2025-01-16', amount: 3000, category: 'Sales', to_account: 1 },
+ *   ]
+ * });
+ */
+export const useBulkCreateTransactions = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ type, transactions }) =>
+      transactionService.bulkCreateTransactions(type, transactions),
+
+    onSuccess: (response, { type }) => {
+      // Invalidate all transaction queries for the type
+      queryClient.invalidateQueries({
+        queryKey: transactionKeys.lists(),
+        predicate: (query) => query.queryKey[2] === type || query.queryKey[1] === 'combined',
+      });
+      // Invalidate accounts for balance updates
+      queryClient.invalidateQueries({ queryKey: transactionKeys.accounts });
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+    },
+  });
+};
+
+const transactionHooks = {
   useTransactions,
   useAllTransactions,
   useAccounts,
@@ -237,5 +411,8 @@ export default {
   useUpdateTransaction,
   useDeleteTransaction,
   useAddCategory,
+  useBulkCreateTransactions,
   transactionKeys,
 };
+
+export default transactionHooks;

@@ -16,7 +16,6 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  SHADOWS,
   TRANSITIONS,
   LAYOUT,
   MIXINS,
@@ -27,13 +26,14 @@ import {
 import { useResponsive } from '../../hooks/useResponsive';
 
 // Common Components
-import { DataTable } from '../../components/common/tables/DataTable';
 import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { ConfirmationModal } from '../../components/common/modals/ConfirmationModal';
 import { PageHeader } from '../../components/common/PageHeader';
+import { LoadingSpinner } from '../../components/common/ui/LoadingSpinner';
 
 // CRM Components
-import { LeadStatusBadge } from '../../components/crm/LeadStatusBadge';
+import { LeadCard } from '../../components/crm/LeadCard';
+import { LeadDetailModal } from '../../components/crm/LeadDetailModal';
 import { CreateLeadModal } from '../../components/crm/CreateLeadModal';
 import { ConvertLeadModal } from '../../components/crm/ConvertLeadModal';
 import { EditLeadModal } from '../../components/crm/EditLeadModal';
@@ -41,6 +41,16 @@ import { EditLeadModal } from '../../components/crm/EditLeadModal';
 // CRM Services & Constants
 import { fetchLeads, deleteLead } from '../../api/services/crmService';
 import { LEAD_STATUS, LEAD_SOURCES } from '../../utils/constants';
+
+// Status sort priority: active leads first, dead leads last
+const STATUS_PRIORITY = {
+  'New': 0,
+  'Contacted': 1,
+  'Interested': 2,
+  'Converted': 3,
+  'Not Interested': 4,
+  'Lost': 5,
+};
 
 // ============================================
 // STAT CARD COMPONENT WITH HOVER
@@ -110,16 +120,6 @@ const STAT_CARD_COLORS = {
   yellow: { bg: 'rgba(245, 158, 11, 0.15)', border: '#F59E0B', text: '#FBBF24' },
   purple: { bg: 'rgba(139, 92, 246, 0.15)', border: '#8B5CF6', text: '#A78BFA' },
   indigo: { bg: 'rgba(99, 102, 241, 0.15)', border: '#6366F1', text: '#818CF8' },
-};
-
-// ============================================
-// ACTION BUTTON COLORS (solid for table actions)
-// ============================================
-const ACTION_BUTTON_COLORS = {
-  primary: { bg: '#3B82F6', hoverBg: '#2563EB', text: '#FFFFFF' },
-  secondary: { bg: '#6B7280', hoverBg: '#4B5563', text: '#FFFFFF' },
-  purple: { bg: '#8B5CF6', hoverBg: '#7C3AED', text: '#FFFFFF' },
-  danger: { bg: '#EF4444', hoverBg: '#DC2626', text: '#FFFFFF' },
 };
 
 function LeadsListPage() {
@@ -204,35 +204,11 @@ function LeadsListPage() {
       color: COLORS.text.whiteMedium,
       flexWrap: 'wrap',
     },
-    tableContainer: {
-      ...MIXINS.glassmorphicCard,
-      borderRadius: BORDER_RADIUS.lg,
-      overflow: 'hidden',
-      overflowX: 'auto',
-      WebkitOverflowScrolling: 'touch', // iOS smooth scrolling
-      boxShadow: SHADOWS.lg,
-    },
-    actionsContainer: {
-      display: 'flex',
-      gap: isMobile ? SPACING.xs : SPACING.xs,
-      flexWrap: 'wrap',
-    },
-    actionButton: (variant) => {
-      const colorScheme = ACTION_BUTTON_COLORS[variant] || ACTION_BUTTON_COLORS.primary;
-      return {
-        padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.sm}`,
-        fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.xs,
-        fontWeight: FONT_WEIGHTS.medium,
-        backgroundColor: colorScheme.bg,
-        color: colorScheme.text,
-        borderRadius: BORDER_RADIUS.md,
-        border: 'none',
-        cursor: 'pointer',
-        transition: TRANSITIONS.normal,
-        whiteSpace: 'nowrap',
-        minHeight: isMobile ? TOUCH_TARGETS.minimum : 'auto',
-        minWidth: isMobile ? TOUCH_TARGETS.minimum : 'auto',
-      };
+    cardsGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+      gap: SPACING.lg,
+      alignItems: 'start',
     },
   }), [isMobile, isTablet]);
 
@@ -251,6 +227,8 @@ function LeadsListPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [leadToView, setLeadToView] = useState(null);
   const [leadToEdit, setLeadToEdit] = useState(null);
 
   // Filters
@@ -343,6 +321,15 @@ function LeadsListPage() {
       );
     }
 
+    // Sort: active statuses first, lost/not-interested last
+    filtered.sort((a, b) => {
+      const priorityA = STATUS_PRIORITY[a.status] ?? 99;
+      const priorityB = STATUS_PRIORITY[b.status] ?? 99;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      // Within same status, newest first
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
     console.log('🔍 Filtered Leads:', filtered.length, 'out of', allLeads.length);
     setLeads(filtered);
   }, [filters, allLeads]);
@@ -419,9 +406,8 @@ function LeadsListPage() {
       toast.error('Unable to view details: Invalid lead data');
       return;
     }
-    // Reuse EditLeadModal for viewing (user can see details and edit if needed)
-    setLeadToEdit(lead);
-    setIsEditModalOpen(true);
+    setLeadToView(lead);
+    setIsDetailModalOpen(true);
   };
 
   const handleCreateSuccess = () => {
@@ -450,125 +436,8 @@ function LeadsListPage() {
     };
   }, [allLeads]);
 
-  // ============================================
-  // TABLE CONFIGURATION
-  // ============================================
-
-  const tableColumns = useMemo(() => {
-    const baseColumns = [
-      {
-        key: 'school_name',
-        label: 'School Name',
-        render: (value, row) => (
-          <div>
-            <div style={{ fontWeight: FONT_WEIGHTS.medium }}>{row?.school_name || '—'}</div>
-            {/* Show contact info inline on mobile */}
-            {isMobile && row?.contact_person && (
-              <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteMedium, marginTop: '2px' }}>
-                {row.contact_person}
-              </div>
-            )}
-            {isMobile && row?.phone && (
-              <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle, marginTop: '2px' }}>
-                {row.phone}
-              </div>
-            )}
-          </div>
-        ),
-      },
-    ];
-
-    // Only show these columns on non-mobile
-    if (!isMobile) {
-      baseColumns.push(
-        {
-          key: 'contact_person',
-          label: 'Contact Person',
-          render: (value, row) => row?.contact_person || '—',
-        },
-        {
-          key: 'phone',
-          label: 'Phone',
-          render: (value, row) => row?.phone || '—',
-        },
-        {
-          key: 'email',
-          label: 'Email',
-          render: (value, row) => row?.email || '—',
-        }
-      );
-    }
-
-    // Hide source on mobile
-    if (!isMobile) {
-      baseColumns.push({
-        key: 'lead_source',
-        label: 'Source',
-        render: (value, row) => row?.lead_source || '—',
-      });
-    }
-
-    baseColumns.push({
-      key: 'status',
-      label: 'Status',
-      render: (value, row) => row?.status ? <LeadStatusBadge status={row.status} /> : '—',
-    });
-
-    // Hide assigned to on mobile
-    if (!isMobile) {
-      baseColumns.push({
-        key: 'assigned_to_name',
-        label: 'Assigned To',
-        render: (value, row) => row?.assigned_to_name || 'Unassigned',
-      });
-    }
-
-    // Hide created date on mobile
-    if (!isMobile) {
-      baseColumns.push({
-        key: 'created_at',
-        label: 'Created',
-        render: (value, row) => row?.created_at ? new Date(row.created_at).toLocaleDateString() : '—',
-      });
-    }
-
-    baseColumns.push({
-      key: 'actions',
-      label: 'Actions',
-      render: (value, row) => (
-        <div style={responsiveStyles.actionsContainer}>
-          <button
-            onClick={() => handleEditClick(row)}
-            style={responsiveStyles.actionButton('primary')}
-          >
-            {isMobile ? '✏️' : 'Edit'}
-          </button>
-          <button
-            onClick={() => handleViewDetails(row)}
-            style={responsiveStyles.actionButton('secondary')}
-          >
-            {isMobile ? '👁️' : 'View'}
-          </button>
-          {row?.status !== LEAD_STATUS.CONVERTED && (
-            <button
-              onClick={() => handleConvertClick(row)}
-              style={responsiveStyles.actionButton('purple')}
-            >
-              {isMobile ? '✅' : 'Convert'}
-            </button>
-          )}
-          <button
-            onClick={() => handleDeleteClick(row)}
-            style={responsiveStyles.actionButton('danger')}
-          >
-            {isMobile ? '🗑️' : 'Delete'}
-          </button>
-        </div>
-      ),
-    });
-
-    return baseColumns;
-  }, [isMobile, responsiveStyles]);
+  // User role for card actions
+  const userRole = localStorage.getItem('role');
 
   // ============================================
   // RENDER
@@ -681,15 +550,29 @@ function LeadsListPage() {
         )}
       </div>
 
-      {/* Leads Table */}
-      <div style={responsiveStyles.tableContainer}>
-        <DataTable
-          data={leads}
-          columns={tableColumns}
-          loading={loading.leads}
-          emptyMessage="No leads found. Create your first lead to get started!"
-        />
-      </div>
+      {/* Lead Cards Grid */}
+      {loading.leads ? (
+        <LoadingSpinner />
+      ) : leads.length === 0 ? (
+        <div style={styles.emptyState}>
+          No leads found. Create your first lead to get started!
+        </div>
+      ) : (
+        <div style={responsiveStyles.cardsGrid}>
+          {leads.map((lead) => (
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              onEdit={handleEditClick}
+              onView={handleViewDetails}
+              onConvert={handleConvertClick}
+              onDelete={handleDeleteClick}
+              isAdmin={userRole === 'Admin'}
+              isMobile={isMobile}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Showing Count */}
       <div style={styles.showingCount}>
@@ -697,6 +580,21 @@ function LeadsListPage() {
       </div>
 
       {/* Modals */}
+      {isDetailModalOpen && leadToView && (
+        <LeadDetailModal
+          lead={leadToView}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setLeadToView(null);
+          }}
+          onEdit={(lead) => {
+            setIsDetailModalOpen(false);
+            setLeadToView(null);
+            handleEditClick(lead);
+          }}
+        />
+      )}
+
       {isCreateModalOpen && (
         <CreateLeadModal onClose={() => setIsCreateModalOpen(false)} onSuccess={handleCreateSuccess} />
       )}
@@ -845,33 +743,14 @@ const styles = {
     fontSize: FONT_SIZES.sm,
   },
 
-  // Table
-  tableContainer: {
+  // Empty State
+  emptyState: {
     ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
-  },
-
-  // Action Buttons
-  actionsContainer: {
-    display: 'flex',
-    gap: SPACING.xs,
-    flexWrap: 'wrap',
-  },
-  actionButton: (variant) => {
-    const colorScheme = ACTION_BUTTON_COLORS[variant] || ACTION_BUTTON_COLORS.primary;
-    return {
-      padding: `${SPACING.xs} ${SPACING.sm}`,
-      fontSize: FONT_SIZES.xs,
-      fontWeight: FONT_WEIGHTS.medium,
-      backgroundColor: colorScheme.bg,
-      color: colorScheme.text,
-      borderRadius: BORDER_RADIUS.md,
-      border: 'none',
-      cursor: 'pointer',
-      transition: TRANSITIONS.normal,
-      whiteSpace: 'nowrap',
-    };
+    padding: SPACING.xl,
+    textAlign: 'center',
+    color: COLORS.text.whiteMedium,
+    fontSize: FONT_SIZES.base,
   },
 
   // Showing Count

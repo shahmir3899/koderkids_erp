@@ -197,31 +197,13 @@ def get_admin_teacher_attendance(request):
         if not assigned_schools.exists():
             continue
 
-        # Calculate total working days based on assigned_days of all schools
-        # A working day is any day in the month where at least one school has that weekday in assigned_days
-        working_weekdays = set()
-        for school in assigned_schools:
-            if school.assigned_days:
-                working_weekdays.update(school.assigned_days)
-
-        # Count working days in the month
-        total_working_days = 0
-        if working_weekdays:
-            # Get all days in the month
-            _, days_in_month = calendar.monthrange(year, month)
-            for day in range(1, days_in_month + 1):
-                d = date(year, month, day)
-                # Only count past days (up to today) and days matching working weekdays
-                if d <= today and d.weekday() in working_weekdays:
-                    total_working_days += 1
-        else:
-            # Fallback to LessonPlan if no assigned_days set
-            total_working_days = LessonPlan.objects.filter(
-                school__in=assigned_schools,
-                session_date__year=year,
-                session_date__month=month,
-                session_date__lte=today
-            ).values('session_date').distinct().count()
+        # Calculate total working days based on actual LessonPlan records (excluding future dates)
+        total_working_days = LessonPlan.objects.filter(
+            school__in=assigned_schools,
+            session_date__year=year,
+            session_date__month=month,
+            session_date__lte=today
+        ).values('session_date').distinct().count()
 
         # Get attendance counts for this teacher (across all their schools)
         attendance_filter = {

@@ -254,14 +254,14 @@ export const deactivateUser = async (userId) => {
  * @param {Array<number>} schoolIds - Array of school IDs
  * @returns {Promise<Object>} Updated user with assigned schools
  */
-export const assignSchools = async (userId, schoolIds) => {
+export const assignSchools = async (userId, data) => {
   try {
     const url = `${API_BASE_URL}/api/auth/users/${userId}/assign-schools/`;
-    console.log('📡 Assigning schools to user:', userId, schoolIds);
+    console.log('📡 Assigning schools to user:', userId, data);
 
     const response = await axios.post(
       url,
-      { school_ids: schoolIds },
+      data,
       { headers: getAuthHeaders() }
     );
 

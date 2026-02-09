@@ -184,17 +184,16 @@ export const getStudentProfile = async (bypassCache = false) => {
  */
 export const updateStudentProfile = async (profileData) => {
   try {
-    // Extract only the fields students are allowed to update
-    const allowedFields = {
-      first_name: profileData.first_name,
-      last_name: profileData.last_name,
-      email: profileData.email,
-      phone: profileData.phone,
-      address: profileData.address,
-      date_of_birth: profileData.date_of_birth,
-    };
+    // Only send fields that have actual values (PATCH = partial update)
+    // Student.name is the single source of truth for student names
+    const allowedFields = {};
+    if (profileData.name !== undefined) allowedFields.name = profileData.name;
+    if (profileData.email !== undefined) allowedFields.email = profileData.email;
+    if (profileData.phone !== undefined) allowedFields.phone = profileData.phone;
+    if (profileData.address !== undefined) allowedFields.address = profileData.address;
+    if (profileData.date_of_birth !== undefined) allowedFields.date_of_birth = profileData.date_of_birth;
 
-    const response = await axios.put(
+    const response = await axios.patch(
       `${API_URL}/api/students/profile/`,
       allowedFields,
       {

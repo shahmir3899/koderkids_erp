@@ -10,7 +10,7 @@
 // 4. Visual indicator for unapplied changes
 // 5. Glassmorphism design with translucent inputs
 
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../common/ui/Button';
 import { useDebounce } from '../../hooks/useDebounce';
 
@@ -36,7 +36,9 @@ export const TransactionFilters = ({
   accountsByType,
   hasUnappliedFilters,
   autoApplySearch = false, // Optional: auto-apply when search changes (debounced)
+  compact = false, // Compact inline mode for embedding in table section
 }) => {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const hasActiveFilters = Object.values(filters).some((value) => value !== '');
 
   // Debounce the search filter for auto-apply scenarios
@@ -56,6 +58,185 @@ export const TransactionFilters = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, autoApplySearch]);
 
+  // ============================================
+  // COMPACT MODE - Inline filter bar
+  // ============================================
+  if (compact) {
+    return (
+      <div style={compactStyles.container}>
+        {/* Quick Filters Row */}
+        <div style={compactStyles.quickFilters}>
+          {/* Search Input */}
+          <div style={compactStyles.searchWrapper}>
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => onFilterChange('search', e.target.value)}
+              placeholder="🔍 Search transactions..."
+              style={compactStyles.searchInput}
+            />
+          </div>
+
+          {/* Date Range */}
+          <div style={compactStyles.dateRange}>
+            <input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => onFilterChange('dateFrom', e.target.value)}
+              style={compactStyles.dateInput}
+              title="From date"
+            />
+            <span style={compactStyles.dateSeparator}>to</span>
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => onFilterChange('dateTo', e.target.value)}
+              style={compactStyles.dateInput}
+              title="To date"
+            />
+          </div>
+
+          {/* Account Dropdown */}
+          <select
+            value={filters.account}
+            onChange={(e) => onFilterChange('account', e.target.value)}
+            style={compactStyles.accountSelect}
+            title="Filter by account"
+          >
+            <option value="">All Accounts</option>
+            {accountsByType.bank.length > 0 && (
+              <optgroup label="Bank Accounts">
+                {accountsByType.bank.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.account_name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {accountsByType.person.length > 0 && (
+              <optgroup label="Person Accounts">
+                {accountsByType.person.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.account_name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+
+          {/* Action Buttons */}
+          <Button
+            onClick={onApplyFilters}
+            variant="primary"
+            size="small"
+            style={{
+              backgroundColor: hasUnappliedFilters ? COLORS.status.warning : undefined,
+            }}
+          >
+            {hasUnappliedFilters ? 'Apply' : 'Search'}
+          </Button>
+
+          <Button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            variant="ghost"
+            size="small"
+          >
+            {showAdvanced ? '▲ Less' : '▼ More'}
+          </Button>
+
+          {hasActiveFilters && (
+            <Button
+              onClick={onClearFilters}
+              variant="secondary"
+              size="small"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+
+        {/* Advanced Filters (Expandable) */}
+        {showAdvanced && (
+          <div style={compactStyles.advancedFilters}>
+            {/* School */}
+            <div style={compactStyles.filterItem}>
+              <label style={compactStyles.label}>School</label>
+              <select
+                value={filters.school}
+                onChange={(e) => onFilterChange('school', e.target.value)}
+                style={compactStyles.select}
+              >
+                <option value="">All Schools</option>
+                {schools.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name}
+                  </option>
+                ))}
+                <option value="null">No School</option>
+              </select>
+            </div>
+
+            {/* Category */}
+            <div style={compactStyles.filterItem}>
+              <label style={compactStyles.label}>Category</label>
+              <select
+                value={filters.category}
+                onChange={(e) => onFilterChange('category', e.target.value)}
+                style={compactStyles.select}
+              >
+                <option value="">All Categories</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Account Type */}
+            <div style={compactStyles.filterItem}>
+              <label style={compactStyles.label}>Account Type</label>
+              <select
+                value={filters.accountType}
+                onChange={(e) => onFilterChange('accountType', e.target.value)}
+                style={compactStyles.select}
+              >
+                <option value="">All Types</option>
+                <option value="Bank">Bank ({accountsByType.bank.length})</option>
+                <option value="Person">Person ({accountsByType.person.length})</option>
+              </select>
+            </div>
+
+            {/* Amount Range */}
+            <div style={compactStyles.filterItem}>
+              <label style={compactStyles.label}>Amount Range</label>
+              <div style={compactStyles.amountRange}>
+                <input
+                  type="number"
+                  value={filters.minAmount}
+                  onChange={(e) => onFilterChange('minAmount', e.target.value)}
+                  placeholder="Min"
+                  style={compactStyles.amountInput}
+                />
+                <span style={compactStyles.dateSeparator}>-</span>
+                <input
+                  type="number"
+                  value={filters.maxAmount}
+                  onChange={(e) => onFilterChange('maxAmount', e.target.value)}
+                  placeholder="Max"
+                  style={compactStyles.amountInput}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ============================================
+  // FULL MODE - Original detailed layout
+  // ============================================
   return (
     <div style={styles.container}>
       {/* Header with Search Button */}
@@ -433,6 +614,114 @@ const styles = {
     marginTop: SPACING.sm,
     marginBottom: 0,
     paddingLeft: SPACING.xl,
+  },
+};
+
+// ============================================
+// COMPACT MODE STYLES
+// ============================================
+const compactStyles = {
+  container: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    background: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  quickFilters: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    alignItems: 'center',
+  },
+  searchWrapper: {
+    flex: '1 1 200px',
+    minWidth: '150px',
+  },
+  searchInput: {
+    width: '100%',
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    outline: 'none',
+    transition: `all ${TRANSITIONS.normal}`,
+  },
+  dateRange: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  dateInput: {
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    outline: 'none',
+    width: '130px',
+  },
+  dateSeparator: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+  },
+  accountSelect: {
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    outline: 'none',
+    cursor: 'pointer',
+    minWidth: '140px',
+  },
+  advancedFilters: {
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: SPACING.md,
+  },
+  filterItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.xs,
+  },
+  label: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  select: {
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    outline: 'none',
+    cursor: 'pointer',
+  },
+  amountRange: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  amountInput: {
+    flex: 1,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: BORDER_RADIUS.md,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    outline: 'none',
+    width: '70px',
   },
 };
 
