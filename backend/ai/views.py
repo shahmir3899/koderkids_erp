@@ -508,3 +508,84 @@ class AIFileUploadView(APIView):
         elif isinstance(data, (date, datetime)):
             return str(data)
         return data
+
+
+class AIRewriteView(APIView):
+    """
+    Rewrite text using AI.
+
+    POST /api/ai/rewrite/
+
+    Request body:
+        {
+            "text": "the text to rewrite",
+            "style": "professional" | "concise" | "grammar"
+        }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        text = request.data.get('text', '').strip()
+        style = request.data.get('style', 'professional').strip().lower()
+
+        if not text:
+            return Response(
+                {"error": "Text is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(text) > 2000:
+            return Response(
+                {"error": "Text too long. Maximum 2000 characters."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        valid_styles = ['professional', 'concise', 'grammar']
+        if style not in valid_styles:
+            return Response(
+                {"error": f"Invalid style. Must be one of: {', '.join(valid_styles)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        style_prompts = {
+            'professional': {
+                'system': 'You are a professional editor for educational content. Rewrite the given text to sound more professional and formal, suitable for academic records. Keep the same meaning. Return ONLY the rewritten text, nothing else.',
+                'user': f'Rewrite this text to be more professional:\n\n{text}'
+            },
+            'concise': {
+                'system': 'You are a concise editor. Rewrite the given text to be shorter and more concise while keeping the key information. Return ONLY the rewritten text, nothing else.',
+                'user': f'Make this text more concise:\n\n{text}'
+            },
+            'grammar': {
+                'system': 'You are a grammar checker. Fix any grammar, spelling, or punctuation errors in the given text. Keep the meaning and style the same. Return ONLY the corrected text, nothing else.',
+                'user': f'Fix the grammar in this text:\n\n{text}'
+            },
+        }
+
+        prompts = style_prompts[style]
+
+        client = get_llm_client()
+        result = client.generate_sync(
+            prompt=prompts['user'],
+            system_prompt=prompts['system'],
+            temperature=0.3,
+            max_tokens=500
+        )
+
+        if result['success']:
+            rewritten = result['response'].strip()
+            if rewritten.startswith('"') and rewritten.endswith('"'):
+                rewritten = rewritten[1:-1]
+
+            return Response({
+                "success": True,
+                "rewritten_text": rewritten,
+                "provider": result.get('provider'),
+                "response_time_ms": result.get('response_time_ms', 0)
+            })
+        else:
+            return Response({
+                "success": False,
+                "error": result.get('error', 'AI rewrite failed'),
+                "provider": result.get('provider')
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

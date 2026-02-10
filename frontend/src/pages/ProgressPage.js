@@ -241,6 +241,13 @@ const ProgressPage = () => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedStudentForImage, setSelectedStudentForImage] = useState(null);
 
+  // Feature 2: Apply to All
+  const [sharedTopicText, setSharedTopicText] = useState('');
+
+  // Feature 3: AI Rewrite
+  const [rewritingStudent, setRewritingStudent] = useState(null);
+  const [rewriteDropdownOpen, setRewriteDropdownOpen] = useState(null);
+
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -293,6 +300,7 @@ const ProgressPage = () => {
     setAchievedLessons({});
     setUploadedImages({});
     setPlannedTopic('');
+    setSharedTopicText('');
 
     try {
       const [year, month, day] = date.split('-');
@@ -329,6 +337,7 @@ const ProgressPage = () => {
 
       const plannedTopicText = response.data.planned_topic || '';
       setPlannedTopic(plannedTopicText);
+      setSharedTopicText(plannedTopicText);
 
       toast.success(`Loaded ${fetchedStudents.length} students`);
     } catch (error) {
@@ -349,6 +358,20 @@ const ProgressPage = () => {
       ...prev,
       [studentId]: { ...prev[studentId], status },
     }));
+
+    if (status === 'Absent') {
+      setAchievedLessons((prev) => ({
+        ...prev,
+        [studentId]: 'Absent',
+      }));
+    } else if (status === 'Present') {
+      setAchievedLessons((prev) => {
+        if (prev[studentId] === 'Absent') {
+          return { ...prev, [studentId]: '' };
+        }
+        return prev;
+      });
+    }
   }, []);
 
   const handleMarkAllPresent = useCallback(() => {
@@ -357,6 +380,17 @@ const ProgressPage = () => {
       newAttendanceData[student.id] = { status: 'Present' };
     });
     setAttendanceData(newAttendanceData);
+
+    setAchievedLessons((prev) => {
+      const updated = { ...prev };
+      students.forEach((student) => {
+        if (updated[student.id] === 'Absent') {
+          updated[student.id] = '';
+        }
+      });
+      return updated;
+    });
+
     toast.success('All students marked as Present.');
   }, [students, attendanceData]);
 
@@ -407,6 +441,76 @@ const ProgressPage = () => {
     });
     toast.success('Image removed.');
   }, []);
+
+  // Feature 2: Apply to All handler
+  const handleApplyToAll = useCallback(() => {
+    const textToApply = sharedTopicText.trim() || plannedTopic;
+    if (!textToApply) {
+      toast.error('Please enter a topic to apply.');
+      return;
+    }
+
+    setAchievedLessons((prev) => {
+      const updated = { ...prev };
+      students.forEach((student) => {
+        const isAbsent = attendanceData[student.id]?.status === 'Absent';
+        if (!isAbsent) {
+          updated[student.id] = textToApply;
+        }
+      });
+      return updated;
+    });
+
+    toast.success('Topic applied to all present students.');
+  }, [sharedTopicText, plannedTopic, students, attendanceData]);
+
+  // Feature 3: AI Rewrite handler
+  const handleAIRewrite = useCallback(async (studentId, style) => {
+    const currentText = achievedLessons[studentId];
+    if (!currentText || currentText.trim() === '' || currentText === 'Absent') {
+      toast.error('No text to rewrite.');
+      return;
+    }
+
+    setRewriteDropdownOpen(null);
+    setRewritingStudent(studentId);
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/ai/rewrite/`,
+        { text: currentText, style },
+        { headers: getAuthHeaders() }
+      );
+
+      if (response.data.success) {
+        setAchievedLessons((prev) => ({
+          ...prev,
+          [studentId]: response.data.rewritten_text,
+        }));
+        toast.success(`Text rewritten (${style})`);
+      } else {
+        toast.error(response.data.error || 'AI rewrite failed.');
+      }
+    } catch (err) {
+      console.error('AI rewrite error:', err);
+      toast.error(err.response?.data?.error || 'Failed to rewrite text.');
+    } finally {
+      if (isMounted.current) {
+        setRewritingStudent(null);
+      }
+    }
+  }, [achievedLessons]);
+
+  // Feature 3: Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (rewriteDropdownOpen !== null) {
+        setRewriteDropdownOpen(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [rewriteDropdownOpen]);
 
   const handleSubmit = useCallback(async () => {
     if (!isMounted.current) return;
@@ -518,13 +622,107 @@ const ProgressPage = () => {
       key: 'achieved',
       label: 'Achieved Lesson',
       sortable: false,
-      render: (_, row) => (
-        <CompactRichTextEditor
-          value={achievedLessons[row.id] || ''}
-          onChange={(text) => handleAchievedChange(row.id, text)}
-          placeholder="Enter achieved lesson..."
-        />
-      ),
+      render: (_, row) => {
+        const isAbsent = attendanceData[row.id]?.status === 'Absent';
+        const hasText = achievedLessons[row.id] && achievedLessons[row.id].trim() !== '' && achievedLessons[row.id] !== 'Absent';
+        const isRewriting = rewritingStudent === row.id;
+        const isDropdownOpen = rewriteDropdownOpen === row.id;
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: SPACING.xs }}>
+            <div style={{ flex: 1 }}>
+              <CompactRichTextEditor
+                value={achievedLessons[row.id] || ''}
+                onChange={(text) => handleAchievedChange(row.id, text)}
+                placeholder={isAbsent ? 'Student is absent' : 'Enter achieved lesson...'}
+                disabled={isAbsent || isRewriting}
+              />
+            </div>
+            {hasText && !isAbsent && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRewriteDropdownOpen(isDropdownOpen ? null : row.id);
+                  }}
+                  style={{
+                    padding: SPACING.xs,
+                    backgroundColor: isRewriting ? 'rgba(176, 97, 206, 0.2)' : 'rgba(176, 97, 206, 0.3)',
+                    color: COLORS.text.whiteMedium,
+                    border: '1px solid rgba(176, 97, 206, 0.4)',
+                    borderRadius: BORDER_RADIUS.xs,
+                    fontSize: FONT_SIZES.xs,
+                    cursor: isRewriting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: TRANSITIONS.fast,
+                    minWidth: '28px',
+                    minHeight: '28px',
+                    opacity: isRewriting ? 0.5 : 1,
+                  }}
+                  disabled={isRewriting}
+                  title="AI Rewrite"
+                >
+                  {isRewriting ? '...' : 'AI'}
+                </button>
+                {isDropdownOpen && !isRewriting && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      marginTop: SPACING.xs,
+                      backgroundColor: 'rgba(55, 40, 80, 0.95)',
+                      backdropFilter: 'blur(20px)',
+                      WebkitBackdropFilter: 'blur(20px)',
+                      border: `1px solid ${COLORS.border.whiteMedium}`,
+                      borderRadius: BORDER_RADIUS.sm,
+                      padding: SPACING.xs,
+                      zIndex: 20,
+                      minWidth: '160px',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                    }}
+                  >
+                    {[
+                      { label: 'Make Professional', style: 'professional' },
+                      { label: 'Make Concise', style: 'concise' },
+                      { label: 'Fix Grammar', style: 'grammar' },
+                    ].map((option) => (
+                      <button
+                        key={option.style}
+                        onClick={() => handleAIRewrite(row.id, option.style)}
+                        style={{
+                          padding: `${SPACING.sm} ${SPACING.md}`,
+                          color: COLORS.text.white,
+                          fontSize: FONT_SIZES.xs,
+                          cursor: 'pointer',
+                          borderRadius: BORDER_RADIUS.xs,
+                          display: 'block',
+                          width: '100%',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          textAlign: 'left',
+                          transition: TRANSITIONS.fast,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'image',
@@ -566,7 +764,7 @@ const ProgressPage = () => {
         );
       },
     },
-  ], [attendanceData, achievedLessons, uploadedImages, handleAttendanceChange, handleAchievedChange, openImageModal, handleDeleteImage]);
+  ], [attendanceData, achievedLessons, uploadedImages, handleAttendanceChange, handleAchievedChange, openImageModal, handleDeleteImage, rewritingStudent, rewriteDropdownOpen, handleAIRewrite]);
 
   // ============================================
   // RENDER - Main Content
@@ -620,6 +818,57 @@ const ProgressPage = () => {
                       style={responsiveStyles.markAllButton}
                     >
                       ✓ Mark All Present
+                    </button>
+                  </div>
+
+                  {/* Apply to All */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: isMobile ? 'stretch' : 'center',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    gap: SPACING.sm,
+                    flex: isMobile ? 'unset' : 1,
+                    maxWidth: isMobile ? '100%' : '500px',
+                  }}>
+                    <input
+                      type="text"
+                      value={sharedTopicText}
+                      onChange={(e) => setSharedTopicText(e.target.value)}
+                      placeholder="Topic to apply to all..."
+                      style={{
+                        flex: 1,
+                        padding: `${SPACING.sm} ${SPACING.md}`,
+                        border: `1px solid ${COLORS.border.whiteTransparent}`,
+                        borderRadius: BORDER_RADIUS.sm,
+                        fontSize: FONT_SIZES.sm,
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        color: COLORS.text.white,
+                        outline: 'none',
+                        minHeight: '44px',
+                      }}
+                    />
+                    <button
+                      onClick={handleApplyToAll}
+                      style={{
+                        padding: `${SPACING.sm} ${SPACING.lg}`,
+                        backgroundColor: COLORS.accent.purple,
+                        color: COLORS.text.white,
+                        border: 'none',
+                        borderRadius: BORDER_RADIUS.sm,
+                        fontSize: FONT_SIZES.sm,
+                        fontWeight: FONT_WEIGHTS.medium,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: SPACING.xs,
+                        transition: TRANSITIONS.normal,
+                        minHeight: '44px',
+                        whiteSpace: 'nowrap',
+                        width: isMobile ? '100%' : 'auto',
+                      }}
+                    >
+                      Apply to All
                     </button>
                   </div>
 

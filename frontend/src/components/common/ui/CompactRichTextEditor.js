@@ -118,6 +118,8 @@ export const CompactRichTextEditor = ({
     boxShadow: isFocused ? `0 0 0 3px rgba(59, 130, 246, 0.3)` : 'none',
     background: 'rgba(255, 255, 255, 0.1)',
     color: COLORS.text.white,
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? 'not-allowed' : 'text',
   };
 
   const toolbarStyle = {
@@ -165,9 +167,10 @@ export const CompactRichTextEditor = ({
     fontFamily: 'inherit',
     background: 'rgba(255, 255, 255, 0.1)',
     color: COLORS.text.white,
-    cursor: 'text',
+    cursor: disabled ? 'not-allowed' : 'text',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    opacity: disabled ? 0.5 : 1,
   };
 
   // Show preview when not focused and has value

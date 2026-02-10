@@ -13,6 +13,7 @@ from .views import (
     AIHistoryView,
     AIStatsView,
     AIFileUploadView,
+    AIRewriteView,
 )
 
 urlpatterns = [
@@ -31,4 +32,7 @@ urlpatterns = [
     # History and stats
     path('history/', AIHistoryView.as_view(), name='ai-history'),
     path('stats/', AIStatsView.as_view(), name='ai-stats'),
+
+    # Text rewrite
+    path('rewrite/', AIRewriteView.as_view(), name='ai-rewrite'),
 ]
