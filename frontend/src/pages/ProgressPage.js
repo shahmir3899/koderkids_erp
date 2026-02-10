@@ -39,7 +39,7 @@ import { PageHeader } from '../components/common/PageHeader';
 // ============================================
 
 const API_URL = process.env.REACT_APP_API_URL;
-const STUDENTS_PER_PAGE = 5;
+const STUDENTS_PER_PAGE = 25;
 
 // Responsive Styles Generator
 const getResponsiveStyles = (isMobile, isTablet) => ({
@@ -335,7 +335,7 @@ const ProgressPage = () => {
       setAttendanceData(newAttendanceData);
       setAchievedLessons(newAchievedLessons);
 
-      const plannedTopicText = response.data.planned_topic || '';
+      const plannedTopicText = response.data.planned_topic || response.data.lesson_plan?.planned_topic || '';
       setPlannedTopic(plannedTopicText);
       setSharedTopicText(plannedTopicText);
 
