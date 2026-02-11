@@ -12,18 +12,18 @@ import os
 import uuid
 from datetime import datetime
 from supabase import create_client, Client
+from django.conf import settings
 
-# Supabase configuration
-SUPABASE_URL = os.environ.get('REACT_APP_SUPABASE_URL')
-SUPABASE_KEY = os.environ.get('REACT_APP_SUPABASE_SEC_KEY')
 BUCKET_NAME = 'book-assets'
 
 
 def get_supabase_client() -> Client:
-    """Get Supabase client instance."""
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    """Get Supabase client instance using settings."""
+    url = getattr(settings, 'SUPABASE_URL', None) or os.environ.get('REACT_APP_SUPABASE_URL')
+    key = getattr(settings, 'SUPABASE_KEY', None) or os.environ.get('REACT_APP_SUPABASE_SEC_KEY')
+    if not url or not key:
         raise ValueError("Supabase credentials not configured")
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    return create_client(url, key)
 
 
 def upload_topic_image(file, book_id: int, topic_id: str) -> dict:
