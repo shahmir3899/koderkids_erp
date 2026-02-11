@@ -13,6 +13,7 @@ import {
   SHADOWS,
   TRANSITIONS,
 } from '../../utils/designConstants';
+import { useResponsive } from '../../hooks/useResponsive';
 
 /**
  * LessonSummaryDashboard Component
@@ -88,6 +89,8 @@ export const LessonSummaryDashboard = ({ data = [], loading = false }) => {
     });
   }, [data]);
 
+  const { isMobile } = useResponsive();
+
   // SVG Circle Progress Component
   const CircleProgress = ({ percentage, size = 100, strokeWidth = 10 }) => {
     const radius = (size - strokeWidth) / 2;
@@ -133,16 +136,16 @@ export const LessonSummaryDashboard = ({ data = [], loading = false }) => {
   return (
     <div style={styles.container}>
       {/* Overview Card */}
-      <div style={styles.overviewCard}>
-        <div style={styles.overviewDonut}>
-          <CircleProgress percentage={metrics.averageCompletion} size={120} strokeWidth={15} />
+      <div style={{ ...styles.overviewCard, flexDirection: isMobile ? 'column' : 'row' }}>
+        <div style={{ ...styles.overviewDonut, width: isMobile ? '90px' : '120px', height: isMobile ? '90px' : '120px' }}>
+          <CircleProgress percentage={metrics.averageCompletion} size={isMobile ? 90 : 120} strokeWidth={isMobile ? 10 : 15} />
           <div style={styles.overviewDonutText}>
             <div style={styles.overviewDonutPercent}>{metrics.averageCompletion}%</div>
             <div style={styles.overviewDonutLabel}>Average</div>
           </div>
         </div>
         
-        <div style={styles.overviewStats}>
+        <div style={{ ...styles.overviewStats, gap: isMobile ? SPACING.md : SPACING['2xl'] }}>
           <div style={styles.statItem}>
             <div style={styles.statValue}>{metrics.totalLessons}</div>
             <div style={styles.statLabel}>Total Lessons</div>
@@ -159,13 +162,13 @@ export const LessonSummaryDashboard = ({ data = [], loading = false }) => {
       </div>
 
       {/* Schools Grid */}
-      <div style={styles.schoolsGrid}>
+      <div style={{ ...styles.schoolsGrid, gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))' }}>
         {schoolData.map((school, idx) => (
           <div key={idx} style={styles.schoolCard}>
             {/* School Header */}
             <div style={styles.schoolHeader}>
               <div style={styles.schoolDonut}>
-                <CircleProgress percentage={school.avgCompletion} size={80} strokeWidth={10} />
+                <CircleProgress percentage={school.avgCompletion} size={isMobile ? 60 : 80} strokeWidth={isMobile ? 8 : 10} />
                 <div style={styles.schoolDonutText}>{school.avgCompletion}%</div>
               </div>
               <div style={styles.schoolInfo}>
@@ -180,7 +183,7 @@ export const LessonSummaryDashboard = ({ data = [], loading = false }) => {
             <div style={styles.progressBars}>
               {school.classes.map((classItem, classIdx) => (
                 <div key={classIdx} style={styles.progressBarItem}>
-                  <div style={styles.progressBarLabel}>
+                  <div style={{ ...styles.progressBarLabel, width: isMobile ? '60px' : '70px' }}>
                     Class {classItem.student_class || classItem.class}
                   </div>
                   <div style={styles.progressBarTrack}>

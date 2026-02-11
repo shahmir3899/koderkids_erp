@@ -360,62 +360,56 @@ useEffect(() => {
           />
         </CollapsibleSection>
 
-        {/* Course Completion Charts */}
-        {!loading.completion && completionData.length > 0 && (
-          <HoverCard style={styles.completionSection}>
-            {completionData.slice(0, 2).map((school, idx) => (
-              <CircularProgress
-                key={idx}
-                percentage={school.completion_rate}
-                schoolName={school.school_name}
-                size={isMobile ? 120 : 173}
-                strokeWidth={isMobile ? 14 : 20}
-              />
-            ))}
-          </HoverCard>
-        )}
+        {/* Completion + Attendance Row - Always visible, no collapsible */}
+        <div style={styles.completionAttendanceRow}>
+          {/* Course Completion Charts */}
+          {!loading.completion && completionData.length > 0 && (
+            <HoverCard style={styles.completionSection}>
+              {completionData.slice(0, 2).map((school, idx) => (
+                <CircularProgress
+                  key={idx}
+                  percentage={school.completion_rate}
+                  schoolName={school.school_name}
+                  size={isMobile ? 100 : 140}
+                  strokeWidth={isMobile ? 12 : 16}
+                />
+              ))}
+            </HoverCard>
+          )}
 
-        {/* Lesson Schedule Header */}
-        <div style={styles.lessonScheduleHeader}>
-          <h2 style={styles.sectionTitle}>
-            Lesson Schedule (Next 7 Days)
-          </h2>
-         
+          {/* My Attendance - inline, no collapsible wrapper */}
+          <TeacherAttendanceWidget />
         </div>
 
-        {/* Lesson Schedule Grid */}
-        <CollapsibleSection 
-     title="📅 Upcoming Lessons"
-     defaultOpen={false}>
-        <div style={styles.lessonScheduleSection}>
-          <LessonGrid 
-            lessons={lessons} 
-            loading={loading.lessons}
-            selectedMonth={selectedMonth}
+        {/* Lessons & Curriculum - Combined Section */}
+        <CollapsibleSection title="Lessons & Curriculum" defaultOpen={false}>
+          {/* Upcoming Lessons */}
+          <h4 style={styles.subSectionTitle}>Upcoming Lessons</h4>
+          <div style={styles.lessonScheduleSection}>
+            <LessonGrid
+              lessons={lessons}
+              loading={loading.lessons}
+              selectedMonth={selectedMonth}
+            />
+          </div>
+
+          {/* Lesson Summary */}
+          <h4 style={styles.subSectionTitle}>Lesson Summary</h4>
+          <LessonSummaryDashboard
+            data={monthlyLessonData}
+            loading={loading.monthlyData}
           />
-        </div>
-</CollapsibleSection>
-       {/* Lesson Summary Dashboard */}
-<CollapsibleSection title="📊 Lesson Summary" defaultOpen={false}>
-  <LessonSummaryDashboard 
-    data={monthlyLessonData}
-    loading={loading.monthlyData}
-  />
-</CollapsibleSection>
-{/* Teacher Attendance Widget */}
-<CollapsibleSection title="📋 My Attendance" defaultOpen={true}>
-  <TeacherAttendanceWidget />
-</CollapsibleSection>
 
-{/* Teacher Inventory Widget */}
-<CollapsibleSection title="📚 Teaching Resources" defaultOpen={false}>
-  <TeacherInventoryWidget
-    teacherSchools={teacherSchools}
-    teacherName={teacherName}
-  />
-</CollapsibleSection>
+          {/* Teaching Resources */}
+          <h4 style={{ ...styles.subSectionTitle, marginTop: SPACING.lg }}>Teaching Resources</h4>
+          <TeacherInventoryWidget
+            teacherSchools={teacherSchools}
+            teacherName={teacherName}
+          />
+        </CollapsibleSection>
+
         {/* Student Reports */}
-        <CollapsibleSection title="👨‍🎓 Student Reports">
+        <CollapsibleSection title="Student Reports" defaultOpen={false}>
           <HoverCard style={styles.monthSelectorWrapper}>
             <span style={styles.monthLabel}>Select Month</span>
             <MonthFilter
@@ -518,33 +512,30 @@ const getStyles = (isMobile) => ({
     maxWidth: LAYOUT.maxWidth.lg,
     transition: `padding ${TRANSITIONS.normal}`,
   },
+  completionAttendanceRow: {
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+    gap: isMobile ? SPACING.md : SPACING.lg,
+    marginBottom: isMobile ? SPACING.md : SPACING.lg,
+  },
   completionSection: {
     display: 'flex',
-    flexDirection: isMobile ? 'column' : 'row',
-    justifyContent: isMobile ? 'center' : 'space-around',
+    flexDirection: isMobile ? 'row' : 'row',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    gap: isMobile ? SPACING.lg : SPACING.xl,
-    padding: isMobile ? SPACING.lg : SPACING.xl,
+    gap: isMobile ? SPACING.md : SPACING.lg,
+    padding: isMobile ? SPACING.md : SPACING.lg,
     ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.lg,
     width: '100%',
-    marginBottom: isMobile ? SPACING.lg : SPACING.xl,
   },
-  lessonScheduleHeader: {
-    display: 'flex',
-    flexDirection: isMobile ? 'column' : 'row',
-    justifyContent: 'space-between',
-    alignItems: isMobile ? 'flex-start' : 'center',
-    gap: isMobile ? SPACING.md : 0,
-    padding: `${isMobile ? SPACING.lg : SPACING.xl} 0 ${SPACING.lg}`,
-  },
-  sectionTitle: {
-    fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
-    fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.text.white,
-    fontFamily: 'Montserrat, -apple-system, sans-serif',
-    margin: 0,
-    lineHeight: '26px',
+  subSectionTitle: {
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.accent.cyan,
+    margin: `0 0 ${SPACING.md} 0`,
+    paddingBottom: SPACING.sm,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
   },
   monthSelectorWrapper: {
     display: 'flex',

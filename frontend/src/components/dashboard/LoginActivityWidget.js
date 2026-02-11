@@ -16,8 +16,10 @@ import {
   BORDER_RADIUS,
   MIXINS,
 } from '../../utils/designConstants';
+import { useResponsive } from '../../hooks/useResponsive';
 
 const LoginActivityWidget = () => {
+  const { isMobile } = useResponsive();
   const { data: loginData, isLoading, error } = useLoginActivity();
 
   if (isLoading) {
@@ -64,9 +66,9 @@ const LoginActivityWidget = () => {
   const { today, yesterday, previous, totals } = loginData;
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, padding: isMobile ? SPACING.md : SPACING.lg }}>
       <div style={styles.header}>
-        <h3 style={styles.title}>Login Activity (Last 3 Days)</h3>
+        <h3 style={{ ...styles.title, fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg }}>Login Activity (Last 3 Days)</h3>
         <div style={styles.totalBadge}>
           <span style={styles.totalItem}>
             <span style={styles.studentIconSmall}>S</span>
@@ -81,45 +83,16 @@ const LoginActivityWidget = () => {
       </div>
 
       <div style={styles.rowsContainer}>
-        {/* Today Row */}
-        <DayRow
-          label={today.label}
-          date={today.date}
-          studentLogins={today.student_logins}
-          teacherLogins={today.teacher_logins}
-          schools={today.schools || []}
-          isToday={true}
-          defaultExpanded={true}
-        />
-
-        {/* Yesterday Row */}
-        <DayRow
-          label={yesterday.label}
-          date={yesterday.date}
-          studentLogins={yesterday.student_logins}
-          teacherLogins={yesterday.teacher_logins}
-          schools={yesterday.schools || []}
-          isToday={false}
-          defaultExpanded={false}
-        />
-
-        {/* Previous Day Row */}
-        <DayRow
-          label={previous.label}
-          date={previous.date}
-          studentLogins={previous.student_logins}
-          teacherLogins={previous.teacher_logins}
-          schools={previous.schools || []}
-          isToday={false}
-          defaultExpanded={false}
-        />
+        <DayRow label={today.label} date={today.date} studentLogins={today.student_logins} teacherLogins={today.teacher_logins} schools={today.schools || []} isToday={true} defaultExpanded={true} isMobile={isMobile} />
+        <DayRow label={yesterday.label} date={yesterday.date} studentLogins={yesterday.student_logins} teacherLogins={yesterday.teacher_logins} schools={yesterday.schools || []} isToday={false} defaultExpanded={false} isMobile={isMobile} />
+        <DayRow label={previous.label} date={previous.date} studentLogins={previous.student_logins} teacherLogins={previous.teacher_logins} schools={previous.schools || []} isToday={false} defaultExpanded={false} isMobile={isMobile} />
       </div>
     </div>
   );
 };
 
 // Individual day row component with expandable school breakdown
-const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, defaultExpanded }) => {
+const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, defaultExpanded, isMobile }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const hasActivity = studentLogins > 0 || teacherLogins > 0;
   const total = studentLogins + teacherLogins;
@@ -151,7 +124,7 @@ const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, d
         onClick={() => hasSchools && setIsExpanded(!isExpanded)}
       >
         {/* Day Label */}
-        <div style={styles.dayLabelContainer}>
+        <div style={{ ...styles.dayLabelContainer, minWidth: isMobile ? '80px' : '120px' }}>
           <div style={styles.dayLabelRow}>
             {hasSchools && (
               <span style={{
@@ -172,7 +145,7 @@ const DayRow = ({ label, date, studentLogins, teacherLogins, schools, isToday, d
         </div>
 
         {/* Stats */}
-        <div style={styles.statsRow}>
+        <div style={{ ...styles.statsRow, gap: isMobile ? SPACING.sm : SPACING.lg }}>
           {/* Students */}
           <div style={styles.statBox}>
             <span style={styles.studentIcon}>S</span>

@@ -12,17 +12,11 @@ import {
   BORDER_RADIUS,
   SHADOWS,
 } from '../../utils/designConstants';
+import { useResponsive } from '../../hooks/useResponsive';
 
 /**
  * FinancialSummaryCard Component
  * Displays financial summary metrics in a grid layout
- *
- * @param {Object} props
- * @param {number} props.totalFee - Total fee amount
- * @param {number} props.paidAmount - Paid amount
- * @param {number} props.balanceDue - Balance due amount
- * @param {boolean} props.loading - Loading state
- * @param {boolean} props.compact - Use compact layout
  */
 export const FinancialSummaryCard = ({
   totalFee = 0,
@@ -31,6 +25,8 @@ export const FinancialSummaryCard = ({
   loading = false,
   compact = false,
 }) => {
+  const { isMobile } = useResponsive();
+
   const formatCurrency = (amount) => {
     return `PKR ${amount.toLocaleString()}`;
   };
@@ -72,12 +68,17 @@ export const FinancialSummaryCard = ({
       ...styles.container,
       ...(compact && styles.containerCompact),
     }}>
-      <div style={styles.grid}>
+      <div style={{
+        ...styles.grid,
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: isMobile ? SPACING.sm : SPACING.lg,
+      }}>
         {metrics.map((metric, index) => (
           <div
             key={index}
             style={{
               ...styles.card,
+              padding: isMobile ? SPACING.md : SPACING.lg,
               backgroundColor: metric.bgColor,
               borderColor: metric.borderColor,
             }}
@@ -87,6 +88,7 @@ export const FinancialSummaryCard = ({
               style={{
                 ...styles.value,
                 color: metric.color,
+                fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
               }}
             >
               {formatCurrency(metric.value)}

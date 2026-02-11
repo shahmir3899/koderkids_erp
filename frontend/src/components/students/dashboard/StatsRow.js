@@ -75,8 +75,8 @@ const StatsRow = ({ data, isMobile }) => {
 const getStyles = (isMobile) => ({
   container: {
     display: 'flex',
-    flexDirection: isMobile ? 'column' : 'row',
-    gap: SPACING.md,
+    flexDirection: 'row',
+    gap: isMobile ? SPACING.sm : SPACING.md,
     width: '100%',
   },
   card: {

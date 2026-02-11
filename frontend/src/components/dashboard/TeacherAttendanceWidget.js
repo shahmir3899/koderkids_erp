@@ -8,6 +8,7 @@ import {
   BORDER_RADIUS,
   MIXINS,
 } from '../../utils/designConstants';
+import { useResponsive } from '../../hooks/useResponsive';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -16,6 +17,7 @@ const getAuthHeaders = () => ({
 });
 
 const TeacherAttendanceWidget = () => {
+  const { isMobile } = useResponsive();
   const [attendanceData, setAttendanceData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -115,15 +117,15 @@ const TeacherAttendanceWidget = () => {
   const summary = attendanceData?.summary?.schools || [];
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, padding: isMobile ? SPACING.md : SPACING.xl }}>
       {/* Header with Month Selector */}
       <div style={styles.header}>
-        <h3 style={styles.title}>My Attendance</h3>
+        <h3 style={{ ...styles.title, fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg }}>My Attendance</h3>
         <input
           type="month"
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
-          style={styles.monthInput}
+          style={{ ...styles.monthInput, width: isMobile ? '100%' : 'auto' }}
         />
       </div>
 
@@ -149,7 +151,12 @@ const TeacherAttendanceWidget = () => {
               </div>
 
               {/* Stats Row */}
-              <div style={styles.statsRow}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+                gap: SPACING.sm,
+                marginBottom: SPACING.md,
+              }}>
                 <div style={styles.statItem}>
                   <span style={styles.statValue}>{school.total_working_days}</span>
                   <span style={styles.statLabel}>Working Days</span>
@@ -219,7 +226,7 @@ const TeacherAttendanceWidget = () => {
       )}
 
       {/* Legend */}
-      <div style={styles.legend}>
+      <div style={{ ...styles.legend, gap: isMobile ? SPACING.sm : SPACING.lg }}>
         <div style={styles.legendItem}>
           <span style={{ ...styles.legendDot, backgroundColor: COLORS.status.success }} />
           <span style={styles.legendText}>Present</span>

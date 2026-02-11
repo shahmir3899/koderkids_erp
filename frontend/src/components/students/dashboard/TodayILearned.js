@@ -62,7 +62,8 @@ const getStyles = (isMobile) => ({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    maxWidth: '200px',
+    flex: 1,
+    minWidth: 0,
   },
   emptyState: {
     fontSize: FONT_SIZES.sm,

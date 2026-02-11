@@ -8,6 +8,7 @@ import {
   BORDER_RADIUS,
   MIXINS,
 } from '../../utils/designConstants';
+import { useResponsive } from '../../hooks/useResponsive';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -16,6 +17,7 @@ const getAuthHeaders = () => ({
 });
 
 const AdminTeacherAttendanceWidget = () => {
+  const { isMobile } = useResponsive();
   const [attendanceData, setAttendanceData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -124,10 +126,10 @@ const AdminTeacherAttendanceWidget = () => {
   const todayNotLogged = attendanceData.filter((t) => t.today_status === 'not_logged_in').length;
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, padding: isMobile ? SPACING.md : SPACING.xl }}>
       {/* Header */}
       <div style={styles.header}>
-        <h3 style={styles.title}>Teacher Attendance Overview</h3>
+        <h3 style={{ ...styles.title, fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg }}>Teacher Attendance Overview</h3>
         <div style={styles.headerControls}>
           {/* View Mode Toggle */}
           <div style={styles.viewToggle}>
@@ -155,7 +157,7 @@ const AdminTeacherAttendanceWidget = () => {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              style={styles.monthInput}
+              style={{ ...styles.monthInput, width: isMobile ? '100%' : 'auto' }}
             />
           )}
         </div>
@@ -394,13 +396,12 @@ const styles = {
     color: '#4b5563',
   },
   summaryRow: {
-    display: 'flex',
-    gap: SPACING.md,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: SPACING.sm,
     marginBottom: SPACING.lg,
-    flexWrap: 'wrap',
   },
   summaryCard: {
-    flex: '1 1 150px',
     ...MIXINS.glassmorphicSubtle,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
@@ -431,7 +432,7 @@ const styles = {
     borderBottom: '1px solid rgba(99, 102, 241, 0.2)',
   },
   tableHeader: {
-    padding: `${SPACING.sm} ${SPACING.md}`,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
     textAlign: 'left',
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.semibold,
@@ -444,7 +445,7 @@ const styles = {
     transition: 'background-color 0.2s ease',
   },
   tableCell: {
-    padding: `${SPACING.sm} ${SPACING.md}`,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
     fontSize: FONT_SIZES.sm,
     color: '#1e1b4b',
   },

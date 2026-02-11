@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { SHADOWS, TRANSITIONS } from '../../../utils/designConstants';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 /**
  * AnimatedCard - Pure wrapper component that adds interactive hover effects
@@ -14,6 +15,7 @@ import { SHADOWS, TRANSITIONS } from '../../../utils/designConstants';
  * <AnimatedCard><YourCard /></AnimatedCard>
  */
 const AnimatedCard = ({ children, disabled = false, className = '' }) => {
+  const { isMobile } = useResponsive();
   const [isHovered, setIsHovered] = useState(false);
   const [tiltStyle, setTiltStyle] = useState({});
   const cardRef = useRef(null);
@@ -62,9 +64,9 @@ const AnimatedCard = ({ children, disabled = false, className = '' }) => {
       ref={cardRef}
       className={className}
       style={wrapperStyle}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onMouseMove={handleMouseMove}
+      onMouseEnter={isMobile ? undefined : handleMouseEnter}
+      onMouseLeave={isMobile ? undefined : handleMouseLeave}
+      onMouseMove={isMobile ? undefined : handleMouseMove}
     >
       {children}
     </div>

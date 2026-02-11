@@ -14,6 +14,7 @@ import {
   TRANSITIONS,
 } from '../../utils/designConstants';
 import { teacherDashboardService } from '../../services/teacherDashboardService';
+import { useResponsive } from '../../hooks/useResponsive';
 
 /**
  * TeacherInventoryWidget Component
@@ -35,6 +36,7 @@ export const TeacherInventoryWidget = ({
     categoriesCount: 0
   });
   const [loading, setLoading] = useState(true);
+  const { isMobile } = useResponsive();
 
   const fetchInventoryData = useCallback(async () => {
     try {
@@ -98,10 +100,10 @@ export const TeacherInventoryWidget = ({
   }
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, padding: isMobile ? SPACING.md : SPACING.lg, ...(isMobile ? { backgroundColor: 'rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(30px)', border: '1px solid rgba(255, 255, 255, 0.12)', color: COLORS.text.white } : {}) }}>
       {/* Header */}
       <div style={styles.header}>
-        <h3 style={styles.title}>📚 My Teaching Resources</h3>
+        <h3 style={{ ...styles.title, ...(isMobile ? { color: COLORS.text.white } : {}) }}>📚 My Teaching Resources</h3>
         <button 
           style={styles.viewAllButton}
           onClick={() => window.location.href = '/inventory'}
@@ -113,12 +115,12 @@ export const TeacherInventoryWidget = ({
       </div>
 
       {/* Stats Grid */}
-      <div style={styles.statsGrid}>
+      <div style={{ ...styles.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(140px, 1fr))' }}>
         {/* Total Items */}
         <div style={styles.statCard}>
           <div style={styles.statIcon}>📦</div>
-          <div style={styles.statValue}>{data.totalItems}</div>
-          <div style={styles.statLabel}>Total Items</div>
+          <div style={{ ...styles.statValue, ...(isMobile ? { color: COLORS.text.white } : {}) }}>{data.totalItems}</div>
+          <div style={{ ...styles.statLabel, ...(isMobile ? { color: COLORS.text.whiteSubtle } : {}) }}>Total Items</div>
           <div style={styles.statSubtext}>At my schools</div>
         </div>
 
@@ -128,7 +130,7 @@ export const TeacherInventoryWidget = ({
           <div style={{ ...styles.statValue, color: COLORS.status.success }}>
             {data.availableItems}
           </div>
-          <div style={styles.statLabel}>Available</div>
+          <div style={{ ...styles.statLabel, ...(isMobile ? { color: COLORS.text.whiteSubtle } : {}) }}>Available</div>
           <div style={styles.statSubtext}>Ready to use</div>
         </div>
 
@@ -138,7 +140,7 @@ export const TeacherInventoryWidget = ({
           <div style={{ ...styles.statValue, color: COLORS.primary }}>
             {data.assignedToMe}
           </div>
-          <div style={styles.statLabel}>Assigned to Me</div>
+          <div style={{ ...styles.statLabel, ...(isMobile ? { color: COLORS.text.whiteSubtle } : {}) }}>Assigned to Me</div>
           <div style={styles.statSubtext}>Currently using</div>
         </div>
 
@@ -148,7 +150,7 @@ export const TeacherInventoryWidget = ({
           <div style={{ ...styles.statValue, color: COLORS.status.info }}>
             {data.categoriesCount}
           </div>
-          <div style={styles.statLabel}>Categories</div>
+          <div style={{ ...styles.statLabel, ...(isMobile ? { color: COLORS.text.whiteSubtle } : {}) }}>Categories</div>
           <div style={styles.statSubtext}>Different types</div>
         </div>
       </div>
@@ -159,8 +161,8 @@ export const TeacherInventoryWidget = ({
           <h4 style={styles.sectionTitle}>📊 My Items by Category</h4>
           <div style={styles.categoryList}>
             {data.categoryBreakdown.map((cat, idx) => (
-              <div key={idx} style={styles.categoryItem}>
-                <div style={styles.categoryName}>{cat.name}</div>
+              <div key={idx} style={{ ...styles.categoryItem, gridTemplateColumns: isMobile ? '70px 1fr 30px' : '100px 1fr 40px' }}>
+                <div style={{ ...styles.categoryName, ...(isMobile ? { color: COLORS.text.whiteSubtle } : {}) }}>{cat.name}</div>
                 <div style={styles.categoryBar}>
                   <div 
                     style={{

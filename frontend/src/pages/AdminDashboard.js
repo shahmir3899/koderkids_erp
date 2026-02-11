@@ -375,9 +375,23 @@ function AdminDashboard() {
     },
     chartContainer: {
       ...MIXINS.glassmorphicCard,
-      padding: SPACING.lg,
+      padding: isMobile ? SPACING.md : SPACING.lg,
       borderRadius: BORDER_RADIUS.lg,
-      marginBottom: SPACING.lg,
+    },
+    chartTitle: {
+      fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg,
+      fontWeight: FONT_WEIGHTS.semibold,
+      color: COLORS.text.white,
+      margin: `0 0 ${SPACING.md} 0`,
+      textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    },
+    subSectionTitle: {
+      fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.base,
+      fontWeight: FONT_WEIGHTS.semibold,
+      color: COLORS.accent.cyan,
+      margin: `0 0 ${SPACING.md} 0`,
+      paddingBottom: SPACING.sm,
+      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
     },
     summaryBox: {
       ...MIXINS.glassmorphicSubtle,
@@ -460,125 +474,117 @@ function AdminDashboard() {
       {/* Login Activity Widget - Shows login counts per school */}
       <LoginActivityWidget />
 
-      {/* Teacher Attendance Overview - Shows attendance rates for all teachers */}
+      {/* Attendance & HR - Combined Section */}
       <CollapsibleSection
-        title="Teacher Attendance"
+        title="Attendance & HR"
         defaultOpen={false}
-        icon="👨‍🏫"
       >
+        {/* Teacher Attendance */}
         <AdminTeacherAttendanceWidget />
-      </CollapsibleSection>
 
-      {/* Book Content Export */}
-      <CollapsibleSection
-        title="Book Content Export"
-        defaultOpen={false}
-        icon="📚"
-      >
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: SPACING.lg,
-        }}>
-          {/* Book 2 Download Card */}
+        {/* Book Content Export */}
+        <div style={{ marginTop: SPACING.lg }}>
+          <h4 style={pageStyles.subSectionTitle}>Book Content Export</h4>
           <div style={{
-            ...MIXINS.glassmorphicSubtle,
-            padding: SPACING.xl,
-            borderRadius: BORDER_RADIUS.lg,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: SPACING.md,
           }}>
             <div style={{
-              width: '64px',
-              height: '64px',
+              ...MIXINS.glassmorphicSubtle,
+              padding: isMobile ? SPACING.md : SPACING.xl,
               borderRadius: BORDER_RADIUS.lg,
-              backgroundColor: 'rgba(124, 58, 237, 0.2)',
               display: 'flex',
+              flexDirection: isMobile ? 'row' : 'column',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '32px',
+              gap: SPACING.md,
             }}>
-              📖
-            </div>
-            <h3 style={{
-              margin: 0,
-              color: COLORS.text.white,
-              fontSize: FONT_SIZES.lg,
-              fontWeight: FONT_WEIGHTS.semibold,
-            }}>
-              Book 2
-            </h3>
-            <p style={{
-              margin: 0,
-              color: COLORS.text.whiteMedium,
-              fontSize: FONT_SIZES.sm,
-              textAlign: 'center',
-            }}>
-              12 Chapters • 71 Lessons
-            </p>
-            <button
-              onClick={() => handleDownloadBookPDF(3)}
-              disabled={isDownloadingPDF}
-              style={{
-                marginTop: SPACING.sm,
-                padding: `${SPACING.sm} ${SPACING.xl}`,
-                backgroundColor: isDownloadingPDF ? COLORS.text.whiteSubtle : COLORS.primary,
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: BORDER_RADIUS.full,
-                fontSize: FONT_SIZES.sm,
-                fontWeight: FONT_WEIGHTS.semibold,
-                cursor: isDownloadingPDF ? 'not-allowed' : 'pointer',
+              <div style={{
+                width: isMobile ? '48px' : '64px',
+                height: isMobile ? '48px' : '64px',
+                borderRadius: BORDER_RADIUS.lg,
+                backgroundColor: 'rgba(124, 58, 237, 0.2)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: SPACING.sm,
-                transition: `all ${TRANSITIONS.base}`,
-              }}
-              onMouseEnter={(e) => {
-                if (!isDownloadingPDF) {
-                  e.currentTarget.style.backgroundColor = '#6D28D9';
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isDownloadingPDF) {
-                  e.currentTarget.style.backgroundColor = COLORS.primary;
-                  e.currentTarget.style.transform = 'scale(1)';
-                }
-              }}
-            >
-              {isDownloadingPDF ? (
-                <>
-                  <span style={{
-                    width: '16px',
-                    height: '16px',
-                    border: '2px solid #fff',
-                    borderTopColor: 'transparent',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                  }} />
-                  Generating PDF...
-                </>
-              ) : (
-                <>
-                  📥 Download PDF
-                </>
-              )}
-            </button>
+                justifyContent: 'center',
+                fontSize: isMobile ? '24px' : '32px',
+                flexShrink: 0,
+              }}>
+                📖
+              </div>
+              <div style={{ textAlign: isMobile ? 'left' : 'center', flex: isMobile ? 1 : 'none' }}>
+                <h3 style={{
+                  margin: 0,
+                  color: COLORS.text.white,
+                  fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg,
+                  fontWeight: FONT_WEIGHTS.semibold,
+                }}>
+                  Book 2
+                </h3>
+                <p style={{
+                  margin: `${SPACING.xs} 0 0`,
+                  color: COLORS.text.whiteMedium,
+                  fontSize: FONT_SIZES.sm,
+                }}>
+                  12 Chapters • 71 Lessons
+                </p>
+              </div>
+              <button
+                onClick={() => handleDownloadBookPDF(3)}
+                disabled={isDownloadingPDF}
+                style={{
+                  padding: `${SPACING.sm} ${SPACING.lg}`,
+                  backgroundColor: isDownloadingPDF ? COLORS.text.whiteSubtle : COLORS.primary,
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: BORDER_RADIUS.full,
+                  fontSize: FONT_SIZES.sm,
+                  fontWeight: FONT_WEIGHTS.semibold,
+                  cursor: isDownloadingPDF ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: SPACING.sm,
+                  transition: `all ${TRANSITIONS.base}`,
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDownloadingPDF) {
+                    e.currentTarget.style.backgroundColor = '#6D28D9';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isDownloadingPDF) {
+                    e.currentTarget.style.backgroundColor = COLORS.primary;
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }
+                }}
+              >
+                {isDownloadingPDF ? (
+                  <>
+                    <span style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid #fff',
+                      borderTopColor: 'transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                    }} />
+                    Generating...
+                  </>
+                ) : (
+                  '📥 Download PDF'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </CollapsibleSection>
 
-      {/* Charts Row - Students per School & Fee Collection Side by Side */}
+      {/* Charts Row - Always visible, no collapsible wrappers */}
       <div style={pageStyles.chartsRow}>
-        {/* Students per School */}
-        <CollapsibleSection
-          title="Students per School"
-          defaultOpen
-          key={`students-${studentsPerSchoolData.length}`}
-        >
+        <div style={pageStyles.chartContainer}>
+          <h3 style={pageStyles.chartTitle}>Students per School</h3>
           {loading.students ? (
             <LoadingSpinner size="medium" message="Loading students..." />
           ) : studentsChartData.length > 0 ? (
@@ -621,80 +627,83 @@ function AdminDashboard() {
           ) : (
             <p style={pageStyles.emptyState}>No student data available</p>
           )}
-        </CollapsibleSection>
+        </div>
 
-        {/* Fee Collection - Top 3 Schools Per Month (Last 3 Months) */}
-        <CollapsibleSection title="Fee Collection - Top 3 Per Month" defaultOpen>
+        <div style={pageStyles.chartContainer}>
+          <h3 style={pageStyles.chartTitle}>Fee Collection - Top 3 Per Month</h3>
           {loading.fee ? (
             <LoadingSpinner size="medium" message="Loading fee data..." />
           ) : feePerMonth.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={isMobile ? 220 : 320}>
-                <BarChart data={feePerMonth} margin={{ top: 20, right: 20, left: 10, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 11, fill: '#FFFFFF' }}
-                    axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                    tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+            <ResponsiveContainer width="100%" height={isMobile ? 220 : 320}>
+              <BarChart data={feePerMonth} margin={{ top: 20, right: 20, left: 10, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: '#FFFFFF' }}
+                  axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                  tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#FFFFFF' }}
+                  axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                  tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                  width={45}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const monthData = feePerMonth.find(d => d.month === label);
+                      return (
+                        <div style={{
+                          backgroundColor: 'rgba(30, 30, 46, 0.95)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          borderRadius: '8px',
+                          padding: '10px',
+                          color: '#FFFFFF',
+                          fontSize: '12px',
+                        }}>
+                          <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#FBBF24' }}>{label}</p>
+                          {payload.map((entry, index) => (
+                            <p key={index} style={{ margin: '4px 0', color: entry.color }}>
+                              {monthData?.schoolNames?.[entry.dataKey] || entry.dataKey}: PKR {entry.value?.toLocaleString()}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: '5px' }}
+                  formatter={(value) => <span style={{ color: '#FFFFFF', fontSize: '11px' }}>{value}</span>}
+                />
+                {feeChartBarKeys.map((key, index) => (
+                  <Bar
+                    key={key}
+                    dataKey={key}
+                    fill={['#60A5FA', '#34D399', '#FBBF24'][index]}
+                    radius={[4, 4, 0, 0]}
                   />
-                  <YAxis
-                    tick={{ fontSize: 10, fill: '#FFFFFF' }}
-                    axisLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                    tickLine={{ stroke: 'rgba(255, 255, 255, 0.3)' }}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                    width={45}
-                  />
-                  <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (active && payload && payload.length) {
-                        const monthData = feePerMonth.find(d => d.month === label);
-                        return (
-                          <div style={{
-                            backgroundColor: 'rgba(30, 30, 46, 0.95)',
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            borderRadius: '8px',
-                            padding: '10px',
-                            color: '#FFFFFF',
-                            fontSize: '12px',
-                          }}>
-                            <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#FBBF24' }}>{label}</p>
-                            {payload.map((entry, index) => (
-                              <p key={index} style={{ margin: '4px 0', color: entry.color }}>
-                                {monthData?.schoolNames?.[entry.dataKey] || entry.dataKey}: PKR {entry.value?.toLocaleString()}
-                              </p>
-                            ))}
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Legend
-                    wrapperStyle={{ paddingTop: '5px' }}
-                    formatter={(value) => <span style={{ color: '#FFFFFF', fontSize: '11px' }}>{value}</span>}
-                  />
-                  {feeChartBarKeys.map((key, index) => (
-                    <Bar
-                      key={key}
-                      dataKey={key}
-                      fill={['#60A5FA', '#34D399', '#FBBF24'][index]}
-                      radius={[4, 4, 0, 0]}
-                    />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </>
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
           ) : (
             <p style={pageStyles.emptyState}>No fee data available</p>
           )}
-        </CollapsibleSection>
+        </div>
       </div>
 
-      {/* Fee Summary Table */}
+      {/* Data & Reports - Combined Section */}
       <CollapsibleSection
-        title="Fee Summary for Selected Month"
-        defaultOpen
+        title="Data & Reports"
+        defaultOpen={true}
+        onToggle={(isOpen) => {
+          if (isOpen && !shouldFetchRegistrations) {
+            setShouldFetchRegistrations(true);
+          }
+        }}
         headerAction={
           <div onClick={(e) => e.stopPropagation()}>
             <select
@@ -711,6 +720,8 @@ function AdminDashboard() {
           </div>
         }
       >
+        {/* Fee Summary */}
+        <h4 style={pageStyles.subSectionTitle}>Fee Summary ({selectedMonth})</h4>
         <DataTable
           data={feeSummaryData}
           loading={loading.feeSummary}
@@ -756,18 +767,9 @@ function AdminDashboard() {
           striped
           hoverable
         />
-      </CollapsibleSection>
 
-      {/* New Registrations - LAZY LOADED */}
-      <CollapsibleSection
-        title="New Registrations by School"
-        defaultOpen={false}
-        onToggle={(isOpen) => {
-          if (isOpen && !shouldFetchRegistrations) {
-            setShouldFetchRegistrations(true);
-          }
-        }}
-      >
+        {/* New Registrations */}
+        <h4 style={{ ...pageStyles.subSectionTitle, marginTop: SPACING.xl }}>New Registrations by School</h4>
         <DataTable
           data={registrationTableData}
           loading={loading.registrations}
@@ -779,12 +781,10 @@ function AdminDashboard() {
           striped
           hoverable
         />
-      </CollapsibleSection>
 
-      {/* Student Data Reports */}
-      <CollapsibleSection title="Student Data Reports" defaultOpen={false}>
+        {/* Student Data Reports */}
+        <h4 style={{ ...pageStyles.subSectionTitle, marginTop: SPACING.xl }}>Student Data Reports</h4>
         <div style={pageStyles.monthSelectContainer}>
-          {/* Month Selector */}
           <div>
             <label style={pageStyles.monthSelectLabel}>
               Select Month for Student Data
@@ -818,7 +818,7 @@ function AdminDashboard() {
             data={studentAttendance.map(attendance => {
               const topic = studentTopics.find(t => t.student_id === attendance.student_id) || { topics_achieved: 0 };
               const image = studentImages.find(i => i.student_id === attendance.student_id) || { images_uploaded: 0 };
-              
+
               return {
                 ...attendance,
                 topics_achieved: topic.topics_achieved,
