@@ -182,6 +182,7 @@ const StudentDashboard = () => {
 const getResponsiveStyles = (isMobile, isTablet) => ({
   pageContainer: {
     padding: isMobile ? SPACING.md : isTablet ? SPACING.lg : SPACING.xl,
+    paddingTop: isMobile ? '64px' : isTablet ? '64px' : SPACING.xl,
     maxWidth: LAYOUT.maxWidth.md,
     margin: '0 auto',
     minHeight: '100vh',

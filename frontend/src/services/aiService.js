@@ -102,6 +102,27 @@ export const confirmAIAction = async (confirmationToken, confirmed = true, edite
 };
 
 /**
+ * Undo the last AI write action
+ * @returns {Promise<Object>} Undo result
+ */
+export const undoAIAction = async () => {
+    try {
+        const response = await silentAxios.post(
+            '/api/ai/undo/',
+            {},
+            { headers: getAuthHeaders() }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('AI undo error:', error);
+        return {
+            success: false,
+            message: error.response?.data?.error || 'Undo failed'
+        };
+    }
+};
+
+/**
  * Execute a fee creation action with force_overwrite enabled
  * Used when user confirms they want to overwrite existing records
  * @param {Object} params
@@ -183,9 +204,16 @@ export const getAIStats = async () => {
  */
 export const buildFeeContext = (schools = [], students = [], feeCategories = []) => {
     const now = new Date();
+    // Retrieve last used context for smart defaults
+    let lastCtx = {};
+    try { lastCtx = JSON.parse(localStorage.getItem('feeAgentLastContext') || '{}'); } catch {}
+
     return {
         current_date: getTodayLocal(),
         current_month: now.toLocaleString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-'),
+        last_used_school_id: lastCtx.schoolId || null,
+        last_used_school_name: lastCtx.schoolName || null,
+        last_used_month: lastCtx.month || null,
         schools: schools.map(s => ({
             id: s.id,
             name: s.name,
@@ -202,6 +230,17 @@ export const buildFeeContext = (schools = [], students = [], feeCategories = [])
             name: c.name
         }))
     };
+};
+
+/**
+ * Save last used fee context for smart defaults
+ */
+export const saveFeeLastContext = (schoolId, schoolName, month) => {
+    try {
+        localStorage.setItem('feeAgentLastContext', JSON.stringify({
+            schoolId, schoolName, month, savedAt: Date.now()
+        }));
+    } catch {}
 };
 
 /**
@@ -352,6 +391,7 @@ export default {
     checkAIHealth,
     executeAICommand,
     confirmAIAction,
+    undoAIAction,
     executeOverwrite,
     getAIHistory,
     getAIStats,

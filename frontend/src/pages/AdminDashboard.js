@@ -40,6 +40,7 @@ import AdminTeacherAttendanceWidget from '../components/dashboard/AdminTeacherAt
 
 // Floating AI Agent Chat
 import FloatingAgentChat from '../components/admin/FloatingAgentChat';
+import { useResponsive } from '../hooks/useResponsive';
 import {
   COLORS,
   SPACING,
@@ -65,6 +66,11 @@ import {
 // MAIN COMPONENT
 // ============================================
 function AdminDashboard() {
+  // ============================================
+  // RESPONSIVE HOOK
+  // ============================================
+  const { isMobile, isTablet } = useResponsive();
+
   // ============================================
   // REACT QUERY HOOKS - Automatic caching and deduplication
   // ============================================
@@ -358,13 +364,14 @@ function AdminDashboard() {
     pageContainer: {
       minHeight: '100vh',
       background: COLORS.background.gradient,
-      padding: SPACING.xl,
+      padding: isMobile ? SPACING.md : isTablet ? SPACING.lg : SPACING.xl,
+      paddingTop: isMobile ? '64px' : isTablet ? '64px' : SPACING.xl,
     },
     chartsRow: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
-      gap: SPACING.lg,
-      marginBottom: SPACING.lg,
+      gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(450px, 1fr))',
+      gap: isMobile ? SPACING.md : SPACING.lg,
+      marginBottom: isMobile ? SPACING.md : SPACING.lg,
     },
     chartContainer: {
       ...MIXINS.glassmorphicCard,
@@ -408,9 +415,9 @@ function AdminDashboard() {
     },
     monthSelectContainer: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-      gap: SPACING.lg,
-      marginBottom: SPACING.lg,
+      gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))',
+      gap: isMobile ? SPACING.md : SPACING.lg,
+      marginBottom: isMobile ? SPACING.md : SPACING.lg,
     },
     monthSelectLabel: {
       display: 'block',
@@ -575,7 +582,7 @@ function AdminDashboard() {
           {loading.students ? (
             <LoadingSpinner size="medium" message="Loading students..." />
           ) : studentsChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={isMobile ? 220 : 320}>
               <BarChart data={studentsChartData} margin={{ top: 20, right: 20, left: 10, bottom: 80 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
                 <XAxis
@@ -622,7 +629,7 @@ function AdminDashboard() {
             <LoadingSpinner size="medium" message="Loading fee data..." />
           ) : feePerMonth.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={isMobile ? 220 : 320}>
                 <BarChart data={feePerMonth} margin={{ top: 20, right: 20, left: 10, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
                   <XAxis

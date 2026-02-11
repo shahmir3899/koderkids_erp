@@ -17,8 +17,9 @@ import SidebarDropdown from './SidebarDropdown';
  * @param {object} openDropdowns - Object tracking which dropdowns are open
  * @param {function} toggleDropdown - Callback to toggle dropdown state
  * @param {string} role - User's role
+ * @param {function} onNavigate - Callback when a nav item is clicked (for mobile close)
  */
-const SidebarSection = ({ section, isOpen, openDropdowns, toggleDropdown, role }) => {
+const SidebarSection = ({ section, isOpen, openDropdowns, toggleDropdown, role, onNavigate }) => {
   if (!section || !section.items || section.items.length === 0) {
     return null;
   }
@@ -40,12 +41,21 @@ const SidebarSection = ({ section, isOpen, openDropdowns, toggleDropdown, role }
               isDropdownOpen={!!openDropdowns[item.id]}
               onToggle={toggleDropdown}
               role={role}
+              onNavigate={onNavigate}
             />
           );
         }
 
         // Regular menu item
-        return <SidebarItem key={item.id} item={item} isOpen={isOpen} role={role} />;
+        return (
+          <SidebarItem
+            key={item.id}
+            item={item}
+            isOpen={isOpen}
+            role={role}
+            onNavigate={onNavigate}
+          />
+        );
       })}
     </div>
   );
@@ -53,7 +63,7 @@ const SidebarSection = ({ section, isOpen, openDropdowns, toggleDropdown, role }
 
 const styles = {
   section: {
-    marginBottom: '0.5rem',
+    marginBottom: '0.25rem',
   },
 
   sectionHeader: {
@@ -62,8 +72,8 @@ const styles = {
     letterSpacing: '1px',
     color: 'rgba(255, 255, 255, 0.5)',
     textTransform: 'uppercase',
-    padding: '0.75rem 1rem 0.5rem',
-    marginTop: '0.5rem',
+    padding: '0.5rem 1rem 0.25rem',
+    marginTop: '0.25rem',
     transition: `all ${TRANSITIONS.slow} ease`,
   },
 };

@@ -2,10 +2,12 @@
 // LEAD DETAIL MODAL - View Lead with Activities
 // ============================================
 
-import React, { useState, useEffect } from 'react';
-import { fetchLeadById } from '../../api/services/crmService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-toastify';
+import { fetchLeadById, completeActivity, deleteActivity } from '../../api/services/crmService';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
 import { LeadStatusBadge } from './LeadStatusBadge';
+import { CreateActivityModal } from './CreateActivityModal';
 import {
   COLORS,
   SPACING,
@@ -55,25 +57,58 @@ const formatDateTime = (dateStr) => {
   });
 };
 
-export const LeadDetailModal = ({ lead, onClose, onEdit }) => {
+export const LeadDetailModal = ({ lead, onClose, onEdit, onLeadsRefresh }) => {
   const [detailData, setDetailData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showCreateActivity, setShowCreateActivity] = useState(false);
+
+  const loadDetails = useCallback(async () => {
+    try {
+      const data = await fetchLeadById(lead.id);
+      setDetailData(data);
+    } catch (err) {
+      console.error('Error loading lead details:', err);
+      setDetailData(lead);
+    } finally {
+      setLoading(false);
+    }
+  }, [lead.id]);
 
   useEffect(() => {
-    const loadDetails = async () => {
-      try {
-        const data = await fetchLeadById(lead.id);
-        setDetailData(data);
-      } catch (err) {
-        console.error('Error loading lead details:', err);
-        // Fall back to the lead data we already have
-        setDetailData(lead);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadDetails();
-  }, [lead.id]);
+  }, [loadDetails]);
+
+  const handleCompleteActivity = async (activityId) => {
+    try {
+      await completeActivity(activityId);
+      toast.success('Activity marked as completed');
+      loadDetails();
+      if (onLeadsRefresh) onLeadsRefresh();
+    } catch (err) {
+      console.error('Error completing activity:', err);
+      toast.error('Failed to complete activity');
+    }
+  };
+
+  const handleDeleteActivity = async (activityId) => {
+    if (!window.confirm('Delete this activity?')) return;
+    try {
+      await deleteActivity(activityId);
+      toast.success('Activity deleted');
+      loadDetails();
+      if (onLeadsRefresh) onLeadsRefresh();
+    } catch (err) {
+      console.error('Error deleting activity:', err);
+      toast.error('Failed to delete activity');
+    }
+  };
+
+  const handleActivityCreated = () => {
+    setShowCreateActivity(false);
+    toast.success('Activity created');
+    loadDetails();
+    if (onLeadsRefresh) onLeadsRefresh();
+  };
 
   const displayLead = detailData || lead;
   const activities = detailData?.activities || lead?.recent_activities || [];
@@ -149,14 +184,25 @@ export const LeadDetailModal = ({ lead, onClose, onEdit }) => {
               </div>
             )}
 
-            {/* Scheduled Activities */}
-            <div style={styles.activitiesSection}>
-              <h3 style={styles.sectionTitle}>
-                🕐 Scheduled Activities ({scheduledActivities.length})
+            {/* Add Activity Button */}
+            <div style={styles.addActivityRow}>
+              <h3 style={{ ...styles.sectionTitle, marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+                📋 Activities ({activities.length})
               </h3>
-              {scheduledActivities.length === 0 ? (
-                <p style={styles.emptyText}>No upcoming activities</p>
-              ) : (
+              <button
+                style={styles.addActivityBtn}
+                onClick={() => setShowCreateActivity(true)}
+              >
+                + Add Activity
+              </button>
+            </div>
+
+            {/* Scheduled Activities */}
+            {scheduledActivities.length > 0 && (
+              <div style={styles.activitiesSection}>
+                <h4 style={styles.subSectionTitle}>
+                  🕐 Upcoming ({scheduledActivities.length})
+                </h4>
                 <div style={styles.timelineContainer}>
                   {scheduledActivities
                     .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
@@ -165,20 +211,20 @@ export const LeadDetailModal = ({ lead, onClose, onEdit }) => {
                         key={activity.id}
                         activity={activity}
                         isLast={idx === scheduledActivities.length - 1}
+                        onComplete={handleCompleteActivity}
+                        onDelete={handleDeleteActivity}
                       />
                     ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Past Activities */}
-            <div style={styles.activitiesSection}>
-              <h3 style={styles.sectionTitle}>
-                ✅ Past Activities ({pastActivities.length})
-              </h3>
-              {pastActivities.length === 0 ? (
-                <p style={styles.emptyText}>No past activities</p>
-              ) : (
+            {pastActivities.length > 0 && (
+              <div style={styles.activitiesSection}>
+                <h4 style={styles.subSectionTitle}>
+                  ✅ Completed / Cancelled ({pastActivities.length})
+                </h4>
                 <div style={styles.timelineContainer}>
                   {pastActivities
                     .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
@@ -187,11 +233,16 @@ export const LeadDetailModal = ({ lead, onClose, onEdit }) => {
                         key={activity.id}
                         activity={activity}
                         isLast={idx === pastActivities.length - 1}
+                        onDelete={handleDeleteActivity}
                       />
                     ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {activities.length === 0 && (
+              <p style={styles.emptyText}>No activities yet. Add one above!</p>
+            )}
 
             {/* Footer Actions */}
             <div style={styles.footerActions}>
@@ -213,6 +264,15 @@ export const LeadDetailModal = ({ lead, onClose, onEdit }) => {
           </>
         )}
       </div>
+
+      {/* Create Activity Modal (nested) */}
+      {showCreateActivity && (
+        <CreateActivityModal
+          preselectedLeadId={lead.id}
+          onClose={() => setShowCreateActivity(false)}
+          onSuccess={handleActivityCreated}
+        />
+      )}
     </div>
   );
 };
@@ -230,7 +290,7 @@ const InfoItem = ({ label, value, icon }) => (
 // ============================================
 // Activity Node Sub-component
 // ============================================
-const ActivityNode = ({ activity, isLast }) => {
+const ActivityNode = ({ activity, isLast, onComplete, onDelete }) => {
   const nodeColor = NODE_COLORS[activity.status] || NODE_COLORS.Scheduled;
 
   return (
@@ -254,9 +314,30 @@ const ActivityNode = ({ activity, isLast }) => {
           <span style={styles.activityType}>
             {TYPE_ICONS[activity.activity_type]} {activity.activity_type}
           </span>
-          <span style={styles.activityStatus}>
-            {STATUS_ICONS[activity.status]} {activity.status}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+            <span style={styles.activityStatus}>
+              {STATUS_ICONS[activity.status]} {activity.status}
+            </span>
+            {/* Action buttons */}
+            {onComplete && activity.status === 'Scheduled' && (
+              <button
+                style={styles.nodeActionBtn}
+                onClick={() => onComplete(activity.id)}
+                title="Mark as completed"
+              >
+                ✅
+              </button>
+            )}
+            {onDelete && (
+              <button
+                style={{ ...styles.nodeActionBtn, color: '#EF4444' }}
+                onClick={() => onDelete(activity.id)}
+                title="Delete activity"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
         </div>
         <div style={styles.activitySubject}>
           {activity.subject || 'No subject'}
@@ -444,6 +525,44 @@ const styles = {
   },
 
   // Activities Section
+  addActivityRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    paddingBottom: SPACING.sm,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  addActivityBtn: {
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    background: 'rgba(59, 130, 246, 0.2)',
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    color: '#60A5FA',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+    flexShrink: 0,
+  },
+  subSectionTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.whiteMedium,
+    margin: `0 0 ${SPACING.sm} 0`,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  nodeActionBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.xs,
+    padding: '2px 4px',
+    borderRadius: BORDER_RADIUS.sm,
+    transition: TRANSITIONS.fast,
+    opacity: 0.7,
+  },
   activitiesSection: {
     marginBottom: SPACING.lg,
   },

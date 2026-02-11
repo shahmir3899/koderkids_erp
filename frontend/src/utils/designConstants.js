@@ -303,6 +303,8 @@ export const Z_INDEX = {
   sidebar: 100,
   sidebarTooltip: 110,
   sidebarFlyout: 120,
+  mobileOverlay: 9990,
+  mobileSidebar: 9991,
   modal: 9999,         // High value to always appear above sidebar
   modalOverlay: 9998,
   popover: 10010,
@@ -398,8 +400,9 @@ export const getCompletionRateColor = (rate) => {
 export const SIDEBAR = {
   collapsedWidth: '80px',
   expandedWidth: '280px',
-  headerHeight: '80px',
-  footerHeight: '80px',
+  mobileWidth: '280px',
+  headerHeight: '64px',
+  footerHeight: '64px',
   iconSize: '24px',
   transitionDuration: '0.3s',
   transitionEasing: 'cubic-bezier(0.4, 0, 0.2, 1)',

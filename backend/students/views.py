@@ -2733,3 +2733,93 @@ def my_progress(request):
         import traceback
         logger.error(traceback.format_exc())
         return Response({"error": f"Server error: {str(e)}"}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_fee_defaulters(request):
+    """Get students with unpaid fees for N consecutive months."""
+    from django.db.models import Count, Sum
+    from dateutil.relativedelta import relativedelta
+    from datetime import date
+
+    months_threshold = int(request.query_params.get('months', 3))
+    school_id = request.query_params.get('school_id')
+
+    # Get last N months
+    now = date.today()
+    month_strings = []
+    for i in range(months_threshold):
+        d = now - relativedelta(months=i)
+        month_strings.append(d.strftime('%b-%Y'))
+
+    query = Fee.objects.filter(
+        month__in=month_strings,
+        status__in=['Pending', 'Overdue'],
+        balance_due__gt=0
+    )
+    if school_id:
+        query = query.filter(school_id=school_id)
+
+    defaulters = query.values(
+        'student_id', 'student_name', 'student_class', 'school__name'
+    ).annotate(
+        unpaid_months=Count('id'),
+        total_due=Sum('balance_due')
+    ).filter(
+        unpaid_months__gte=months_threshold
+    ).order_by('-total_due')
+
+    return Response({
+        "defaulters": list(defaulters),
+        "count": defaulters.count(),
+        "months_checked": months_threshold,
+        "months": month_strings
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def compare_fee_months(request):
+    """Compare fee collection between two months."""
+    from django.db.models import Sum, Count, Q
+
+    month1 = request.query_params.get('month1')
+    month2 = request.query_params.get('month2')
+    school_id = request.query_params.get('school_id')
+
+    if not month1 or not month2:
+        return Response({"error": "Both month1 and month2 are required"}, status=400)
+
+    def get_stats(month):
+        query = Fee.objects.filter(month=month)
+        if school_id:
+            query = query.filter(school_id=school_id)
+        stats = query.aggregate(
+            total_fee=Sum('total_fee'),
+            total_paid=Sum('paid_amount'),
+            total_balance=Sum('balance_due'),
+            total_records=Count('id'),
+            paid_count=Count('id', filter=Q(status='Paid')),
+            pending_count=Count('id', filter=Q(status__in=['Pending', 'Overdue']))
+        )
+        stats['month'] = month
+        total_fee = float(stats['total_fee'] or 0)
+        total_paid = float(stats['total_paid'] or 0)
+        stats['recovery_rate'] = round(total_paid / total_fee * 100, 1) if total_fee > 0 else 0
+        return stats
+
+    stats1 = get_stats(month1)
+    stats2 = get_stats(month2)
+
+    diff = {
+        'collection_change': float(stats2.get('total_paid') or 0) - float(stats1.get('total_paid') or 0),
+        'recovery_change': stats2['recovery_rate'] - stats1['recovery_rate'],
+        'student_change': (stats2.get('total_records') or 0) - (stats1.get('total_records') or 0),
+    }
+
+    return Response({
+        "month1": stats1,
+        "month2": stats2,
+        "comparison": diff
+    })

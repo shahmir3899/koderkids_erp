@@ -16,8 +16,9 @@ import { COLORS, BORDER_RADIUS, TRANSITIONS, FONT_SIZES, Z_INDEX } from '../../u
  * @param {boolean} isOpen - Whether sidebar is expanded
  * @param {string} role - User's role
  * @param {boolean} isNested - Whether this is a nested item in dropdown
+ * @param {function} onNavigate - Callback when item is clicked (for mobile close)
  */
-const SidebarItem = ({ item, isOpen, role, isNested = false }) => {
+const SidebarItem = ({ item, isOpen, role, isNested = false, onNavigate }) => {
   const location = useLocation();
   const [isHovered, setIsHovered] = useState(false);
 
@@ -36,7 +37,11 @@ const SidebarItem = ({ item, isOpen, role, isNested = false }) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <Link to={path} style={styles.navLink(isOpen, isActive, isHovered, isNested)}>
+      <Link
+        to={path}
+        style={styles.navLink(isOpen, isActive, isHovered, isNested)}
+        onClick={onNavigate}
+      >
         {/* Icon */}
         <span style={styles.icon(isOpen)}>
           <FontAwesomeIcon icon={item.icon} />
@@ -58,23 +63,23 @@ const styles = {
     borderRadius: BORDER_RADIUS.md,
     margin: isOpen
       ? isNested
-        ? '0.25rem 0 0.25rem 0.5rem'
-        : '0.25rem 0.75rem'
-      : '0.5rem 0.5rem',
+        ? '0.125rem 0 0.125rem 0.5rem'
+        : '0.125rem 0.75rem'
+      : '0.25rem 0.5rem',
     cursor: 'pointer',
   }),
 
   navLink: (isOpen, isActive, isHovered, isNested) => ({
     display: 'flex',
     alignItems: 'center',
-    padding: isOpen ? (isNested ? '0.5rem 0.75rem' : '0.75rem') : '0.5rem',
+    padding: isOpen ? (isNested ? '0.375rem 0.75rem' : '0.5rem 0.75rem') : '0.375rem',
     color: 'rgba(255, 255, 255, 0.9)',
     textDecoration: 'none',
     borderRadius: BORDER_RADIUS.md,
     transition: `all ${TRANSITIONS.normal} ease`,
     position: 'relative',
     overflow: 'hidden',
-    minHeight: isNested ? '36px' : '40px',
+    minHeight: isNested ? '32px' : '36px',
     justifyContent: isOpen ? 'flex-start' : 'center',
     width: '100%',
     background: isActive
@@ -90,17 +95,17 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '18px',
-    width: isOpen ? '24px' : '100%',
-    height: '24px',
-    minWidth: isOpen ? '24px' : 'auto',
+    fontSize: '16px',
+    width: isOpen ? '22px' : '100%',
+    height: '22px',
+    minWidth: isOpen ? '22px' : 'auto',
     flexShrink: 0,
     transition: `all ${TRANSITIONS.normal} ease`,
   }),
 
   text: (isNested) => ({
-    marginLeft: '1rem',
-    fontSize: isNested ? FONT_SIZES.sm : FONT_SIZES.base,
+    marginLeft: '0.75rem',
+    fontSize: isNested ? FONT_SIZES.sm : '14px',
     fontWeight: 500,
     whiteSpace: 'nowrap',
   }),

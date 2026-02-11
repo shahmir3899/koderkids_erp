@@ -10,6 +10,7 @@ from .views import (
     AIExecuteView,
     AIConfirmView,
     AIOverwriteView,
+    AIUndoView,
     AIHistoryView,
     AIStatsView,
     AIFileUploadView,
@@ -27,6 +28,7 @@ urlpatterns = [
     path('execute/', AIExecuteView.as_view(), name='ai-execute'),
     path('confirm/', AIConfirmView.as_view(), name='ai-confirm'),
     path('overwrite/', AIOverwriteView.as_view(), name='ai-overwrite'),
+    path('undo/', AIUndoView.as_view(), name='ai-undo'),
     path('upload/', AIFileUploadView.as_view(), name='ai-upload'),
 
     # History and stats

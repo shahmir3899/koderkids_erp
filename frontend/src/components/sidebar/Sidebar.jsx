@@ -19,23 +19,28 @@ import { getBDMProfile } from '../../services/bdmService';
  * Main Sidebar Component
  * Glassmorphic collapsible sidebar with role-based navigation
  *
- * @param {boolean} sidebarOpen - Optional controlled open state
- * @param {function} setSidebarOpen - Optional controlled setter
+ * Desktop (>=1024px): Fixed sidebar with expand/collapse (280px / 80px)
+ * Mobile/Tablet (<1024px): Hidden by default, overlay drawer via hamburger button
+ *
+ * @param {boolean} sidebarOpen - Optional controlled open state (desktop)
+ * @param {function} setSidebarOpen - Optional controlled setter (desktop)
+ * @param {boolean} mobileSidebarVisible - Controls overlay visibility on mobile/tablet
+ * @param {function} setMobileSidebarVisible - Callback to close overlay on mobile/tablet
  */
-const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
-  // Detect mobile to collapse sidebar by default on small screens
-  const { isMobile } = useResponsive();
+const Sidebar = ({ sidebarOpen, setSidebarOpen, mobileSidebarVisible, setMobileSidebarVisible }) => {
+  // Detect mobile/tablet to use overlay mode
+  const { isMobile, isTablet } = useResponsive();
+  const isMobileOrTablet = isMobile || isTablet;
 
-  // Use internal state if not controlled
-  // Sidebar is collapsed by default on mobile, open on desktop
+  // Use internal state if not controlled (desktop only)
   const {
     isOpen: internalIsOpen,
     openDropdowns,
     toggleSidebar: internalToggle,
     toggleDropdown,
-  } = useSidebar(!isMobile);
+  } = useSidebar(!isMobileOrTablet);
 
-  // Use props if provided, otherwise use internal state
+  // Desktop: use props if provided, otherwise use internal state
   const isOpen = sidebarOpen !== undefined ? sidebarOpen : internalIsOpen;
   const toggleSidebar = setSidebarOpen
     ? () => setSidebarOpen(!sidebarOpen)
@@ -52,7 +57,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   useEffect(() => {
     const fetchProfilePhoto = async () => {
       try {
-        // Get role-specific profile service
         let profileService;
         switch (role) {
           case 'Admin':
@@ -68,21 +72,15 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             profileService = getBDMProfile;
             break;
           default:
-            console.warn('⚠️ Unknown role for profile photo:', role);
             return;
         }
 
         const profileData = await profileService();
-        console.log('🔍 Profile data received in sidebar:', profileData);
-
         if (profileData?.profile_photo_url) {
           setProfilePhotoUrl(profileData.profile_photo_url);
-          console.log('✅ Profile photo loaded for sidebar:', profileData.profile_photo_url);
-        } else {
-          console.log('⚠️ No profile_photo_url found. Available fields:', Object.keys(profileData || {}));
         }
       } catch (error) {
-        console.error('❌ Failed to fetch profile photo for sidebar:', error);
+        console.error('Failed to fetch profile photo for sidebar:', error);
       }
     };
 
@@ -91,6 +89,64 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     }
   }, [role]);
 
+  // Close mobile overlay when a nav item is clicked
+  const handleMobileNavigate = () => {
+    if (isMobileOrTablet && setMobileSidebarVisible) {
+      setMobileSidebarVisible(false);
+    }
+  };
+
+  // Close mobile overlay
+  const closeMobileSidebar = () => {
+    if (setMobileSidebarVisible) {
+      setMobileSidebarVisible(false);
+    }
+  };
+
+  // =============================================
+  // MOBILE / TABLET: Overlay Drawer
+  // =============================================
+  if (isMobileOrTablet) {
+    return (
+      <>
+        {/* Overlay backdrop */}
+        {mobileSidebarVisible && (
+          <div
+            style={styles.mobileOverlay}
+            onClick={closeMobileSidebar}
+          />
+        )}
+
+        {/* Slide-in drawer */}
+        <aside style={styles.mobileDrawer(mobileSidebarVisible)}>
+          <SidebarHeader
+            isOpen={true}
+            onToggle={closeMobileSidebar}
+            isMobileOverlay={true}
+          />
+
+          <SidebarNav
+            isOpen={true}
+            openDropdowns={openDropdowns}
+            toggleDropdown={toggleDropdown}
+            role={role}
+            onNavigate={handleMobileNavigate}
+          />
+
+          <SidebarFooter
+            isOpen={true}
+            username={username}
+            role={role}
+            profilePhotoUrl={profilePhotoUrl}
+          />
+        </aside>
+      </>
+    );
+  }
+
+  // =============================================
+  // DESKTOP: Fixed sidebar with expand/collapse
+  // =============================================
   return (
     <>
       {/* Gradient Background */}
@@ -98,10 +154,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
       {/* Sidebar Container */}
       <aside style={styles.sidebar(isOpen)}>
-        {/* Header: Logo + Toggle */}
         <SidebarHeader isOpen={isOpen} onToggle={toggleSidebar} />
 
-        {/* Navigation: Menu Items */}
         <SidebarNav
           isOpen={isOpen}
           openDropdowns={openDropdowns}
@@ -109,7 +163,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           role={role}
         />
 
-        {/* Footer: User Profile */}
         <SidebarFooter
           isOpen={isOpen}
           username={username}
@@ -134,7 +187,7 @@ const styles = {
     pointerEvents: 'none',
   },
 
-  // Main sidebar container
+  // Desktop sidebar container
   sidebar: (isOpen) => ({
     position: 'fixed',
     left: 0,
@@ -148,6 +201,40 @@ const styles = {
     overflow: 'hidden',
 
     // Enhanced glassmorphic effect
+    background: 'rgba(255, 255, 255, 0.08)',
+    backdropFilter: 'blur(30px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+    border: 'none',
+    borderRight: '1px solid rgba(255, 255, 255, 0.18)',
+    boxShadow: '4px 0 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
+  }),
+
+  // Mobile overlay backdrop
+  mobileOverlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backdropFilter: 'blur(4px)',
+    WebkitBackdropFilter: 'blur(4px)',
+    zIndex: Z_INDEX.mobileOverlay,
+    animation: 'sidebarFadeIn 0.3s ease-out',
+  },
+
+  // Mobile slide-in drawer
+  mobileDrawer: (visible) => ({
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    height: '100vh',
+    width: SIDEBAR.mobileWidth,
+    transform: visible ? 'translateX(0)' : 'translateX(-100%)',
+    transition: `transform ${SIDEBAR.transitionDuration} ${SIDEBAR.transitionEasing}`,
+    zIndex: Z_INDEX.mobileSidebar,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+
+    // Same glassmorphic styling as desktop
     background: 'rgba(255, 255, 255, 0.08)',
     backdropFilter: 'blur(30px) saturate(180%)',
     WebkitBackdropFilter: 'blur(30px) saturate(180%)',

@@ -141,6 +141,42 @@ FEE_ACTIONS: Dict[str, ActionDefinition] = {
         requires_confirmation=True,  # Preview before bulk update
         description="Update multiple fee records at once"
     ),
+    "GET_DEFAULTERS": ActionDefinition(
+        name="GET_DEFAULTERS",
+        action_type=ActionType.READ,
+        required_params=[],
+        optional_params=["months", "school_id", "school_name"],
+        handler="get_defaulters",
+        requires_confirmation=False,
+        description="Get students with unpaid fees for N consecutive months"
+    ),
+    "COMPARE_MONTHS": ActionDefinition(
+        name="COMPARE_MONTHS",
+        action_type=ActionType.READ,
+        required_params=["month1", "month2"],
+        optional_params=["school_id", "school_name"],
+        handler="compare_months",
+        requires_confirmation=False,
+        description="Compare fee collection between two months"
+    ),
+    "BATCH_UPDATE_FEES": ActionDefinition(
+        name="BATCH_UPDATE_FEES",
+        action_type=ActionType.WRITE,
+        required_params=["payments"],
+        optional_params=["month", "school_id", "school_name"],
+        handler="batch_update_fees",
+        requires_confirmation=True,
+        description="Record multiple student payments in one go"
+    ),
+    "EXPORT_PDF": ActionDefinition(
+        name="EXPORT_PDF",
+        action_type=ActionType.READ,
+        required_params=[],
+        optional_params=[],
+        handler="export_pdf",
+        requires_confirmation=False,
+        description="Trigger PDF export of current fee data"
+    ),
 }
 
 # ============================================

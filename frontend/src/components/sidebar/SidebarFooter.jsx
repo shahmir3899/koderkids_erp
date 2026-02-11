@@ -40,7 +40,6 @@ const SidebarFooter = ({ isOpen, username = 'Unknown', role = 'User', profilePho
               alt={`${username} profile photo`}
               style={styles.avatarImage}
               onError={(e) => {
-                // Hide broken image and show initials fallback
                 e.target.style.display = 'none';
               }}
             />
@@ -78,7 +77,7 @@ const styles = {
     bottom: 0,
     left: 0,
     right: 0,
-    padding: '1rem',
+    padding: '0.75rem',
     borderTop: '1px solid rgba(255, 255, 255, 0.1)',
     background: 'rgba(255, 255, 255, 0.05)',
     backdropFilter: 'blur(10px)',
@@ -87,17 +86,17 @@ const styles = {
   userProfile: (isOpen) => ({
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
-    padding: isOpen ? '0.5rem' : '0.5rem',
-    borderRadius: '12px',
+    gap: '0.5rem',
+    padding: '0.375rem',
+    borderRadius: '10px',
     transition: `all ${TRANSITIONS.normal} ease`,
     justifyContent: isOpen ? 'flex-start' : 'center',
   }),
 
   avatar: {
-    width: '36px',
-    height: '36px',
-    minWidth: '36px',
+    width: '30px',
+    height: '30px',
+    minWidth: '30px',
     borderRadius: '50%',
     background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryDark})`,
     display: 'flex',
@@ -105,13 +104,12 @@ const styles = {
     justifyContent: 'center',
     color: 'white',
     fontWeight: 600,
-    fontSize: '14px',
+    fontSize: '12px',
     flexShrink: 0,
-    position: 'relative',           // ← added for layering
-    overflow: 'hidden',             // ← added to clip image corners
+    position: 'relative',
+    overflow: 'hidden',
   },
 
-  // New – styles for the actual profile photo
   avatarImage: {
     width: '100%',
     height: '100%',
@@ -119,7 +117,6 @@ const styles = {
     borderRadius: '50%',
   },
 
-  // New – fallback container (same gradient background as before)
   initialsFallback: {
     width: '100%',
     height: '100%',
@@ -128,7 +125,7 @@ const styles = {
     justifyContent: 'center',
     color: 'white',
     fontWeight: 600,
-    fontSize: '14px',
+    fontSize: '12px',
   },
 
   userInfo: {
@@ -143,7 +140,7 @@ const styles = {
   },
 
   userName: {
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: 600,
     color: 'white',
     overflow: 'hidden',
@@ -153,7 +150,7 @@ const styles = {
   },
 
   userRole: {
-    fontSize: '11px',
+    fontSize: '10px',
     color: 'rgba(255, 255, 255, 0.7)',
     fontStyle: 'italic',
     flexShrink: 0,
@@ -161,9 +158,9 @@ const styles = {
 
   logoutBtn: {
     flexShrink: 0,
-    padding: '6px',
-    minWidth: '32px',
-    height: '32px',
+    padding: '5px',
+    minWidth: '28px',
+    height: '28px',
   },
 };
 

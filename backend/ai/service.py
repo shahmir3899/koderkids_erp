@@ -325,11 +325,19 @@ Current user message: {message}"""
                 'REMOVE_FEES': 'DELETE_FEES',
                 # Bulk update variations
                 'BULK_PAYMENT': 'BULK_UPDATE_FEES',
-                'BATCH_UPDATE_FEES': 'BULK_UPDATE_FEES',
                 'UPDATE_MULTIPLE_FEES': 'BULK_UPDATE_FEES',
                 'MASS_UPDATE_FEES': 'BULK_UPDATE_FEES',
                 'UPDATE_ALL_FEES': 'BULK_UPDATE_FEES',
                 'PAY_ALL_FEES': 'BULK_UPDATE_FEES',
+                # Defaulter variations
+                'DEFAULTERS': 'GET_DEFAULTERS',
+                'FEE_DEFAULTERS': 'GET_DEFAULTERS',
+                'GET_FEE_DEFAULTERS': 'GET_DEFAULTERS',
+                'UNPAID_STUDENTS': 'GET_DEFAULTERS',
+                # Month comparison variations
+                'COMPARE_FEE_MONTHS': 'COMPARE_MONTHS',
+                'MONTH_COMPARISON': 'COMPARE_MONTHS',
+                'FEE_COMPARISON': 'COMPARE_MONTHS',
             }
             if action_name in action_name_mapping:
                 action_name = action_name_mapping[action_name]
@@ -383,6 +391,23 @@ Current user message: {message}"""
                     "needs_confirmation": False,
                     "action": "CHAT",
                     "message": parsed.get('message', 'Hello! How can I help you with fee management today?'),
+                    "data": None,
+                    "audit_log_id": audit_log.id
+                }
+
+            if action_name == 'EXPORT_PDF':
+                # Client-side action - no server execution needed
+                audit_log.log_action_execution(
+                    action_name='EXPORT_PDF',
+                    params={},
+                    result={},
+                    status='success'
+                )
+                return {
+                    "success": True,
+                    "needs_confirmation": False,
+                    "action": "EXPORT_PDF",
+                    "message": "Exporting PDF...",
                     "data": None,
                     "audit_log_id": audit_log.id
                 }
@@ -863,6 +888,20 @@ Current user message: {message}"""
             return {
                 "message": f"Update {fees_count} fee record(s){scope} - {amount_text}?",
                 "items": []
+            }
+
+        if action_name == 'BATCH_UPDATE_FEES':
+            payments = params.get('payments', [])
+            payment_lines = []
+            for p in payments[:5]:
+                name = p.get('student_name', '?')
+                amount = p.get('paid_amount', '?')
+                payment_lines.append(f"  • {name}: PKR {amount}")
+            preview = "\n".join(payment_lines)
+            extra = f"\n  ... and {len(payments) - 5} more" if len(payments) > 5 else ""
+            return {
+                "message": f"Record {len(payments)} payment(s)?\n{preview}{extra}",
+                "items": payments
             }
 
         if action_name == 'CREATE_MISSING_FEES':

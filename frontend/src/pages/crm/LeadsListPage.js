@@ -592,6 +592,7 @@ function LeadsListPage() {
             setLeadToView(null);
             handleEditClick(lead);
           }}
+          onLeadsRefresh={loadLeads}
         />
       )}
 

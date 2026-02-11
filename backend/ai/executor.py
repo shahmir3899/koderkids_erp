@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 from decimal import Decimal
 
 from django.urls import resolve, Resolver404
+from django.core.cache import cache
 from rest_framework.test import APIRequestFactory
 from rest_framework.request import Request
 
@@ -53,6 +54,72 @@ class ActionExecutor:
         if accessible_ids is not None:  # None means admin (full access)
             return queryset.filter(school_id__in=accessible_ids)
         return queryset
+
+    def _save_undo_state(self, action: str, undo_data: dict):
+        """Save undo state to cache so user can reverse last write action."""
+        cache_key = f"ai_undo_{self.user.id}"
+        cache.set(cache_key, {
+            'action': action,
+            'undo_data': undo_data,
+        }, timeout=600)  # 10 minutes
+
+    def execute_undo(self) -> Dict:
+        """Undo the last write action."""
+        from students.models import Fee
+
+        cache_key = f"ai_undo_{self.user.id}"
+        undo_state = cache.get(cache_key)
+
+        if not undo_state:
+            return {"success": False, "message": "Nothing to undo. Undo is only available within 10 minutes of the last action."}
+
+        action = undo_state['action']
+        data = undo_state['undo_data']
+
+        try:
+            if action == 'CREATE_MONTHLY_FEES':
+                # Undo = delete the created fee records
+                fee_ids = data.get('fee_ids', [])
+                if fee_ids:
+                    deleted_count = Fee.objects.filter(id__in=fee_ids).delete()[0]
+                    cache.delete(cache_key)
+                    return {
+                        "success": True,
+                        "message": f"Undone: Deleted {deleted_count} fee records that were just created.",
+                        "data": {"deleted_count": deleted_count}
+                    }
+                return {"success": False, "message": "No fee records to undo."}
+
+            elif action in ['UPDATE_FEE', 'BULK_UPDATE_FEES', 'BATCH_UPDATE_FEES']:
+                # Undo = restore old values
+                old_values = data.get('old_values', [])
+                restored = 0
+                for item in old_values:
+                    try:
+                        fee = Fee.objects.get(id=item['fee_id'])
+                        fee.paid_amount = item['paid_amount']
+                        fee.balance_due = item['balance_due']
+                        fee.status = item['status']
+                        fee.date_received = item.get('date_received')
+                        if 'total_fee' in item:
+                            fee.total_fee = item['total_fee']
+                        fee.save()
+                        restored += 1
+                    except Fee.DoesNotExist:
+                        continue
+
+                cache.delete(cache_key)
+                return {
+                    "success": True,
+                    "message": f"Undone: Restored {restored} fee record(s) to their previous values.",
+                    "data": {"restored_count": restored}
+                }
+
+            else:
+                return {"success": False, "message": f"Undo not supported for action: {action}"}
+
+        except Exception as e:
+            return {"success": False, "message": f"Undo failed: {str(e)}"}
 
     def _make_request(self, method: str, url: str, data: Dict = None) -> Any:
         """Create an authenticated request."""
@@ -103,6 +170,9 @@ class ActionExecutor:
             'CREATE_FEES_MULTIPLE_SCHOOLS': self._execute_create_fees_multiple_schools,
             'GET_RECOVERY_REPORT': self._execute_get_recovery_report,
             'BULK_UPDATE_FEES': self._execute_bulk_update_fees,
+            'GET_DEFAULTERS': self._execute_get_defaulters,
+            'COMPARE_MONTHS': self._execute_compare_months,
+            'BATCH_UPDATE_FEES': self._execute_batch_update_fees,
 
             # Inventory actions
             'GET_ITEMS': self._execute_get_inventory_items,
@@ -205,6 +275,22 @@ class ActionExecutor:
                 records = data.get('records_created', 0)
                 message = f"Created {records} fee records for {school_name} - {month}"
                 data['school_name'] = school_name
+
+                # Save undo state - get IDs of just-created fees
+                if records > 0:
+                    from students.models import Fee
+                    created_ids = list(
+                        Fee.objects.filter(school_id=school_id, month=month)
+                        .order_by('-id')[:records]
+                        .values_list('id', flat=True)
+                    )
+                    self._save_undo_state('CREATE_MONTHLY_FEES', {
+                        'fee_ids': created_ids,
+                        'school_name': school_name,
+                        'month': month
+                    })
+                    data['can_undo'] = True
+
                 return {
                     "success": True,
                     "message": message,
@@ -414,6 +500,20 @@ class ActionExecutor:
                 except Exception:
                     pass  # Keep original value if parsing fails
 
+        # Auto-fill date_received when recording payment and no date specified
+        if paid_amount is not None and paid_amount != '' and not date_received:
+            date_received = date.today()
+
+        # Save old values for undo before making changes
+        old_values = {
+            'fee_id': fee.id,
+            'paid_amount': float(fee.paid_amount),
+            'balance_due': float(fee.balance_due),
+            'status': fee.status,
+            'date_received': str(fee.date_received) if fee.date_received else None,
+            'total_fee': float(fee.total_fee),
+        }
+
         # Update fee fields
         updates_made = []
 
@@ -448,6 +548,10 @@ class ActionExecutor:
 
         fee.save()
 
+        # Save undo state
+        if updates_made:
+            self._save_undo_state('UPDATE_FEE', {'old_values': [old_values]})
+
         student_name = fee.student_name  # Fee model has student_name directly
         update_desc = ", ".join(updates_made) if updates_made else "no changes"
 
@@ -462,7 +566,8 @@ class ActionExecutor:
                 "paid_amount": float(fee.paid_amount),
                 "balance_due": float(fee.balance_due),
                 "status": fee.status,
-                "date_received": str(fee.date_received) if fee.date_received else None
+                "date_received": str(fee.date_received) if fee.date_received else None,
+                "can_undo": bool(updates_made)
             }
         }
 
@@ -1202,6 +1307,7 @@ class ActionExecutor:
     def _execute_bulk_update_fees(self, params: Dict) -> Dict:
         """Update multiple fees at once."""
         from students.models import Fee
+        from datetime import date
 
         fee_ids = params.get('fee_ids', [])
         paid_amount = params.get('paid_amount')
@@ -1217,6 +1323,7 @@ class ActionExecutor:
         updated_count = 0
         total_amount_updated = 0
         errors = []
+        old_values_list = []
 
         # Get accessible school IDs for permission check
         accessible_ids = self._get_accessible_school_ids()
@@ -1229,6 +1336,15 @@ class ActionExecutor:
                 if accessible_ids is not None and fee.school_id not in accessible_ids:
                     errors.append(f"Fee {fee_id}: No access to this school")
                     continue
+
+                # Save old values for undo
+                old_values_list.append({
+                    'fee_id': fee.id,
+                    'paid_amount': float(fee.paid_amount),
+                    'balance_due': float(fee.balance_due),
+                    'status': fee.status,
+                    'date_received': str(fee.date_received) if fee.date_received else None,
+                })
 
                 if use_special:
                     if paid_amount_str in ['full', 'total']:
@@ -1251,6 +1367,10 @@ class ActionExecutor:
                 else:
                     fee.status = 'Pending'
 
+                # Auto-fill date_received when recording payment
+                if amount_to_pay > 0 and not fee.date_received:
+                    fee.date_received = date.today()
+
                 fee.save()
                 updated_count += 1
                 total_amount_updated += amount_to_pay
@@ -1267,6 +1387,10 @@ class ActionExecutor:
                 "data": {"errors": errors}
             }
 
+        # Save undo state
+        if old_values_list:
+            self._save_undo_state('BULK_UPDATE_FEES', {'old_values': old_values_list})
+
         message = f"Updated {updated_count} fee record(s). Total amount: PKR {total_amount_updated:,.0f}"
         if errors:
             message += f" ({len(errors)} error(s))"
@@ -1277,8 +1401,170 @@ class ActionExecutor:
             "data": {
                 "updated_count": updated_count,
                 "total_amount": total_amount_updated,
-                "errors": errors if errors else None
+                "errors": errors if errors else None,
+                "can_undo": True
             }
+        }
+
+    def _execute_get_defaulters(self, params: Dict) -> Dict:
+        """Get students with unpaid fees for N consecutive months."""
+        from students.views import get_fee_defaulters
+
+        months = params.get('months', 3)
+        school_id = params.get('school_id')
+
+        query_params = {'months': months}
+        if school_id:
+            query_params['school_id'] = school_id
+
+        request = self._make_request('get', '/api/fees/defaulters/', query_params)
+        response = get_fee_defaulters(request)
+
+        if hasattr(response, 'data') and response.status_code == 200:
+            data = response.data
+            count = data.get('count', 0)
+            if count == 0:
+                return {
+                    "success": True,
+                    "message": f"No defaulters found! All students have paid within the last {months} month(s).",
+                    "data": data
+                }
+
+            # Format defaulter list
+            defaulters = data.get('defaulters', [])
+            lines = []
+            for d in defaulters[:15]:
+                lines.append(f"• {d['student_name']} ({d.get('student_class', '?')}) - {d.get('school__name', '?')} - {d['unpaid_months']} months - PKR {float(d['total_due']):,.0f} due")
+
+            message = f"Found {count} defaulter(s) with {months}+ months unpaid:\n" + "\n".join(lines)
+            if count > 15:
+                message += f"\n\n(Showing 15 of {count})"
+
+            return {
+                "success": True,
+                "message": message,
+                "data": data
+            }
+
+        return {"success": False, "message": "Failed to fetch defaulters", "data": None}
+
+    def _execute_compare_months(self, params: Dict) -> Dict:
+        """Compare fee collection between two months."""
+        from students.views import compare_fee_months
+
+        month1 = params.get('month1')
+        month2 = params.get('month2')
+        school_id = params.get('school_id')
+
+        if not month1 or not month2:
+            return {"success": False, "message": "Both month1 and month2 are required", "data": None}
+
+        query_params = {'month1': month1, 'month2': month2}
+        if school_id:
+            query_params['school_id'] = school_id
+
+        request = self._make_request('get', '/api/fees/compare/', query_params)
+        response = compare_fee_months(request)
+
+        if hasattr(response, 'data') and response.status_code == 200:
+            data = response.data
+            s1 = data.get('month1', {})
+            s2 = data.get('month2', {})
+            diff = data.get('comparison', {})
+
+            col_change = diff.get('collection_change', 0)
+            rec_change = diff.get('recovery_change', 0)
+            arrow_col = '↑' if col_change > 0 else '↓' if col_change < 0 else '→'
+            arrow_rec = '↑' if rec_change > 0 else '↓' if rec_change < 0 else '→'
+
+            message = (
+                f"Month Comparison: {month1} vs {month2}\n\n"
+                f"{month1}:\n"
+                f"  Total: PKR {float(s1.get('total_fee') or 0):,.0f} | Collected: PKR {float(s1.get('total_paid') or 0):,.0f} | Recovery: {s1.get('recovery_rate', 0)}%\n\n"
+                f"{month2}:\n"
+                f"  Total: PKR {float(s2.get('total_fee') or 0):,.0f} | Collected: PKR {float(s2.get('total_paid') or 0):,.0f} | Recovery: {s2.get('recovery_rate', 0)}%\n\n"
+                f"Change: {arrow_col} PKR {abs(col_change):,.0f} collection | {arrow_rec} {abs(rec_change):.1f}% recovery"
+            )
+
+            return {
+                "success": True,
+                "message": message,
+                "data": data
+            }
+
+        error_msg = getattr(response, 'data', {}).get('error', 'Failed to compare months')
+        return {"success": False, "message": error_msg, "data": None}
+
+    def _execute_batch_update_fees(self, params: Dict) -> Dict:
+        """Process multiple payments at once."""
+        from students.models import Fee
+        from datetime import date
+
+        payments = params.get('payments', [])
+        month = params.get('month')
+        school_id = params.get('school_id')
+
+        if not payments:
+            return {"success": False, "message": "No payments provided", "data": None}
+
+        results = []
+        errors = []
+
+        for payment in payments:
+            student_name = payment.get('student_name', '')
+            paid_amount = payment.get('paid_amount')
+
+            # Find the fee record
+            query = Fee.objects.filter(student_name__icontains=student_name)
+            if month:
+                query = query.filter(month=month)
+            if school_id:
+                query = query.filter(school_id=school_id)
+            query = query.filter(status__in=['Pending', 'Overdue', 'Partial'])
+
+            fee = query.first()
+            if not fee:
+                errors.append({"student": student_name, "error": "Fee record not found"})
+                continue
+
+            # Handle special amounts
+            if str(paid_amount).lower() in ['full', 'total']:
+                paid_amount = float(fee.total_fee)
+            elif str(paid_amount).lower() in ['balance', 'remaining', 'due']:
+                paid_amount = float(fee.balance_due)
+            else:
+                paid_amount = float(paid_amount)
+
+            fee.paid_amount = paid_amount
+            fee.balance_due = max(0, float(fee.total_fee) - paid_amount)
+            fee.status = 'Paid' if fee.balance_due <= 0 else 'Partial'
+            if not fee.date_received:
+                fee.date_received = date.today()
+            fee.save()
+
+            results.append({
+                "student": fee.student_name,
+                "amount": paid_amount,
+                "status": fee.status
+            })
+
+        if not results:
+            return {
+                "success": False,
+                "message": "No payments processed. " + "; ".join([f"{e['student']}: {e['error']}" for e in errors]),
+                "data": {"errors": errors}
+            }
+
+        total_collected = sum(r['amount'] for r in results)
+        lines = [f"• {r['student']}: PKR {r['amount']:,.0f} ({r['status']})" for r in results]
+        message = f"Processed {len(results)} payment(s) totaling PKR {total_collected:,.0f}:\n" + "\n".join(lines)
+        if errors:
+            message += f"\n\n{len(errors)} failed: " + ", ".join([e['student'] for e in errors])
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {"results": results, "errors": errors, "total_collected": total_collected}
         }
 
     # ============================================

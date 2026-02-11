@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
 import "./styles/responsive.css";
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from "react-router-dom";
@@ -53,7 +53,7 @@ import RequestReportPage from './pages/RequestReportPage';
 import BDMDashboard from './pages/crm/BDMDashboard';
 import AdminCRMDashboard from './pages/crm/AdminDashboard';
 import LeadsListPage from './pages/crm/LeadsListPage';
-import ActivitiesPage from './pages/crm/ActivitiesPage';
+
 
 // Task Pages
 import TaskManagementPage from './pages/TaskManagementPage';
@@ -73,7 +73,11 @@ import BookManagementPage from './pages/BookManagementPage';
 import AiGalaPage from './pages/AiGalaPage';
 import AiGalaManagePage from './pages/AiGalaManagePage';
 
-import { logout } from "./api"; 
+import { logout } from "./api";
+import { useResponsive } from './hooks/useResponsive';
+import { SIDEBAR, Z_INDEX } from './utils/designConstants';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBars } from '@fortawesome/free-solid-svg-icons';
 
 export const REACT_APP_BACKEND_URL = process.env.REACT_APP_API_URL;
 
@@ -120,22 +124,82 @@ const AutoLogout = () => {
 
 function AppContent() {
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const { isMobile, isTablet } = useResponsive();
+  const isMobileOrTablet = isMobile || isTablet;
+
+  // Desktop sidebar expand/collapse state
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Mobile/Tablet overlay drawer visibility
+  const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false);
+
   const isPublicRoute = location.pathname === '/login' || location.pathname === '/register';
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileSidebarVisible(false);
+  }, [location.pathname]);
+
+  // On mobile/tablet: content gets full width (sidebar is overlay)
+  // On desktop: content margin follows sidebar width
+  const contentMarginLeft = isPublicRoute
+    ? 0
+    : isMobileOrTablet
+    ? 0
+    : (sidebarOpen ? SIDEBAR.expandedWidth : SIDEBAR.collapsedWidth);
 
   return (
     <div style={{
       minHeight: '100vh',
-      overflow: 'hidden', // Prevent horizontal scroll
+      overflow: 'hidden',
       position: 'relative',
       background: isPublicRoute ? 'white' : 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #2362ab 100%)',
     }}>
-      {!isPublicRoute && <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+      {!isPublicRoute && (
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          mobileSidebarVisible={mobileSidebarVisible}
+          setMobileSidebarVisible={setMobileSidebarVisible}
+        />
+      )}
+
+      {/* Floating hamburger button for mobile/tablet */}
+      {!isPublicRoute && isMobileOrTablet && !mobileSidebarVisible && (
+        <button
+          onClick={() => setMobileSidebarVisible(true)}
+          style={{
+            position: 'fixed',
+            top: '12px',
+            left: '12px',
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.15)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+            color: 'white',
+            fontSize: '18px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: Z_INDEX.sidebar + 1,
+            transition: 'all 0.2s ease',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          aria-label="Open navigation menu"
+        >
+          <FontAwesomeIcon icon={faBars} />
+        </button>
+      )}
 
       <div
         style={{
-          marginLeft: isPublicRoute ? 0 : (sidebarOpen ? '280px' : '80px'),
-          transition: 'margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+          marginLeft: contentMarginLeft,
+          transition: `margin-left 300ms ${SIDEBAR.transitionEasing}`,
           minHeight: '100vh',
           backgroundColor: isPublicRoute ? 'white' : 'transparent',
           overflowX: 'hidden',
@@ -176,7 +240,7 @@ function AppContent() {
       <Route path="/crm/admin-dashboard" element={<ProtectedRoute element={<AdminCRMDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/crm/dashboard" element={<ProtectedRoute element={<BDMDashboard />} allowedRoles={["BDM"]} />} />
       <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
-      <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
+
 
       {/* ✅ Task Routes */}
       <Route path="/task-management" element={<ProtectedRoute element={<TaskManagementPage />} allowedRoles={["Admin"]} />} />

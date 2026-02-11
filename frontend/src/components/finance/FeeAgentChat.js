@@ -17,8 +17,10 @@ import {
     executeAICommand,
     confirmAIAction,
     executeOverwrite,
+    undoAIAction,
     checkAIHealth,
-    buildFeeContext
+    buildFeeContext,
+    saveFeeLastContext
 } from '../../services/aiService';
 import {
     createMonthlyFees,
@@ -97,7 +99,7 @@ const EXAMPLE_PROMPTS = [
 // ============================================
 // MAIN COMPONENT
 // ============================================
-const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px' }) => {
+const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, height = '500px' }) => {
     // ========== State ==========
     const [chatHistory, setChatHistory] = useState([]);
     const [inputMessage, setInputMessage] = useState('');
@@ -108,7 +110,12 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
     const [showTemplates, setShowTemplates] = useState(true);
     const [pendingConfirmation, setPendingConfirmation] = useState(null);
     const [pendingOverwrite, setPendingOverwrite] = useState(null);
-    const [expandedMessages, setExpandedMessages] = useState({}); // Track which messages are expanded
+    const [expandedMessages, setExpandedMessages] = useState({});
+    const [lastAction, setLastAction] = useState(null); // Track last action for follow-ups
+    const [canUndo, setCanUndo] = useState(false); // Track if undo is available
+    const [speechEnabled, setSpeechEnabled] = useState(
+        () => localStorage.getItem('feeAgentSpeech') === 'true'
+    );
 
     // Refs
     const chatContainerRef = useRef(null);
@@ -118,9 +125,14 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
     const { speak, stop: stopSpeaking, isSupported: speechSupported } = useSpeechSynthesis();
     const lastBotMessageRef = useRef(null);
 
-    // Auto-speak bot messages
+    // Persist speech preference
     useEffect(() => {
-        if (!speechSupported || chatHistory.length === 0) return;
+        localStorage.setItem('feeAgentSpeech', speechEnabled);
+    }, [speechEnabled]);
+
+    // Auto-speak bot messages (only when speech is enabled)
+    useEffect(() => {
+        if (!speechSupported || !speechEnabled || chatHistory.length === 0) return;
 
         const lastMessage = chatHistory[chatHistory.length - 1];
         // Only speak new bot messages (not user, error, or system)
@@ -132,7 +144,7 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                 speak(textToSpeak);
             }
         }
-    }, [chatHistory, speechSupported, speak]);
+    }, [chatHistory, speechSupported, speechEnabled, speak]);
 
     // Stop speaking when user starts typing or sends a message
     useEffect(() => {
@@ -159,6 +171,26 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
     }, [chatHistory]);
+
+    // ========== Keyboard Shortcuts for Confirmation Dialogs ==========
+    useEffect(() => {
+        if (!pendingConfirmation && !pendingOverwrite) return;
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') {
+                e.preventDefault();
+                if (pendingConfirmation) handleConfirm(true);
+                else if (pendingOverwrite) handleOverwrite(true);
+            } else if (e.key === 'Escape' || e.key === 'n' || e.key === 'N') {
+                e.preventDefault();
+                if (pendingConfirmation) handleConfirm(false);
+                else if (pendingOverwrite) handleOverwrite(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [pendingConfirmation, pendingOverwrite]);
 
     // ========== Add Message ==========
     const addMessage = useCallback((type, content, data = null) => {
@@ -232,6 +264,8 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                     });
                 } else if (result.success) {
                     addMessage('bot', `✅ ${result.message}`, result.data);
+                    setLastAction(result.action);
+                    if (result.data?.can_undo) setCanUndo(true);
                     if (onRefresh) onRefresh();
                 } else {
                     addMessage('error', result.message || 'Operation failed');
@@ -315,8 +349,29 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                 const errorDetails = result.debug_error ? `\n\n(Error: ${result.debug_error})` : '';
                 addMessage('bot', `${result.message}${errorDetails}\n\nPlease use the quick actions below.`);
                 setShowTemplates(true);
+            } else if (result.action === 'EXPORT_PDF') {
+                // Trigger PDF export
+                if (onExportPDF) {
+                    onExportPDF();
+                    addMessage('bot', '✅ PDF exported! Check your downloads.');
+                } else {
+                    addMessage('bot', 'Please use the Export PDF button in the fee table.');
+                }
             } else if (result.success) {
                 addMessage('bot', `✅ ${result.message}`, result.data);
+                setLastAction(result.action);
+                // Enable undo if the action supports it
+                if (result.data?.can_undo) {
+                    setCanUndo(true);
+                }
+                // Save last used context for smart defaults
+                if (result.data?.school_id || result.data?.school_name || result.data?.month) {
+                    saveFeeLastContext(
+                        result.data.school_id,
+                        result.data.school_name,
+                        result.data.month
+                    );
+                }
                 if (onRefresh) onRefresh();
             } else {
                 addMessage('error', result.message || 'Operation failed');
@@ -342,6 +397,7 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
             if (confirmed) {
                 if (result.success) {
                     addMessage('bot', `✅ ${result.message}`, result.data);
+                    if (result.data?.can_undo) setCanUndo(true);
                     if (onRefresh) onRefresh();
                 } else {
                     addMessage('error', result.message || 'Action failed');
@@ -383,6 +439,27 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
             addMessage('error', 'Overwrite failed');
         } finally {
             setPendingOverwrite(null);
+            setIsProcessing(false);
+        }
+    };
+
+    // ========== Handle Undo ==========
+    const handleUndo = async () => {
+        if (!canUndo || isProcessing) return;
+
+        setIsProcessing(true);
+        try {
+            const result = await undoAIAction();
+            if (result.success) {
+                addMessage('bot', `↩️ ${result.message}`);
+                setCanUndo(false);
+                if (onRefresh) onRefresh();
+            } else {
+                addMessage('error', result.message || 'Undo failed');
+            }
+        } catch (error) {
+            addMessage('error', 'Undo failed');
+        } finally {
             setIsProcessing(false);
         }
     };
@@ -447,8 +524,21 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
 
         } catch (error) {
             console.error('Fee command error:', error);
-            const errorMsg = error.response?.data?.error || error.message || 'Operation failed';
-            addMessage('error', errorMsg);
+
+            // Handle 409 Conflict - fees already exist, offer overwrite
+            if (error.response?.status === 409 && activeTemplate.id === 'create_monthly') {
+                const { school_id, month } = formData;
+                const schoolName = schools.find(s => s.id === parseInt(school_id))?.name || `School #${school_id}`;
+                setPendingOverwrite({
+                    action: 'CREATE_MONTHLY_FEES',
+                    params: { school_id: parseInt(school_id), month },
+                    data: { school_id: parseInt(school_id), school_name: schoolName, month },
+                    message: `Fee records for ${schoolName} - ${month} already exist. Do you want to regenerate them?`
+                });
+            } else {
+                const errorMsg = error.response?.data?.error || error.response?.data?.warning || error.message || 'Operation failed';
+                addMessage('error', errorMsg);
+            }
         } finally {
             setIsProcessing(false);
             resetForm();
@@ -571,6 +661,68 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
         setShowTemplates(true);
     };
 
+    // ========== Follow-up Action Suggestions ==========
+    const FOLLOW_UP_ACTIONS = {
+        'CREATE_MONTHLY_FEES': [
+            { label: 'View Summary', action: 'show fee summary' },
+            { label: 'Recovery Report', action: 'show recovery report' },
+            { label: 'Create for Another', action: 'create fees' },
+        ],
+        'CREATE_FEES_ALL_SCHOOLS': [
+            { label: 'View Summary', action: 'show fee summary' },
+            { label: 'Recovery Report', action: 'show recovery report' },
+        ],
+        'CREATE_MISSING_FEES': [
+            { label: 'View Summary', action: 'show fee summary' },
+            { label: 'Recovery Report', action: 'show recovery report' },
+        ],
+        'UPDATE_FEE': [
+            { label: 'View Fees', action: 'show fees' },
+            { label: 'More Payments', action: 'record payment' },
+            { label: 'Summary', action: 'show fee summary' },
+        ],
+        'BULK_UPDATE_FEES': [
+            { label: 'View Summary', action: 'show fee summary' },
+            { label: 'Recovery Report', action: 'show recovery report' },
+        ],
+        'GET_FEES': [
+            { label: 'Mark All Paid', action: 'mark all as paid' },
+            { label: 'Fee Summary', action: 'show fee summary' },
+        ],
+        'DELETE_FEES': [
+            { label: 'View Remaining', action: 'show fees' },
+        ],
+        'GET_FEE_SUMMARY': [
+            { label: 'Pending Fees', action: 'show pending fees' },
+            { label: 'Recovery Report', action: 'show recovery report' },
+        ],
+        'GET_RECOVERY_REPORT': [
+            { label: 'Pending Fees', action: 'show pending fees' },
+            { label: 'Schools Without Fees', action: 'which schools dont have fees' },
+        ],
+        'GET_DEFAULTERS': [
+            { label: 'Fee Summary', action: 'show fee summary' },
+            { label: 'Recovery Report', action: 'show recovery report' },
+        ],
+        'COMPARE_MONTHS': [
+            { label: 'Recovery Report', action: 'show recovery report' },
+            { label: 'Defaulters', action: 'show defaulters' },
+        ],
+        'BATCH_UPDATE_FEES': [
+            { label: 'View Summary', action: 'show fee summary' },
+            { label: 'More Payments', action: 'record payment' },
+        ],
+    };
+
+    // Add PDF export to follow-ups if callback available
+    if (onExportPDF) {
+        ['CREATE_MONTHLY_FEES', 'GET_FEES', 'BULK_UPDATE_FEES', 'GET_FEE_SUMMARY'].forEach(key => {
+            if (FOLLOW_UP_ACTIONS[key]) {
+                FOLLOW_UP_ACTIONS[key] = [...FOLLOW_UP_ACTIONS[key], { label: 'Export PDF', action: '__EXPORT_PDF__' }];
+            }
+        });
+    }
+
     // ========== Handle Key Press ==========
     const handleKeyPress = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -590,21 +742,23 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
             border: '1px solid rgba(255,255,255,0.1)',
             overflow: 'hidden'
         },
-        header: {
+        toolbar: {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: SPACING.md,
+            padding: `${SPACING.xs} ${SPACING.sm}`,
             borderBottom: '1px solid rgba(255,255,255,0.1)',
             backgroundColor: 'rgba(255,255,255,0.03)'
         },
-        headerTitle: {
-            display: 'flex',
-            alignItems: 'center',
-            gap: SPACING.sm,
-            fontSize: FONT_SIZES.md,
-            fontWeight: 600,
-            color: COLORS.text.white
+        toolbarButton: {
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: FONT_SIZES.sm,
+            padding: SPACING.xs,
+            borderRadius: BORDER_RADIUS.sm,
+            color: 'rgba(255,255,255,0.6)',
+            transition: TRANSITIONS.fast,
         },
         aiStatus: {
             display: 'flex',
@@ -967,7 +1121,31 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
             fontSize: FONT_SIZES.xs,
             cursor: 'pointer',
             transition: TRANSITIONS.fast
-        }
+        },
+        followUpRow: {
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: SPACING.xs,
+            marginBottom: SPACING.sm,
+            paddingLeft: SPACING.xs,
+        },
+        followUpButton: {
+            padding: `3px ${SPACING.sm}`,
+            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            color: '#60A5FA',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: BORDER_RADIUS.full,
+            fontSize: '11px',
+            cursor: 'pointer',
+            transition: TRANSITIONS.fast,
+            whiteSpace: 'nowrap',
+        },
+        keyboardHint: {
+            fontSize: '10px',
+            color: 'rgba(255,255,255,0.3)',
+            marginTop: '4px',
+            textAlign: 'center',
+        },
     };
 
     // ========== Render Field Input ==========
@@ -1292,17 +1470,44 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
     // ========== Render ==========
     return (
         <div style={styles.container}>
-            {/* Header */}
-            <div style={styles.header}>
-                <div style={styles.headerTitle}>
-                    <span>🤖</span>
-                    <span>Fee Agent</span>
+            {/* Compact Toolbar */}
+            <div style={styles.toolbar}>
+                <div style={styles.aiStatus}>
+                    <div style={styles.statusDot} />
+                    <span>{aiAvailable === null ? 'Checking...' : aiAvailable ? 'AI Ready' : 'Templates Only'}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.md }}>
-                    <div style={styles.aiStatus}>
-                        <div style={styles.statusDot} />
-                        <span>{aiAvailable === null ? 'Checking...' : aiAvailable ? 'AI Ready' : 'Templates Only'}</span>
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs }}>
+                    {/* Undo Button */}
+                    {canUndo && (
+                        <button
+                            onClick={handleUndo}
+                            disabled={isProcessing}
+                            style={{
+                                ...styles.toolbarButton,
+                                color: '#F59E0B',
+                                opacity: isProcessing ? 0.5 : 1,
+                            }}
+                            title="Undo last action"
+                        >
+                            ↩️
+                        </button>
+                    )}
+                    {/* Speech Toggle */}
+                    {speechSupported && (
+                        <button
+                            onClick={() => {
+                                if (speechEnabled) stopSpeaking();
+                                setSpeechEnabled(prev => !prev);
+                            }}
+                            style={{
+                                ...styles.toolbarButton,
+                                color: speechEnabled ? '#4ADE80' : 'rgba(255,255,255,0.4)',
+                            }}
+                            title={speechEnabled ? 'Mute voice' : 'Enable voice'}
+                        >
+                            {speechEnabled ? '🔊' : '🔇'}
+                        </button>
+                    )}
                     {chatHistory.length > 0 && (
                         <button
                             onClick={() => {
@@ -1310,14 +1515,13 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                                 setShowTemplates(true);
                                 setPendingConfirmation(null);
                                 setPendingOverwrite(null);
+                                setLastAction(null);
+                                setCanUndo(false);
                             }}
-                            style={{
-                                ...styles.cancelButton,
-                                padding: `${SPACING.xs} ${SPACING.sm}`,
-                                fontSize: FONT_SIZES.xs
-                            }}
+                            style={styles.toolbarButton}
+                            title="Clear chat"
                         >
-                            Clear
+                            🗑️
                         </button>
                     )}
                 </div>
@@ -1364,18 +1568,43 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                 )}
 
                 {/* Chat Messages */}
-                {chatHistory.map(msg => (
-                    <div
-                        key={msg.id}
-                        style={{
-                            ...styles.message,
-                            ...(msg.type === 'user' ? styles.userMessage :
-                                msg.type === 'error' ? styles.errorMessage :
-                                msg.type === 'system' ? styles.systemMessage : styles.botMessage)
-                        }}
-                    >
-                        {msg.content}
-                        {msg.data && renderDataDisplay(msg.data, msg.id)}
+                {chatHistory.map((msg, msgIdx) => (
+                    <div key={msg.id}>
+                        <div
+                            style={{
+                                ...styles.message,
+                                ...(msg.type === 'user' ? styles.userMessage :
+                                    msg.type === 'error' ? styles.errorMessage :
+                                    msg.type === 'system' ? styles.systemMessage : styles.botMessage)
+                            }}
+                        >
+                            {msg.content}
+                            {msg.data && renderDataDisplay(msg.data, msg.id)}
+                        </div>
+                        {/* Follow-up suggestions after last bot message */}
+                        {msg.type === 'bot' && msgIdx === chatHistory.length - 1 && lastAction && FOLLOW_UP_ACTIONS[lastAction] && !isProcessing && !pendingConfirmation && !pendingOverwrite && (
+                            <div style={styles.followUpRow}>
+                                {FOLLOW_UP_ACTIONS[lastAction].map((item, idx) => (
+                                    <button
+                                        key={idx}
+                                        style={styles.followUpButton}
+                                        onClick={() => {
+                                            if (item.action === '__EXPORT_PDF__' && onExportPDF) {
+                                                onExportPDF();
+                                                addMessage('bot', '✅ PDF exported! Check your downloads.');
+                                            } else {
+                                                setLastAction(null);
+                                                handleQuickAction(item.action);
+                                            }
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.3)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.15)'; }}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ))}
 
@@ -1401,6 +1630,7 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                                 ✓ Yes
                             </button>
                         </div>
+                        <div style={styles.keyboardHint}>Press Y to confirm, N to cancel</div>
                     </div>
                 )}
 
@@ -1426,6 +1656,7 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, height = '500px'
                                 ✓ Yes, Overwrite
                             </button>
                         </div>
+                        <div style={styles.keyboardHint}>Press Y to confirm, N to cancel</div>
                     </div>
                 )}
 

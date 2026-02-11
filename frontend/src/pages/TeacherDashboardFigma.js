@@ -368,8 +368,8 @@ useEffect(() => {
                 key={idx}
                 percentage={school.completion_rate}
                 schoolName={school.school_name}
-                size={173}
-                strokeWidth={20}
+                size={isMobile ? 120 : 173}
+                strokeWidth={isMobile ? 14 : 20}
               />
             ))}
           </HoverCard>
@@ -474,7 +474,7 @@ useEffect(() => {
                 dataKey="present"
                 xAxisKey="name"
                 label="Student Performance Summary"
-                height={350}
+                height={isMobile ? 250 : 350}
                 showLegend
                 showGrid
               />
@@ -514,6 +514,7 @@ const getStyles = (isMobile) => ({
     flex: 1,
     minHeight: '100vh',
     padding: isMobile ? SPACING.md : SPACING.xl,
+    paddingTop: isMobile ? '64px' : SPACING.xl,
     maxWidth: LAYOUT.maxWidth.lg,
     transition: `padding ${TRANSITIONS.normal}`,
   },

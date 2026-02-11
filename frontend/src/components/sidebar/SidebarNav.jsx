@@ -16,8 +16,9 @@ import SidebarSection from './SidebarSection';
  * @param {object} openDropdowns - Object tracking which dropdowns are open
  * @param {function} toggleDropdown - Callback to toggle dropdown state
  * @param {string} role - User's role
+ * @param {function} onNavigate - Callback when a nav item is clicked (for mobile close)
  */
-const SidebarNav = ({ isOpen, openDropdowns, toggleDropdown, role }) => {
+const SidebarNav = ({ isOpen, openDropdowns, toggleDropdown, role, onNavigate }) => {
   // Get filtered menu sections for the current role
   const menuSections = getMenuForRole(role);
 
@@ -31,6 +32,7 @@ const SidebarNav = ({ isOpen, openDropdowns, toggleDropdown, role }) => {
           openDropdowns={openDropdowns}
           toggleDropdown={toggleDropdown}
           role={role}
+          onNavigate={onNavigate}
         />
       ))}
     </nav>
@@ -39,17 +41,12 @@ const SidebarNav = ({ isOpen, openDropdowns, toggleDropdown, role }) => {
 
 const styles = {
   nav: {
-    padding: '0.5rem 0',
+    padding: '0.25rem 0',
     overflowY: 'auto',
     overflowX: 'hidden',
     height: `calc(100vh - ${SIDEBAR.headerHeight} - ${SIDEBAR.footerHeight})`,
     scrollbarWidth: 'none', // Firefox
     msOverflowStyle: 'none', // IE/Edge
-
-    // Hide scrollbar for Chrome/Safari
-    '::-webkit-scrollbar': {
-      display: 'none',
-    },
   },
 };
 

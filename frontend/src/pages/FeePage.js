@@ -44,6 +44,7 @@ import SingleFeeModal from '../components/fees/SingleFeeModal';
 import { PageHeader } from '../components/common/PageHeader';
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
 import FeeAgentChat from '../components/finance/FeeAgentChat';
+import FloatingChatWindow from '../components/common/FloatingChatWindow';
 
 // Responsive Styles Generator
 const getResponsiveStyles = (isMobile, isTablet) => ({
@@ -293,20 +294,6 @@ function FeePage() {
         subtitle="Create, manage, and track student fee records"
       />
 
-      {/* Fee Agent Chat - AI Assistant */}
-      <CollapsibleSection
-        title="Fee Agent - AI Assistant"
-        defaultOpen={true}
-        icon="🤖"
-      >
-        <FeeAgentChat
-          schools={schools}
-          students={students}
-          onRefresh={fetchFees}
-          height="400px"
-        />
-      </CollapsibleSection>
-
       {/* Create Records Section */}
       <CreateRecordsSection
         schools={schools}
@@ -410,6 +397,28 @@ function FeePage() {
         schoolName={schoolName}
       />
       </div>
+
+      {/* Floating Fee Agent Chat */}
+      <FloatingChatWindow
+        title="Fee Agent"
+        subtitle="AI-powered fee management"
+        icon="💰"
+        fabPosition={{ bottom: '24px', right: '24px' }}
+        windowSize={{ width: '420px', height: '550px' }}
+        showBadge={true}
+        badgeColor="#10B981"
+        zIndex={1000}
+      >
+        <div style={{ padding: SPACING.md, height: '100%', overflow: 'hidden' }}>
+          <FeeAgentChat
+            schools={schools}
+            students={students}
+            onRefresh={fetchFees}
+            onExportPDF={handleExportPDF}
+            height="100%"
+          />
+        </div>
+      </FloatingChatWindow>
     </div>
   );
 }

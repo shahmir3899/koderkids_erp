@@ -4,6 +4,7 @@
 // ✅ Backward compatible with existing pages
 // ✅ Supports lazy loading via onToggle callback
 // ✅ Supports both defaultCollapsed and defaultOpen props
+// ✅ Compact mode for mobile via useResponsive
 // ============================================
 
 import React, { useState } from 'react';
@@ -18,6 +19,7 @@ import {
   TRANSITIONS,
   MIXINS,
 } from '../../../utils/designConstants';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 /**
  * CollapsibleSection Component
@@ -28,38 +30,25 @@ import {
  * @param {boolean} props.defaultOpen - Initial open state (default: true) - NEW PROP
  * @param {string} props.className - Additional CSS classes
  * @param {React.ReactNode} props.headerAction - Optional action button in header
- * @param {Function} props.onToggle - Callback when section is toggled (receives isOpen state) - NEW PROP
- * 
- * @example
- * // Old usage (still works)
- * <CollapsibleSection title="My Section" defaultCollapsed={false}>...</CollapsibleSection>
- * 
- * @example
- * // New usage with lazy loading
- * <CollapsibleSection 
- *   title="Heavy Data" 
- *   defaultOpen={false}
- *   onToggle={(isOpen) => {
- *     if (isOpen) fetchHeavyData();
- *   }}
- * >...</CollapsibleSection>
+ * @param {Function} props.onToggle - Callback when section is toggled (receives isOpen state)
  */
 export const CollapsibleSection = ({
   title,
   children,
-  defaultCollapsed = false,  // OLD PROP - for backward compatibility
-  defaultOpen,               // NEW PROP - takes precedence if provided
+  defaultCollapsed = false,
+  defaultOpen,
   className = '',
   headerAction = null,
-  onToggle = null,          // NEW PROP - lazy loading callback
+  onToggle = null,
 }) => {
+  const { isMobile } = useResponsive();
+
   // Determine initial state
-  // Priority: defaultOpen > defaultCollapsed > default (open)
   const getInitialState = () => {
     if (defaultOpen !== undefined) {
-      return defaultOpen; // New prop takes precedence
+      return defaultOpen;
     }
-    return !defaultCollapsed; // Use old prop (inverted)
+    return !defaultCollapsed;
   };
 
   const [isOpen, setIsOpen] = useState(getInitialState());
@@ -67,8 +56,6 @@ export const CollapsibleSection = ({
   const handleToggle = () => {
     const newState = !isOpen;
     setIsOpen(newState);
-    
-    // Call onToggle callback if provided (for lazy loading)
     if (onToggle) {
       onToggle(newState);
     }
@@ -76,22 +63,23 @@ export const CollapsibleSection = ({
 
   const containerStyle = {
     ...MIXINS.glassmorphicCard,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.md,
+    padding: isMobile ? SPACING.sm : SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: isMobile ? SPACING.sm : SPACING.md,
   };
 
   const headerStyle = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: isOpen ? SPACING.md : 0,
+    marginBottom: isOpen ? (isMobile ? SPACING.sm : SPACING.md) : 0,
     cursor: 'pointer',
     userSelect: 'none',
+    minHeight: isMobile ? '36px' : '40px',
   };
 
   const titleStyle = {
-    fontSize: FONT_SIZES.lg,  // 18px - appropriate for section headers
+    fontSize: isMobile ? FONT_SIZES.base : FONT_SIZES.lg,
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.text.white,
     margin: 0,
@@ -103,8 +91,8 @@ export const CollapsibleSection = ({
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: FONT_SIZES.lg,
-    padding: SPACING.xs,
+    fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.base,
+    padding: '2px',
     display: 'flex',
     alignItems: 'center',
     gap: SPACING.xs,

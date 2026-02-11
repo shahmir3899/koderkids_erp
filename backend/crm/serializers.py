@@ -170,6 +170,9 @@ class ActivitySerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'scheduled_date': {'required': False},
+        }
 
     def get_lead_name(self, obj):
         """Return lead name or phone"""

@@ -59,9 +59,10 @@ def resolve_school(params: Dict[str, Any], context: Dict[str, Any]) -> Tuple[Opt
     matches.sort(key=lambda x: x[1], reverse=True)
 
     if not matches:
-        # No match found
-        available = ", ".join([s.get('name', '') for s in schools[:5]])
-        return None, f"No school found matching '{school_name}'. Available: {available}"
+        # No match found - show ALL schools so user can pick
+        all_schools = sorted(schools, key=lambda s: s.get('name', ''))
+        numbered = "\n".join([f"  {i+1}. {s.get('name', '')}" for i, s in enumerate(all_schools)])
+        return None, f"No school found matching '{school_name}'. Please select from available schools:\n{numbered}\n\nReply with the school name or number."
 
     if len(matches) == 1:
         # Single match - use it
@@ -71,9 +72,10 @@ def resolve_school(params: Dict[str, Any], context: Dict[str, Any]) -> Tuple[Opt
     if matches[0][1] > 0.85 and matches[0][1] - matches[1][1] > 0.2:
         return matches[0][0]['id'], None
 
-    # Multiple close matches - ask for clarification
-    match_names = [m[0].get('name', '') for m in matches[:3]]
-    return None, f"Multiple schools match '{school_name}': {', '.join(match_names)}. Please specify which one."
+    # Multiple close matches - show top 3 by score
+    top_matches = matches[:3]
+    numbered = "\n".join([f"  {i+1}. {m[0].get('name', '')}" for i, m in enumerate(top_matches)])
+    return None, f"Multiple schools match '{school_name}'. Did you mean:\n{numbered}\n\nReply with the school name or number."
 
 
 def resolve_school_from_db(school_name: str, accessible_school_ids: list = None) -> Tuple[Optional[int], Optional[str]]:
@@ -125,10 +127,10 @@ def resolve_school_from_db(school_name: str, accessible_school_ids: list = None)
     logger.info(f"Found {len(matches)} matches for '{school_name}'")
 
     if not matches:
-        # Show all accessible schools with numbers for selection
-        all_schools = list(base_schools.order_by('name')[:10])
+        # No match - show ALL schools so user can pick
+        all_schools = list(base_schools.order_by('name'))
         numbered_list = "\n".join([f"  {i+1}. {s.name}" for i, s in enumerate(all_schools)])
-        return None, f"No school found matching '{school_name}'. Available schools:\n{numbered_list}\n\nReply with the number to select."
+        return None, f"No school found matching '{school_name}'. Please select from available schools:\n{numbered_list}\n\nReply with the number to select."
 
     if len(matches) == 1:
         logger.info(f"Single match: {matches[0][0].name} (ID: {matches[0][0].id})")
@@ -139,15 +141,11 @@ def resolve_school_from_db(school_name: str, accessible_school_ids: list = None)
         logger.info(f"Best match: {matches[0][0].name} (ID: {matches[0][0].id}, score: {matches[0][1]})")
         return matches[0][0].id, None
 
-    # Multiple close matches - show ALL accessible schools alphabetically for consistent numbering
-    # The number selection logic uses this same order
-    all_schools = list(base_schools.order_by('name')[:10])
-    numbered_all = "\n".join([f"  {i+1}. {s.name}" for i, s in enumerate(all_schools)])
+    # Multiple close matches - show top 3 by fuzzy score
+    top_matches = matches[:3]
+    numbered_top = "\n".join([f"  {i+1}. {m[0].name}" for i, m in enumerate(top_matches)])
 
-    # Also mention which ones matched
-    match_names = ", ".join([m[0].name for m in matches[:3]])
-
-    return None, f"Multiple schools match '{school_name}' (best matches: {match_names}).\n\nAvailable schools:\n{numbered_all}\n\nReply with the number to select."
+    return None, f"Multiple schools match '{school_name}'. Did you mean:\n{numbered_top}\n\nReply with the number to select."
 
 
 def resolve_fee_for_update(params: Dict[str, Any]) -> Tuple[Optional[int], Optional[str], Optional[Dict]]:
@@ -403,6 +401,11 @@ class ParameterResolver:
 
         if action_name == 'CREATE_BULK_TASKS':
             return self._resolve_create_bulk_tasks(params)
+
+        # Actions that just need school_name -> school_id resolution
+        if action_name in ['GET_DEFAULTERS', 'COMPARE_MONTHS', 'BATCH_UPDATE_FEES',
+                           'GET_RECOVERY_REPORT', 'GET_SCHOOLS_WITHOUT_FEES']:
+            return self._resolve_school_only(params)
 
         # No resolution needed
         return {
@@ -817,6 +820,15 @@ class ParameterResolver:
                 "truncated": fees_count > 100
             }
         }
+
+    def _resolve_school_only(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolve school_name to school_id if present, pass through otherwise."""
+        if params.get('school_name') and not params.get('school_id'):
+            resolved_id, err = self._resolve_school(params['school_name'])
+            if err:
+                return {"success": False, "clarify": err}
+            params['school_id'] = resolved_id
+        return {"success": True, "params": params}
 
     def _resolve_create_missing_fees(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Resolve and gather preview data for CREATE_MISSING_FEES."""

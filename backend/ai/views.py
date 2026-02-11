@@ -302,6 +302,30 @@ class AIOverwriteView(APIView):
         return Response(result)
 
 
+class AIUndoView(APIView):
+    """
+    Undo the last write action performed via AI agent.
+
+    POST /api/ai/undo/
+
+    Response:
+        {
+            "success": true,
+            "message": "Undone: Deleted 50 fee records that were just created.",
+            "data": {...}
+        }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from .executor import ActionExecutor
+
+        executor = ActionExecutor(request.user)
+        result = executor.execute_undo()
+
+        return Response(result)
+
+
 class AIHistoryView(APIView):
     """
     Get AI agent usage history for current user.

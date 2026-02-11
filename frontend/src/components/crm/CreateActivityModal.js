@@ -19,14 +19,14 @@ import {
   Z_INDEX,
 } from '../../utils/designConstants';
 
-export const CreateActivityModal = ({ onClose, onSuccess }) => {
+export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) => {
   const currentUser = getUserData();
   const isAdmin = currentUser.role === 'Admin';
 
   const [closeButtonHovered, setCloseButtonHovered] = useState(false);
   const [formData, setFormData] = useState({
     activity_type: 'Call',
-    lead: '',
+    lead: preselectedLeadId || '',
     subject: '',
     description: '',
     assigned_to: '',

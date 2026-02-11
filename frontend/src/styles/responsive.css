@@ -93,6 +93,22 @@
 }
 
 /* ============================================
+   1B. SIDEBAR MOBILE UTILITIES
+   ============================================ */
+
+/* On mobile/tablet (<1024px): add top padding for hamburger button space */
+@media (max-width: 1023px) {
+  .mobile-page-padding {
+    padding-top: 64px !important;
+  }
+}
+
+/* Hide webkit scrollbar in sidebar nav on all devices */
+.sidebar-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
    2. TOUCH TARGET UTILITIES
    ============================================ */
 
