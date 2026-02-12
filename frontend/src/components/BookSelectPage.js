@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBook } from '@fortawesome/free-solid-svg-icons';
-import BookTreeSelect from '../components/BookTreeSelect';
+import BookTreeSelect from './BookTreeSelect';
 import Modal from 'react-modal';
 import './BookSelectPage.css';
 

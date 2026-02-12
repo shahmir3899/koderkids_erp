@@ -34,6 +34,18 @@ export const LMSProvider = ({ children }) => {
   // Continue learning
   const [continueLearning, setContinueLearning] = useState(null);
 
+  // Activity proofs (homework uploads) - Map of topicId → proof data
+  const [activityProofs, setActivityProofs] = useState({});
+  const [proofsLoading, setProofsLoading] = useState(false);
+
+  // Validation steps for current topic
+  const [validationSteps, setValidationSteps] = useState(null);
+  const [validationLoading, setValidationLoading] = useState(false);
+
+  // Reading timer (accumulated seconds from heartbeat)
+  const [readingTime, setReadingTime] = useState(0);
+  const readingTimeRef = useRef(0);
+
   // =============================================
   // My Courses
   // =============================================
@@ -230,12 +242,32 @@ export const LMSProvider = ({ children }) => {
       clearInterval(heartbeatRef.current);
     }
 
+    // Reset reading time for new topic
+    readingTimeRef.current = 0;
+    setReadingTime(0);
+
     // Send heartbeat every 30 seconds
     heartbeatRef.current = setInterval(async () => {
       try {
-        await courseService.sendHeartbeat(topicId, 30);
+        const result = await courseService.sendHeartbeat(topicId, 30);
+        // Update reading time from server response
+        if (result?.skipped) {
+          // Admin/Teacher: server skips tracking, increment locally
+          readingTimeRef.current += 30;
+          setReadingTime(readingTimeRef.current);
+        } else if (result?.time_spent_seconds != null) {
+          readingTimeRef.current = result.time_spent_seconds;
+          setReadingTime(result.time_spent_seconds);
+        } else {
+          // Fallback: increment locally
+          readingTimeRef.current += 30;
+          setReadingTime(readingTimeRef.current);
+        }
       } catch (error) {
         console.error('Heartbeat error:', error);
+        // Still increment locally on error
+        readingTimeRef.current += 30;
+        setReadingTime(readingTimeRef.current);
       }
     }, 30000);
   }, []);
@@ -254,6 +286,65 @@ export const LMSProvider = ({ children }) => {
         clearInterval(heartbeatRef.current);
       }
     };
+  }, []);
+
+  // =============================================
+  // Activity Proofs (Homework)
+  // =============================================
+
+  const loadProofsForCourse = useCallback(async (courseId) => {
+    setProofsLoading(true);
+    try {
+      const proofs = await courseService.getMyProofs(courseId);
+      const proofMap = {};
+      (Array.isArray(proofs) ? proofs : []).forEach((proof) => {
+        // Store by topicId; if multiple proofs per topic, keep the latest
+        const tid = proof.topic_id || proof.topic;
+        if (!proofMap[tid] || new Date(proof.created_at) > new Date(proofMap[tid].created_at)) {
+          proofMap[tid] = proof;
+        }
+      });
+      setActivityProofs(proofMap);
+    } catch (error) {
+      console.error('Error loading proofs:', error);
+    } finally {
+      setProofsLoading(false);
+    }
+  }, []);
+
+  const addProof = useCallback((topicId, proof) => {
+    setActivityProofs((prev) => ({
+      ...prev,
+      [topicId]: proof,
+    }));
+  }, []);
+
+  // =============================================
+  // Validation Steps
+  // =============================================
+
+  const loadValidationSteps = useCallback(async (topicId) => {
+    setValidationLoading(true);
+    try {
+      const data = await courseService.getValidationSteps(topicId);
+      setValidationSteps(data);
+      return data;
+    } catch (error) {
+      console.error('Error loading validation steps:', error);
+      setValidationSteps(null);
+    } finally {
+      setValidationLoading(false);
+    }
+  }, []);
+
+  const refreshValidation = useCallback(async (topicId) => {
+    try {
+      const data = await courseService.getValidationSteps(topicId);
+      setValidationSteps(data);
+      return data;
+    } catch (error) {
+      console.error('Error refreshing validation:', error);
+    }
   }, []);
 
   // =============================================
@@ -367,12 +458,29 @@ export const LMSProvider = ({ children }) => {
     findNextTopic,
     findPreviousTopic,
 
+    // Activity proofs
+    activityProofs,
+    proofsLoading,
+    loadProofsForCourse,
+    addProof,
+
+    // Validation & reading
+    validationSteps,
+    validationLoading,
+    loadValidationSteps,
+    refreshValidation,
+    readingTime,
+
     // Reset
     resetPlayer: () => {
       setCurrentCourse(null);
       setCurrentTopic(null);
       setTopicContent(null);
       setTopicProgress({});
+      setActivityProofs({});
+      setValidationSteps(null);
+      setReadingTime(0);
+      readingTimeRef.current = 0;
       stopHeartbeat();
     },
   };

@@ -316,6 +316,122 @@ export const getQuizAttempt = async (attemptId) => {
   return handleResponse(response);
 };
 
+// =============================================
+// Activity Proof (Homework Upload)
+// =============================================
+
+/**
+ * Upload activity proof (screenshot) for a topic
+ * @param {number} topicId - Topic ID
+ * @param {string} screenshotUrl - Supabase URL of uploaded screenshot
+ * @param {string} softwareUsed - Software used (scratch, python, canva, ai_tool, other)
+ * @param {string} studentNotes - Optional notes from student
+ */
+export const uploadActivityProof = async (topicId, screenshotUrl, softwareUsed, studentNotes = '') => {
+  const response = await fetch(
+    `${API_URL}/api/courses/activity-proof/upload/`,
+    {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        topic: topicId,
+        screenshot_url: screenshotUrl,
+        software_used: softwareUsed,
+        student_notes: studentNotes,
+      }),
+    }
+  );
+  return handleResponse(response);
+};
+
+/**
+ * Get all proofs for the current student
+ * @param {number} courseId - Optional course ID filter
+ * @param {string} status - Optional status filter (pending, approved, rejected)
+ */
+export const getMyProofs = async (courseId = null, status = null) => {
+  const params = new URLSearchParams();
+  if (courseId) params.append('course_id', courseId);
+  if (status) params.append('status', status);
+
+  const response = await fetch(
+    `${API_URL}/api/courses/activity-proof/my-proofs/?${params.toString()}`,
+    { headers: getAuthHeaders() }
+  );
+  return handleResponse(response);
+};
+
+// =============================================
+// Validation & Unlock
+// =============================================
+
+/**
+ * Get 5-step validation status for a topic
+ * @param {number} topicId - Topic ID
+ */
+export const getValidationSteps = async (topicId) => {
+  const response = await fetch(
+    `${API_URL}/api/courses/topics/${topicId}/validation-steps/`,
+    { headers: getAuthHeaders() }
+  );
+  return handleResponse(response);
+};
+
+/**
+ * Get unlock status for a topic
+ * @param {number} topicId - Topic ID
+ */
+export const getUnlockStatus = async (topicId) => {
+  const response = await fetch(
+    `${API_URL}/api/courses/topics/${topicId}/unlock-status/`,
+    { headers: getAuthHeaders() }
+  );
+  return handleResponse(response);
+};
+
+/**
+ * Check if it's guardian review time (outside school hours)
+ */
+export const checkGuardianTime = async () => {
+  const response = await fetch(
+    `${API_URL}/api/courses/guardian/check-time/`,
+    { headers: getAuthHeaders() }
+  );
+  return handleResponse(response);
+};
+
+/**
+ * Get pending guardian reviews for student
+ */
+export const getPendingGuardianReviews = async () => {
+  const response = await fetch(
+    `${API_URL}/api/courses/guardian/pending-reviews/`,
+    { headers: getAuthHeaders() }
+  );
+  return handleResponse(response);
+};
+
+/**
+ * Submit guardian review for a proof
+ * @param {number} proofId - ActivityProof ID
+ * @param {boolean} isApproved - Whether guardian approves
+ * @param {string} notes - Optional review notes
+ */
+export const submitGuardianReview = async (proofId, isApproved = true, notes = '') => {
+  const response = await fetch(
+    `${API_URL}/api/courses/guardian/review/${proofId}/`,
+    {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        is_approved: isApproved,
+        review_notes: notes,
+      }),
+    }
+  );
+  return handleResponse(response);
+};
+
 export default {
   // Browsing
   getCourses,
@@ -342,4 +458,13 @@ export default {
   startQuiz,
   submitQuiz,
   getQuizAttempt,
+  // Activity Proof
+  uploadActivityProof,
+  getMyProofs,
+  // Validation & Unlock
+  getValidationSteps,
+  getUnlockStatus,
+  checkGuardianTime,
+  getPendingGuardianReviews,
+  submitGuardianReview,
 };

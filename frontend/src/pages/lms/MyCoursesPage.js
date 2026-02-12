@@ -122,7 +122,7 @@ const MyCoursesPage = () => {
   // Handlers
   const handleContinue = (course, enrollment) => {
     const topicId = enrollment?.last_topic || '';
-    navigate(`/lms/learn/${course.id}${topicId ? `/${topicId}` : ''}`);
+    navigate(`/lms/book/${course.id}${topicId ? `/${topicId}` : ''}`);
   };
 
   return (
@@ -181,7 +181,7 @@ const MyCoursesPage = () => {
           <button
             style={styles.resumeButton}
             onClick={() => navigate(
-              `/lms/learn/${continueLearning.course_id}${continueLearning.topic_id ? `/${continueLearning.topic_id}` : ''}`
+              `/lms/book/${continueLearning.course_id}${continueLearning.topic_id ? `/${continueLearning.topic_id}` : ''}`
             )}
           >
             <FontAwesomeIcon icon={faPlay} style={{ marginRight: '8px' }} />

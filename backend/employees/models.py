@@ -658,17 +658,37 @@ class TeacherEvaluationScore(models.Model):
         else:
             score.attendance_score = 0
 
-        # 2. Attitude Score (from BDM Proforma)
-        proforma = BDMVisitProforma.objects.filter(
-            teacher=teacher,
-            month=month,
-            year=year
-        ).first()
+        # 2. Attitude Score (from Monitoring Evaluation or legacy BDM Proforma)
+        # Prefer new monitoring evaluations over legacy proforma
+        monitoring_score = None
+        try:
+            from monitoring.models import TeacherEvaluation
+            monitoring_eval = TeacherEvaluation.objects.filter(
+                teacher=teacher,
+                visit__visit_date__month=month,
+                visit__visit_date__year=year,
+                normalized_score__gt=0,
+            ).order_by('-submitted_at').first()
 
-        if proforma:
-            score.attitude_score = proforma.overall_attitude_score
+            if monitoring_eval:
+                monitoring_score = monitoring_eval.normalized_score
+        except Exception:
+            pass  # monitoring app may not be installed yet
+
+        if monitoring_score is not None:
+            score.attitude_score = monitoring_score
         else:
-            score.attitude_score = 0
+            # Fall back to legacy BDM Proforma
+            proforma = BDMVisitProforma.objects.filter(
+                teacher=teacher,
+                month=month,
+                year=year
+            ).first()
+
+            if proforma:
+                score.attitude_score = proforma.overall_attitude_score
+            else:
+                score.attitude_score = 0
 
         # 3. Student Interest Score (from TopicProgress completion rates)
         # Get students in teacher's schools

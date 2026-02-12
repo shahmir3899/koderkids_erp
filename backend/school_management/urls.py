@@ -63,6 +63,7 @@ urlpatterns = [
     path('api/dashboards/', include('dashboards.urls')),
     path('api/reports/', include('reports.urls')),
     path('api/crm/', include('crm.urls')),
+    path('api/monitoring/', include('monitoring.urls')),
     path('api/tasks/', include('tasks.urls')),
     path('api/commands/', include('commands.urls')),
     path('api/ai/', include('ai.urls')),

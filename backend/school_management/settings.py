@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     'attendance',
     'dashboards',
     'crm',
+    'monitoring',
     'tasks',
     'commands',
     'ai',

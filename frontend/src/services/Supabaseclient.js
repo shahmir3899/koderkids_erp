@@ -5,18 +5,20 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Get environment variables
+// Get environment variables (support both ANON_KEY and SEC_KEY naming)
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_SEC_KEY;
 
 // Validate configuration
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('⚠️ Supabase configuration missing! Please check your .env file.');
-  console.error('Required variables: REACT_APP_SUPABASE_URL, REACT_APP_SUPABASE_ANON_KEY');
+  console.error('Required variables: REACT_APP_SUPABASE_URL, REACT_APP_SUPABASE_ANON_KEY (or REACT_APP_SUPABASE_SEC_KEY)');
 }
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client (guard against missing config)
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 // ============================================
 // STORAGE HELPERS
@@ -31,6 +33,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
  * @returns {Promise<{data: Object, error: Object}>}
  */
 export const uploadFile = async (bucket, path, file, options = {}) => {
+  if (!supabase) return { data: null, error: new Error('Supabase not configured') };
   try {
     const { data, error } = await supabase.storage
       .from(bucket)
@@ -55,6 +58,7 @@ export const uploadFile = async (bucket, path, file, options = {}) => {
  * @returns {string} Public URL
  */
 export const getPublicUrl = (bucket, path) => {
+  if (!supabase) return '';
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
 };
@@ -66,6 +70,7 @@ export const getPublicUrl = (bucket, path) => {
  * @returns {Promise<{data: Object, error: Object}>}
  */
 export const deleteFile = async (bucket, path) => {
+  if (!supabase) return { data: null, error: new Error('Supabase not configured') };
   try {
     const { data, error } = await supabase.storage
       .from(bucket)

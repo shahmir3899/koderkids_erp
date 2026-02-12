@@ -26,6 +26,7 @@ import {
   faClipboardQuestion,
   faStar,
   faImages,
+  faClipboardList,
 } from "@fortawesome/free-solid-svg-icons";
 
 /**
@@ -220,6 +221,21 @@ export const MENU_SECTIONS = {
         icon: faUsers,
         path: '/crm/leads',
         roles: ['BDM'],
+      },
+    ],
+  },
+
+  MONITORING: {
+    id: 'monitoring',
+    label: 'Monitoring',
+    roles: ['Admin', 'BDM'],
+    items: [
+      {
+        id: 'monitoring-visits',
+        label: 'School Monitoring',
+        icon: faClipboardList,
+        path: '/monitoring',
+        roles: ['Admin', 'BDM'],
       },
     ],
   },

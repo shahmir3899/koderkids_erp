@@ -55,6 +55,8 @@ import AdminCRMDashboard from './pages/crm/AdminDashboard';
 import LeadsListPage from './pages/crm/LeadsListPage';
 import ActivitiesPage from './pages/crm/ActivitiesPage';
 
+// Monitoring Pages
+import MonitoringPage from './pages/monitoring/MonitoringPage';
 
 // Task Pages
 import TaskManagementPage from './pages/TaskManagementPage';
@@ -63,6 +65,7 @@ import MyTasksPage from './pages/MyTasksPage';
 // LMS Pages
 import MyCoursesPage from './pages/lms/MyCoursesPage';
 import CoursePlayerPage from './pages/lms/CoursePlayerPage';
+import BookViewerPage from './pages/lms/BookViewerPage';
 import QuizBuilderPage from './pages/lms/QuizBuilderPage';
 import QuizManagementPage from './pages/lms/QuizManagementPage';
 import { LMSProvider } from './contexts/LMSContext';
@@ -243,6 +246,8 @@ function AppContent() {
       <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
       <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
 
+      {/* ✅ Monitoring Routes - Admin & BDM */}
+      <Route path="/monitoring" element={<ProtectedRoute element={<MonitoringPage />} allowedRoles={["Admin", "BDM"]} />} />
 
       {/* ✅ Task Routes */}
       <Route path="/task-management" element={<ProtectedRoute element={<TaskManagementPage />} allowedRoles={["Admin"]} />} />
@@ -263,6 +268,7 @@ function AppContent() {
       {/* ✅ LMS Routes - Learning (Admin/Teacher can access for testing) */}
       <Route path="/lms/my-courses" element={<ProtectedRoute element={<MyCoursesPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
       <Route path="/lms/learn/:courseId/:topicId?" element={<ProtectedRoute element={<CoursePlayerPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
+      <Route path="/lms/book/:courseId/:topicId?" element={<ProtectedRoute element={<BookViewerPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
 
       {/* ✅ LMS Routes - Quiz Builder (Admin/Teacher) */}
       <Route path="/lms/quiz-manage" element={<ProtectedRoute element={<QuizManagementPage />} allowedRoles={["Admin", "Teacher"]} />} />
