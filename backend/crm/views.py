@@ -75,6 +75,9 @@ class LeadViewSet(viewsets.ModelViewSet):
         queryset = queryset.select_related('assigned_to', 'created_by', 'converted_to_school')
         if self.action == 'list':
             queryset = queryset.prefetch_related('activities')
+        else:
+            # For non-list actions, annotate count to avoid N+1 on activities_count
+            queryset = queryset.annotate(activities_count_ann=Count('activities'))
         return queryset
 
     def get_serializer_class(self):
@@ -544,55 +547,45 @@ def dashboard_stats(request):
     GET /api/crm/dashboard/stats/
     """
     user = request.user
-    
-    # Base queryset (filtered by role)
+    today = timezone.now()
+    month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Base querysets (filtered by role)
     if user.role == 'BDM':
         leads = Lead.objects.filter(assigned_to=user)
         activities = Activity.objects.filter(lead__assigned_to=user)
     else:  # Admin
         leads = Lead.objects.all()
         activities = Activity.objects.all()
-    
-    # Lead stats
-    total_leads = leads.count()
-    new_leads = leads.filter(status='New').count()
-    converted_leads = leads.filter(status='Converted').count()
-    
-    # This month stats
-    today = timezone.now()
-    month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
-    leads_this_month = leads.filter(created_at__gte=month_start).count()
-    conversions_this_month = leads.filter(
-        status='Converted',
-        conversion_date__gte=month_start
-    ).count()
-    
-    # Conversion rate
-    conversion_rate = 0
-    if total_leads > 0:
-        conversion_rate = round((converted_leads / total_leads) * 100, 2)
-    
-    # Activities
-    upcoming_activities = activities.filter(
-        status='Scheduled',
-        scheduled_date__gte=today
-    ).count()
-    
-    overdue_activities = activities.filter(
-        status='Scheduled',
-        scheduled_date__lt=today
-    ).count()
-    
+
+    # Single aggregated query for all lead stats (was 5 separate queries)
+    lead_stats = leads.aggregate(
+        total=Count('id'),
+        new=Count('id', filter=Q(status='New')),
+        converted=Count('id', filter=Q(status='Converted')),
+        this_month=Count('id', filter=Q(created_at__gte=month_start)),
+        conversions_this_month=Count('id', filter=Q(status='Converted', conversion_date__gte=month_start)),
+    )
+
+    total_leads = lead_stats['total']
+    converted_leads = lead_stats['converted']
+    conversion_rate = round((converted_leads / total_leads * 100), 2) if total_leads > 0 else 0
+
+    # Single aggregated query for activity stats (was 2 separate queries)
+    activity_stats = activities.aggregate(
+        upcoming=Count('id', filter=Q(status='Scheduled', scheduled_date__gte=today)),
+        overdue=Count('id', filter=Q(status='Scheduled', scheduled_date__lt=today)),
+    )
+
     return Response({
         'total_leads': total_leads,
-        'new_leads': new_leads,
+        'new_leads': lead_stats['new'],
         'converted_leads': converted_leads,
-        'leads_this_month': leads_this_month,
-        'conversions_this_month': conversions_this_month,
+        'leads_this_month': lead_stats['this_month'],
+        'conversions_this_month': lead_stats['conversions_this_month'],
         'conversion_rate': conversion_rate,
-        'upcoming_activities': upcoming_activities,
-        'overdue_activities': overdue_activities,
+        'upcoming_activities': activity_stats['upcoming'],
+        'overdue_activities': activity_stats['overdue'],
     })
 
 
@@ -626,49 +619,54 @@ def conversion_metrics(request):
     Get conversion rate metrics over time
     GET /api/crm/dashboard/conversion-rate/
     """
+    from django.db.models.functions import TruncMonth
+
     user = request.user
-    
+
     # Base queryset
     if user.role == 'BDM':
         leads = Lead.objects.filter(assigned_to=user)
     else:
         leads = Lead.objects.all()
-    
-    # Last 6 months data
+
+    # Calculate date range for last 6 months
     today = timezone.now()
+    six_months_ago = (today - timedelta(days=180)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Two aggregated queries instead of 12 individual ones
+    leads_by_month = dict(
+        leads.filter(created_at__gte=six_months_ago)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(count=Count('id'))
+        .values_list('month', 'count')
+    )
+
+    conversions_by_month = dict(
+        leads.filter(conversion_date__gte=six_months_ago)
+        .annotate(month=TruncMonth('conversion_date'))
+        .values('month')
+        .annotate(count=Count('id'))
+        .values_list('month', 'count')
+    )
+
+    # Build response using the pre-fetched data
     months_data = []
-    
     for i in range(5, -1, -1):
-        month_date = today - timedelta(days=30*i)
-        month_start = month_date.replace(day=1, hour=0, minute=0, second=0)
-        
-        if i > 0:
-            next_month = month_date.replace(day=1) + timedelta(days=32)
-            month_end = next_month.replace(day=1) - timedelta(seconds=1)
-        else:
-            month_end = today
-        
-        month_leads = leads.filter(
-            created_at__gte=month_start,
-            created_at__lte=month_end
-        ).count()
-        
-        month_conversions = leads.filter(
-            conversion_date__gte=month_start,
-            conversion_date__lte=month_end
-        ).count()
-        
-        conversion_rate = 0
-        if month_leads > 0:
-            conversion_rate = round((month_conversions / month_leads) * 100, 2)
-        
+        month_date = today - timedelta(days=30 * i)
+        month_key = month_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        month_leads = leads_by_month.get(month_key, 0)
+        month_conversions = conversions_by_month.get(month_key, 0)
+        conversion_rate = round((month_conversions / month_leads * 100), 2) if month_leads > 0 else 0
+
         months_data.append({
-            'month': month_start.strftime('%b %Y'),
+            'month': month_key.strftime('%b %Y'),
             'leads': month_leads,
             'conversions': month_conversions,
-            'conversion_rate': conversion_rate
+            'conversion_rate': conversion_rate,
         })
-    
+
     return Response(months_data)
 
 
@@ -716,27 +714,27 @@ def target_progress(request):
     GET /api/crm/dashboard/targets/
     """
     user = request.user
-    
+
     today = timezone.now().date()
-    
-    # Get active targets
+
+    # Get active targets with select_related to avoid N+1 on serializer
     if user.role == 'BDM':
         targets = BDMTarget.objects.filter(
             bdm=user,
             start_date__lte=today,
             end_date__gte=today
-        )
+        ).select_related('bdm', 'created_by')
     else:
         # Admin can see all active targets
         targets = BDMTarget.objects.filter(
             start_date__lte=today,
             end_date__gte=today
-        )
-    
+        ).select_related('bdm', 'created_by')
+
     # Refresh actuals for all targets
     for target in targets:
         target.refresh_actuals()
-    
+
     return Response(
         BDMTargetSerializer(targets, many=True).data
     )
@@ -785,48 +783,74 @@ def admin_dashboard_overview(request):
     - Recent activity summary
     - Conversion metrics
     """
-    # All leads
-    all_leads = Lead.objects.all()
+    from django.db.models import Case, When, IntegerField, Value
 
-    # Lead statistics by status
+    # Lead statistics by status - single aggregated query
+    status_counts = Lead.objects.aggregate(
+        total=Count('id'),
+        new=Count('id', filter=Q(status='New')),
+        contacted=Count('id', filter=Q(status='Contacted')),
+        interested=Count('id', filter=Q(status='Interested')),
+        not_interested=Count('id', filter=Q(status='Not Interested')),
+        converted=Count('id', filter=Q(status='Converted')),
+        lost=Count('id', filter=Q(status='Lost')),
+    )
+
     lead_stats = {
-        'total': all_leads.count(),
-        'new': all_leads.filter(status='New').count(),
-        'contacted': all_leads.filter(status='Contacted').count(),
-        'interested': all_leads.filter(status='Interested').count(),
-        'not_interested': all_leads.filter(status='Not Interested').count(),
-        'converted': all_leads.filter(status='Converted').count(),
-        'lost': all_leads.filter(status='Lost').count(),
+        'total': status_counts['total'],
+        'new': status_counts['new'],
+        'contacted': status_counts['contacted'],
+        'interested': status_counts['interested'],
+        'not_interested': status_counts['not_interested'],
+        'converted': status_counts['converted'],
+        'lost': status_counts['lost'],
     }
 
-    # BDM Performance comparison
-    bdms = CustomUser.objects.filter(role='BDM', is_active=True)
-    bdm_performance = []
+    # BDM Performance comparison - 2 annotated queries instead of N*7
+    bdm_lead_stats = CustomUser.objects.filter(
+        role='BDM', is_active=True
+    ).annotate(
+        total_leads=Count('assigned_leads', distinct=True),
+        converted_leads=Count('assigned_leads', filter=Q(assigned_leads__status='Converted'), distinct=True),
+    ).values('id', 'username', 'first_name', 'last_name', 'total_leads', 'converted_leads')
 
-    for bdm in bdms:
-        bdm_leads = all_leads.filter(assigned_to=bdm)
-        bdm_activities = Activity.objects.filter(assigned_to=bdm)
+    bdm_activity_stats = CustomUser.objects.filter(
+        role='BDM', is_active=True
+    ).annotate(
+        total_activities=Count('activities', distinct=True),
+        scheduled_activities=Count('activities', filter=Q(activities__status='Scheduled'), distinct=True),
+        completed_activities=Count('activities', filter=Q(activities__status='Completed'), distinct=True),
+    ).values('id', 'total_activities', 'scheduled_activities', 'completed_activities')
+
+    # Build a lookup for activity stats
+    activity_stats_map = {item['id']: item for item in bdm_activity_stats}
+
+    bdm_performance = []
+    for bdm in bdm_lead_stats:
+        total = bdm['total_leads']
+        converted = bdm['converted_leads']
+        act_stats = activity_stats_map.get(bdm['id'], {})
 
         bdm_performance.append({
-            'id': bdm.id,
-            'name': f"{bdm.first_name} {bdm.last_name}".strip() or bdm.username,
-            'total_leads': bdm_leads.count(),
-            'converted_leads': bdm_leads.filter(status='Converted').count(),
-            'conversion_rate': round((bdm_leads.filter(status='Converted').count() / bdm_leads.count() * 100) if bdm_leads.count() > 0 else 0, 1),
-            'total_activities': bdm_activities.count(),
-            'scheduled_activities': bdm_activities.filter(status='Scheduled').count(),
-            'completed_activities': bdm_activities.filter(status='Completed').count(),
+            'id': bdm['id'],
+            'name': f"{bdm['first_name']} {bdm['last_name']}".strip() or bdm['username'],
+            'total_leads': total,
+            'converted_leads': converted,
+            'conversion_rate': round((converted / total * 100) if total > 0 else 0, 1),
+            'total_activities': act_stats.get('total_activities', 0),
+            'scheduled_activities': act_stats.get('scheduled_activities', 0),
+            'completed_activities': act_stats.get('completed_activities', 0),
         })
 
-    # Recent activities (last 7 days)
+    # Recent activities (last 7 days) + this month conversions - batch with lead_stats
     seven_days_ago = timezone.now() - timedelta(days=7)
+    month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
     recent_activities = Activity.objects.filter(
         created_at__gte=seven_days_ago
     ).count()
 
-    # This month conversion stats
-    month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    this_month_converted = all_leads.filter(
+    this_month_converted = Lead.objects.filter(
         conversion_date__gte=month_start
     ).count()
 
@@ -845,19 +869,23 @@ def admin_lead_distribution(request):
     Get lead distribution across BDMs
     GET /api/crm/dashboard/admin/lead-distribution/
     """
-    bdms = CustomUser.objects.filter(role='BDM', is_active=True)
-    distribution = []
+    # Single annotated query instead of N+1
+    bdm_counts = CustomUser.objects.filter(
+        role='BDM', is_active=True
+    ).annotate(
+        lead_count=Count('assigned_leads')
+    ).values('id', 'username', 'first_name', 'last_name', 'lead_count')
+
+    distribution = [
+        {
+            'bdm_id': bdm['id'],
+            'bdm_name': f"{bdm['first_name']} {bdm['last_name']}".strip() or bdm['username'],
+            'lead_count': bdm['lead_count'],
+        }
+        for bdm in bdm_counts
+    ]
 
     unassigned_count = Lead.objects.filter(assigned_to__isnull=True).count()
-
-    for bdm in bdms:
-        lead_count = Lead.objects.filter(assigned_to=bdm).count()
-        distribution.append({
-            'bdm_id': bdm.id,
-            'bdm_name': f"{bdm.first_name} {bdm.last_name}".strip() or bdm.username,
-            'lead_count': lead_count
-        })
-
     distribution.append({
         'bdm_id': None,
         'bdm_name': 'Unassigned',

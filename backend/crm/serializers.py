@@ -3,6 +3,7 @@
 # ============================================
 
 from rest_framework import serializers
+from django.utils import timezone
 from .models import Lead, Activity, BDMTarget
 from students.models import CustomUser, School
 
@@ -46,8 +47,15 @@ class LeadSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at', 'conversion_date', 'converted_to_school']
     
     def get_activities_count(self, obj):
-        """Return count of activities for this lead"""
-        return obj.activities.count()
+        """Return count of activities for this lead (uses prefetch cache if available)"""
+        # Use annotation if available (set via .annotate(activities_count_ann=Count('activities')))
+        if hasattr(obj, 'activities_count_ann'):
+            return obj.activities_count_ann
+        # Fall back to prefetch cache (len() doesn't hit DB if prefetched)
+        try:
+            return len(obj.activities.all())
+        except Exception:
+            return obj.activities.count()
     
     def validate(self, data):
         """Ensure at least phone or school_name is provided"""
@@ -83,9 +91,23 @@ class LeadCardSerializer(LeadSerializer):
             'days_since_last_activity',
         ]
 
+    def _get_cached_activities(self, obj):
+        """
+        Get activities from prefetch cache, sorted by scheduled_date desc.
+        Uses Python-side sorting/filtering to avoid N+1 queries.
+        The view's get_queryset already does prefetch_related('activities').
+        """
+        cache_attr = '_sorted_activities'
+        if not hasattr(obj, cache_attr):
+            # .all() uses the prefetch cache; sort in Python
+            all_activities = list(obj.activities.all())
+            all_activities.sort(key=lambda a: a.scheduled_date or timezone.now(), reverse=True)
+            setattr(obj, cache_attr, all_activities)
+        return getattr(obj, cache_attr)
+
     def get_recent_activities(self, obj):
-        """Return last 5 activities for card display"""
-        activities = obj.activities.order_by('-scheduled_date')[:5]
+        """Return last 5 activities for card display (from prefetch cache)"""
+        activities = self._get_cached_activities(obj)[:5]
         return [
             {
                 'id': a.id,
@@ -99,13 +121,15 @@ class LeadCardSerializer(LeadSerializer):
         ]
 
     def get_next_scheduled_activity(self, obj):
-        """Return the next upcoming scheduled activity"""
-        from django.utils import timezone
-        next_activity = obj.activities.filter(
-            status='Scheduled',
-            scheduled_date__gte=timezone.now()
-        ).order_by('scheduled_date').first()
-        if next_activity:
+        """Return the next upcoming scheduled activity (from prefetch cache)"""
+        now = timezone.now()
+        scheduled = [
+            a for a in self._get_cached_activities(obj)
+            if a.status == 'Scheduled' and a.scheduled_date and a.scheduled_date >= now
+        ]
+        # sorted desc, so the next upcoming is the last one
+        if scheduled:
+            next_activity = scheduled[-1]
             return {
                 'activity_type': next_activity.activity_type,
                 'subject': next_activity.subject,
@@ -114,16 +138,15 @@ class LeadCardSerializer(LeadSerializer):
         return None
 
     def get_last_activity_date(self, obj):
-        """Return date of most recent activity"""
-        latest = obj.activities.order_by('-scheduled_date').first()
-        return latest.scheduled_date if latest else None
+        """Return date of most recent activity (from prefetch cache)"""
+        activities = self._get_cached_activities(obj)
+        return activities[0].scheduled_date if activities else None
 
     def get_days_since_last_activity(self, obj):
-        """Return number of days since last activity"""
-        from django.utils import timezone
-        latest = obj.activities.order_by('-scheduled_date').first()
-        if latest and latest.scheduled_date:
-            delta = timezone.now() - latest.scheduled_date
+        """Return number of days since last activity (from prefetch cache)"""
+        activities = self._get_cached_activities(obj)
+        if activities and activities[0].scheduled_date:
+            delta = timezone.now() - activities[0].scheduled_date
             return delta.days
         return None
 

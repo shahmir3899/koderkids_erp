@@ -375,49 +375,52 @@ class BDMTarget(models.Model):
         """
         from django.db.models import Sum
         from students.models import Fee
-        
+
         # Count leads created in this period
         self.leads_achieved = Lead.objects.filter(
             assigned_to=self.bdm,
             created_at__date__gte=self.start_date,
             created_at__date__lte=self.end_date
         ).count()
-        
-        # Count conversions in this period
+
+        # Count conversions in this period - select_related to avoid N+1 on school
         converted_leads = Lead.objects.filter(
             assigned_to=self.bdm,
             status='Converted',
             conversion_date__date__gte=self.start_date,
             conversion_date__date__lte=self.end_date
-        )
+        ).select_related('converted_to_school')
         self.conversions_achieved = converted_leads.count()
-        
+
         # Calculate revenue from converted schools
-        # This is a simple calculation - you may want to customize based on your needs
         revenue = Decimal('0.00')
+
+        # Collect school IDs for batch fee query
+        per_student_school_ids = []
         for lead in converted_leads:
             if lead.converted_to_school:
                 school = lead.converted_to_school
-                # Calculate based on payment mode
                 if school.payment_mode == 'monthly_subscription':
-                    # Count months in the period after conversion
                     conversion_month = lead.conversion_date.month
                     months_active = min(
-                        12,  # Max 12 months
+                        12,
                         (self.end_date.month - conversion_month + 1)
                     )
                     if school.monthly_subscription_amount:
                         revenue += school.monthly_subscription_amount * months_active
                 else:  # per_student
-                    # Get fees collected for this school in the period
-                    fees = Fee.objects.filter(
-                        school=school,
-                        payment_date__gte=self.start_date,
-                        payment_date__lte=self.end_date
-                    ).aggregate(total=Sum('paid_amount'))
-                    if fees['total']:
-                        revenue += fees['total']
-        
+                    per_student_school_ids.append(school.id)
+
+        # Single batch query for all per_student school fees (was N separate queries)
+        if per_student_school_ids:
+            fee_totals = Fee.objects.filter(
+                school_id__in=per_student_school_ids,
+                payment_date__gte=self.start_date,
+                payment_date__lte=self.end_date
+            ).aggregate(total=Sum('paid_amount'))
+            if fee_totals['total']:
+                revenue += fee_totals['total']
+
         self.revenue_achieved = revenue
         self.save()
     

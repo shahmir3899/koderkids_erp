@@ -53,6 +53,7 @@ import RequestReportPage from './pages/RequestReportPage';
 import BDMDashboard from './pages/crm/BDMDashboard';
 import AdminCRMDashboard from './pages/crm/AdminDashboard';
 import LeadsListPage from './pages/crm/LeadsListPage';
+import ActivitiesPage from './pages/crm/ActivitiesPage';
 
 
 // Task Pages
@@ -240,6 +241,7 @@ function AppContent() {
       <Route path="/crm/admin-dashboard" element={<ProtectedRoute element={<AdminCRMDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/crm/dashboard" element={<ProtectedRoute element={<BDMDashboard />} allowedRoles={["BDM"]} />} />
       <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
+      <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
 
 
       {/* ✅ Task Routes */}
