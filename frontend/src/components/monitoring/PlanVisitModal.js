@@ -41,11 +41,12 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
 
   // Step 1: School selection
   const [schoolData, setSchoolData] = useState([]);
-  const [selectedSchool, setSelectedSchool] = useState(null);
+  const [selectedSchools, setSelectedSchools] = useState([]);
   const [schoolSearch, setSchoolSearch] = useState("");
   const [purpose, setPurpose] = useState("");
   const [notes, setNotes] = useState("");
   const [loadingSchools, setLoadingSchools] = useState(false);
+  const [plannedTimes, setPlannedTimes] = useState({});
 
   // Step 2: Date picking
   const [workingDaysData, setWorkingDaysData] = useState(null);
@@ -78,12 +79,72 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     }
   }, []);
 
-  const fetchWorkingDays = useCallback(async (schoolId) => {
+  const fetchWorkingDays = useCallback(async (schools) => {
+    if (!schools || schools.length === 0) return;
+    
     setLoadingWorkingDays(true);
     setError(null);
     try {
-      const data = await fetchSchoolWorkingDays(schoolId);
-      setWorkingDaysData(data);
+      // Fetch working days for all selected schools
+      const workingDaysPromises = schools.map((school) =>
+        fetchSchoolWorkingDays(school.id)
+      );
+      const allWorkingDaysData = await Promise.all(workingDaysPromises);
+
+      if (allWorkingDaysData.length === 0) {
+        setWorkingDaysData(null);
+        return;
+      }
+
+      // Calculate UNION of assigned days (all weekdays that work for ANY school)
+      // Convert Python weekday (0=Mon) to JS getDay (0=Sun)
+      const allWorkingDays = new Set();
+      allWorkingDaysData.forEach((data) => {
+        const schoolDays = data.assigned_days || [];
+        schoolDays.forEach((pythonDay) => {
+          // Convert Python weekday to JS getDay: (pythonDay + 1) % 7
+          const jsDay = (pythonDay + 1) % 7;
+          allWorkingDays.add(jsDay);
+        });
+      });
+
+      // Generate upcoming dates that work for ANY school
+      const upcoming_dates = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      for (let i = 0; i < 60; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(checkDate.getDate() + i);
+        const weekday = checkDate.getDay(); // 0=Sunday through 6=Saturday (JS format)
+        
+        if (allWorkingDays.has(weekday)) {
+          const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, "0")}-${String(checkDate.getDate()).padStart(2, "0")}`;
+          upcoming_dates.push(dateStr);
+        }
+        
+        if (upcoming_dates.length >= 30) break;
+      }
+
+      // Find first school with times set, or use first school
+      let schoolWithTimes = allWorkingDaysData[0];
+      for (let i = 1; i < allWorkingDaysData.length; i++) {
+        if (allWorkingDaysData[i].start_time || allWorkingDaysData[i].end_time) {
+          schoolWithTimes = allWorkingDaysData[i];
+          break;
+        }
+      }
+
+      // Merge data: use consolidated times and all working dates
+      const mergedData = {
+        ...schoolWithTimes,
+        upcoming_working_dates: upcoming_dates,
+        schools_count: schools.length,
+        all_working_days: Array.from(allWorkingDays),
+        schools_data: allWorkingDaysData,
+      };
+      
+      setWorkingDaysData(mergedData);
     } catch (err) {
       console.error("Error fetching working days:", err);
       setError("Failed to load school working days.");
@@ -106,10 +167,10 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
   }, [isOpen, fetchSchools]);
 
   useEffect(() => {
-    if (selectedSchool && currentStep === 2) {
-      fetchWorkingDays(selectedSchool.id);
+    if (selectedSchools.length > 0 && currentStep === 2) {
+      fetchWorkingDays(selectedSchools);
     }
-  }, [selectedSchool, currentStep, fetchWorkingDays]);
+  }, [selectedSchools, currentStep, fetchWorkingDays]);
 
   // ============================================================
   // HELPERS
@@ -117,7 +178,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
 
   const resetWizard = () => {
     setCurrentStep(1);
-    setSelectedSchool(null);
+    setSelectedSchools([]);
     setSchoolSearch("");
     setPurpose("");
     setNotes("");
@@ -126,6 +187,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     setCalendarMonth(new Date());
     setError(null);
     setIsSubmitting(false);
+    setPlannedTimes({});
   };
 
   const filteredSchools = schoolData.filter((school) => {
@@ -136,7 +198,18 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
   });
 
   const getUpcomingWorkingDates = () => {
-    if (!workingDaysData || !workingDaysData.upcoming_working_dates) return [];
+    if (!workingDaysData || !workingDaysData.upcoming_working_dates) {
+      // Fallback: generate all future dates if working days data not available
+      const dates = [];
+      const today = new Date();
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() + i);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        dates.push(dateStr);
+      }
+      return dates;
+    }
     return workingDaysData.upcoming_working_dates;
   };
 
@@ -174,8 +247,8 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     setError(null);
 
     if (currentStep === 1) {
-      if (!selectedSchool) {
-        setError("Please select a school to continue.");
+      if (selectedSchools.length === 0) {
+        setError("Please select at least one school to continue.");
         return;
       }
       setCurrentStep(2);
@@ -202,14 +275,24 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     setError(null);
 
     try {
-      await createVisit({
-        school: selectedSchool.id,
-        visit_date: selectedDate,
-        purpose: purpose || undefined,
-        notes: notes || undefined,
-      });
+      // Create visits for all selected schools
+      const visitPromises = selectedSchools.map((school) =>
+        createVisit({
+          school: school.id,
+          visit_date: selectedDate,
+          purpose: purpose || undefined,
+          notes: notes || undefined,
+          planned_time: plannedTimes[school.id] || undefined,
+        })
+      );
 
-      toast.success("Visit planned successfully!");
+      await Promise.all(visitPromises);
+
+      toast.success(
+        selectedSchools.length === 1
+          ? "Visit planned successfully!"
+          : `${selectedSchools.length} visits planned successfully!`
+      );
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
@@ -413,7 +496,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
           {/* Step 1: Select School */}
           {currentStep === 1 && (
             <div style={styles.stepContainer}>
-              <h3 style={styles.stepTitle}>Select a School</h3>
+              <h3 style={styles.stepTitle}>Select Schools</h3>
 
               {/* Search Input */}
               <div style={styles.formGroup}>
@@ -451,7 +534,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
                   </div>
                 ) : (
                   filteredSchools.map((school) => {
-                    const isSelected = selectedSchool?.id === school.id;
+                    const isSelected = selectedSchools.some((s) => s.id === school.id);
                     return (
                       <div
                         key={school.id}
@@ -459,7 +542,13 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
                           ...styles.schoolCard,
                           ...(isSelected ? styles.schoolCardSelected : {}),
                         }}
-                        onClick={() => setSelectedSchool(school)}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedSchools(selectedSchools.filter((s) => s.id !== school.id));
+                          } else {
+                            setSelectedSchools([...selectedSchools, school]);
+                          }
+                        }}
                         onMouseEnter={(e) => {
                           if (!isSelected) {
                             e.currentTarget.style.backgroundColor =
@@ -498,19 +587,62 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
                 )}
               </div>
 
-              {/* Selected School Info */}
-              {selectedSchool && (
-                <div style={styles.selectedSchoolInfo}>
-                  <div style={styles.selectedSchoolHeader}>
+              {/* Selected Schools Info - with Planned Times */}
+              {selectedSchools.length > 0 && (
+                <div style={styles.selectedSchoolsContainer}>
+                  <div style={styles.selectedSchoolsTitle}>
                     <FontAwesomeIcon icon={faSchool} style={{ marginRight: SPACING.sm }} />
-                    {selectedSchool.name}
+                    {selectedSchools.length} school{selectedSchools.length !== 1 ? "s" : ""} selected
                   </div>
-                  {(selectedSchool.location || selectedSchool.address) && (
-                    <div style={styles.selectedSchoolDetail}>
-                      <FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: SPACING.xs }} />
-                      {selectedSchool.location || selectedSchool.address}
-                    </div>
-                  )}
+                  <div style={styles.selectedSchoolsList}>
+                    {selectedSchools.map((school) => (
+                      <div key={school.id} style={styles.selectedSchoolChip}>
+                        <div style={{ flex: 1 }}>
+                          <div style={styles.chipSchoolName}>{school.name}</div>
+                          {(school.location || school.address) && (
+                            <div style={styles.chipSchoolLocation}>
+                              <FontAwesomeIcon
+                                icon={faMapMarkerAlt}
+                                style={{ marginRight: SPACING.xs, fontSize: "10px" }}
+                              />
+                              {school.location || school.address}
+                            </div>
+                          )}
+                          <input
+                            type="time"
+                            placeholder="Planned visit time (optional)"
+                            value={plannedTimes[school.id] || ""}
+                            onChange={(e) =>
+                              setPlannedTimes({
+                                ...plannedTimes,
+                                [school.id]: e.target.value,
+                              })
+                            }
+                            style={styles.plannedTimeInput}
+                            title="What time do you plan to visit this school?"
+                          />
+                        </div>
+                        <button
+                          onClick={() =>
+                            setSelectedSchools(selectedSchools.filter((s) => s.id !== school.id))
+                          }
+                          style={styles.chipRemoveButton}
+                          title="Remove"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = COLORS.status.error;
+                            e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+                            e.currentTarget.style.borderRadius = BORDER_RADIUS.full;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = COLORS.text.whiteSubtle;
+                            e.currentTarget.style.backgroundColor = "transparent";
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -545,26 +677,71 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
             <div style={styles.stepContainer}>
               <h3 style={styles.stepTitle}>Pick a Visit Date</h3>
 
-              {/* School Hours Info */}
-              {workingDaysData && (
-                <div style={styles.schoolHoursInfo}>
-                  <FontAwesomeIcon icon={faClock} style={{ marginRight: SPACING.sm }} />
+              {/* Multiple Schools Info */}
+              {selectedSchools.length > 1 && (
+                <div style={styles.multiSchoolInfo}>
+                  <FontAwesomeIcon icon={faSchool} style={{ marginRight: SPACING.sm }} />
                   <span>
-                    School Hours:{" "}
-                    <strong>
-                      {workingDaysData.start_time
-                        ? formatTime(workingDaysData.start_time)
-                        : "N/A"}{" "}
-                      -{" "}
-                      {workingDaysData.end_time
-                        ? formatTime(workingDaysData.end_time)
-                        : "N/A"}
-                    </strong>
+                    Showing all dates where any of the <strong>{selectedSchools.length} schools</strong> is working
                   </span>
                 </div>
               )}
 
-              {/* Calendar Navigation */}
+              {/* School Hours Info */}
+              {workingDaysData && (
+                <div style={styles.schoolHoursInfoContainer}>
+                  {selectedSchools.length === 1 ? (
+                    <div style={styles.schoolHoursInfo}>
+                      <FontAwesomeIcon icon={faClock} style={{ marginRight: SPACING.sm }} />
+                      <span>
+                        School Hours:{" "}
+                        <strong>
+                          {workingDaysData.start_time
+                            ? formatTime(workingDaysData.start_time)
+                            : "N/A"}{" "}
+                          -{" "}
+                          {workingDaysData.end_time
+                            ? formatTime(workingDaysData.end_time)
+                            : "N/A"}
+                        </strong>
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={styles.schoolHoursInfoLabel}>School Hours by School:</div>
+                      <div style={styles.schoolHoursList}>
+                        {workingDaysData.schools_data && workingDaysData.schools_data.map((schoolData) => (
+                          <div key={schoolData.school_id} style={styles.schoolHourItem}>
+                            <span style={styles.schoolHourItemName}>{schoolData.school_name}:</span>
+                            <span style={styles.schoolHourItemTime}>
+                              {schoolData.start_time ? formatTime(schoolData.start_time) : "N/A"} -{" "}
+                              {schoolData.end_time ? formatTime(schoolData.end_time) : "N/A"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Debug Info - Show available dates count */}
+              {workingDaysData && (
+                <div style={{
+                  fontSize: FONT_SIZES.xs,
+                  color: COLORS.text.whiteSubtle,
+                  marginBottom: SPACING.md,
+                  textAlign: 'center'
+                }}>
+                  {getUpcomingWorkingDates().length} working dates available
+                </div>
+              )}
+
+              {loading && (
+                <div style={styles.loadingOverlay}>
+                  <ClipLoader size={40} color={"#3b82f6"} />
+                </div>
+              )}
               <div style={styles.calendarNav}>
                 <button
                   onClick={() => navigateMonth(-1)}
@@ -715,18 +892,48 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
               <h3 style={styles.stepTitle}>Review & Confirm</h3>
 
               <div style={styles.reviewCard}>
-                {/* School */}
+                {/* Schools */}
                 <div style={styles.reviewRow}>
                   <div style={styles.reviewLabel}>
                     <FontAwesomeIcon icon={faSchool} style={styles.reviewIcon} />
-                    School
+                    Schools
                   </div>
                   <div style={styles.reviewValue}>
-                    {selectedSchool?.name || "N/A"}
-                    {(selectedSchool?.location || selectedSchool?.address) && (
-                      <div style={styles.reviewSubValue}>
-                        <FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: SPACING.xs, fontSize: "11px" }} />
-                        {selectedSchool.location || selectedSchool.address}
+                    {selectedSchools.length === 1 ? (
+                      <>
+                        {selectedSchools[0]?.name}
+                        {(selectedSchools[0]?.location || selectedSchools[0]?.address) && (
+                          <div style={styles.reviewSubValue}>
+                            <FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: SPACING.xs, fontSize: "11px" }} />
+                            {selectedSchools[0].location || selectedSchools[0].address}
+                          </div>
+                        )}
+                        {plannedTimes[selectedSchools[0]?.id] && (
+                          <div style={styles.reviewSubValue}>
+                            <FontAwesomeIcon icon={faClock} style={{ marginRight: SPACING.xs, fontSize: "11px" }} />
+                            {plannedTimes[selectedSchools[0]?.id]}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div>
+                        {selectedSchools.map((school, idx) => (
+                          <div key={school.id} style={{ marginBottom: idx < selectedSchools.length - 1 ? SPACING.md : 0 }}>
+                            {school.name}
+                            {(school.location || school.address) && (
+                              <div style={styles.reviewSubValue}>
+                                <FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: SPACING.xs, fontSize: "11px" }} />
+                                {school.location || school.address}
+                              </div>
+                            )}
+                            {plannedTimes[school.id] && (
+                              <div style={styles.reviewSubValue}>
+                                <FontAwesomeIcon icon={faClock} style={{ marginRight: SPACING.xs, fontSize: "11px" }} />
+                                Planned: {plannedTimes[school.id]}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -842,7 +1049,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
             <button
               onClick={handleNext}
               style={styles.buttonPrimary}
-              disabled={isSubmitting || loading}
+              disabled={isSubmitting}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
                 e.currentTarget.style.transform = "translateY(-1px)";
@@ -1207,6 +1414,85 @@ const styles = {
     whiteSpace: "nowrap",
   },
 
+  selectedSchoolsContainer: {
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+    border: "1px solid rgba(59, 130, 246, 0.3)",
+    marginBottom: SPACING.lg,
+  },
+
+  selectedSchoolsTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    display: "flex",
+    alignItems: "center",
+    marginBottom: SPACING.md,
+  },
+
+  selectedSchoolsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: SPACING.sm,
+  },
+
+  selectedSchoolChip: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    backgroundColor: "rgba(59, 130, 246, 0.2)",
+    borderRadius: BORDER_RADIUS.sm,
+    border: "1px solid rgba(59, 130, 246, 0.4)",
+    fontSize: FONT_SIZES.xs,
+  },
+
+  chipSchoolName: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+
+  chipSchoolLocation: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    marginTop: "2px",
+    display: "flex",
+    alignItems: "center",
+  },
+
+  chipRemoveButton: {
+    background: "none",
+    border: "none",
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.lg,
+    cursor: "pointer",
+    padding: 0,
+    marginLeft: SPACING.md,
+    transition: `all ${TRANSITIONS.normal}`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "24px",
+    height: "24px",
+    flexShrink: 0,
+  },
+
+  plannedTimeInput: {
+    marginTop: SPACING.sm,
+    width: "100%",
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    fontSize: FONT_SIZES.xs,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    color: COLORS.text.white,
+    outline: "none",
+    transition: `all ${TRANSITIONS.normal}`,
+    boxSizing: "border-box",
+  },
+
   selectedSchoolInfo: {
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
@@ -1232,6 +1518,22 @@ const styles = {
   },
 
   // Calendar Styles
+  multiSchoolInfo: {
+    display: "flex",
+    alignItems: "center",
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
+    border: "1px solid rgba(34, 197, 94, 0.3)",
+    marginBottom: SPACING.lg,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+  },
+
+  schoolHoursInfoContainer: {
+    marginBottom: SPACING.lg,
+  },
+
   schoolHoursInfo: {
     display: "flex",
     alignItems: "center",
@@ -1239,9 +1541,45 @@ const styles = {
     borderRadius: BORDER_RADIUS.md,
     backgroundColor: "rgba(59, 130, 246, 0.1)",
     border: "1px solid rgba(59, 130, 246, 0.2)",
-    marginBottom: SPACING.lg,
     fontSize: FONT_SIZES.sm,
     color: COLORS.text.whiteMedium,
+  },
+
+  schoolHoursInfoLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    marginBottom: SPACING.sm,
+  },
+
+  schoolHoursList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: SPACING.sm,
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+    border: "1px solid rgba(59, 130, 246, 0.2)",
+  },
+
+  schoolHourItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteMedium,
+    paddingBottom: SPACING.sm,
+    borderBottom: "1px solid rgba(59, 130, 246, 0.2)",
+  },
+
+  schoolHourItemName: {
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+
+  schoolHourItemTime: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
   },
 
   calendarNav: {

@@ -41,6 +41,7 @@ class MonitoringVisit(models.Model):
         related_name='monitoring_visits',
     )
     visit_date = models.DateField()
+    planned_time = models.TimeField(null=True, blank=True, help_text='BDM planned visit time')
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
     status = models.CharField(

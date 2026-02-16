@@ -310,12 +310,23 @@ def school_working_days(request, school_id):
         if len(upcoming_dates) >= 30:
             break
 
+    # Use provided times or default to 8:00 AM - 3:00 PM
+    if school.start_time:
+        start_time = school.start_time
+    else:
+        start_time = datetime.strptime("08:00", "%H:%M").time()
+    
+    if school.end_time:
+        end_time = school.end_time
+    else:
+        end_time = datetime.strptime("15:00", "%H:%M").time()
+
     return Response({
         'school_id': school.id,
         'school_name': school.name,
         'assigned_days': assigned_days,
-        'start_time': str(school.start_time) if school.start_time else None,
-        'end_time': str(school.end_time) if school.end_time else None,
+        'start_time': str(start_time),
+        'end_time': str(end_time),
         'upcoming_working_dates': upcoming_dates,
     })
 

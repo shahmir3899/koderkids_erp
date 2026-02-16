@@ -139,7 +139,7 @@ class MonitoringVisitSerializer(serializers.ModelSerializer):
         model = MonitoringVisit
         fields = [
             'id', 'bdm', 'school', 'school_name', 'bdm_name',
-            'visit_date', 'start_time', 'end_time',
+            'visit_date', 'planned_time', 'start_time', 'end_time',
             'status', 'purpose', 'notes',
             'teacher_count', 'evaluations_count',
             'created_at', 'updated_at',

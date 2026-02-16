@@ -1058,16 +1058,16 @@ function MonitoringPage() {
       />
 
       {/* Evaluation Wizard */}
-      {showEvalWizard && selectedVisit && (
-        <EvaluationWizard
-          visit={selectedVisit}
-          onClose={handleEvalWizardClose}
-          onComplete={() => {
-            toast.success('Evaluation submitted successfully');
-            handleEvalWizardClose();
-          }}
-        />
-      )}
+      <EvaluationWizard
+        isOpen={showEvalWizard && !!selectedVisit}
+        visitId={selectedVisit?.id}
+        visitSchoolName={selectedVisit?.school_name}
+        onClose={handleEvalWizardClose}
+        onSuccess={() => {
+          toast.success('Evaluation submitted successfully');
+          handleEvalWizardClose();
+        }}
+      />
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm.isOpen && (
