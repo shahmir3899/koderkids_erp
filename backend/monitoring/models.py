@@ -60,7 +60,7 @@ class MonitoringVisit(models.Model):
 
     class Meta:
         ordering = ['-visit_date', '-created_at']
-        unique_together = ('bdm', 'school', 'visit_date')
+        unique_together = ('school', 'visit_date')
         verbose_name = 'Monitoring Visit'
         verbose_name_plural = 'Monitoring Visits'
 

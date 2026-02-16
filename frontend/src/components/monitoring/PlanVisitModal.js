@@ -616,36 +616,45 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
                   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
                   const isToday = cell.dateStr === todayStr;
                   const isPast = cell.dateStr < todayStr;
+                  const isClickable = isWorking && !isPast;
 
                   return (
                     <div
                       key={cell.dateStr}
                       style={{
                         ...styles.calendarCell,
-                        ...(isWorking && !isPast
+                        ...(isClickable
                           ? styles.calendarCellWorking
                           : styles.calendarCellDisabled),
                         ...(isSelected ? styles.calendarCellSelected : {}),
                         ...(isToday ? styles.calendarCellToday : {}),
                       }}
                       onClick={() => {
-                        if (isWorking && !isPast) {
+                        if (isClickable) {
                           setSelectedDate(cell.dateStr);
                           setError(null);
                         }
                       }}
                       onMouseEnter={(e) => {
-                        if (isWorking && !isPast && !isSelected) {
+                        if (isClickable && !isSelected) {
                           e.currentTarget.style.backgroundColor =
                             "rgba(59, 130, 246, 0.3)";
                           e.currentTarget.style.transform = "scale(1.05)";
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (isWorking && !isPast && !isSelected) {
+                        if (isClickable && !isSelected) {
                           e.currentTarget.style.backgroundColor =
                             "rgba(255, 255, 255, 0.08)";
                           e.currentTarget.style.transform = "scale(1)";
+                        }
+                      }}
+                      role="button"
+                      tabIndex={isClickable ? 0 : -1}
+                      onKeyDown={(e) => {
+                        if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+                          setSelectedDate(cell.dateStr);
+                          setError(null);
                         }
                       }}
                     >
@@ -1300,6 +1309,8 @@ const styles = {
     color: COLORS.text.white,
     cursor: "pointer",
     border: "1px solid rgba(59, 130, 246, 0.3)",
+    pointerEvents: "auto",
+    userSelect: "none",
   },
 
   calendarCellDisabled: {
@@ -1307,6 +1318,7 @@ const styles = {
     color: "rgba(255, 255, 255, 0.25)",
     cursor: "not-allowed",
     border: "1px solid transparent",
+    pointerEvents: "none",
   },
 
   calendarCellSelected: {
