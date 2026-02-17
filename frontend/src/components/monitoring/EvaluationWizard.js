@@ -206,12 +206,20 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
     templateFields.forEach((field) => {
       if (field.is_required) {
         const val = formValues[field.id];
-        if (!val || (val.value === '' && val.numeric_value === null && val.numeric_value !== 0)) {
+        if (!val) {
           newErrors[field.id] = `${field.label} is required.`;
-        }
-        // For yes_no, numeric_value could be "0" which is valid
-        if (field.field_type === 'yes_no' && val) {
+        } else if (field.field_type === 'yes_no') {
+          // numeric_value can be '0' (No) or '1' (Yes) — both are valid
           if (val.numeric_value === null || val.numeric_value === undefined) {
+            newErrors[field.id] = `${field.label} is required.`;
+          }
+        } else if (field.field_type === 'rating_1_5' || field.field_type === 'rating_1_10') {
+          if (val.numeric_value === null || val.numeric_value === undefined) {
+            newErrors[field.id] = `${field.label} is required.`;
+          }
+        } else {
+          // text, textarea, select — check value string
+          if (val.value === '' || val.value === null || val.value === undefined) {
             newErrors[field.id] = `${field.label} is required.`;
           }
         }
@@ -343,6 +351,7 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
     } catch (err) {
       console.error('Error submitting evaluation:', err);
       const apiError =
+        err?.response?.data?.error ||
         err?.response?.data?.detail ||
         err?.response?.data?.message ||
         (typeof err?.response?.data === 'string' ? err.response.data : null) ||

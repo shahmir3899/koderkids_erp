@@ -87,7 +87,9 @@
       "Bash(python3:*)",
       "Bash(\"C:\\\\Python314\\\\python.exe\" manage.py makemigrations monitoring)",
       "Bash(move:*)",
-      "Bash(\"C:\\\\Python314\\\\python.exe\" manage.py migrate monitoring)"
+      "Bash(\"C:\\\\Python314\\\\python.exe\" manage.py migrate monitoring)",
+      "Bash(\"C:\\\\Python314\\\\python.exe\" d:Personalschool-management-systembackendmanage.py makemigrations monitoring --name fix_unique_together_add_bdm)",
+      "Bash(\"C:\\\\Python314\\\\python.exe\" manage.py makemigrations monitoring --name fix_unique_together_add_bdm)"
     ]
   }
 }

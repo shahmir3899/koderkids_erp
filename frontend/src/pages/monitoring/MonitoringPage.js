@@ -140,7 +140,7 @@ const StatCard = ({ label, value, icon, color = 'blue', isMobile = false }) => {
 // ============================================
 // VISIT CARD COMPONENT
 // ============================================
-const VisitCard = ({ visit, isMobile, onStart, onComplete, onEvaluate, onEdit, onDelete, onViewDetails }) => {
+const VisitCard = ({ visit, isMobile, showAssignedTo = false, onStart, onComplete, onEvaluate, onEdit, onDelete, onViewDetails }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredButton, setHoveredButton] = useState(null);
 
@@ -400,6 +400,28 @@ const VisitCard = ({ visit, isMobile, onStart, onComplete, onEvaluate, onEdit, o
           gap: SPACING.lg,
           flexWrap: 'wrap',
         }}>
+          {showAssignedTo && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: SPACING.xs,
+            }}>
+              <span style={{
+                fontSize: FONT_SIZES.sm,
+                color: COLORS.text.whiteSubtle,
+              }}>
+                Assigned To:
+              </span>
+              <span style={{
+                fontSize: FONT_SIZES.sm,
+                fontWeight: FONT_WEIGHTS.semibold,
+                color: '#A78BFA',
+              }}>
+                {visit.bdm_name || 'Unassigned'}
+              </span>
+            </div>
+          )}
+
           {(visit.teacher_count !== undefined || visit.teachers_count !== undefined) && (
             <div style={{
               display: 'flex',
@@ -475,6 +497,8 @@ const actionButtonBase = {
 // ============================================
 function MonitoringPage() {
   const { isMobile, isTablet } = useResponsive();
+  const userRole = localStorage.getItem('role') || '';
+  const isAdmin = userRole === 'Admin';
 
   // ============================================
   // RESPONSIVE STYLES HELPER
@@ -820,10 +844,10 @@ function MonitoringPage() {
     setShowPlanModal(true);
   };
 
-  const handlePlanVisitSuccess = () => {
+  const handlePlanVisitSuccess = (mode = 'create') => {
     setShowPlanModal(false);
     setSelectedVisit(null);
-    toast.success(selectedVisit ? 'Visit updated successfully' : 'Visit planned successfully');
+    toast.success(mode === 'edit' ? 'Visit updated successfully' : 'Visit planned successfully');
     refreshData();
   };
 
@@ -1031,6 +1055,7 @@ function MonitoringPage() {
               key={visit.id}
               visit={visit}
               isMobile={isMobile}
+              showAssignedTo={isAdmin}
               onStart={handleStartVisit}
               onComplete={handleCompleteVisit}
               onEvaluate={handleEvaluateTeacher}
@@ -1055,6 +1080,8 @@ function MonitoringPage() {
           setSelectedVisit(null);
         }}
         onSuccess={handlePlanVisitSuccess}
+        mode={selectedVisit ? 'edit' : 'create'}
+        initialVisit={selectedVisit}
       />
 
       {/* Evaluation Wizard */}

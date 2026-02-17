@@ -87,13 +87,14 @@ def visit_list(request):
         # Annotate counts to avoid N+1
         visits = visits.annotate(
             _evaluations_count=Count('evaluations', distinct=True),
+            _teacher_count=Count('school__teachers', filter=Q(school__teachers__role='Teacher', school__teachers__is_active=True), distinct=True),
         )
 
         serializer = MonitoringVisitSerializer(visits, many=True)
         return Response(serializer.data)
 
     # POST — Plan a new visit
-    serializer = MonitoringVisitSerializer(data=request.data)
+    serializer = MonitoringVisitSerializer(data=request.data, context={'request': request})
     serializer.is_valid(raise_exception=True)
 
     school = serializer.validated_data['school']
@@ -106,11 +107,28 @@ def visit_list(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # BDM is always the requesting user
-    bdm = request.user if is_bdm(request.user) else serializer.validated_data.get('bdm', request.user)
+    # Determine which BDM should own the visit
+    if is_bdm(request.user):
+        assigned_bdm = request.user
+    else:
+        assigned_bdm = serializer.validated_data.get('bdm')
+        if not assigned_bdm:
+            return Response(
+                {'error': 'Please assign a BDM when creating a visit'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     try:
-        serializer.save(bdm=bdm)
+        serializer.save(bdm=assigned_bdm)
+        logger.info(
+            'Monitoring visit created: visit_id=%s actor_id=%s actor_role=%s assigned_bdm_id=%s school_id=%s visit_date=%s',
+            serializer.instance.id,
+            request.user.id,
+            request.user.role,
+            assigned_bdm.id,
+            serializer.instance.school_id,
+            serializer.instance.visit_date,
+        )
     except Exception as e:
         if 'unique' in str(e).lower():
             return Response(
@@ -154,7 +172,7 @@ def visit_detail(request, visit_id):
         return Response(serializer.data)
 
     if request.method == 'PUT':
-        serializer = MonitoringVisitSerializer(visit, data=request.data, partial=True)
+        serializer = MonitoringVisitSerializer(visit, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         # Re-validate working day if date changed
@@ -166,7 +184,33 @@ def visit_detail(request, visit_id):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        serializer.save()
+        new_bdm = serializer.validated_data.get('bdm')
+        previous_bdm = visit.bdm
+
+        if new_bdm and new_bdm != previous_bdm and visit.status == 'completed':
+            return Response(
+                {'error': 'Cannot reassign a completed visit'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if is_bdm(request.user):
+            if new_bdm and new_bdm != visit.bdm:
+                return Response({'error': 'BDMs cannot reassign visits'}, status=status.HTTP_403_FORBIDDEN)
+            serializer.save(bdm=visit.bdm)
+        else:
+            serializer.save()
+
+        if new_bdm and previous_bdm != serializer.instance.bdm:
+            logger.info(
+                'Monitoring visit reassigned: visit_id=%s actor_id=%s actor_role=%s old_bdm_id=%s new_bdm_id=%s status=%s',
+                serializer.instance.id,
+                request.user.id,
+                request.user.role,
+                previous_bdm.id if previous_bdm else None,
+                serializer.instance.bdm_id,
+                serializer.instance.status,
+            )
+
         return Response(serializer.data)
 
     # DELETE — cancel
@@ -351,6 +395,7 @@ def template_list(request):
             templates = templates.prefetch_related('fields')
             serializer = EvaluationFormTemplateSerializer(templates, many=True)
         else:
+            templates = templates.annotate(_field_count=Count('fields'))
             serializer = EvaluationFormTemplateListSerializer(templates, many=True)
         return Response(serializer.data)
 
@@ -650,6 +695,13 @@ def dashboard_stats(request):
     )
 
     return Response({
-        **stats,
-        **eval_stats,
+        'total_visits': stats['total'],
+        'planned': stats['planned'],
+        'in_progress': stats['in_progress'],
+        'completed': stats['completed'],
+        'this_month': stats['this_month'],
+        'upcoming': stats['upcoming'],
+        'overdue': stats['overdue'],
+        'evaluations_done': eval_stats['total_evaluations'],
+        'this_month_evaluations': eval_stats['this_month_evaluations'],
     })

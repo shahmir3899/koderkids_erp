@@ -55,6 +55,8 @@ class EvaluationFormTemplateListSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'is_active', 'field_count']
 
     def get_field_count(self, obj):
+        if hasattr(obj, '_field_count'):
+            return obj._field_count
         return obj.fields.count()
 
 
@@ -144,7 +146,10 @@ class MonitoringVisitSerializer(serializers.ModelSerializer):
             'teacher_count', 'evaluations_count',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['bdm', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+        extra_kwargs = {
+            'bdm': {'required': False},
+        }
 
     def get_bdm_name(self, obj):
         return obj.bdm.get_full_name() or obj.bdm.username
@@ -158,6 +163,35 @@ class MonitoringVisitSerializer(serializers.ModelSerializer):
         if hasattr(obj, '_evaluations_count'):
             return obj._evaluations_count
         return obj.evaluations.count()
+
+    def validate_bdm(self, value):
+        if value and value.role != 'BDM':
+            raise serializers.ValidationError('Assigned user must have BDM role')
+        if value and not value.is_active:
+            raise serializers.ValidationError('Assigned BDM must be active')
+        return value
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user'):
+            return attrs
+
+        user = request.user
+        requested_bdm = attrs.get('bdm')
+        is_create = self.instance is None
+
+        if user.role == 'Admin':
+            if is_create and not requested_bdm:
+                raise serializers.ValidationError({
+                    'bdm': 'Admin must assign a BDM when creating a visit.'
+                })
+        elif user.role == 'BDM':
+            if requested_bdm and requested_bdm != user:
+                raise serializers.ValidationError({
+                    'bdm': 'BDMs cannot assign visits to another BDM.'
+                })
+
+        return attrs
 
 
 class MonitoringVisitDetailSerializer(MonitoringVisitSerializer):

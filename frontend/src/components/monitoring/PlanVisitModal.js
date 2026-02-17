@@ -20,16 +20,20 @@ import {
 } from "../../utils/designConstants";
 
 import { useResponsive } from "../../hooks/useResponsive";
-import { createVisit, fetchSchoolWorkingDays } from "../../services/monitoringService";
+import { createVisit, fetchSchoolWorkingDays, updateVisit } from "../../services/monitoringService";
 import { API_URL } from "../../utils/constants";
 import { getAuthHeaders } from "../../utils/authHelpers";
+import { fetchBDMs } from "../../api/services/crmService";
 
 // ============================================================
 // PLAN VISIT MODAL - 3-Step Wizard
 // ============================================================
 
-const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
+const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVisit = null }) => {
   const { isMobile, isTablet } = useResponsive();
+  const isEditMode = mode === "edit" && !!initialVisit;
+  const userRole = localStorage.getItem("role") || "Unknown";
+  const isAdmin = userRole === "Admin";
 
   // ============================================================
   // STATE MANAGEMENT
@@ -47,6 +51,9 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
   const [notes, setNotes] = useState("");
   const [loadingSchools, setLoadingSchools] = useState(false);
   const [plannedTimes, setPlannedTimes] = useState({});
+  const [bdmOptions, setBdmOptions] = useState([]);
+  const [selectedBdmId, setSelectedBdmId] = useState("");
+  const [loadingBdms, setLoadingBdms] = useState(false);
 
   // Step 2: Date picking
   const [workingDaysData, setWorkingDaysData] = useState(null);
@@ -154,6 +161,20 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     }
   }, []);
 
+  const loadBdmOptions = useCallback(async () => {
+    setLoadingBdms(true);
+    try {
+      const data = await fetchBDMs();
+      setBdmOptions(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching BDMs:", err);
+      toast.error("Failed to load BDM list. Please try again.");
+      setBdmOptions([]);
+    } finally {
+      setLoadingBdms(false);
+    }
+  }, []);
+
   // ============================================================
   // LIFECYCLE
   // ============================================================
@@ -161,16 +182,45 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       fetchSchools();
+
+      if (isEditMode && initialVisit) {
+        const schoolId = initialVisit.school ?? initialVisit.school_id ?? initialVisit.school?.id ?? "unknown";
+        const schoolMeta = {
+          id: schoolId,
+          name: initialVisit.school_name || initialVisit.school?.name || "Selected School",
+          location: initialVisit.school?.location,
+          address: initialVisit.school?.address,
+        };
+
+        setSelectedSchools([schoolMeta]);
+        setSelectedDate(initialVisit.visit_date || null);
+        setPurpose(initialVisit.purpose || "");
+        setNotes(initialVisit.notes || "");
+        setPlannedTimes({
+          [schoolId]: initialVisit.planned_time || "",
+        });
+        setSelectedBdmId(initialVisit.bdm ? String(initialVisit.bdm) : "");
+        setCurrentStep(3);
+      }
     } else {
       resetWizard();
     }
-  }, [isOpen, fetchSchools]);
+  }, [isOpen, fetchSchools, isEditMode, initialVisit]);
 
   useEffect(() => {
     if (selectedSchools.length > 0 && currentStep === 2) {
       fetchWorkingDays(selectedSchools);
     }
   }, [selectedSchools, currentStep, fetchWorkingDays]);
+
+  useEffect(() => {
+    if (isOpen && isAdmin) {
+      loadBdmOptions();
+    } else if (!isOpen) {
+      setBdmOptions([]);
+      setSelectedBdmId("");
+    }
+  }, [isOpen, isAdmin, loadBdmOptions]);
 
   // ============================================================
   // HELPERS
@@ -188,6 +238,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     setError(null);
     setIsSubmitting(false);
     setPlannedTimes({});
+    setSelectedBdmId("");
   };
 
   const filteredSchools = schoolData.filter((school) => {
@@ -239,6 +290,18 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     return `${displayHours}:${minutes} ${ampm}`;
   };
 
+  const formatStatusLabel = (status) => {
+    if (!status) return "N/A";
+    const statusMap = {
+      planned: "Planned",
+      in_progress: "In Progress",
+      completed: "Completed",
+      cancelled: "Cancelled",
+      missed: "Missed",
+    };
+    return statusMap[status] || status;
+  };
+
   // ============================================================
   // NAVIGATION
   // ============================================================
@@ -247,6 +310,10 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     setError(null);
 
     if (currentStep === 1) {
+      if (isAdmin && !selectedBdmId) {
+        setError("Please assign a BDM before continuing.");
+        return;
+      }
       if (selectedSchools.length === 0) {
         setError("Please select at least one school to continue.");
         return;
@@ -266,37 +333,227 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
     setCurrentStep(currentStep - 1);
   };
 
+  const renderBdmSelector = (
+    helperMessage = "Assigning a BDM ensures visits appear on their dashboard immediately.",
+    currentLabel = "Current selection"
+  ) => {
+    const hasSelectedOption =
+      !!selectedBdmId && bdmOptions.some((bdm) => String(bdm.id) === String(selectedBdmId));
+
+    return (
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Assign BDM <span style={{ color: COLORS.status.error }}>*</span></label>
+        {loadingBdms ? (
+          <div style={styles.centeredMessage}>
+            <ClipLoader size={24} color={COLORS.status.info} />
+            <span style={{ color: COLORS.text.whiteSubtle, marginTop: SPACING.xs }}>
+              Loading BDMs...
+            </span>
+          </div>
+        ) : (
+          <select
+            value={selectedBdmId}
+            onChange={(e) => setSelectedBdmId(e.target.value)}
+            style={styles.select}
+          >
+            <option value="">Select a BDM</option>
+            {!hasSelectedOption && selectedBdmId && (
+              <option value={selectedBdmId}>{currentLabel}</option>
+            )}
+            {bdmOptions.map((bdm) => (
+              <option key={bdm.id} value={bdm.id}>
+                {bdm.full_name || bdm.name || bdm.username}
+              </option>
+            ))}
+          </select>
+        )}
+        <div style={styles.helperText}>{helperMessage}</div>
+      </div>
+    );
+  };
+
+  const editingSchoolRef = isEditMode ? selectedSchools[0] || null : null;
+  const editingSchoolKey = editingSchoolRef?.id ?? initialVisit?.school ?? initialVisit?.school_id ?? null;
+  const editingPlannedTimeValue = editingSchoolKey ? plannedTimes[editingSchoolKey] || "" : "";
+  const editingLocation = editingSchoolRef?.location || editingSchoolRef?.address || initialVisit?.school?.address || initialVisit?.school?.location;
+  const editingSchoolName = editingSchoolRef?.name || initialVisit?.school_name || initialVisit?.school?.name || "Selected School";
+  const assignedBdmLabel = initialVisit?.bdm_name || initialVisit?.bdm_full_name || initialVisit?.bdm_username || (!isAdmin ? "You" : "Not assigned yet");
+  const currentStatusLabel = formatStatusLabel(initialVisit?.status);
+
+  const renderEditForm = () => (
+    <div style={styles.stepContainer}>
+      <h3 style={styles.stepTitle}>Update Visit Details</h3>
+
+      <div style={styles.reviewCard}>
+        <div style={styles.reviewRow}>
+          <div style={styles.reviewLabel}>
+            <FontAwesomeIcon icon={faSchool} style={styles.reviewIcon} />
+            School
+          </div>
+          <div style={styles.reviewValue}>
+            <strong>{editingSchoolName}</strong>
+            {editingLocation && (
+              <div style={styles.reviewSubValue}>
+                <FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: SPACING.xs, fontSize: "11px" }} />
+                {editingLocation}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={styles.reviewRow}>
+          <div style={styles.reviewLabel}>
+            <FontAwesomeIcon icon={faCalendarAlt} style={styles.reviewIcon} />
+            Current Status
+          </div>
+          <div style={styles.reviewValue}>
+            <span style={styles.statusPill}>{currentStatusLabel}</span>
+          </div>
+        </div>
+      </div>
+
+      {isAdmin ? (
+        renderBdmSelector("Reassign the visit to a different BDM if needed.", assignedBdmLabel)
+      ) : (
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Assigned BDM</label>
+          <div style={styles.readOnlyField}>{assignedBdmLabel}</div>
+          <div style={styles.helperText}>Contact an administrator if this visit needs reassignment.</div>
+        </div>
+      )}
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Visit Date <span style={{ color: COLORS.status.error }}>*</span></label>
+        <input
+          type="date"
+          value={selectedDate || ""}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          style={{ ...styles.input, colorScheme: "dark" }}
+        />
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Planned Time (optional)</label>
+        <input
+          type="time"
+          value={editingPlannedTimeValue}
+          onChange={(e) => {
+            if (!editingSchoolKey) return;
+            setPlannedTimes((prev) => ({
+              ...prev,
+              [editingSchoolKey]: e.target.value,
+            }));
+          }}
+          style={styles.input}
+        />
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Purpose (optional)</label>
+        <input
+          type="text"
+          placeholder="e.g. Monthly monitoring, Follow-up visit..."
+          value={purpose}
+          onChange={(e) => setPurpose(e.target.value)}
+          style={styles.input}
+        />
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Notes (optional)</label>
+        <textarea
+          placeholder="Additional notes for this visit..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          style={styles.textarea}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+
   // ============================================================
   // SUBMISSION
   // ============================================================
 
   const handleConfirm = async () => {
-    setIsSubmitting(true);
     setError(null);
 
+    if (!selectedDate) {
+      const message = "Please select a visit date.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (isAdmin && !selectedBdmId) {
+      const message = "Please assign a BDM before continuing.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
-      // Create visits for all selected schools
-      const visitPromises = selectedSchools.map((school) =>
-        createVisit({
-          school: school.id,
+      if (isEditMode) {
+        if (!initialVisit?.id) {
+          throw new Error("Missing visit identifier");
+        }
+
+        const schoolKey = initialVisit.school ?? initialVisit.school_id ?? initialVisit.school?.id;
+        const plannedTimeValue = schoolKey ? plannedTimes[schoolKey] || "" : "";
+
+        const payload = {
           visit_date: selectedDate,
-          purpose: purpose || undefined,
-          notes: notes || undefined,
-          planned_time: plannedTimes[school.id] || undefined,
-        })
-      );
+          purpose: purpose || "",
+          notes: notes || "",
+        };
 
-      await Promise.all(visitPromises);
+        if (schoolKey !== undefined) {
+          payload.planned_time = plannedTimeValue || null;
+        }
 
-      toast.success(
-        selectedSchools.length === 1
-          ? "Visit planned successfully!"
-          : `${selectedSchools.length} visits planned successfully!`
-      );
-      if (onSuccess) onSuccess();
+        if (isAdmin) {
+          const resolvedBdmId = selectedBdmId || String(initialVisit?.bdm || "");
+          if (!resolvedBdmId) {
+            throw new Error("Please assign a BDM before saving this visit.");
+          }
+          payload.bdm = Number(resolvedBdmId);
+        }
+
+        const updatedVisit = await updateVisit(initialVisit.id, payload);
+
+        if (isAdmin && payload.bdm && Number(updatedVisit?.bdm) !== Number(payload.bdm)) {
+          throw new Error("Visit update was saved but BDM assignment did not change. Please refresh and try again.");
+        }
+      } else {
+        // Create visits for all selected schools
+        const visitPromises = selectedSchools.map((school) => {
+          const payload = {
+            school: school.id,
+            visit_date: selectedDate,
+            purpose: purpose || undefined,
+            notes: notes || undefined,
+            planned_time: plannedTimes[school.id] || undefined,
+          };
+
+          if (isAdmin && selectedBdmId) {
+            payload.bdm = Number(selectedBdmId);
+          }
+
+          return createVisit(payload);
+        });
+
+        await Promise.all(visitPromises);
+      }
+
+      if (onSuccess) {
+        onSuccess(isEditMode ? "edit" : "create");
+      }
       onClose();
     } catch (err) {
-      console.error("Error creating visit:", err);
+      console.error("Error saving visit:", err);
       const apiError =
         err.response?.data?.detail ||
         err.response?.data?.non_field_errors?.[0] ||
@@ -362,6 +619,8 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
 
   const loading = loadingSchools || loadingWorkingDays;
 
+  const modalTitle = isEditMode ? "Edit School Visit" : "Plan School Visit";
+
   const stepLabels = [
     { num: 1, label: "Select School", icon: faSchool },
     { num: 2, label: "Pick Date", icon: faCalendarAlt },
@@ -369,6 +628,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
   ];
 
   const progressPercent = ((currentStep - 1) / 2) * 100;
+  const adminMissingBdm = isAdmin && !selectedBdmId;
 
   return ReactDOM.createPortal(
     <div style={styles.overlay} onClick={onClose}>
@@ -381,7 +641,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
       >
         {/* Header */}
         <div style={styles.header}>
-          <h2 style={styles.title}>Plan School Visit</h2>
+          <h2 style={styles.title}>{modalTitle}</h2>
           <button
             onClick={onClose}
             style={styles.closeButton}
@@ -400,83 +660,85 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
         </div>
 
         {/* Step Indicator */}
-        <div style={styles.stepIndicatorContainer}>
-          <div style={styles.stepIndicator}>
-            {stepLabels.map((step, index) => (
-              <React.Fragment key={step.num}>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: SPACING.xs,
-                  }}
-                >
-                  <div
-                    style={styles.stepDot(
-                      currentStep === step.num,
-                      step.num < currentStep
-                    )}
-                  >
-                    <FontAwesomeIcon
-                      icon={step.icon}
-                      style={{
-                        fontSize: "10px",
-                        color:
-                          currentStep === step.num || step.num < currentStep
-                            ? COLORS.text.white
-                            : "rgba(255, 255, 255, 0.5)",
-                      }}
-                    />
-                  </div>
-                  {!isMobile && (
-                    <span
-                      style={{
-                        fontSize: FONT_SIZES.xs,
-                        color:
-                          currentStep === step.num
-                            ? COLORS.text.white
-                            : COLORS.text.whiteSubtle,
-                        fontWeight:
-                          currentStep === step.num
-                            ? FONT_WEIGHTS.semibold
-                            : FONT_WEIGHTS.normal,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {step.label}
-                    </span>
-                  )}
-                </div>
-                {index < stepLabels.length - 1 && (
+        {!isEditMode && (
+          <div style={styles.stepIndicatorContainer}>
+            <div style={styles.stepIndicator}>
+              {stepLabels.map((step, index) => (
+                <React.Fragment key={step.num}>
                   <div
                     style={{
-                      ...styles.stepLine,
-                      backgroundColor:
-                        step.num < currentStep
-                          ? COLORS.status.success
-                          : "rgba(255, 255, 255, 0.2)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: SPACING.xs,
                     }}
-                  />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+                  >
+                    <div
+                      style={styles.stepDot(
+                        currentStep === step.num,
+                        step.num < currentStep
+                      )}
+                    >
+                      <FontAwesomeIcon
+                        icon={step.icon}
+                        style={{
+                          fontSize: "10px",
+                          color:
+                            currentStep === step.num || step.num < currentStep
+                              ? COLORS.text.white
+                              : "rgba(255, 255, 255, 0.5)",
+                        }}
+                      />
+                    </div>
+                    {!isMobile && (
+                      <span
+                        style={{
+                          fontSize: FONT_SIZES.xs,
+                          color:
+                            currentStep === step.num
+                              ? COLORS.text.white
+                              : COLORS.text.whiteSubtle,
+                          fontWeight:
+                            currentStep === step.num
+                              ? FONT_WEIGHTS.semibold
+                              : FONT_WEIGHTS.normal,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {step.label}
+                      </span>
+                    )}
+                  </div>
+                  {index < stepLabels.length - 1 && (
+                    <div
+                      style={{
+                        ...styles.stepLine,
+                        backgroundColor:
+                          step.num < currentStep
+                            ? COLORS.status.success
+                            : "rgba(255, 255, 255, 0.2)",
+                      }}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
 
-          {/* Progress Bar */}
-          <div style={styles.progressBarContainer}>
-            <div
-              style={{
-                ...styles.progressBarFill,
-                width: `${progressPercent}%`,
-              }}
-            />
-          </div>
+            {/* Progress Bar */}
+            <div style={styles.progressBarContainer}>
+              <div
+                style={{
+                  ...styles.progressBarFill,
+                  width: `${progressPercent}%`,
+                }}
+              />
+            </div>
 
-          <span style={styles.stepLabel}>
-            Step {currentStep} of 3
-          </span>
-        </div>
+            <span style={styles.stepLabel}>
+              Step {currentStep} of 3
+            </span>
+          </div>
+        )}
 
         {/* Content */}
         <div style={styles.content}>
@@ -493,6 +755,10 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
+          {isEditMode ? (
+            renderEditForm()
+          ) : (
+            <>
           {/* Step 1: Select School */}
           {currentStep === 1 && (
             <div style={styles.stepContainer}>
@@ -645,6 +911,8 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
                   </div>
                 </div>
               )}
+
+              {isAdmin && renderBdmSelector()}
 
               {/* Purpose Field */}
               <div style={styles.formGroup}>
@@ -1007,11 +1275,13 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
             </div>
           )}
+            </>
+          )}
         </div>
 
         {/* Navigation Buttons */}
         <div style={styles.footer}>
-          {currentStep > 1 && (
+          {!isEditMode && currentStep > 1 && (
             <button
               onClick={handleBack}
               style={styles.buttonSecondary}
@@ -1045,11 +1315,31 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
             Cancel
           </button>
 
-          {currentStep < 3 ? (
+          {isEditMode ? (
+            <button
+              onClick={handleConfirm}
+              style={styles.buttonSuccess}
+              disabled={isSubmitting || adminMissingBdm}
+              onMouseEnter={(e) => {
+                if (!isSubmitting) {
+                  e.currentTarget.style.backgroundColor = COLORS.status.successDark;
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSubmitting) {
+                  e.currentTarget.style.backgroundColor = COLORS.status.success;
+                  e.currentTarget.style.transform = "translateY(0)";
+                }
+              }}
+            >
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </button>
+          ) : currentStep < 3 ? (
             <button
               onClick={handleNext}
               style={styles.buttonPrimary}
-              disabled={isSubmitting}
+              disabled={isSubmitting || (currentStep === 1 && adminMissingBdm)}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = COLORS.status.infoDark;
                 e.currentTarget.style.transform = "translateY(-1px)";
@@ -1065,7 +1355,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess }) => {
             <button
               onClick={handleConfirm}
               style={styles.buttonSuccess}
-              disabled={isSubmitting}
+              disabled={isSubmitting || adminMissingBdm}
               onMouseEnter={(e) => {
                 if (!isSubmitting) {
                   e.currentTarget.style.backgroundColor = COLORS.status.successDark;
@@ -1317,6 +1607,49 @@ const styles = {
     resize: "vertical",
     fontFamily: "inherit",
     boxSizing: "border-box",
+  },
+
+  readOnlyField: {
+    width: "100%",
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    borderRadius: BORDER_RADIUS.md,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+
+  select: {
+    width: "100%",
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    fontSize: FONT_SIZES.sm,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    color: COLORS.text.white,
+    outline: "none",
+    transition: `all ${TRANSITIONS.normal}`,
+    boxSizing: "border-box",
+    appearance: "none",
+  },
+
+  helperText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    marginTop: SPACING.xs,
+  },
+
+  statusPill: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
   },
 
   // Search
