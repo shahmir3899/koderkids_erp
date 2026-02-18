@@ -151,7 +151,7 @@ const SmartCompleteButton = ({
     return (
       <button style={{ ...styles.btn, ...styles.guardianBtn }} disabled>
         <FontAwesomeIcon icon={faUserShield} style={styles.icon} />
-        Awaiting Guardian Review
+        Guardian Review Required (after school hours)
       </button>
     );
   }

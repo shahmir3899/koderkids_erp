@@ -30,6 +30,7 @@ export const LMSProvider = ({ children }) => {
   // Progress tracking
   const [topicProgress, setTopicProgress] = useState({});
   const heartbeatRef = useRef(null);
+  const tickerRef = useRef(null);
 
   // Continue learning
   const [continueLearning, setContinueLearning] = useState(null);
@@ -236,52 +237,52 @@ export const LMSProvider = ({ children }) => {
   }, []);
 
   // Start heartbeat when viewing a topic
-  const startHeartbeat = useCallback((topicId) => {
-    // Clear existing heartbeat
+  const startHeartbeat = useCallback((topicId, initialTime = 0) => {
+    // Clear existing intervals
     if (heartbeatRef.current) {
       clearInterval(heartbeatRef.current);
     }
+    if (tickerRef.current) {
+      clearInterval(tickerRef.current);
+    }
 
-    // Reset reading time for new topic
-    readingTimeRef.current = 0;
-    setReadingTime(0);
+    // Initialize reading time from existing progress
+    readingTimeRef.current = initialTime;
+    setReadingTime(initialTime);
 
-    // Send heartbeat every 30 seconds
+    // 1-second client-side ticker for smooth UI updates
+    tickerRef.current = setInterval(() => {
+      readingTimeRef.current += 1;
+      setReadingTime(readingTimeRef.current);
+    }, 1000);
+
+    // 30-second backend sync (fire-and-forget, UI doesn't depend on response)
     heartbeatRef.current = setInterval(async () => {
       try {
-        const result = await courseService.sendHeartbeat(topicId, 30);
-        // Update reading time from server response
-        if (result?.skipped) {
-          // Admin/Teacher: server skips tracking, increment locally
-          readingTimeRef.current += 30;
-          setReadingTime(readingTimeRef.current);
-        } else if (result?.time_spent_seconds != null) {
-          readingTimeRef.current = result.time_spent_seconds;
-          setReadingTime(result.time_spent_seconds);
-        } else {
-          // Fallback: increment locally
-          readingTimeRef.current += 30;
-          setReadingTime(readingTimeRef.current);
-        }
+        await courseService.sendHeartbeat(topicId, 30);
       } catch (error) {
-        console.error('Heartbeat error:', error);
-        // Still increment locally on error
-        readingTimeRef.current += 30;
-        setReadingTime(readingTimeRef.current);
+        console.error('Heartbeat sync error:', error);
       }
     }, 30000);
   }, []);
 
   const stopHeartbeat = useCallback(() => {
+    if (tickerRef.current) {
+      clearInterval(tickerRef.current);
+      tickerRef.current = null;
+    }
     if (heartbeatRef.current) {
       clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
     }
   }, []);
 
-  // Clean up heartbeat on unmount
+  // Clean up heartbeat and ticker on unmount
   useEffect(() => {
     return () => {
+      if (tickerRef.current) {
+        clearInterval(tickerRef.current);
+      }
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);
       }

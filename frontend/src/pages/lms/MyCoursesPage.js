@@ -44,7 +44,6 @@ const MyCoursesPage = () => {
     myCourses,
     myCoursesLoading,
     fetchMyCourses,
-    autoEnrollAll,
     continueLearning,
     fetchContinueLearning,
   } = useLMS();
@@ -62,32 +61,11 @@ const MyCoursesPage = () => {
     loadData();
   }, [fetchMyCourses, fetchContinueLearning]);
 
-  // Auto-enroll students in all courses if they have none
-  useEffect(() => {
-    const doAutoEnroll = async () => {
-      if (user?.role === 'Student' && myCourses.length === 0 && !myCoursesLoading && !enrolling) {
-        setEnrolling(true);
-        try {
-          await autoEnrollAll();
-        } catch (error) {
-          console.log('Auto-enroll skipped:', error.message);
-        } finally {
-          setEnrolling(false);
-        }
-      }
-    };
-    doAutoEnroll();
-  }, [user, myCourses.length, myCoursesLoading, enrolling, autoEnrollAll]);
-
-  // Manual refresh / re-enroll
+  // Manual refresh
   const handleRefresh = async () => {
     setEnrolling(true);
     try {
-      if (user?.role === 'Student') {
-        await autoEnrollAll();
-      } else {
-        await fetchMyCourses();
-      }
+      await fetchMyCourses();
     } finally {
       setEnrolling(false);
     }
@@ -265,12 +243,12 @@ const MyCoursesPage = () => {
           <FontAwesomeIcon icon={faBook} style={styles.emptyIcon} />
           <h3 style={styles.emptyTitle}>
             {myCourses.length === 0
-              ? 'No lessons available'
+              ? 'No lessons assigned yet'
               : 'No lessons match your search'}
           </h3>
           <p style={styles.emptyText}>
             {myCourses.length === 0
-              ? 'Click Refresh to load available lessons'
+              ? 'Your teacher will assign lessons to your class'
               : 'Try adjusting your filters'}
           </p>
           {myCourses.length === 0 && (
@@ -300,6 +278,7 @@ const MyCoursesPage = () => {
                 total_duration_minutes: enrollment.total_duration_minutes,
               }}
               enrollment={enrollment}
+              topicValidations={enrollment.topic_validations || []}
               onContinue={handleContinue}
               showEnrollButton={false}
             />

@@ -15,8 +15,10 @@ import {
   faTimes,
   faCheckCircle,
 } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'react-toastify';
 import { uploadFile, getPublicUrl } from '../../services/Supabaseclient';
 import { uploadActivityProof } from '../../services/courseService';
+import { useUser } from '../../contexts/UserContext';
 import {
   BOOK_COLORS,
   BOOK_FONTS,
@@ -77,6 +79,7 @@ const HomeworkUploader = ({
   topicTitle,
   onUploadSuccess, // callback(proof) when upload completes
 }) => {
+  const { user } = useUser();
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [softwareUsed, setSoftwareUsed] = useState('');
@@ -122,11 +125,18 @@ const HomeworkUploader = ({
   };
 
   const handleUpload = async () => {
+    if (!user?.id) {
+      toast.error('User session not found. Please refresh the page.');
+      setError('User not loaded. Please refresh and try again.');
+      return;
+    }
     if (!selectedFile) {
+      toast.error('Please select an image first');
       setError('Please select an image first');
       return;
     }
     if (!softwareUsed) {
+      toast.error('Please select the software you used');
       setError('Please select the software you used');
       return;
     }
@@ -139,13 +149,13 @@ const HomeworkUploader = ({
       // 1. Compress image
       const compressed = await compressImage(selectedFile);
 
-      // 2. Upload to Supabase
+      // 2. Upload to Supabase (student-organized bucket)
       setUploadProgress('Uploading to cloud...');
-      const timestamp = Date.now();
-      const ext = selectedFile.name.split('.').pop() || 'jpg';
-      const path = `activity-proofs/topic-${topicId}/${timestamp}.${ext}`;
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const uuid = crypto.randomUUID().replace(/-/g, '');
+      const path = `${user.id}/${today}_${uuid}.jpg`;
       const { data: uploadData, error: uploadError } = await uploadFile(
-        'book-assets',
+        'student-images-homework',
         path,
         compressed,
         { contentType: 'image/jpeg' }
@@ -154,7 +164,7 @@ const HomeworkUploader = ({
       if (uploadError) throw new Error('Failed to upload image. Please try again.');
 
       // 3. Get public URL
-      const publicUrl = getPublicUrl('book-assets', path);
+      const publicUrl = getPublicUrl('student-images-homework', path);
 
       // 4. Submit to backend API
       setUploadProgress('Saving homework...');
@@ -163,10 +173,13 @@ const HomeworkUploader = ({
       // 5. Success
       setSuccess(true);
       setUploadProgress('');
+      toast.success('Homework uploaded successfully!');
       onUploadSuccess?.(proof);
     } catch (err) {
       console.error('Upload error:', err);
-      setError(err.message || 'Upload failed. Please try again.');
+      const reason = err.message || 'Upload failed. Please try again.';
+      toast.error(`Upload failed: ${reason}`);
+      setError(reason);
     } finally {
       setUploading(false);
       setUploadProgress('');

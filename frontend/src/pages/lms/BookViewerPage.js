@@ -111,7 +111,7 @@ const BookViewerPage = () => {
       if (targetTopicId && targetTopicId !== loadedTopicId) {
         setLoadedTopicId(targetTopicId);
         loadTopicContent(targetTopicId);
-        startHeartbeat(targetTopicId);
+        startHeartbeat(targetTopicId, topicProgress[targetTopicId]?.time_spent_seconds || 0);
         loadValidationSteps(targetTopicId);
       }
     }

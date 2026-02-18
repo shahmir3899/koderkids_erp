@@ -129,6 +129,19 @@ const ValidationStepper = ({
           {validationData.message}
         </p>
       )}
+
+      {/* Guardian review instructions - show when step 5 is current */}
+      {current_step === 5 && !is_complete && (
+        <div style={styles.guardianInfoBox}>
+          <p style={styles.guardianInfoTitle}>How to complete Guardian Review:</p>
+          <ol style={styles.guardianInfoList}>
+            <li>This step can only be done <strong>outside school hours</strong> (after 3:00 PM)</li>
+            <li>Ask your parent or guardian to sit with you</li>
+            <li>Show them your completed activity and the teacher&apos;s feedback</li>
+            <li>Your guardian will review and approve your work on this device</li>
+          </ol>
+        </div>
+      )}
     </div>
   );
 };
@@ -211,6 +224,34 @@ const styles = {
     color: BOOK_COLORS.bodyLight,
     margin: '0.75rem 0 0',
     lineHeight: 1.4,
+  },
+
+  // Guardian review info box
+  guardianInfoBox: {
+    marginTop: '0.75rem',
+    padding: '0.75rem 1rem',
+    background: `${BOOK_COLORS.info}10`,
+    border: `1px solid ${BOOK_COLORS.info}30`,
+    borderRadius: BOOK_RADIUS.md,
+    textAlign: 'left',
+  },
+
+  guardianInfoTitle: {
+    margin: '0 0 0.5rem',
+    fontFamily: BOOK_FONTS.body,
+    fontSize: BOOK_FONT_SIZES.sm,
+    fontWeight: 700,
+    color: BOOK_COLORS.info,
+  },
+
+  guardianInfoList: {
+    margin: 0,
+    paddingLeft: '1.25rem',
+    fontFamily: BOOK_FONTS.body,
+    fontSize: BOOK_FONT_SIZES.xs,
+    color: BOOK_COLORS.bodyLight,
+    lineHeight: 1.6,
+    listStyleType: 'decimal',
   },
 
   // Compact (sidebar dots)

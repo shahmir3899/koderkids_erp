@@ -12,7 +12,8 @@ from django.utils import timezone
 
 from .models import (
     CourseEnrollment, TopicProgress,
-    Quiz, QuizQuestion, QuizChoice, QuizAttempt
+    Quiz, QuizQuestion, QuizChoice, QuizAttempt,
+    ActivityProof, GuardianReview,
 )
 from .serializers import (
     CourseEnrollmentSerializer, CourseEnrollmentCreateSerializer,
@@ -353,6 +354,70 @@ def unenroll_from_course(request, course_id):
     return Response({'message': 'Successfully unenrolled'})
 
 
+def _build_topic_validations(student, enrollment, accessible_topic_ids, course):
+    """Build per-topic validation status for course cards (batch queries)."""
+    accessible_topics = course.topics.filter(
+        id__in=accessible_topic_ids
+    ).order_by('tree_id', 'lft')
+
+    all_progress = {
+        tp.topic_id: tp for tp in TopicProgress.objects.filter(
+            enrollment=enrollment, topic_id__in=accessible_topic_ids
+        )
+    }
+    all_proofs = {
+        ap.topic_id: ap for ap in ActivityProof.objects.filter(
+            student=student, topic_id__in=accessible_topic_ids
+        )
+    }
+    all_reviews = {
+        gr.topic_id: gr for gr in GuardianReview.objects.filter(
+            student=student, topic_id__in=accessible_topic_ids
+        )
+    }
+
+    validations = []
+    for t in accessible_topics:
+        progress = all_progress.get(t.id)
+        proof = all_proofs.get(t.id)
+        review = all_reviews.get(t.id)
+
+        blocks = t.activity_blocks if isinstance(t.activity_blocks, list) else []
+        has_home = any(b.get('type') == 'home_activity' for b in blocks)
+
+        if not has_home:
+            # Simple topic — just reading + complete
+            if progress and progress.status == 'completed':
+                val_status = 'complete'
+            elif progress and progress.status == 'in_progress':
+                val_status = 'in_progress'
+            else:
+                val_status = 'not_started'
+        else:
+            # 5-step topic
+            if review and review.is_approved:
+                val_status = 'complete'
+            elif proof and proof.status == 'rejected':
+                val_status = 'needs_action'
+            elif proof and proof.status == 'approved' and not (review and review.is_approved):
+                val_status = 'needs_action'  # needs guardian
+            elif proof and proof.status == 'pending':
+                val_status = 'in_progress'  # waiting for teacher
+            elif progress and progress.status == 'completed':
+                val_status = 'in_progress'  # needs screenshot
+            elif progress and progress.status == 'in_progress':
+                val_status = 'in_progress'
+            else:
+                val_status = 'not_started'
+
+        validations.append({
+            'topic_id': t.id,
+            'status': val_status,
+        })
+
+    return validations
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_courses(request):
@@ -390,6 +455,7 @@ def my_courses(request):
                 'total_topics': total_topics,
                 'total_duration_minutes': total_duration,
                 'access_type': 'admin',
+                'topic_validations': [],
             })
         return Response(data)
 
@@ -448,6 +514,9 @@ def my_courses(request):
             'total_duration_minutes': total_duration,
             'access_type': 'lessonplan',
             'accessible_topic_count': len(accessible_topic_ids),
+            'topic_validations': _build_topic_validations(
+                student, enrollment, accessible_topic_ids, course
+            ),
         })
 
     # Add any manual enrollments not already covered by LessonPlan
@@ -475,6 +544,11 @@ def my_courses(request):
                 'total_topics': total_topics,
                 'total_duration_minutes': total_duration,
                 'access_type': 'manual',
+                'topic_validations': _build_topic_validations(
+                    student, enrollment,
+                    set(topics.values_list('id', flat=True)),
+                    course
+                ),
             })
 
     return Response(data)

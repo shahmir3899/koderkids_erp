@@ -25,6 +25,7 @@ import {
 const CourseCard = ({
   course,
   enrollment = null,
+  topicValidations = [],
   onContinue,
   onEnroll,
   onView,
@@ -128,6 +129,26 @@ const CourseCard = ({
             </span>
           )}
         </div>
+
+        {/* Validation Status Dots */}
+        {topicValidations.length > 0 && (
+          <div style={styles.validationDots}>
+            {topicValidations.map((tv, i) => (
+              <div
+                key={tv.topic_id || i}
+                style={{
+                  ...styles.dot,
+                  backgroundColor:
+                    tv.status === 'complete' ? COLORS.status.success :
+                    tv.status === 'in_progress' ? COLORS.status.warning :
+                    tv.status === 'needs_action' ? COLORS.status.error :
+                    'rgba(255, 255, 255, 0.2)',
+                }}
+                title={`Topic ${i + 1}: ${tv.status.replace(/_/g, ' ')}`}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Action Button */}
         <div style={styles.actions}>
@@ -306,6 +327,20 @@ const styles = {
   metaIcon: {
     marginRight: SPACING.xs,
     fontSize: FONT_SIZES.xs,
+  },
+
+  validationDots: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '4px',
+    marginTop: SPACING.xs,
+  },
+
+  dot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    transition: `background-color ${TRANSITIONS.fast} ease`,
   },
 
   actions: {
