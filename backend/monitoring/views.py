@@ -94,7 +94,12 @@ def visit_list(request):
         return Response(serializer.data)
 
     # POST — Plan a new visit
-    serializer = MonitoringVisitSerializer(data=request.data, context={'request': request})
+    # Auto-assign BDM to self so serializer validation sees the field
+    data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+    if is_bdm(request.user) and 'bdm' not in data:
+        data['bdm'] = request.user.id
+
+    serializer = MonitoringVisitSerializer(data=data, context={'request': request})
     serializer.is_valid(raise_exception=True)
 
     school = serializer.validated_data['school']
