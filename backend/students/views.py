@@ -129,23 +129,21 @@ class SchoolViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
     
     def update(self, request, *args, **kwargs):
-        """Admin and Teacher can update schools (Teacher only their assigned schools)"""
-        if request.user.role not in ['Admin', 'Teacher']:
+        """Admin and BDM can update schools"""
+        if request.user.role not in ['Admin', 'BDM']:
             return Response(
-                {'error': 'Only admins and teachers can update schools'},
+                {'error': 'Only admins and BDMs can update schools'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        # Teachers can only update their assigned schools (enforced by get_queryset)
         return super().update(request, *args, **kwargs)
-    
+
     def partial_update(self, request, *args, **kwargs):
-        """Admin and Teacher can partially update schools (Teacher only their assigned schools)"""
-        if request.user.role not in ['Admin', 'Teacher']:
+        """Admin and BDM can partially update schools"""
+        if request.user.role not in ['Admin', 'BDM']:
             return Response(
-                {'error': 'Only admins and teachers can update schools'},
+                {'error': 'Only admins and BDMs can update schools'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        # Teachers can only update their assigned schools (enforced by get_queryset)
         return super().partial_update(request, *args, **kwargs)
     
     def destroy(self, request, *args, **kwargs):

@@ -199,8 +199,8 @@ function SchoolsPage() {
   const isAdmin = userRole === 'Admin';
   const isTeacher = userRole === 'Teacher';
   const isBDM = userRole === 'BDM';
-  // Teachers can edit their assigned schools, BDM can edit all schools
-  const canEdit = isAdmin || isTeacher || isBDM;
+  // Admin and BDM can edit schools
+  const canEdit = isAdmin || isBDM;
   const isMounted = useRef(true);
 
   useEffect(() => {

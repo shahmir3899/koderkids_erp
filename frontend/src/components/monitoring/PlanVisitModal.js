@@ -553,15 +553,29 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
       }
       onClose();
     } catch (err) {
-      console.error("Error saving visit:", err);
-      const apiError =
-        err.response?.data?.detail ||
-        err.response?.data?.non_field_errors?.[0] ||
-        (typeof err.response?.data === "string" ? err.response.data : null) ||
-        (typeof err.response?.data === "object"
-          ? Object.values(err.response.data).flat().join(", ")
-          : null) ||
-        "Failed to create visit. Please try again.";
+      console.error("Error saving visit:", err.response?.data || err.message);
+      const data = err.response?.data;
+      let apiError;
+      if (!data) {
+        apiError = err.message || "Failed to create visit. Please try again.";
+      } else if (typeof data === "string") {
+        apiError = data;
+      } else if (data.detail) {
+        apiError = data.detail;
+      } else if (data.error) {
+        apiError = data.error;
+      } else if (data.non_field_errors) {
+        apiError = data.non_field_errors.join(", ");
+      } else if (typeof data === "object") {
+        apiError = Object.entries(data)
+          .map(([field, msgs]) => {
+            const message = Array.isArray(msgs) ? msgs.join(", ") : msgs;
+            return `${field}: ${message}`;
+          })
+          .join("; ");
+      } else {
+        apiError = "Failed to create visit. Please try again.";
+      }
       setError(apiError);
       toast.error(apiError);
     } finally {

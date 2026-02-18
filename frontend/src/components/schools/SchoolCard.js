@@ -22,11 +22,11 @@ import {
  * @param {Object} props
  * @param {Object} props.school - School object
  * @param {Function} props.onView - Callback when view button is clicked
- * @param {Function} props.onEdit - Callback when edit button is clicked (Admin/Teacher with edit rights)
+ * @param {Function} props.onEdit - Callback when edit button is clicked (Admin/BDM)
  * @param {Function} props.onDelete - Callback when delete button is clicked (Admin only)
  * @param {Function} props.onReactivate - Callback when reactivate button is clicked (Admin only, deactivated schools)
  * @param {boolean} props.isAdmin - Whether user is admin
- * @param {boolean} props.canEdit - Whether user can edit (Admin or Teacher with assigned schools)
+ * @param {boolean} props.canEdit - Whether user can edit (Admin or BDM)
  * @param {boolean} props.isDeactivated - Whether viewing deactivated schools
  * @param {boolean} props.isReactivating - Whether reactivation is in progress
  */
@@ -210,7 +210,7 @@ export const SchoolCard = ({
         {/* For active schools: Edit and Delete buttons */}
         {!isDeactivated && (
           <>
-            {/* Edit button: Show for Admin OR Teacher with canEdit */}
+            {/* Edit button: Show for Admin or BDM */}
             {(isAdmin || canEdit) && onEdit && (
               <button
                 style={getActionButtonStyle('success', 'edit')}

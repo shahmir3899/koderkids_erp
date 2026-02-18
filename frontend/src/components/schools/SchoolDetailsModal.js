@@ -36,7 +36,7 @@ import {
  * @param {Function} props.onCancel - Cancel edit mode callback
  * @param {Function} props.onSave - Save changes callback
  * @param {boolean} props.isAdmin - Whether user is admin
- * @param {boolean} props.canEdit - Whether user can edit (Admin or Teacher with assigned schools)
+ * @param {boolean} props.canEdit - Whether user can edit (Admin or BDM)
  */
 export const SchoolDetailsModal = ({
   school,
@@ -967,7 +967,7 @@ export const SchoolDetailsModal = ({
               <Button variant="secondary" onClick={onClose}>
                 Close
               </Button>
-              {/* Edit button: Show for Admin OR Teacher with canEdit */}
+              {/* Edit button: Show for Admin or BDM */}
               {(isAdmin || canEdit) && (
                 <Button variant="primary" onClick={onEdit}>
                   ✏️ Edit
