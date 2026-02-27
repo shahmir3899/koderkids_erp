@@ -3,6 +3,7 @@
 # ============================================
 
 from django.db import models
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.core.validators import MinValueValidator
@@ -436,3 +437,38 @@ class BDMTarget(models.Model):
             return 0
         
         return min(100, round((achieved / target) * 100, 2))
+
+
+class ProposalOffer(models.Model):
+    """Stores proposal/offer records generated for leads."""
+
+    lead = models.ForeignKey(
+        'Lead',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proposals',
+    )
+    school_name = models.CharField(max_length=200)
+    contact_person = models.CharField(max_length=100, blank=True)
+    standard_rate = models.CharField(max_length=50, default='PKR 2,500')
+    discounted_rate = models.CharField(max_length=50, default='PKR 1,000')
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='generated_proposals',
+    )
+    generated_by_name = models.CharField(max_length=200, blank=True)
+    page_selection = models.JSONField(default=dict, blank=True)
+    feature_items = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Proposal Offer'
+        verbose_name_plural = 'Proposal Offers'
+
+    def __str__(self):
+        return f"Proposal for {self.school_name} ({self.created_at.strftime('%Y-%m-%d') if self.created_at else 'draft'})"

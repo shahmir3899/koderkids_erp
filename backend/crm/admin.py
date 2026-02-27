@@ -3,7 +3,7 @@
 # ============================================
 
 from django.contrib import admin
-from .models import Lead, Activity, BDMTarget
+from .models import Lead, Activity, BDMTarget, ProposalOffer
 
 
 @admin.register(Lead)
@@ -220,3 +220,11 @@ class BDMTargetAdmin(admin.ModelAdmin):
             count += 1
         self.message_user(request, f'{count} target actuals refreshed')
     refresh_actuals.short_description = 'Refresh Actuals'
+
+
+@admin.register(ProposalOffer)
+class ProposalOfferAdmin(admin.ModelAdmin):
+    list_display = ['id', 'school_name', 'contact_person', 'standard_rate', 'discounted_rate', 'generated_by_name', 'created_at']
+    list_filter = ['created_at', 'generated_by']
+    search_fields = ['school_name', 'contact_person']
+    readonly_fields = ['created_at', 'updated_at']

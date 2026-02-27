@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - Khan Chappals</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #333; background: #fff9f5; }
+
+        /* Navigation */
+        nav { background: #ff6b35; padding: 1rem 5%; position: fixed; width: 100%; top: 0; z-index: 100; }
+        nav .container { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; }
+        .logo { font-size: 1.5rem; font-weight: 700; color: white; text-decoration: none; }
+        nav ul { display: flex; list-style: none; gap: 2rem; }
+        nav a { color: white; text-decoration: none; font-weight: 500; transition: opacity 0.3s; }
+        nav a:hover { opacity: 0.8; }
+        .nav-right { display: flex; align-items: center; gap: 1.5rem; }
+        .cart-link { color: white; text-decoration: none; position: relative; font-size: 1.3rem; transition: opacity 0.3s; }
+        .cart-link:hover { opacity: 0.8; }
+        .cart-count { position: absolute; top: -8px; right: -10px; background: #2d1b0e; color: white; font-size: 0.65rem; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+
+        /* Cart Page */
+        .cart-page { max-width: 900px; margin: 0 auto; padding: 100px 20px 60px; }
+        .cart-page h1 { font-size: 2rem; color: #2d1b0e; margin-bottom: 30px; }
+
+        /* Empty Cart */
+        .empty-cart { text-align: center; padding: 60px 20px; }
+        .empty-cart p { font-size: 1.2rem; color: #777; margin-bottom: 20px; }
+        .empty-cart a { display: inline-block; padding: 12px 30px; background: #ff6b35; color: white; text-decoration: none; border-radius: 5px; font-weight: 600; transition: background 0.3s, transform 0.2s; }
+        .empty-cart a:hover { background: #e55a28; transform: translateY(-2px); }
+
+        /* Cart Items */
+        .cart-item { display: flex; align-items: center; gap: 20px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); margin-bottom: 15px; transition: transform 0.2s, box-shadow 0.2s; }
+        .cart-item:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
+        .cart-item img { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; }
+        .cart-item-details { flex: 1; }
+        .cart-item-details h3 { font-size: 1.1rem; color: #2d1b0e; margin-bottom: 4px; }
+        .cart-item-details .item-size { font-size: 0.85rem; color: #777; }
+        .cart-item-details .item-price { font-size: 1.1rem; font-weight: 700; color: #ff6b35; margin-top: 4px; }
+
+        /* Quantity Controls */
+        .qty-controls { display: flex; align-items: center; gap: 10px; }
+        .qty-btn { width: 32px; height: 32px; border: 2px solid #ddd; background: white; border-radius: 6px; font-size: 1.1rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #333; }
+        .qty-btn:hover { border-color: #ff6b35; color: #ff6b35; }
+        .qty-value { font-weight: 600; font-size: 1rem; min-width: 20px; text-align: center; }
+
+        /* Remove Button */
+        .remove-btn { background: none; border: none; color: #cc0000; font-size: 1.3rem; cursor: pointer; padding: 5px; transition: transform 0.2s, color 0.2s; }
+        .remove-btn:hover { transform: scale(1.2); color: #ff0000; }
+
+        /* Cart Summary */
+        .cart-summary { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); margin-top: 25px; }
+        .summary-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 1rem; }
+        .summary-row.total { border-top: 2px solid #eee; padding-top: 15px; margin-top: 5px; font-size: 1.3rem; font-weight: 700; color: #2d1b0e; }
+        .summary-row.total span:last-child { color: #ff6b35; }
+        .checkout-btn { display: block; width: 100%; padding: 14px; background: #ff6b35; border: none; color: white; font-size: 1.1rem; font-weight: 700; border-radius: 5px; cursor: pointer; margin-top: 20px; transition: background 0.3s, transform 0.2s; font-family: inherit; }
+        .checkout-btn:hover { background: #e55a28; transform: translateY(-2px); }
+        .continue-shopping { display: block; text-align: center; margin-top: 12px; color: #ff6b35; text-decoration: none; font-weight: 600; transition: color 0.2s; }
+        .continue-shopping:hover { color: #e55a28; }
+
+        /* Footer */
+        footer { background: #2d1b0e; color: white; text-align: center; padding: 20px; margin-top: 40px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav ul { display: none; }
+            .cart-item { flex-wrap: wrap; }
+            .cart-item img { width: 70px; height: 70px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <a href="index.html" class="logo">Khan Chappals</a>
+            <div class="nav-right">
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="index.html#products">Products</a></li>
+                    <li><a href="index.html#about">About</a></li>
+                    <li><a href="index.html#contact">Contact</a></li>
+                </ul>
+                <a href="cart.html" class="cart-link">&#128722; <span class="cart-count" id="cartCount">0</span></a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="cart-page">
+        <h1>Shopping Cart</h1>
+        <div id="cartContent"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Khan Chappals. All Rights Reserved.</p>
+    </footer>
+
+    <script>
+        function getCart() {
+            return JSON.parse(localStorage.getItem('kc_cart') || '[]');
+        }
+        function saveCart(cart) {
+            localStorage.setItem('kc_cart', JSON.stringify(cart));
+            updateCartCount();
+        }
+        function updateCartCount() {
+            var cart = getCart();
+            var total = cart.reduce(function(sum, item) { return sum + item.qty; }, 0);
+            var el = document.getElementById('cartCount');
+            if (el) el.textContent = total;
+        }
+
+        function renderCart() {
+            var cart = getCart();
+            var container = document.getElementById('cartContent');
+
+            if (cart.length === 0) {
+                container.innerHTML = '<div class="empty-cart"><p>Your cart is empty</p><a href="index.html#products">Browse Products</a></div>';
+                return;
+            }
+
+            var html = '';
+            var subtotal = 0;
+
+            for (var i = 0; i < cart.length; i++) {
+                var item = cart[i];
+                var itemTotal = item.price * item.qty;
+                subtotal += itemTotal;
+
+                html += '<div class="cart-item">' +
+                    '<img src="' + item.image + '" alt="' + item.name + '">' +
+                    '<div class="cart-item-details">' +
+                        '<h3>' + item.name + '</h3>' +
+                        '<p class="item-size">Size: ' + item.size + '</p>' +
+                        '<p class="item-price">\u20A8 ' + item.price.toLocaleString() + '</p>' +
+                    '</div>' +
+                    '<div class="qty-controls">' +
+                        '<button class="qty-btn" onclick="changeQty(\'' + item.key + '\', -1)">-</button>' +
+                        '<span class="qty-value">' + item.qty + '</span>' +
+                        '<button class="qty-btn" onclick="changeQty(\'' + item.key + '\', 1)">+</button>' +
+                    '</div>' +
+                    '<button class="remove-btn" onclick="removeItem(\'' + item.key + '\')" title="Remove">&times;</button>' +
+                '</div>';
+            }
+
+            html += '<div class="cart-summary">' +
+                '<div class="summary-row"><span>Subtotal</span><span>\u20A8 ' + subtotal.toLocaleString() + '</span></div>' +
+                '<div class="summary-row"><span>Delivery</span><span>Free</span></div>' +
+                '<div class="summary-row total"><span>Total</span><span>\u20A8 ' + subtotal.toLocaleString() + '</span></div>' +
+                '<button class="checkout-btn" onclick="checkout()">Proceed to Checkout</button>' +
+                '<a href="index.html#products" class="continue-shopping">Continue Shopping</a>' +
+            '</div>';
+
+            container.innerHTML = html;
+        }
+
+        function changeQty(key, delta) {
+            var cart = getCart();
+            for (var i = 0; i < cart.length; i++) {
+                if (cart[i].key === key) {
+                    cart[i].qty += delta;
+                    if (cart[i].qty <= 0) {
+                        cart.splice(i, 1);
+                    }
+                    break;
+                }
+            }
+            saveCart(cart);
+            renderCart();
+        }
+
+        function removeItem(key) {
+            var cart = getCart();
+            cart = cart.filter(function(item) { return item.key !== key; });
+            saveCart(cart);
+            renderCart();
+        }
+
+        function checkout() {
+            alert('Thank you for your order! We will contact you shortly to confirm.\n\nFor payment, please contact us at:\nPhone: +92 300 1234567\nEmail: info@khanchappals.pk');
+            localStorage.removeItem('kc_cart');
+            updateCartCount();
+            renderCart();
+        }
+
+        // Initialize
+        updateCartCount();
+        renderCart();
+    </script>
+</body>
+</html>

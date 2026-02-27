@@ -11,14 +11,17 @@ from django.db.models import Count, Q, Sum
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from .models import Lead, Activity, BDMTarget
+from .models import Lead, Activity, BDMTarget, ProposalOffer
 from .serializers import (
     LeadSerializer,
     LeadCardSerializer,
     LeadDetailSerializer,
     ActivitySerializer,
     BDMTargetSerializer,
-    LeadConversionSerializer
+    LeadConversionSerializer,
+    ProposalOfferListSerializer,
+    ProposalOfferDetailSerializer,
+    ProposalOfferCreateSerializer,
 )
 from .permissions import IsBDMOrAdmin, IsAdminOnly, IsAdminOrOwner
 from students.models import School, CustomUser
@@ -533,6 +536,55 @@ class BDMTargetViewSet(viewsets.ModelViewSet):
             'message': 'Target actuals refreshed',
             'target': BDMTargetSerializer(target).data
         })
+
+
+class ProposalOfferViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Proposal/Offer management.
+    - Admin: Can see all proposals
+    - BDM: Can see only their own proposals
+    """
+    queryset = ProposalOffer.objects.all()
+    permission_classes = [IsAuthenticated, IsBDMOrAdmin]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProposalOfferListSerializer
+        elif self.action in ['create', 'update', 'partial_update']:
+            return ProposalOfferCreateSerializer
+        return ProposalOfferDetailSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = ProposalOffer.objects.select_related('lead', 'generated_by')
+
+        if user.role == 'BDM':
+            queryset = queryset.filter(generated_by=user)
+
+        lead_id = self.request.query_params.get('lead')
+        if lead_id:
+            queryset = queryset.filter(lead_id=lead_id)
+
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(school_name__icontains=search) |
+                Q(contact_person__icontains=search)
+            )
+
+        limit = self.request.query_params.get('limit')
+        if limit:
+            try:
+                queryset = queryset[:int(limit)]
+            except ValueError:
+                pass
+
+        return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 # ============================================

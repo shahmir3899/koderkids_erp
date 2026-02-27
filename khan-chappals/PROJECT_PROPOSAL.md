@@ -32,18 +32,29 @@ Khan Chappals offers a variety of traditional footwear, including:
 ### Frontend
 - HTML
 - CSS
+- JavaScript (cart functionality and interactive UI)
 
-## Website Feature
-- Responsive design.
-- Navigation menu.
-- Product showcase grid.
+## Website Pages
+- **Homepage** (`index.html`) — Hero banner, product collection, about section, contact form.
+- **Cart Page** (`cart.html`) — Shopping cart with item management and checkout.
+
+## Website Features
+- Responsive design (mobile and desktop).
+- Fixed navigation menu with cart icon and item count badge.
+- Product showcase grid with hover effects (card lift, image zoom).
+- **Size selector** on each product (sizes 6–11) for footwear variants.
+- **Add to Cart** functionality with localStorage persistence.
+- Shopping cart page with quantity controls (+/-), item removal, and order summary.
+- Checkout flow with order confirmation.
+- Interactive hover effects on buttons, cards, and form inputs.
 - About section (heritage and craftsmanship).
-- Educational section (materials, tools, and process).
 - Contact form and shop details.
 - Homepage (hero, collection, and CTA).
 
 ## Customer Needs Addressed
-- Easy access to product styles and pricing.
+- Easy access to product styles, sizes, and pricing.
+- Ability to select footwear size and add items to cart.
+- Simple shopping cart to review and manage selections.
 - Clear brand story and trust signals.
 - Learning materials about traditional chappal making.
 - Quick way to contact and visit the shop.
@@ -51,7 +62,9 @@ Khan Chappals offers a variety of traditional footwear, including:
 
 ## Solution
 Khan Chappals will have a lightweight website that:
-- Highlights signature products with images and prices.
+- Highlights signature products with images, sizes, and prices.
+- Allows customers to select sizes and add products to a shopping cart.
+- Provides a dedicated cart page for reviewing orders before checkout.
 - Communicates brand heritage and craftsmanship.
 - Educates visitors with a simple step-by-step process overview.
 - Guides customers to contact or visit the store.
@@ -68,9 +81,11 @@ Khan Chappals will have a lightweight website that:
 This is a small, focused website project designed to establish a professional online presence for Khan Chappals with an educational angle. The site will focus on product visibility, brand identity, learning content, and customer contact.
 
 ## Deliverables
-- One responsive website (HTML + CSS).
+- Responsive website (HTML + CSS + JavaScript).
 - Branded homepage with hero, collection, and CTA.
-- Product category highlights.
+- Product cards with size variants and Add to Cart functionality.
+- Shopping cart page with quantity management and checkout.
+- Interactive hover effects and smooth transitions throughout.
 - Educational section on materials and process.
 - About and contact sections with store details.
 

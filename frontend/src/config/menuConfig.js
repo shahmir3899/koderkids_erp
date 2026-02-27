@@ -212,6 +212,12 @@ export const MENU_SECTIONS = {
             icon: faUsers,
             path: '/crm/leads',
           },
+          {
+            id: 'crm-proposals',
+            label: 'Proposal Generator',
+            icon: faFileAlt,
+            path: '/crm/proposals',
+          },
         ],
       },
       // BDM sees these as direct links (not in dropdown)
@@ -220,6 +226,13 @@ export const MENU_SECTIONS = {
         label: 'Leads',
         icon: faUsers,
         path: '/crm/leads',
+        roles: ['BDM'],
+      },
+      {
+        id: 'bdm-proposals',
+        label: 'Proposals',
+        icon: faFileAlt,
+        path: '/crm/proposals',
         roles: ['BDM'],
       },
     ],

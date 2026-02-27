@@ -4,7 +4,7 @@
 
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Lead, Activity, BDMTarget
+from .models import Lead, Activity, BDMTarget, ProposalOffer
 from students.models import CustomUser, School
 
 
@@ -334,5 +334,54 @@ class LeadConversionSerializer(serializers.Serializer):
             raise serializers.ValidationError({
                 'monthly_subscription_amount': 'Monthly subscription amount is required for monthly_subscription payment mode'
             })
-        
+
         return data
+
+
+# ============================================
+# PROPOSAL OFFER SERIALIZERS
+# ============================================
+
+class ProposalOfferListSerializer(serializers.ModelSerializer):
+    lead_school_name = serializers.CharField(source='lead.school_name', read_only=True, default=None)
+
+    class Meta:
+        model = ProposalOffer
+        fields = [
+            'id', 'lead', 'lead_school_name', 'school_name', 'contact_person',
+            'standard_rate', 'discounted_rate', 'generated_by_name',
+            'page_selection', 'feature_items', 'created_at',
+        ]
+
+
+class ProposalOfferDetailSerializer(serializers.ModelSerializer):
+    lead_school_name = serializers.CharField(source='lead.school_name', read_only=True, default=None)
+    generated_by_username = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProposalOffer
+        fields = [
+            'id', 'lead', 'lead_school_name', 'school_name', 'contact_person',
+            'standard_rate', 'discounted_rate', 'generated_by', 'generated_by_name',
+            'generated_by_username', 'page_selection', 'feature_items',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'generated_by', 'created_at', 'updated_at']
+
+    def get_generated_by_username(self, obj):
+        return obj.generated_by.username if obj.generated_by else None
+
+
+class ProposalOfferCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProposalOffer
+        fields = ['lead', 'school_name', 'contact_person', 'standard_rate', 'discounted_rate', 'page_selection', 'feature_items']
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['generated_by'] = request.user
+            validated_data['generated_by_name'] = (
+                request.user.get_full_name() or request.user.username
+            )
+        return super().create(validated_data)

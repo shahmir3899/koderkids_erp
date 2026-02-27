@@ -39,7 +39,38 @@
         .product-info .description { color: #777; font-size: 0.9rem; margin-bottom: 0.8rem; }
         .product-info .price { font-size: 1.3rem; font-weight: 700; color: #ff6b35; }
         .product-info .price span { font-size: 0.9rem; color: #999; text-decoration: line-through; margin-left: 8px; }
-        .add-to-cart { width: 100%; padding: 10px; background: #ff6b35; border: none; color: white; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 10px; border-radius: 5px; }
+        .add-to-cart { width: 100%; padding: 10px; background: #ff6b35; border: none; color: white; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 10px; border-radius: 5px; transition: background 0.3s, transform 0.2s; }
+
+        /* Size Selector */
+        .size-selector { margin-top: 10px; }
+        .size-selector label { font-size: 0.85rem; font-weight: 600; color: #2d1b0e; display: block; margin-bottom: 6px; }
+        .size-options { display: flex; gap: 8px; flex-wrap: wrap; }
+        .size-options input[type="radio"] { display: none; }
+        .size-options label { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border: 2px solid #ddd; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #555; cursor: pointer; transition: all 0.2s; }
+        .size-options input[type="radio"]:checked + label { border-color: #ff6b35; background: #ff6b35; color: white; }
+        .size-options label:hover { border-color: #ff6b35; color: #ff6b35; }
+        .size-options input[type="radio"]:checked + label:hover { color: white; }
+
+        /* Hover Effects */
+        nav a { transition: opacity 0.3s; }
+        nav a:hover { opacity: 0.8; }
+        .btn { transition: background 0.3s, transform 0.2s; }
+        .btn:hover { background: #1a0f06; transform: translateY(-2px); }
+        .product-card { transition: transform 0.3s, box-shadow 0.3s; }
+        .product-card:hover { transform: translateY(-8px); box-shadow: 0 12px 30px rgba(0,0,0,0.15); }
+        .product-image img { transition: transform 0.4s; }
+        .product-card:hover .product-image img { transform: scale(1.05); }
+        .product-image { overflow: hidden; }
+        .add-to-cart:hover { background: #e55a28; transform: translateY(-2px); }
+        .contact-form button { transition: background 0.3s, transform 0.2s; }
+        .contact-form button:hover { background: #e55a28; transform: translateY(-2px); }
+        .contact-form input:focus, .contact-form textarea:focus { outline: none; border-color: #ff6b35; box-shadow: 0 0 0 3px rgba(255,107,53,0.15); }
+
+        /* Cart Icon */
+        .nav-right { display: flex; align-items: center; gap: 1.5rem; }
+        .cart-link { color: white; text-decoration: none; position: relative; font-size: 1.3rem; transition: opacity 0.3s; }
+        .cart-link:hover { opacity: 0.8; }
+        .cart-count { position: absolute; top: -8px; right: -10px; background: #2d1b0e; color: white; font-size: 0.65rem; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }
 
         /* About */
         .about { padding: 60px 5%; background: #2d1b0e; color: white; }
@@ -73,12 +104,15 @@
     <nav>
         <div class="container">
             <a href="#" class="logo">Khan Chappals</a>
-            <ul>
-                <li><a href="#home">Home</a></li>
-                <li><a href="#products">Products</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
+            <div class="nav-right">
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#products">Products</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+                <a href="cart.html" class="cart-link">&#128722; <span class="cart-count" id="cartCount">0</span></a>
+            </div>
         </div>
     </nav>
 
@@ -96,7 +130,7 @@
             <div class="line"></div>
         </div>
         <div class="products-grid">
-            <div class="product-card">
+            <div class="product-card" data-id="1" data-name="Peshawari Classic" data-price="2499" data-image="images/product1.jpg">
                 <div class="product-image">
                     <img src="images/product1.jpg" alt="Peshawari Classic">
                     <span class="badge">Bestseller</span>
@@ -105,10 +139,21 @@
                     <h3>Peshawari Classic</h3>
                     <p class="description">Authentic handmade leather chappal</p>
                     <p class="price">₨ 2,499 <span>₨ 3,200</span></p>
-                    <button class="add-to-cart">Add to Cart</button>
+                    <div class="size-selector">
+                        <label>Select Size:</label>
+                        <div class="size-options">
+                            <input type="radio" name="size-1" id="s1-6" value="6"><label for="s1-6">6</label>
+                            <input type="radio" name="size-1" id="s1-7" value="7"><label for="s1-7">7</label>
+                            <input type="radio" name="size-1" id="s1-8" value="8" checked><label for="s1-8">8</label>
+                            <input type="radio" name="size-1" id="s1-9" value="9"><label for="s1-9">9</label>
+                            <input type="radio" name="size-1" id="s1-10" value="10"><label for="s1-10">10</label>
+                            <input type="radio" name="size-1" id="s1-11" value="11"><label for="s1-11">11</label>
+                        </div>
+                    </div>
+                    <button class="add-to-cart" onclick="addToCart(this)">Add to Cart</button>
                 </div>
             </div>
-            <div class="product-card">
+            <div class="product-card" data-id="2" data-name="Kohati Premium" data-price="3299" data-image="images/product2.jpg">
                 <div class="product-image">
                     <img src="images/product2.jpg" alt="Kohati Premium">
                     <span class="badge">New</span>
@@ -117,10 +162,21 @@
                     <h3>Kohati Premium</h3>
                     <p class="description">Elegant design with superior comfort</p>
                     <p class="price">₨ 3,299 <span>₨ 4,000</span></p>
-                    <button class="add-to-cart">Add to Cart</button>
+                    <div class="size-selector">
+                        <label>Select Size:</label>
+                        <div class="size-options">
+                            <input type="radio" name="size-2" id="s2-6" value="6"><label for="s2-6">6</label>
+                            <input type="radio" name="size-2" id="s2-7" value="7"><label for="s2-7">7</label>
+                            <input type="radio" name="size-2" id="s2-8" value="8" checked><label for="s2-8">8</label>
+                            <input type="radio" name="size-2" id="s2-9" value="9"><label for="s2-9">9</label>
+                            <input type="radio" name="size-2" id="s2-10" value="10"><label for="s2-10">10</label>
+                            <input type="radio" name="size-2" id="s2-11" value="11"><label for="s2-11">11</label>
+                        </div>
+                    </div>
+                    <button class="add-to-cart" onclick="addToCart(this)">Add to Cart</button>
                 </div>
             </div>
-            <div class="product-card">
+            <div class="product-card" data-id="3" data-name="Multani Special" data-price="1899" data-image="images/product3.jpg">
                 <div class="product-image">
                     <img src="images/product3.jpg" alt="Multani Special">
                 </div>
@@ -128,10 +184,21 @@
                     <h3>Multani Special</h3>
                     <p class="description">Lightweight everyday wear</p>
                     <p class="price">₨ 1,899 <span>₨ 2,500</span></p>
-                    <button class="add-to-cart">Add to Cart</button>
+                    <div class="size-selector">
+                        <label>Select Size:</label>
+                        <div class="size-options">
+                            <input type="radio" name="size-3" id="s3-6" value="6"><label for="s3-6">6</label>
+                            <input type="radio" name="size-3" id="s3-7" value="7"><label for="s3-7">7</label>
+                            <input type="radio" name="size-3" id="s3-8" value="8" checked><label for="s3-8">8</label>
+                            <input type="radio" name="size-3" id="s3-9" value="9"><label for="s3-9">9</label>
+                            <input type="radio" name="size-3" id="s3-10" value="10"><label for="s3-10">10</label>
+                            <input type="radio" name="size-3" id="s3-11" value="11"><label for="s3-11">11</label>
+                        </div>
+                    </div>
+                    <button class="add-to-cart" onclick="addToCart(this)">Add to Cart</button>
                 </div>
             </div>
-            <div class="product-card">
+            <div class="product-card" data-id="4" data-name="Quetta Royal" data-price="4599" data-image="images/product4.jpg">
                 <div class="product-image">
                     <img src="images/product4.jpg" alt="Quetta Royal">
                     <span class="badge">Hot</span>
@@ -140,7 +207,18 @@
                     <h3>Quetta Royal</h3>
                     <p class="description">Premium leather with embroidery</p>
                     <p class="price">₨ 4,599 <span>₨ 5,500</span></p>
-                    <button class="add-to-cart">Add to Cart</button>
+                    <div class="size-selector">
+                        <label>Select Size:</label>
+                        <div class="size-options">
+                            <input type="radio" name="size-4" id="s4-6" value="6"><label for="s4-6">6</label>
+                            <input type="radio" name="size-4" id="s4-7" value="7"><label for="s4-7">7</label>
+                            <input type="radio" name="size-4" id="s4-8" value="8" checked><label for="s4-8">8</label>
+                            <input type="radio" name="size-4" id="s4-9" value="9"><label for="s4-9">9</label>
+                            <input type="radio" name="size-4" id="s4-10" value="10"><label for="s4-10">10</label>
+                            <input type="radio" name="size-4" id="s4-11" value="11"><label for="s4-11">11</label>
+                        </div>
+                    </div>
+                    <button class="add-to-cart" onclick="addToCart(this)">Add to Cart</button>
                 </div>
             </div>
         </div>
@@ -184,5 +262,54 @@
     <footer>
         <p>&copy; 2026 Khan Chappals. All Rights Reserved.</p>
     </footer>
+
+    <script>
+        // Cart functions using localStorage
+        function getCart() {
+            return JSON.parse(localStorage.getItem('kc_cart') || '[]');
+        }
+        function saveCart(cart) {
+            localStorage.setItem('kc_cart', JSON.stringify(cart));
+            updateCartCount();
+        }
+        function updateCartCount() {
+            var cart = getCart();
+            var total = cart.reduce(function(sum, item) { return sum + item.qty; }, 0);
+            var el = document.getElementById('cartCount');
+            if (el) el.textContent = total;
+        }
+        function addToCart(btn) {
+            var card = btn.closest('.product-card');
+            var id = card.dataset.id;
+            var name = card.dataset.name;
+            var price = parseInt(card.dataset.price);
+            var image = card.dataset.image;
+            var sizeInput = card.querySelector('input[name="size-' + id + '"]:checked');
+            var size = sizeInput ? sizeInput.value : '8';
+
+            var cart = getCart();
+            var key = id + '-' + size;
+            var existing = null;
+            for (var i = 0; i < cart.length; i++) {
+                if (cart[i].key === key) { existing = cart[i]; break; }
+            }
+            if (existing) {
+                existing.qty++;
+            } else {
+                cart.push({ key: key, id: id, name: name, price: price, size: size, image: image, qty: 1 });
+            }
+            saveCart(cart);
+
+            // Button feedback
+            btn.textContent = 'Added!';
+            btn.style.background = '#2d1b0e';
+            setTimeout(function() {
+                btn.textContent = 'Add to Cart';
+                btn.style.background = '#ff6b35';
+            }, 1000);
+        }
+        // Initialize count on page load
+        updateCartCount();
+    </script>
 </body>
 </html>

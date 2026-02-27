@@ -89,7 +89,15 @@
       "Bash(move:*)",
       "Bash(\"C:\\\\Python314\\\\python.exe\" manage.py migrate monitoring)",
       "Bash(\"C:\\\\Python314\\\\python.exe\" d:Personalschool-management-systembackendmanage.py makemigrations monitoring --name fix_unique_together_add_bdm)",
-      "Bash(\"C:\\\\Python314\\\\python.exe\" manage.py makemigrations monitoring --name fix_unique_together_add_bdm)"
+      "Bash(\"C:\\\\Python314\\\\python.exe\" manage.py makemigrations monitoring --name fix_unique_together_add_bdm)",
+      "Bash(# Check: python-dotenv was installed globally \\(pip install without venv activation\\) pip show python-dotenv)",
+      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install django-cors-headers)",
+      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install -r \"d:/Personal/school-management-system/backend/requirements.txt\")",
+      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/python.exe\" --version)",
+      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install django-filter dj-database-url supabase whitenoise)",
+      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install psycopg2-binary)",
+      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install django-mptt openpyxl pandas pillow qrcode weasyprint reportlab humanize pdfplumber)",
+      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install chardet zipstream-ng)"
     ]
   }
 }

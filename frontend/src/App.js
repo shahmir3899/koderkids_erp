@@ -54,6 +54,7 @@ import BDMDashboard from './pages/crm/BDMDashboard';
 import AdminCRMDashboard from './pages/crm/AdminDashboard';
 import LeadsListPage from './pages/crm/LeadsListPage';
 import ActivitiesPage from './pages/crm/ActivitiesPage';
+import ProposalGenerator from './pages/crm/ProposalGenerator';
 
 // Monitoring Pages
 import MonitoringPage from './pages/monitoring/MonitoringPage';
@@ -245,6 +246,7 @@ function AppContent() {
       <Route path="/crm/dashboard" element={<ProtectedRoute element={<BDMDashboard />} allowedRoles={["BDM"]} />} />
       <Route path="/crm/leads" element={<ProtectedRoute element={<LeadsListPage />} allowedRoles={["Admin", "BDM"]} />} />
       <Route path="/crm/activities" element={<ProtectedRoute element={<ActivitiesPage />} allowedRoles={["Admin", "BDM"]} />} />
+      <Route path="/crm/proposals" element={<ProtectedRoute element={<ProposalGenerator />} allowedRoles={["Admin", "BDM"]} />} />
 
       {/* ✅ Monitoring Routes - Admin & BDM */}
       <Route path="/monitoring" element={<ProtectedRoute element={<MonitoringPage />} allowedRoles={["Admin", "BDM"]} />} />
