@@ -3,6 +3,7 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { fetchLeadById, completeActivity, deleteActivity } from '../../api/services/crmService';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
@@ -58,6 +59,7 @@ const formatDateTime = (dateStr) => {
 };
 
 export const LeadDetailModal = ({ lead, onClose, onEdit, onLeadsRefresh }) => {
+  const navigate = useNavigate();
   const [detailData, setDetailData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreateActivity, setShowCreateActivity] = useState(false);
@@ -112,6 +114,7 @@ export const LeadDetailModal = ({ lead, onClose, onEdit, onLeadsRefresh }) => {
 
   const displayLead = detailData || lead;
   const activities = detailData?.activities || lead?.recent_activities || [];
+  const proposals = detailData?.proposals || [];
   const sourceColor = SOURCE_COLORS[displayLead.lead_source] || SOURCE_COLORS.Other;
 
   // Separate past and scheduled activities
@@ -182,6 +185,47 @@ export const LeadDetailModal = ({ lead, onClose, onEdit, onLeadsRefresh }) => {
                 <span style={styles.notesLabel}>📝 Notes</span>
                 <p style={styles.notesValue}>{displayLead.notes}</p>
               </div>
+            )}
+
+            {/* Proposals Section */}
+            <div style={styles.addActivityRow}>
+              <h3 style={{ ...styles.sectionTitle, marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+                📄 Proposals ({proposals.length})
+              </h3>
+              <button
+                style={styles.generateProposalBtn}
+                onClick={() => {
+                  onClose();
+                  navigate(`/crm/proposals?leadId=${lead.id}`);
+                }}
+              >
+                + Generate Proposal
+              </button>
+            </div>
+            {proposals.length > 0 ? (
+              <div style={styles.proposalsList}>
+                {proposals.map((proposal) => (
+                  <div key={proposal.id} style={styles.proposalCard}>
+                    <div style={styles.proposalTopRow}>
+                      <span style={styles.proposalSchool}>{proposal.school_name}</span>
+                      <span style={styles.proposalDate}>{formatDate(proposal.created_at)}</span>
+                    </div>
+                    <div style={styles.proposalMeta}>
+                      <span style={styles.proposalRate}>
+                        {proposal.discounted_rate}
+                      </span>
+                      <span style={styles.proposalStrikeRate}>
+                        {proposal.standard_rate}
+                      </span>
+                      {proposal.generated_by_name && (
+                        <span style={styles.proposalAuthor}>· by {proposal.generated_by_name}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={styles.emptyText}>No proposals yet. Generate one above!</p>
             )}
 
             {/* Add Activity Button */}
@@ -653,6 +697,67 @@ const styles = {
     fontSize: FONT_SIZES.xs,
     color: '#34D399',
     marginTop: SPACING.xs,
+  },
+
+  // Proposals
+  generateProposalBtn: {
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    background: 'rgba(139, 92, 246, 0.2)',
+    border: '1px solid rgba(139, 92, 246, 0.3)',
+    borderRadius: BORDER_RADIUS.md,
+    color: '#A78BFA',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+    flexShrink: 0,
+  },
+  proposalsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  proposalCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderLeft: '3px solid #A78BFA',
+  },
+  proposalTopRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  proposalSchool: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+  },
+  proposalDate: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
+  proposalMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
+  },
+  proposalRate: {
+    color: '#34D399',
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  proposalStrikeRate: {
+    color: COLORS.text.whiteSubtle,
+    textDecoration: 'line-through',
+    fontSize: FONT_SIZES.xs,
+  },
+  proposalAuthor: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
   },
 
   // Footer

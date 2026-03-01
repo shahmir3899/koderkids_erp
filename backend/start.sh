@@ -39,6 +39,12 @@ else
     echo "✅ Model already present"
 fi
 
+# Start Celery worker + beat in background
+echo "📅 Starting Celery worker + beat scheduler..."
+celery -A school_management worker --beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler &
+CELERY_PID=$!
+echo "✅ Celery started (PID: $CELERY_PID)"
+
 # Start Django with gunicorn
 echo "🌐 Starting Django server on port $PORT..."
 exec gunicorn school_management.wsgi:application \

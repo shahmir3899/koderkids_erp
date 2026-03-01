@@ -3,7 +3,7 @@
 // Gradient Design System
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { createActivity, fetchLeads, fetchBDMs } from '../../api/services/crmService';
 import { getUserData, getAuthHeaders } from '../../utils/authHelpers';
@@ -45,6 +45,12 @@ export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) =
   const [loadingData, setLoadingData] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
 
+  // Custom lead dropdown state
+  const [leadDropdownOpen, setLeadDropdownOpen] = useState(false);
+  const [leadSearch, setLeadSearch] = useState('');
+  const [hoveredLeadId, setHoveredLeadId] = useState(null);
+  const leadDropdownRef = useRef(null);
+
   // Handle ESC key to close modal
   const handleEscKey = useCallback((e) => {
     if (e.key === 'Escape' && !loading) {
@@ -56,6 +62,62 @@ export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) =
     document.addEventListener('keydown', handleEscKey);
     return () => document.removeEventListener('keydown', handleEscKey);
   }, [handleEscKey]);
+
+  // Close lead dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (leadDropdownRef.current && !leadDropdownRef.current.contains(e.target)) {
+        setLeadDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filtered leads based on search
+  const filteredLeads = leads.filter((lead) => {
+    if (!leadSearch) return true;
+    const q = leadSearch.toLowerCase();
+    return (
+      (lead.school_name || '').toLowerCase().includes(q) ||
+      (lead.phone || '').toLowerCase().includes(q) ||
+      (lead.contact_person || '').toLowerCase().includes(q)
+    );
+  });
+
+  // Get selected lead object
+  const selectedLead = leads.find((l) => String(l.id) === String(formData.lead));
+
+  // Handle lead selection
+  const handleLeadSelect = (lead) => {
+    setFormData((prev) => ({ ...prev, lead: lead.id }));
+    setLeadDropdownOpen(false);
+    setLeadSearch('');
+    if (errors.lead) {
+      setErrors((prev) => ({ ...prev, lead: '' }));
+    }
+  };
+
+  // Status badge colors
+  const getStatusColor = (s) => {
+    const map = {
+      New: { bg: 'rgba(59, 130, 246, 0.2)', text: '#60A5FA' },
+      Contacted: { bg: 'rgba(245, 158, 11, 0.2)', text: '#FBBF24' },
+      Interested: { bg: 'rgba(16, 185, 129, 0.2)', text: '#34D399' },
+      'Not Interested': { bg: 'rgba(107, 114, 128, 0.2)', text: '#9CA3AF' },
+      Converted: { bg: 'rgba(139, 92, 246, 0.2)', text: '#A78BFA' },
+      Lost: { bg: 'rgba(239, 68, 68, 0.2)', text: '#FCA5A5' },
+    };
+    return map[s] || { bg: 'rgba(107, 114, 128, 0.2)', text: '#9CA3AF' };
+  };
+
+  // Aging color for days since last activity
+  const getAgingColor = (days) => {
+    if (days === null || days === undefined) return COLORS.text.whiteSubtle;
+    if (days <= 3) return '#34D399';
+    if (days <= 7) return '#FBBF24';
+    return '#EF4444';
+  };
 
   // Load current user ID and form data on mount
   useEffect(() => {
@@ -288,26 +350,164 @@ export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) =
                     )}
                   </div>
 
-                  {/* Lead */}
-                  <div style={styles.formGroup}>
+                  {/* Lead - Custom Searchable Dropdown */}
+                  <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
                     <label style={styles.label}>Lead *</label>
-                    <select
-                      name="lead"
-                      value={formData.lead}
-                      onChange={handleChange}
-                      style={{
-                        ...styles.select,
-                        ...(errors.lead ? styles.inputError : {}),
-                      }}
-                      className="activity-modal-select"
-                    >
-                      <option value="">Select a lead...</option>
-                      {leads.map((lead) => (
-                        <option key={lead.id} value={lead.id}>
-                          {lead.school_name || lead.phone} - {lead.status}
-                        </option>
-                      ))}
-                    </select>
+                    <div ref={leadDropdownRef} style={styles.leadDropdownWrapper}>
+                      {/* Trigger */}
+                      <div
+                        onClick={() => setLeadDropdownOpen(!leadDropdownOpen)}
+                        style={{
+                          ...styles.leadDropdownTrigger,
+                          ...(errors.lead ? styles.inputError : {}),
+                          ...(leadDropdownOpen ? styles.leadDropdownTriggerOpen : {}),
+                        }}
+                      >
+                        {selectedLead ? (
+                          <div style={styles.leadSelectedDisplay}>
+                            <div style={styles.leadSelectedAvatar}>
+                              {selectedLead.school_name?.charAt(0) || '🏫'}
+                            </div>
+                            <div style={styles.leadSelectedInfo}>
+                              <span style={styles.leadSelectedName}>
+                                {selectedLead.school_name || 'Unnamed Lead'}
+                                {selectedLead.city && <span style={{ fontWeight: 400, color: COLORS.text.whiteSubtle, fontSize: '0.7rem', marginLeft: '6px' }}>{selectedLead.city}</span>}
+                              </span>
+                              <span style={styles.leadSelectedMeta}>
+                                {selectedLead.phone && `📱 ${selectedLead.phone}`}
+                                {selectedLead.contact_person && ` · 👤 ${selectedLead.contact_person}`}
+                                {selectedLead.days_since_last_activity != null && (
+                                  <span style={{ color: getAgingColor(selectedLead.days_since_last_activity), marginLeft: '6px' }}>
+                                    · 🕐 {selectedLead.days_since_last_activity}d ago
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            <span style={{
+                              ...styles.leadStatusBadge,
+                              backgroundColor: getStatusColor(selectedLead.status).bg,
+                              color: getStatusColor(selectedLead.status).text,
+                            }}>
+                              {selectedLead.status}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={styles.leadPlaceholder}>Search and select a lead...</span>
+                        )}
+                        <svg style={{ width: '1rem', height: '1rem', flexShrink: 0, color: COLORS.text.whiteSubtle, transform: leadDropdownOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+
+                      {/* Dropdown */}
+                      {leadDropdownOpen && (
+                        <div style={styles.leadDropdownPanel}>
+                          {/* Search */}
+                          <div style={styles.leadSearchContainer}>
+                            <svg style={{ width: '0.9rem', height: '0.9rem', color: COLORS.text.whiteSubtle, flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <input
+                              type="text"
+                              value={leadSearch}
+                              onChange={(e) => setLeadSearch(e.target.value)}
+                              placeholder="Search by name, phone, or contact..."
+                              style={styles.leadSearchInput}
+                              className="activity-modal-input"
+                              autoFocus
+                            />
+                            {leadSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setLeadSearch('')}
+                                style={styles.leadSearchClear}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Results */}
+                          <div style={styles.leadDropdownList}>
+                            {filteredLeads.length > 0 ? (
+                              filteredLeads.map((lead) => {
+                                const isSelected = String(formData.lead) === String(lead.id);
+                                const isHovered = hoveredLeadId === lead.id;
+                                const statusColor = getStatusColor(lead.status);
+                                return (
+                                  <div
+                                    key={lead.id}
+                                    onClick={() => handleLeadSelect(lead)}
+                                    onMouseEnter={() => setHoveredLeadId(lead.id)}
+                                    onMouseLeave={() => setHoveredLeadId(null)}
+                                    style={{
+                                      ...styles.leadOption,
+                                      backgroundColor: isSelected
+                                        ? 'rgba(59, 130, 246, 0.15)'
+                                        : isHovered
+                                        ? 'rgba(255, 255, 255, 0.08)'
+                                        : 'transparent',
+                                      borderLeft: isSelected ? '3px solid #3B82F6' : '3px solid transparent',
+                                    }}
+                                  >
+                                    <div style={styles.leadOptionAvatar}>
+                                      {lead.school_name?.charAt(0) || '🏫'}
+                                    </div>
+                                    <div style={styles.leadOptionInfo}>
+                                      <div style={styles.leadOptionRow}>
+                                        <span style={styles.leadOptionName}>
+                                          {lead.school_name || 'Unnamed Lead'}
+                                          {lead.city && <span style={{ fontWeight: 400, color: COLORS.text.whiteSubtle, fontSize: '0.65rem', marginLeft: '6px' }}>{lead.city}</span>}
+                                        </span>
+                                        <span style={{
+                                          ...styles.leadStatusBadge,
+                                          backgroundColor: statusColor.bg,
+                                          color: statusColor.text,
+                                          fontSize: '0.65rem',
+                                        }}>
+                                          {lead.status}
+                                        </span>
+                                      </div>
+                                      <div style={styles.leadOptionMeta}>
+                                        {lead.phone && <span>📱 {lead.phone}</span>}
+                                        {lead.contact_person && <span style={{ marginLeft: '8px' }}>👤 {lead.contact_person}</span>}
+                                      </div>
+                                      <div style={styles.leadOptionTags}>
+                                        {lead.lead_source && (
+                                          <span style={styles.leadOptionTag}>{lead.lead_source}</span>
+                                        )}
+                                        {lead.activities_count > 0 && (
+                                          <span style={styles.leadOptionTag}>📋 {lead.activities_count} activities</span>
+                                        )}
+                                        {lead.days_since_last_activity != null ? (
+                                          <span style={{ ...styles.leadOptionTag, color: getAgingColor(lead.days_since_last_activity) }}>
+                                            🕐 {lead.days_since_last_activity}d ago
+                                          </span>
+                                        ) : (
+                                          <span style={{ ...styles.leadOptionTag, color: COLORS.text.whiteSubtle }}>No activity</span>
+                                        )}
+                                        {lead.assigned_to_name && (
+                                          <span style={styles.leadOptionTag}>👤 {lead.assigned_to_name}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {isSelected && (
+                                      <svg style={{ width: '1rem', height: '1rem', color: '#3B82F6', flexShrink: 0 }} fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div style={styles.leadNoResults}>
+                                No leads found{leadSearch ? ` for "${leadSearch}"` : ''}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     {errors.lead && (
                       <p style={styles.errorText}>{errors.lead}</p>
                     )}
@@ -680,6 +880,194 @@ const styles = {
     fontSize: FONT_SIZES.xs,
     color: '#fca5a5',
     margin: 0,
+  },
+  // Custom Lead Dropdown
+  leadDropdownWrapper: {
+    position: 'relative',
+  },
+  leadDropdownTrigger: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    cursor: 'pointer',
+    minHeight: '42px',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  leadDropdownTriggerOpen: {
+    borderColor: 'rgba(59, 130, 246, 0.6)',
+    boxShadow: '0 0 0 2px rgba(59, 130, 246, 0.2)',
+  },
+  leadSelectedDisplay: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flex: 1,
+    minWidth: 0,
+  },
+  leadSelectedAvatar: {
+    width: '28px',
+    height: '28px',
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.75rem',
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#3B82F6',
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+    flexShrink: 0,
+  },
+  leadSelectedInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    minWidth: 0,
+  },
+  leadSelectedName: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  leadSelectedMeta: {
+    fontSize: '0.7rem',
+    color: COLORS.text.whiteSubtle,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  leadStatusBadge: {
+    padding: '2px 8px',
+    borderRadius: BORDER_RADIUS.full,
+    fontSize: '0.7rem',
+    fontWeight: FONT_WEIGHTS.medium,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  leadPlaceholder: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  leadDropdownPanel: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: '4px',
+    backgroundColor: '#1e293b',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    borderRadius: BORDER_RADIUS.md,
+    boxShadow: '0 12px 36px rgba(0, 0, 0, 0.4)',
+    zIndex: 50,
+    overflow: 'hidden',
+  },
+  leadSearchContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  leadSearchInput: {
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    backgroundColor: 'transparent',
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    padding: 0,
+  },
+  leadSearchClear: {
+    background: 'none',
+    border: 'none',
+    color: COLORS.text.whiteSubtle,
+    cursor: 'pointer',
+    fontSize: '0.75rem',
+    padding: '2px',
+    lineHeight: 1,
+  },
+  leadDropdownList: {
+    maxHeight: '220px',
+    overflowY: 'auto',
+  },
+  leadOption: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    cursor: 'pointer',
+    transition: `background-color ${TRANSITIONS.fast} ease`,
+  },
+  leadOptionAvatar: {
+    width: '32px',
+    height: '32px',
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.8rem',
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#60A5FA',
+    flexShrink: 0,
+  },
+  leadOptionInfo: {
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1px',
+  },
+  leadOptionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  leadOptionName: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  leadOptionMeta: {
+    fontSize: '0.7rem',
+    color: COLORS.text.whiteSubtle,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  leadOptionTags: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '4px',
+    marginTop: '3px',
+  },
+  leadOptionTag: {
+    fontSize: '0.6rem',
+    color: 'rgba(255, 255, 255, 0.55)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    padding: '1px 6px',
+    borderRadius: BORDER_RADIUS.full,
+    whiteSpace: 'nowrap',
+  },
+  leadNoResults: {
+    padding: `${SPACING.lg} ${SPACING.md}`,
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+    fontStyle: 'italic',
   },
   actions: {
     display: 'flex',

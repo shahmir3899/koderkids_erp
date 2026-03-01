@@ -247,7 +247,7 @@ export const NotificationPanel = ({ onNotificationClick }) => {
                     key={notification.id}
                     style={{
                       ...styles.notificationItem,
-                      backgroundColor: notification.is_read ? 'transparent' : COLORS.status.infoLight,
+                      backgroundColor: notification.is_read ? 'transparent' : '#eef2ff',
                     }}
                     onClick={() => handleNotificationClick(notification)}
                     role="button"
@@ -357,7 +357,7 @@ const getStyles = (isMobile) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: isMobile ? SPACING.md : SPACING.sm,
-    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderBottom: `1px solid #e5e7eb`,
     flexShrink: 0,
     // Safe area for mobile notch
     paddingTop: isMobile ? `max(${SPACING.md}, env(safe-area-inset-top))` : SPACING.sm,
@@ -370,13 +370,13 @@ const getStyles = (isMobile) => ({
   panelTitle: {
     fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES.lg,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.white,
+    color: '#1f2937',
     margin: 0,
   },
   markAllButton: {
     padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.xs}`,
     backgroundColor: 'transparent',
-    color: COLORS.accent.cyan,
+    color: '#6366f1',
     border: 'none',
     borderRadius: BORDER_RADIUS.sm,
     fontSize: isMobile ? FONT_SIZES.sm : FONT_SIZES.xs,
@@ -387,8 +387,8 @@ const getStyles = (isMobile) => ({
   },
   closeButton: {
     padding: SPACING.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    color: COLORS.text.white,
+    backgroundColor: '#f3f4f6',
+    color: '#374151',
     border: 'none',
     borderRadius: BORDER_RADIUS.sm,
     fontSize: FONT_SIZES.lg,
@@ -411,7 +411,7 @@ const getStyles = (isMobile) => ({
     alignItems: 'flex-start',
     gap: SPACING.sm,
     padding: isMobile ? SPACING.md : SPACING.sm,
-    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderBottom: `1px solid #e5e7eb`,
     cursor: 'pointer',
     transition: `background-color ${TRANSITIONS.fast} ease`,
     position: 'relative',
@@ -424,7 +424,7 @@ const getStyles = (isMobile) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: '#f3f4f6',
     borderRadius: BORDER_RADIUS.full,
   },
   notificationContent: {
@@ -434,13 +434,13 @@ const getStyles = (isMobile) => ({
   notificationTitle: {
     fontSize: isMobile ? FONT_SIZES.md : FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.white,
+    color: '#1f2937',
     margin: 0,
     marginBottom: SPACING.xs,
   },
   notificationMessage: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.whiteMedium,
+    color: '#4b5563',
     margin: 0,
     marginBottom: SPACING.xs,
     display: '-webkit-box',
@@ -450,7 +450,7 @@ const getStyles = (isMobile) => ({
   },
   notificationTime: {
     fontSize: FONT_SIZES.xs,
-    color: COLORS.text.whiteSubtle,
+    color: '#6b7280',
   },
   unreadDot: {
     width: isMobile ? SPACING.sm : SPACING.xs,
@@ -465,15 +465,15 @@ const getStyles = (isMobile) => ({
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,
-    color: COLORS.text.whiteSubtle,
+    color: '#6b7280',
     gap: SPACING.sm,
     flex: 1,
   },
   spinner: {
     width: SPACING.lg,
     height: SPACING.lg,
-    border: `2px solid ${COLORS.border.whiteTransparent}`,
-    borderTopColor: COLORS.accent.cyan,
+    border: `2px solid #e5e7eb`,
+    borderTopColor: '#6366f1',
     borderRadius: BORDER_RADIUS.full,
     animation: 'spin 1s linear infinite',
   },
@@ -483,18 +483,18 @@ const getStyles = (isMobile) => ({
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,
-    color: COLORS.text.whiteSubtle,
+    color: '#6b7280',
     gap: SPACING.sm,
     flex: 1,
   },
   emptyIcon: {
     width: isMobile ? SPACING['3xl'] : SPACING['2xl'],
     height: isMobile ? SPACING['3xl'] : SPACING['2xl'],
-    color: COLORS.text.whiteSubtle,
+    color: '#9ca3af',
   },
   panelFooter: {
     padding: isMobile ? SPACING.md : SPACING.sm,
-    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderTop: `1px solid #e5e7eb`,
     textAlign: 'center',
     flexShrink: 0,
     // Safe area for mobile bottom
@@ -503,7 +503,7 @@ const getStyles = (isMobile) => ({
   viewAllButton: {
     padding: isMobile ? `${SPACING.sm} ${SPACING.md}` : `${SPACING.xs} ${SPACING.sm}`,
     backgroundColor: 'transparent',
-    color: COLORS.accent.cyan,
+    color: '#6366f1',
     border: 'none',
     borderRadius: BORDER_RADIUS.sm,
     fontSize: FONT_SIZES.sm,

@@ -152,17 +152,33 @@ class LeadCardSerializer(LeadSerializer):
 
 
 class LeadDetailSerializer(LeadSerializer):
-    """Detailed Lead serializer with activities"""
-    
+    """Detailed Lead serializer with activities and proposals"""
+
     activities = serializers.SerializerMethodField()
-    
+    proposals = serializers.SerializerMethodField()
+
     class Meta(LeadSerializer.Meta):
-        fields = LeadSerializer.Meta.fields + ['activities']
-    
+        fields = LeadSerializer.Meta.fields + ['activities', 'proposals']
+
     def get_activities(self, obj):
         """Return all activities for this lead"""
         activities = obj.activities.all()[:20]  # Limit to last 20
         return ActivitySerializer(activities, many=True).data
+
+    def get_proposals(self, obj):
+        """Return proposals generated for this lead"""
+        proposals = obj.proposals.all()[:10]
+        return [
+            {
+                'id': p.id,
+                'school_name': p.school_name,
+                'standard_rate': p.standard_rate,
+                'discounted_rate': p.discounted_rate,
+                'generated_by_name': p.generated_by_name,
+                'created_at': p.created_at,
+            }
+            for p in proposals
+        ]
 
 
 class ActivitySerializer(serializers.ModelSerializer):

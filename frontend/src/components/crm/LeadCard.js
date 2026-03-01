@@ -222,33 +222,37 @@ export const LeadCard = ({
       )}
 
       {/* Recent Activities Mini Timeline */}
-      {displayActivities.length > 0 && (
-        <div style={styles.activitiesSection}>
-          <div style={styles.activitiesHeader}>Recent Activities</div>
-          {displayActivities.map((activity) => (
-            <div key={activity.id} style={styles.activityItem}>
-              <span style={styles.activityIcon}>
-                {getActivityIcon(activity.activity_type, activity.status)}
-              </span>
-              <div style={styles.activityContent}>
-                <span style={styles.activitySubject}>
-                  {activity.activity_type} - "{activity.subject || 'No subject'}"
+      <div style={styles.activitiesSection}>
+        <div style={styles.activitiesHeader}>Recent Activities</div>
+        {displayActivities.length > 0 ? (
+          <>
+            {displayActivities.map((activity) => (
+              <div key={activity.id} style={styles.activityItem}>
+                <span style={styles.activityIcon}>
+                  {getActivityIcon(activity.activity_type, activity.status)}
                 </span>
-                <span style={styles.activityDate}>
-                  {activity.status === 'Scheduled' ? 'Scheduled ' : ''}
-                  {formatDate(activity.scheduled_date)}
-                  {activity.outcome && ` · ${activity.outcome}`}
-                </span>
+                <div style={styles.activityContent}>
+                  <span style={styles.activitySubject}>
+                    {activity.activity_type} - "{activity.subject || 'No subject'}"
+                  </span>
+                  <span style={styles.activityDate}>
+                    {activity.status === 'Scheduled' ? 'Scheduled ' : ''}
+                    {formatDate(activity.scheduled_date)}
+                    {activity.outcome && ` · ${activity.outcome}`}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
-          {remainingCount > 0 && (
-            <div style={styles.moreActivities}>
-              +{remainingCount} more
-            </div>
-          )}
-        </div>
-      )}
+            ))}
+            {remainingCount > 0 && (
+              <div style={styles.moreActivities}>
+                +{remainingCount} more
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={styles.noActivities}>No activities yet</div>
+        )}
+      </div>
 
       {/* Action Buttons */}
       <div style={styles.actions}>
@@ -499,6 +503,13 @@ const styles = {
     fontStyle: 'italic',
     paddingTop: SPACING.xs,
     paddingLeft: `calc(${FONT_SIZES.sm} + ${SPACING.sm})`,
+  },
+
+  noActivities: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+    fontStyle: 'italic',
+    padding: `${SPACING.sm} 0`,
   },
 
   actions: {

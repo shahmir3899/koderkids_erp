@@ -153,7 +153,7 @@ export const PROFILE_HEADER_CONFIG = {
     
     // Features
     features: {
-      showNotifications: false,
+      showNotifications: true,
       showMessages: false,
       showTasks: false,  // Admin accesses tasks from sidebar
       showSettings: true,

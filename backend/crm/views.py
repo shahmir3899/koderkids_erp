@@ -26,6 +26,7 @@ from .serializers import (
 from .permissions import IsBDMOrAdmin, IsAdminOnly, IsAdminOrOwner
 from students.models import School, CustomUser
 from .emails import send_lead_assignment_email, send_activity_scheduled_email
+from employees.models import Notification
 import logging
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,8 @@ class LeadViewSet(viewsets.ModelViewSet):
         queryset = queryset.select_related('assigned_to', 'created_by', 'converted_to_school')
         if self.action == 'list':
             queryset = queryset.prefetch_related('activities')
+        elif self.action == 'retrieve':
+            queryset = queryset.prefetch_related('activities', 'proposals')
         else:
             # For non-list actions, annotate count to avoid N+1 on activities_count
             queryset = queryset.annotate(activities_count_ann=Count('activities'))
@@ -136,6 +139,28 @@ class LeadViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 logger.error(f"Failed to send lead assignment email: {str(e)}")
 
+        # NOTIFICATION: Notify all admins when a BDM creates a lead
+        if user.role == 'BDM':
+            try:
+                admins = CustomUser.objects.filter(role='Admin', is_active=True)
+                bdm_name = user.get_full_name() or user.username
+                lead_label = lead.school_name or lead.phone
+
+                notifications = [
+                    Notification(
+                        recipient=admin,
+                        sender=user,
+                        title=f'New Lead by {bdm_name}',
+                        message=f'{bdm_name} added a new lead: "{lead_label}" (Source: {lead.lead_source or "N/A"})',
+                        notification_type='info',
+                    )
+                    for admin in admins
+                ]
+                if notifications:
+                    Notification.objects.bulk_create(notifications)
+            except Exception as e:
+                logger.error(f"Failed to send admin notifications for lead creation: {str(e)}")
+
     def update(self, request, *args, **kwargs):
         """Override update to include automation notifications"""
         partial = kwargs.pop('partial', False)
@@ -192,6 +217,35 @@ class LeadViewSet(viewsets.ModelViewSet):
             if cancelled_count > 0:
                 self._automation_message = f"{cancelled_count} scheduled activity(ies) automatically cancelled (lead marked as '{new_status}')"
                 print(f"[AUTO-RULE] {cancelled_count} scheduled activities auto-cancelled for Lead #{updated_lead.id} ({updated_lead.school_name or updated_lead.phone}) - status changed to '{new_status}'")
+
+        # NOTIFICATION: Notify all admins when a BDM updates a lead
+        if self.request.user.role == 'BDM':
+            try:
+                changes = []
+                if old_status != new_status:
+                    changes.append(f'status: {old_status} → {new_status}')
+                if old_bdm != new_bdm:
+                    changes.append(f'assignment changed')
+
+                if changes:
+                    admins = CustomUser.objects.filter(role='Admin', is_active=True)
+                    bdm_name = self.request.user.get_full_name() or self.request.user.username
+                    lead_label = updated_lead.school_name or updated_lead.phone
+
+                    notifications = [
+                        Notification(
+                            recipient=admin,
+                            sender=self.request.user,
+                            title=f'Lead Updated by {bdm_name}',
+                            message=f'{bdm_name} updated lead "{lead_label}" — {", ".join(changes)}',
+                            notification_type='info',
+                        )
+                        for admin in admins
+                    ]
+                    if notifications:
+                        Notification.objects.bulk_create(notifications)
+            except Exception as e:
+                logger.error(f"Failed to send admin notifications for lead update: {str(e)}")
 
     @action(detail=True, methods=['post'])
     def convert(self, request, pk=None):
@@ -462,6 +516,29 @@ class ActivityViewSet(viewsets.ModelViewSet):
                 lead.save()
                 self._automation_message = f"Lead status automatically changed from '{old_status}' to 'Contacted' (first activity)"
                 print(f"[AUTO-RULE] Lead #{lead.id} ({lead.school_name or lead.phone}) auto-changed from 'New' to 'Contacted' (first activity created)")
+
+        # NOTIFICATION: Notify all admins when a BDM creates an activity
+        if self.request.user.role == 'BDM':
+            try:
+                admins = CustomUser.objects.filter(role='Admin', is_active=True)
+                bdm_name = self.request.user.get_full_name() or self.request.user.username
+                lead_name = activity.lead.school_name or activity.lead.phone
+                action_word = 'logged' if activity.is_logged else 'scheduled'
+
+                notifications = [
+                    Notification(
+                        recipient=admin,
+                        sender=self.request.user,
+                        title=f'New {activity.activity_type} by {bdm_name}',
+                        message=f'{bdm_name} {action_word} a {activity.activity_type} for lead "{lead_name}" — {activity.subject}',
+                        notification_type='info',
+                    )
+                    for admin in admins
+                ]
+                if notifications:
+                    Notification.objects.bulk_create(notifications)
+            except Exception as e:
+                logger.error(f"Failed to send admin notifications for activity: {str(e)}")
     
     @action(detail=True, methods=['patch'])
     def complete(self, request, pk=None):

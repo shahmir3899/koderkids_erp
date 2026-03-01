@@ -3,9 +3,10 @@
 // ============================================
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { proposalService } from '../services/proposalService';
-import { fetchLeads } from '../api/services/crmService';
+import { fetchLeads, fetchLeadById } from '../api/services/crmService';
 
 const DEFAULT_PAGE_SELECTION = {
   1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true,
@@ -33,6 +34,8 @@ const DEFAULT_PAGE13_TEXT_CONFIG = {
 };
 
 export const useProposalGenerator = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // ============================================
   // FORM STATE
   // ============================================
@@ -290,6 +293,29 @@ export const useProposalGenerator = () => {
     loadLeads();
     fetchProposalHistory();
   }, [loadLeads, fetchProposalHistory]);
+
+  // ============================================
+  // AUTO-SELECT LEAD FROM URL PARAM (?leadId=X)
+  // ============================================
+  useEffect(() => {
+    const leadIdParam = searchParams.get('leadId');
+    if (leadIdParam && !selectedLeadId) {
+      (async () => {
+        try {
+          const lead = await fetchLeadById(leadIdParam);
+          if (lead) {
+            selectLead(lead);
+          }
+        } catch (err) {
+          console.error('Error auto-selecting lead from URL:', err);
+        } finally {
+          // Clean up URL param after consuming
+          searchParams.delete('leadId');
+          setSearchParams(searchParams, { replace: true });
+        }
+      })();
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     // Form state
