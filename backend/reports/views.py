@@ -1088,24 +1088,24 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     
     /* Image Grid */
     .image-grid {{
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 12px;
         max-width: 180mm;
     }}
-    
+
     .image-grid img {{
-        width: 100%;
+        width: calc(50% - 4px);
         height: 50mm;
         object-fit: cover;
         border-radius: 8px;
         border: 1px solid #99f6e4;
         background-color: #f0fdfa;
     }}
-    
+
     .image-grid p {{
-        grid-column: span 2;
+        width: 100%;
         text-align: center;
         color: #64748b;
         padding: 20px 0;
