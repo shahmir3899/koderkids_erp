@@ -15,7 +15,7 @@ import uuid
 import os
 
 
-from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification, SalarySlip
+from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification, SalarySlip, NotificationSettings
 from .serializers import (
     TeacherProfileSerializer,
     TeacherProfileUpdateSerializer,
@@ -30,6 +30,8 @@ from .serializers import (
     SalarySlipSerializer,
     SalarySlipListSerializer,
     SalarySlipCreateSerializer,
+
+    NotificationSettingsSerializer,
 )
 from students.models import CustomUser, School
 
@@ -1068,3 +1070,28 @@ class SalarySlipDetailView(APIView):
             {'message': 'Salary slip deleted successfully'},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+# ============================================
+# NOTIFICATION SETTINGS (Admin only)
+# ============================================
+
+class NotificationSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'Admin':
+            return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
+        settings_obj = NotificationSettings.load()
+        serializer = NotificationSettingsSerializer(settings_obj)
+        return Response(serializer.data)
+
+    def put(self, request):
+        if request.user.role != 'Admin':
+            return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
+        settings_obj = NotificationSettings.load()
+        serializer = NotificationSettingsSerializer(settings_obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

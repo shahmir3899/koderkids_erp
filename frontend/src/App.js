@@ -43,6 +43,7 @@ import InventoryPage from './pages/InventoryPage';
 import CSVUpload from './components/CSVUpload';
 import SettingsPage from './pages/SettingsPage';
 import SettingsRouter from './pages/SettingsRouter';
+import NotificationSettingsPage from './pages/NotificationSettingsPage';
 import ERPLoader from './components/ERPLoader';
 
 // Self Service Pages
@@ -236,6 +237,7 @@ function AppContent() {
       <Route path="/book-management" element={<ProtectedRoute element={<BookManagementPage />} allowedRoles={["Admin"]} />} />
       <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/settings" element={<ProtectedRoute element={<SettingsRouter />} allowedRoles={["Admin"]} />} />
+      <Route path="/settings/notifications" element={<ProtectedRoute element={<NotificationSettingsPage />} allowedRoles={["Admin"]} />} />
       <Route path="/finance" element={<ProtectedRoute element={<FinanceDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/finance/transactions" element={<ProtectedRoute element={<TransactionsPage />} allowedRoles={["Admin"]} />} />
       <Route path="/custom-report" element={<ProtectedRoute element={<CustomReport />}allowedRoles={["Admin", "BDM"]}/>} />

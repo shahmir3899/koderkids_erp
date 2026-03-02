@@ -10,7 +10,8 @@ from .serializers import (
     TaskSerializer, TaskCreateSerializer, TaskUpdateSerializer,
     TaskStatusUpdateSerializer, TaskListSerializer
 )
-from .emails import send_task_assignment_email
+from employees.email_tasks import send_task_assignment_email_task
+from employees.models import NotificationSettings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,13 +49,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         task = serializer.save(assigned_by=self.request.user)
-        # Send email notification to assignee
-        try:
-            send_task_assignment_email(task)
-            logger.info(f"✅ Task assignment email sent for task {task.id}")
-        except Exception as e:
-            logger.error(f"❌ Failed to send task assignment email: {e}")
-            # Don't fail the request if email fails
+        # Send email notification to assignee (async)
+        if NotificationSettings.load().email_task_assignment:
+            send_task_assignment_email_task.delay(task.id)
     
     @action(detail=False, methods=['get'])
     def my_tasks(self, request):
@@ -159,20 +156,16 @@ class TaskViewSet(viewsets.ModelViewSet):
         
         created_tasks = Task.objects.bulk_create(tasks_to_create)
         
-        # Send emails to all assigned employees
-        email_count = 0
-        for task in created_tasks:
-            try:
-                if send_task_assignment_email(task):
-                    email_count += 1
-            except Exception as e:
-                logger.error(f"Failed to send email for task {task.id}: {e}")
-        
-        logger.info(f"✅ Bulk task assigned to {len(created_tasks)} employees, {email_count} emails sent")
-        
+        # Send emails to all assigned employees (async)
+        if NotificationSettings.load().email_bulk_task_assignment:
+            for task in created_tasks:
+                send_task_assignment_email_task.delay(task.id)
+
+        logger.info(f"✅ Bulk task assigned to {len(created_tasks)} employees, emails queued")
+
         # Exact notification response pattern
         return Response({
-            'message': f'Task assigned to {len(created_tasks)} employees. {email_count} notification emails sent.',
+            'message': f'Task assigned to {len(created_tasks)} employees. Notification emails queued.',
             'count': len(created_tasks),
-            'emails_sent': email_count
+            'emails_sent': len(created_tasks)
         }, status=status.HTTP_201_CREATED)

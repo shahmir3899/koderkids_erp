@@ -29,17 +29,14 @@ from .serializers import (
 )
 from .permissions import IsAdminUser
 
-# Import email utilities
-try:
-    from .email_utils import (
-        send_welcome_email,
-        send_password_reset_email,
-        send_school_assignment_email,
-    )
-    EMAIL_AVAILABLE = True
-except ImportError:
-    EMAIL_AVAILABLE = False
-    logging.warning("Email utilities not available")
+# Import async email tasks
+from employees.email_tasks import (
+    send_welcome_email_task,
+    send_password_reset_email_task,
+    send_school_assignment_email_task,
+    send_account_update_email_task,
+)
+EMAIL_AVAILABLE = True
 
 logger = logging.getLogger(__name__)
 
@@ -353,22 +350,12 @@ class UserViewSet(viewsets.ModelViewSet):
         response_data = response_serializer.data
         response_data['generated_password'] = generated_password
         
-        # Send welcome email if requested
-        email_sent = False
-        email_error = None
-        
+        # Send welcome email if requested (async)
         if send_email and user.email and EMAIL_AVAILABLE and generated_password:
-            try:
-                email_sent = send_welcome_email(user, generated_password, request)
-                logger.info(f"✅ Welcome email sent to {user.email}")
-            except Exception as e:
-                email_error = str(e)
-                logger.error(f"❌ Failed to send welcome email to {user.email}: {e}")
-        
-        # Add email status to response
-        response_data['email_sent'] = email_sent
-        if email_error:
-            response_data['email_error'] = email_error
+            send_welcome_email_task.delay(user.id, generated_password)
+            logger.info(f"Welcome email queued for {user.email}")
+
+        response_data['email_sent'] = bool(send_email and user.email and generated_password)
         
         headers = self.get_success_headers(response_data)
         return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
@@ -485,28 +472,17 @@ class UserViewSet(viewsets.ModelViewSet):
             account_status = 'Activated' if updated_user.is_active else 'Deactivated'  # ← Fixed!
             changes['Account Status'] = account_status
         
-        # Send email if requested and changes were made
-        email_sent = False
-        email_error = None
-        
+        # Send email if requested and changes were made (async)
         if send_email and updated_user.email and changes:
-            try:
-                from .email_utils import send_account_update_email
-                updated_by_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-                email_sent = send_account_update_email(updated_user, changes, updated_by_name)
-                logger.info(f"✅ Account update email sent to {updated_user.email}")
-            except Exception as e:
-                email_error = str(e)
-                logger.error(f"❌ Failed to send account update email: {e}")
-        
+            updated_by_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+            send_account_update_email_task.delay(updated_user.id, changes, updated_by_name)
+            logger.info(f"Account update email queued for {updated_user.email}")
+
         # Prepare response
         response_serializer = UserDetailSerializer(updated_user)
         response_data = response_serializer.data
         response_data['changes_made'] = list(changes.keys())
-        response_data['email_sent'] = email_sent
-        
-        if email_error:
-            response_data['email_error'] = email_error
+        response_data['email_sent'] = bool(send_email and updated_user.email and changes)
         
         return Response(response_data, status=http_status.HTTP_200_OK)  # ← Use alias
     # ============================================
@@ -550,21 +526,12 @@ class UserViewSet(viewsets.ModelViewSet):
             'assigned_schools': school_names,
         }
         
-        # Send email if requested
-        email_sent = False
-        email_error = None
-        
+        # Send email if requested (async)
         if send_email and user.email and school_names and EMAIL_AVAILABLE:
-            try:
-                email_sent = send_school_assignment_email(user, school_names)
-                logger.info(f"✅ School assignment email sent to {user.email}")
-            except Exception as e:
-                email_error = str(e)
-                logger.error(f"❌ Failed to send school assignment email: {e}")
-        
-        response_data['email_sent'] = email_sent
-        if email_error:
-            response_data['email_error'] = email_error
+            send_school_assignment_email_task.delay(user.id, school_names)
+            logger.info(f"School assignment email queued for {user.email}")
+
+        response_data['email_sent'] = bool(send_email and user.email and school_names)
         
         return Response(response_data, status=status.HTTP_200_OK)
     
@@ -692,21 +659,12 @@ class UserViewSet(viewsets.ModelViewSet):
             'new_password': new_password,
         }
         
-        # Send email if requested
-        email_sent = False
-        email_error = None
-        
+        # Send email if requested (async)
         if send_email and user.email and EMAIL_AVAILABLE:
-            try:
-                email_sent = send_password_reset_email(user, new_password)
-                logger.info(f"✅ Password reset email sent to {user.email}")
-            except Exception as e:
-                email_error = str(e)
-                logger.error(f"❌ Failed to send password reset email: {e}")
-        
-        response_data['email_sent'] = email_sent
-        if email_error:
-            response_data['email_error'] = email_error
+            send_password_reset_email_task.delay(user.id, new_password)
+            logger.info(f"Password reset email queued for {user.email}")
+
+        response_data['email_sent'] = bool(send_email and user.email)
         
         return Response(response_data, status=status.HTTP_200_OK)
     

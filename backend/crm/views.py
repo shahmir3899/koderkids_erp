@@ -25,8 +25,8 @@ from .serializers import (
 )
 from .permissions import IsBDMOrAdmin, IsAdminOnly, IsAdminOrOwner
 from students.models import School, CustomUser
-from .emails import send_lead_assignment_email, send_activity_scheduled_email
-from employees.models import Notification
+from employees.email_tasks import send_lead_assignment_email_task, send_activity_scheduled_email_task
+from employees.models import Notification, NotificationSettings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -129,18 +129,14 @@ class LeadViewSet(viewsets.ModelViewSet):
         else:
             lead = serializer.save(created_by=user)
 
-        # Send email if lead is assigned to BDM during creation
+        # Send email if lead is assigned to BDM during creation (async)
         if lead.assigned_to and lead.assigned_to.role == 'BDM':
-            try:
+            if NotificationSettings.load().email_lead_assignment:
                 assigned_by_name = f"{self.request.user.first_name} {self.request.user.last_name}".strip() or self.request.user.username
-                email_sent = send_lead_assignment_email(lead, lead.assigned_to, assigned_by_name)
-                if email_sent:
-                    logger.info(f"Lead assignment email sent to {lead.assigned_to.email}")
-            except Exception as e:
-                logger.error(f"Failed to send lead assignment email: {str(e)}")
+                send_lead_assignment_email_task.delay(lead.id, lead.assigned_to.id, assigned_by_name)
 
         # NOTIFICATION: Notify all admins when a BDM creates a lead
-        if user.role == 'BDM':
+        if user.role == 'BDM' and NotificationSettings.load().inapp_bdm_creates_lead:
             try:
                 admins = CustomUser.objects.filter(role='Admin', is_active=True)
                 bdm_name = user.get_full_name() or user.username
@@ -198,15 +194,11 @@ class LeadViewSet(viewsets.ModelViewSet):
         new_status = updated_lead.status
         new_bdm = updated_lead.assigned_to
 
-        # EMAIL: Send notification if BDM changed
+        # EMAIL: Send notification if BDM changed (async)
         if old_bdm != new_bdm and new_bdm and new_bdm.role == 'BDM':
-            try:
+            if NotificationSettings.load().email_lead_reassignment:
                 assigned_by_name = f"{self.request.user.first_name} {self.request.user.last_name}".strip() or self.request.user.username
-                email_sent = send_lead_assignment_email(updated_lead, new_bdm, assigned_by_name)
-                if email_sent:
-                    logger.info(f"Lead reassignment email sent to {new_bdm.email}")
-            except Exception as e:
-                logger.error(f"Failed to send lead reassignment email: {str(e)}")
+                send_lead_assignment_email_task.delay(updated_lead.id, new_bdm.id, assigned_by_name)
 
         # AUTOMATION: Auto-cancel activities when lead becomes Lost/Not Interested
         if old_status != new_status and new_status in ['Lost', 'Not Interested']:
@@ -219,7 +211,7 @@ class LeadViewSet(viewsets.ModelViewSet):
                 print(f"[AUTO-RULE] {cancelled_count} scheduled activities auto-cancelled for Lead #{updated_lead.id} ({updated_lead.school_name or updated_lead.phone}) - status changed to '{new_status}'")
 
         # NOTIFICATION: Notify all admins when a BDM updates a lead
-        if self.request.user.role == 'BDM':
+        if self.request.user.role == 'BDM' and NotificationSettings.load().inapp_bdm_updates_lead:
             try:
                 changes = []
                 if old_status != new_status:
@@ -364,15 +356,10 @@ class LeadViewSet(viewsets.ModelViewSet):
             lead.assigned_to = bdm
             lead.save()
 
-            # Send email notification to BDM if newly assigned
-            if old_bdm != bdm:
-                try:
-                    assigned_by_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-                    email_sent = send_lead_assignment_email(lead, bdm, assigned_by_name)
-                    if email_sent:
-                        logger.info(f"Lead assignment email sent to {bdm.email}")
-                except Exception as e:
-                    logger.error(f"Failed to send lead assignment email: {str(e)}")
+            # Send email notification to BDM if newly assigned (async)
+            if old_bdm != bdm and NotificationSettings.load().email_bulk_lead_assignment:
+                assigned_by_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+                send_lead_assignment_email_task.delay(lead.id, bdm.id, assigned_by_name)
 
             return Response({
                 'message': f'Lead assigned to {bdm.get_full_name()}',
@@ -493,17 +480,12 @@ class ActivityViewSet(viewsets.ModelViewSet):
         else:
             activity = serializer.save()
 
-        # EMAIL: Send notification to BDM when activity is scheduled (NOT for quick-logged activities)
+        # EMAIL: Send notification to BDM when activity is scheduled (async, NOT for quick-logged activities)
         if (activity.assigned_to and
             activity.assigned_to.role == 'BDM' and
             activity.status == 'Scheduled' and
             not activity.is_logged):
-            try:
-                email_sent = send_activity_scheduled_email(activity, activity.assigned_to)
-                if email_sent:
-                    logger.info(f"Activity scheduled email sent to {activity.assigned_to.email}")
-            except Exception as e:
-                logger.error(f"Failed to send activity scheduled email: {str(e)}")
+            send_activity_scheduled_email_task.delay(activity.id, activity.assigned_to.id)
 
         # AUTOMATION: Auto-change lead to 'Contacted' on first activity
         lead = activity.lead
@@ -518,7 +500,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
                 print(f"[AUTO-RULE] Lead #{lead.id} ({lead.school_name or lead.phone}) auto-changed from 'New' to 'Contacted' (first activity created)")
 
         # NOTIFICATION: Notify all admins when a BDM creates an activity
-        if self.request.user.role == 'BDM':
+        if self.request.user.role == 'BDM' and NotificationSettings.load().inapp_bdm_updates_lead:
             try:
                 admins = CustomUser.objects.filter(role='Admin', is_active=True)
                 bdm_name = self.request.user.get_full_name() or self.request.user.username

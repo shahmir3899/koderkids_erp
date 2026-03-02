@@ -14,4 +14,8 @@ app.conf.beat_schedule = {
         'task': 'employees.tasks.send_monthly_report_reminder',
         'schedule': crontab(day_of_month=28, hour=9, minute=0),
     },
+    'send-aging-lead-alerts': {
+        'task': 'employees.email_tasks.send_aging_alerts_task',
+        'schedule': crontab(hour=9, minute=0),  # Daily at 9 AM
+    },
 }

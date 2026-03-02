@@ -725,3 +725,50 @@ class TeacherEvaluationScore(models.Model):
         # Calculate total
         score.calculate_score()
         return score
+
+
+class NotificationSettings(models.Model):
+    """
+    Singleton model: Global notification ON/OFF settings.
+    One row in DB. Admin toggles each notification type independently.
+    """
+
+    # === EMAIL NOTIFICATIONS ===
+    email_lead_assignment = models.BooleanField(default=True, help_text="Lead Assignment Email -> BDM")
+    email_lead_reassignment = models.BooleanField(default=True, help_text="Lead Reassignment Email -> New BDM")
+    email_bulk_lead_assignment = models.BooleanField(default=True, help_text="Bulk Lead Assignment Email -> Each BDM")
+    email_activity_scheduled = models.BooleanField(default=True, help_text="Activity Scheduled Email -> Assigned BDM")
+    email_aging_lead_alert = models.BooleanField(default=True, help_text="Aging Lead Alert Email -> BDMs (daily 9 AM)")
+    email_task_assignment = models.BooleanField(default=True, help_text="Task Assignment Email -> Assignee")
+    email_bulk_task_assignment = models.BooleanField(default=True, help_text="Bulk Task Assignment Email -> Each assignee")
+    email_welcome = models.BooleanField(default=True, help_text="Welcome Email -> New user")
+    email_password_reset = models.BooleanField(default=True, help_text="Password Reset Email -> User")
+    email_school_assignment = models.BooleanField(default=True, help_text="School Assignment Email -> Teacher")
+    email_account_update = models.BooleanField(default=True, help_text="Account Update Email -> User")
+    email_student_progress = models.BooleanField(default=True, help_text="Student Progress Email -> Student")
+
+    # === IN-APP NOTIFICATIONS ===
+    inapp_monthly_report_reminder = models.BooleanField(default=True, help_text="Monthly Report Reminder -> All teachers (28th)")
+    inapp_bdm_creates_lead = models.BooleanField(default=True, help_text="BDM Creates Lead -> All admins")
+    inapp_bdm_updates_lead = models.BooleanField(default=True, help_text="BDM Updates Lead -> All admins")
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Notification Settings"
+        verbose_name_plural = "Notification Settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Notification Settings"

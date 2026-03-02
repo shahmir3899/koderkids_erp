@@ -4,7 +4,7 @@
 # ============================================
 
 from rest_framework import serializers
-from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification, SalarySlip
+from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification, SalarySlip, NotificationSettings
 from students.models import CustomUser, School
 
 
@@ -364,3 +364,10 @@ class SalarySlipCreateSerializer(serializers.ModelSerializer):
                 self.instance = existing
 
         return data
+
+
+class NotificationSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationSettings
+        exclude = ['id']
+        read_only_fields = ['updated_at']

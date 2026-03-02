@@ -11,8 +11,12 @@ def send_monthly_report_reminder():
     Auto-send monthly student report reminder to all active teachers.
     Scheduled via Celery Beat on the 28th of each month at 9 AM.
     """
-    from employees.models import Notification
+    from employees.models import Notification, NotificationSettings
     from students.models import CustomUser
+
+    if not NotificationSettings.load().inapp_monthly_report_reminder:
+        logger.info("Monthly report reminder disabled by admin settings")
+        return 'Notification disabled'
 
     month_name = timezone.now().strftime('%B %Y')
     teachers = CustomUser.objects.filter(role='Teacher', is_active=True)

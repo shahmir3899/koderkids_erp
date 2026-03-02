@@ -4,6 +4,7 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 // Design Constants
@@ -37,6 +38,7 @@ import { AssignSchoolsModal } from '../components/settings/AssignSchoolsModal';
 import { ResetPasswordModal } from '../components/settings/ResetPasswordModal';
 
 function SettingsPage() {
+  const navigate = useNavigate();
   // ============================================
   // RESPONSIVE HOOK
   // ============================================
@@ -437,11 +439,36 @@ function SettingsPage() {
     <div style={pageStyles.pageContainer}>
       <div style={pageStyles.contentWrapper}>
         {/* Page Header */}
-        <PageHeader
-          icon="⚙️"
-          title="User Management"
-          subtitle="Manage users, roles, and permissions"
-        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: SPACING.sm }}>
+          <PageHeader
+            icon="⚙️"
+            title="User Management"
+            subtitle="Manage users, roles, and permissions"
+          />
+          <button
+            onClick={() => navigate('/settings/notifications')}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: BORDER_RADIUS.md,
+              color: COLORS.text.white,
+              padding: `${SPACING.xs} ${SPACING.md}`,
+              cursor: 'pointer',
+              fontSize: FONT_SIZES.sm,
+              fontWeight: FONT_WEIGHTS.medium,
+              display: 'flex',
+              alignItems: 'center',
+              gap: SPACING.xs,
+              transition: 'background 0.2s',
+              whiteSpace: 'nowrap',
+              marginTop: SPACING.sm,
+            }}
+            onMouseEnter={e => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+            onMouseLeave={e => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
+          >
+            🔔 Notification Settings
+          </button>
+        </div>
 
         {/* Statistics Cards */}
         <UserStatsCards

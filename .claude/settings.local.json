@@ -97,7 +97,9 @@
       "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install django-filter dj-database-url supabase whitenoise)",
       "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install psycopg2-binary)",
       "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install django-mptt openpyxl pandas pillow qrcode weasyprint reportlab humanize pdfplumber)",
-      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install chardet zipstream-ng)"
+      "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install chardet zipstream-ng)",
+      "Bash(explorer \"D:\\\\Personal\\\\school-management-system\\\\backend\\\\aigala\\\\ai_gala_guide.pdf\")",
+      "Bash(xxd Dockerfile.ai)"
     ]
   }
 }

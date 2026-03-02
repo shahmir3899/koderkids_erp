@@ -41,6 +41,9 @@ from .views import (
     SalarySlipListView,
     SalarySlipCreateView,
     SalarySlipDetailView,
+
+    # Notification Settings
+    NotificationSettingsView,
 )
 
 from .evaluation_views import (
@@ -129,6 +132,9 @@ urlpatterns = [
 
     # POST - Send notification to students (Admin only, with optional school/class filter)
     path('notifications/send-to-students/', SendNotificationToStudentsView.as_view(), name='notification-send-to-students'),
+
+    # GET/PUT - Notification settings (Admin only)
+    path('notifications/settings/', NotificationSettingsView.as_view(), name='notification-settings'),
 
     # ============================================
     # Earnings & Deductions Endpoints

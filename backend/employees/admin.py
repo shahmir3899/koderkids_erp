@@ -5,7 +5,7 @@
 from django.contrib import admin
 from .models import (
     TeacherProfile, TeacherEarning, TeacherDeduction, Notification,
-    BDMVisitProforma, TeacherEvaluationScore
+    BDMVisitProforma, TeacherEvaluationScore, NotificationSettings
 )
 
 
@@ -180,3 +180,14 @@ class TeacherEvaluationScoreAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(NotificationSettings)
+class NotificationSettingsAdmin(admin.ModelAdmin):
+    list_display = ['__str__', 'updated_at']
+
+    def has_add_permission(self, request):
+        return not NotificationSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False

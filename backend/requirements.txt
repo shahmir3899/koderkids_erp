@@ -27,7 +27,7 @@ numpy
 
 # PDF / Image
 pillow==11.3.0
-weasyprint
+weasyprint==68.1
 reportlab
 pdfplumber>=0.10.0
 

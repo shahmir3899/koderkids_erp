@@ -40,7 +40,7 @@ from students.models import StudentImage, LessonPlan
 from rest_framework.views import APIView
 from datetime import datetime, timedelta
 from .models import StudentImage
-from authentication.email_utils import send_student_progress_email
+from employees.email_tasks import send_student_progress_email_task
 
 logger = logging.getLogger(__name__)
 
@@ -1366,21 +1366,20 @@ def upload_student_image(request):
                     session_date=session_date
                 ).first()
 
-                # Send progress email
-                email_result_raw = send_student_progress_email(
-                    student=student,
-                    session_date=session_date,
-                    image_url=image_url,
-                    lesson_plan=lesson_plan
+                # Send progress email (async)
+                send_student_progress_email_task.delay(
+                    student.id, session_date, image_url,
+                    lesson_plan.id if lesson_plan else None
                 )
 
+                has_email = bool(getattr(student, 'user', None) and student.user.email)
                 email_result = {
-                    'email_sent': email_result_raw.get('email_sent', False),
-                    'has_email': email_result_raw.get('has_email', False),
-                    'email_message': email_result_raw.get('message', None)
+                    'email_sent': has_email,
+                    'has_email': has_email,
+                    'email_message': 'Email queued for delivery' if has_email else 'No email configured for this student'
                 }
 
-                logger.info(f"Progress email attempt for student {student.name}: {email_result}")
+                logger.info(f"Progress email queued for student {student.name}")
 
             except Student.DoesNotExist:
                 logger.warning(f"Student profile not found for user {request.user.username}")

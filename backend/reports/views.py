@@ -555,7 +555,7 @@ def generate_bulk_pdf_zip(request):
                     zip_file.writestr(safe_name, pdf_buffer.getvalue())
 
                 except Exception as e:
-                    logger.error(f"Failed to generate PDF for student {student_id}: {e}")
+                    logger.exception(f"Failed to generate PDF for student {student_id}: {e}")
                     continue  # don’t break the whole ZIP if one student fails
 
         zip_buffer.seek(0)
@@ -866,7 +866,7 @@ def generate_pdf(request):
         logger.warning(f"Validation error: {str(e)}")
         return Response({'message': 'Failed to generate PDF', 'error': str(e)}, status=400)
     except Exception as e:
-        logger.error(f"Unexpected error in generate_pdf: {str(e)}")
+        logger.exception(f"Unexpected error in generate_pdf: {str(e)}")
         return Response({
             "message": "Failed to generate PDF",
             "error": "An unexpected error occurred"
@@ -1180,11 +1180,15 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
 """
 
     logger.info("Rendering PDF with WeasyPrint")
-    buffer = BytesIO()
-    HTML(string=html_content).write_pdf(buffer)
-    buffer.seek(0)
-    logger.info("PDF rendered successfully")
-    return buffer
+    try:
+        buffer = BytesIO()
+        HTML(string=html_content).write_pdf(buffer)
+        buffer.seek(0)
+        logger.info("PDF rendered successfully")
+        return buffer
+    except Exception as e:
+        logger.exception(f"WeasyPrint rendering failed: {e}")
+        raise
 
 
 # ============================================
