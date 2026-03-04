@@ -72,6 +72,16 @@ const formatTime = (dateStr) => {
 };
 
 /**
+ * Get color for aging indicator (days since last activity)
+ */
+const getAgingColor = (days) => {
+  if (days === null || days === undefined) return 'rgba(255, 255, 255, 0.4)';
+  if (days <= 3) return '#34D399'; // Green - Recent
+  if (days <= 7) return '#FBBF24'; // Amber - Medium
+  return '#EF4444'; // Red - Old
+};
+
+/**
  * ActivityTimeline Component
  * Displays activities as a vertical timeline grouped by date
  */
@@ -210,16 +220,90 @@ export const ActivityTimeline = ({
                     </div>
 
                     {/* Lead + BDM info */}
-                    <div style={styles.metaRow}>
-                      {activity.lead_name && (
-                        <span style={styles.metaItem}>
-                          🏫 {activity.lead_name}
-                        </span>
-                      )}
+                    <div style={styles.leadCard}>
+                      {/* Lead Avatar */}
+                      <div style={styles.leadAvatar}>
+                        {activity.lead_school_name?.charAt(0) || '🏫'}
+                      </div>
+
+                      {/* Lead Info Section */}
+                      <div style={styles.leadCardContent}>
+                        {/* Name + Status */}
+                        <div style={styles.leadCardHeader}>
+                          <div style={styles.leadCardTitle}>
+                            <span style={styles.leadName}>
+                              {activity.lead_school_name || 'Unnamed Lead'}
+                            </span>
+                            {activity.lead_city && (
+                              <span style={styles.leadCity}>
+                                {activity.lead_city}
+                              </span>
+                            )}
+                          </div>
+                          {activity.lead_status && (
+                            <span style={{
+                              ...styles.leadStatusBadgeInCard,
+                              backgroundColor: activity.lead_status === 'Converted' 
+                                ? 'rgba(139, 92, 246, 0.2)' 
+                                : activity.lead_status === 'Interested'
+                                ? 'rgba(16, 185, 129, 0.2)'
+                                : activity.lead_status === 'Contacted'
+                                ? 'rgba(245, 158, 11, 0.2)'
+                                : activity.lead_status === 'New'
+                                ? 'rgba(59, 130, 246, 0.2)'
+                                : 'rgba(239, 68, 68, 0.2)',
+                              color: activity.lead_status === 'Converted'
+                                ? '#A78BFA'
+                                : activity.lead_status === 'Interested'
+                                ? '#34D399'
+                                : activity.lead_status === 'Contacted'
+                                ? '#FBBF24'
+                                : activity.lead_status === 'New'
+                                ? '#60A5FA'
+                                : '#FCA5A5',
+                            }}>
+                              {activity.lead_status}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Contact Info */}
+                        <div style={styles.leadCardMeta}>
+                          {activity.lead_phone && (
+                            <span>📱 {activity.lead_phone}</span>
+                          )}
+                          {activity.lead_contact_person && (
+                            <span style={{ marginLeft: '8px' }}>👤 {activity.lead_contact_person}</span>
+                          )}
+                        </div>
+
+                        {/* Tags */}
+                        <div style={styles.leadCardTags}>
+                          {activity.lead_source && (
+                            <span style={styles.leadTag}>{activity.lead_source}</span>
+                          )}
+                          {activity.lead_activities_count > 0 && (
+                            <span style={styles.leadTag}>📋 {activity.lead_activities_count} activities</span>
+                          )}
+                          {activity.lead_days_since_last_activity != null ? (
+                            <span style={{ ...styles.leadTag, color: getAgingColor(activity.lead_days_since_last_activity) }}>
+                              🕐 {activity.lead_days_since_last_activity}d ago
+                            </span>
+                          ) : (
+                            <span style={{ ...styles.leadTag, color: 'rgba(255, 255, 255, 0.4)' }}>No activity</span>
+                          )}
+                          {activity.lead_assigned_to_name && (
+                            <span style={styles.leadTag}>👤 {activity.lead_assigned_to_name}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* BDM Assignment */}
                       {activity.assigned_to_name && (
-                        <span style={styles.metaItem}>
-                          👤 {activity.assigned_to_name}
-                        </span>
+                        <div style={styles.leadCardBDM}>
+                          <div style={styles.leadCardBDMLabel}>Assigned</div>
+                          <span style={styles.leadCardBDMName}>{activity.assigned_to_name}</span>
+                        </div>
                       )}
                     </div>
 
@@ -399,6 +483,120 @@ const styles = {
   metaItem: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.text.whiteSubtle,
+  },
+
+  leadCard: {
+    display: 'flex',
+    alignItems: 'stretch',
+    gap: SPACING.md,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+  },
+
+  leadAvatar: {
+    width: '32px',
+    height: '32px',
+    minWidth: '32px',
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(139, 92, 246, 0.25)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+  },
+
+  leadCardContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.xs,
+  },
+
+  leadCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+
+  leadCardTitle: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+
+  leadName: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+    lineHeight: 1.2,
+  },
+
+  leadCity: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    fontWeight: FONT_WEIGHTS.normal,
+  },
+
+  leadStatusBadgeInCard: {
+    padding: `2px ${SPACING.xs}`,
+    borderRadius: BORDER_RADIUS.full,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    whiteSpace: 'nowrap',
+  },
+
+  leadCardMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.md,
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteMedium,
+    flexWrap: 'wrap',
+  },
+
+  leadCardTags: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    flexWrap: 'wrap',
+  },
+
+  leadTag: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.whiteSubtle,
+    padding: `2px ${SPACING.xs}`,
+    borderRadius: BORDER_RADIUS.full,
+    fontSize: FONT_SIZES.xs,
+    whiteSpace: 'nowrap',
+  },
+
+  leadCardBDM: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    gap: '2px',
+  },
+
+  leadCardBDMLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    fontWeight: FONT_WEIGHTS.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+
+  leadCardBDMName: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.medium,
   },
 
   actionsRow: {

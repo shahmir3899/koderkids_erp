@@ -420,7 +420,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsBDMOrAdmin]
     
     def get_queryset(self):
-        """Filter activities based on user role"""
+        """Filter activities based on user role with optimization"""
         user = self.request.user
         queryset = Activity.objects.all()
         
@@ -447,7 +447,16 @@ class ActivityViewSet(viewsets.ModelViewSet):
                 scheduled_date__date__lte=end_date
             )
         
-        return queryset.select_related('lead', 'assigned_to')
+        # Optimize queries: fetch related lead and user data
+        queryset = queryset.select_related(
+            'lead',
+            'lead__assigned_to',  # For lead's BDM
+            'assigned_to'
+        ).prefetch_related(
+            'lead__activities'  # For counting activities
+        )
+        
+        return queryset
     
     def create(self, request, *args, **kwargs):
         """Override create to include automation notifications"""

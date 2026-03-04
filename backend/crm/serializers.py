@@ -187,6 +187,17 @@ class ActivitySerializer(serializers.ModelSerializer):
     # Read-only fields
     assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
     lead_name = serializers.SerializerMethodField()
+    
+    # Complete Lead details for rich card display
+    lead_school_name = serializers.CharField(source='lead.school_name', read_only=True, allow_blank=True)
+    lead_phone = serializers.CharField(source='lead.phone', read_only=True, allow_blank=True)
+    lead_contact_person = serializers.CharField(source='lead.contact_person', read_only=True, allow_blank=True)
+    lead_status = serializers.CharField(source='lead.status', read_only=True)
+    lead_city = serializers.CharField(source='lead.city', read_only=True, allow_blank=True)
+    lead_source = serializers.CharField(source='lead.lead_source', read_only=True, allow_blank=True)
+    lead_activities_count = serializers.SerializerMethodField()
+    lead_assigned_to_name = serializers.CharField(source='lead.assigned_to.get_full_name', read_only=True, allow_blank=True)
+    lead_days_since_last_activity = serializers.SerializerMethodField()
 
     class Meta:
         model = Activity
@@ -195,6 +206,15 @@ class ActivitySerializer(serializers.ModelSerializer):
             'activity_type',
             'lead',
             'lead_name',
+            'lead_school_name',
+            'lead_phone',
+            'lead_contact_person',
+            'lead_city',
+            'lead_status',
+            'lead_source',
+            'lead_activities_count',
+            'lead_assigned_to_name',
+            'lead_days_since_last_activity',
             'subject',
             'description',
             'assigned_to',
@@ -216,6 +236,25 @@ class ActivitySerializer(serializers.ModelSerializer):
     def get_lead_name(self, obj):
         """Return lead name or phone"""
         return str(obj.lead)
+    
+    def get_lead_activities_count(self, obj):
+        """Return count of activities for this lead"""
+        try:
+            return obj.lead.activities.count()
+        except:
+            return 0
+    
+    def get_lead_days_since_last_activity(self, obj):
+        """Return days since last activity for the lead"""
+        try:
+            from django.utils import timezone
+            last_activity = obj.lead.activities.exclude(id=obj.id).order_by('-scheduled_date').first()
+            if last_activity and last_activity.scheduled_date:
+                delta = timezone.now() - last_activity.scheduled_date
+                return delta.days
+            return None
+        except:
+            return None
 
     def validate(self, data):
         """Validate activity data and handle quick-log mode"""
