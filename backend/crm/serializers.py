@@ -218,12 +218,35 @@ class ActivitySerializer(serializers.ModelSerializer):
         return str(obj.lead)
 
     def validate(self, data):
-        """Validate activity dates and handle quick-log mode"""
+        """Validate activity data and handle quick-log mode"""
         from django.utils import timezone
+        from rest_framework import serializers as drf_serializers
+
+        # Validate required fields
+        if not data.get('activity_type'):
+            raise drf_serializers.ValidationError({
+                'activity_type': 'Activity type (Call or Meeting) is required'
+            })
+        
+        if not data.get('lead'):
+            raise drf_serializers.ValidationError({
+                'lead': 'Lead must be selected'
+            })
+        
+        if not data.get('subject'):
+            raise drf_serializers.ValidationError({
+                'subject': 'Subject is required'
+            })
 
         is_logged = data.get('is_logged', False)
         status = data.get('status', self.instance.status if self.instance else 'Scheduled')
         completed_date = data.get('completed_date')
+
+        # CRITICAL: For scheduled activities (not logged), scheduled_date is REQUIRED
+        if not is_logged and not data.get('scheduled_date'):
+            raise drf_serializers.ValidationError({
+                'scheduled_date': 'Scheduled date and time is required for scheduled activities. For quick-logging completed activities, toggle "Log Completed Activity" mode.'
+            })
 
         # Quick-log mode: auto-complete the activity
         if is_logged:
