@@ -453,6 +453,8 @@ class ProposalOffer(models.Model):
     contact_person = models.CharField(max_length=100, blank=True)
     standard_rate = models.CharField(max_length=50, default='PKR 2,500')
     discounted_rate = models.CharField(max_length=50, default='PKR 1,000')
+    lumpsum_standard_rate = models.CharField(max_length=50, default='PKR 50,000')
+    lumpsum_discounted_rate = models.CharField(max_length=50, default='PKR 35,000')
     generated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

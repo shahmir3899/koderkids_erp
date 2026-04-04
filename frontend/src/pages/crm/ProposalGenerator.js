@@ -26,6 +26,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 // ============================================
 
 const imageCache = {};
+const page1BlueLineCache = {};
 
 function loadImage(src) {
   if (imageCache[src]) return Promise.resolve(imageCache[src]);
@@ -46,6 +47,137 @@ function canvasToArrayBuffer(canvas, format = 'image/png') {
   });
 }
 
+function getPage1BlueLineMetrics(img) {
+  const cacheKey = img?.src || 'page1-default';
+  if (page1BlueLineCache[cacheKey]) {
+    return page1BlueLineCache[cacheKey];
+  }
+
+  const fallback = {
+    startX: 0.24,
+    endX: 0.76,
+    centerY: 0.485,
+  };
+
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const { width, height } = canvas;
+    const data = ctx.getImageData(0, 0, width, height).data;
+
+    const candidates = [];
+    const minRun = Math.max(120, Math.floor(width * 0.18));
+
+    // Scan the middle vertical band where the cover line is expected.
+    const yStart = Math.floor(height * 0.30);
+    const yEnd = Math.floor(height * 0.70);
+
+    for (let y = yStart; y <= yEnd; y += 1) {
+      let runStart = -1;
+      for (let x = 0; x < width; x += 1) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const a = data[idx + 3];
+
+        // Blue-ish line detection tuned for template highlights.
+        const isBlueLinePixel =
+          a > 120 &&
+          b > 95 &&
+          b > r * 1.20 &&
+          b > g * 1.05;
+
+        if (isBlueLinePixel) {
+          if (runStart === -1) runStart = x;
+        } else if (runStart !== -1) {
+          const runLen = x - runStart;
+          if (runLen >= minRun) {
+            candidates.push({ y, startX: runStart, endX: x, length: runLen });
+          }
+          runStart = -1;
+        }
+      }
+
+      // Handle run until row end.
+      if (runStart !== -1) {
+        const runLen = width - runStart;
+        if (runLen >= minRun) {
+          candidates.push({ y, startX: runStart, endX: width, length: runLen });
+        }
+      }
+    }
+
+    if (candidates.length > 0) {
+      // Group nearby y-runs into line bands to avoid duplicates from line thickness.
+      candidates.sort((a, b) => a.y - b.y);
+      const bands = [];
+      const yTolerance = Math.max(2, Math.floor(height * 0.005));
+
+      candidates.forEach((c) => {
+        const lastBand = bands[bands.length - 1];
+        if (!lastBand || Math.abs(c.y - lastBand.avgY) > yTolerance) {
+          bands.push({
+            runs: [c],
+            avgY: c.y,
+            minX: c.startX,
+            maxX: c.endX,
+            maxLen: c.length,
+          });
+          return;
+        }
+
+        lastBand.runs.push(c);
+        lastBand.avgY = Math.round(
+          lastBand.runs.reduce((sum, r) => sum + r.y, 0) / lastBand.runs.length
+        );
+        lastBand.minX = Math.min(lastBand.minX, c.startX);
+        lastBand.maxX = Math.max(lastBand.maxX, c.endX);
+        lastBand.maxLen = Math.max(lastBand.maxLen, c.length);
+      });
+
+      // Keep only meaningful horizontal lines.
+      const meaningfulBands = bands
+        .filter((b) => b.maxLen >= minRun)
+        .sort((a, b) => a.avgY - b.avgY);
+
+      const pickedBand = meaningfulBands.length >= 2
+        ? meaningfulBands[1] // Explicitly pick second line (as requested)
+        : meaningfulBands[0];
+
+      if (pickedBand) {
+        page1BlueLineCache[cacheKey] = {
+          startX: pickedBand.minX / width,
+          endX: pickedBand.maxX / width,
+          centerY: pickedBand.avgY / height,
+        };
+        return page1BlueLineCache[cacheKey];
+      }
+    }
+
+    // Fallback: if grouping failed but we still have candidates, pick the lower one.
+    if (candidates.length > 0) {
+      const sortedByY = [...candidates].sort((a, b) => a.y - b.y);
+      const picked = sortedByY.length >= 2 ? sortedByY[1] : sortedByY[0];
+      page1BlueLineCache[cacheKey] = {
+        startX: picked.startX / width,
+        endX: picked.endX / width,
+        centerY: picked.y / height,
+      };
+      return page1BlueLineCache[cacheKey];
+    }
+  } catch (error) {
+    console.warn('Blue line detection failed, using fallback:', error);
+  }
+
+  page1BlueLineCache[cacheKey] = fallback;
+  return fallback;
+}
+
 // ============================================
 // DRAW FUNCTIONS (shared between preview & PDF)
 // ============================================
@@ -53,28 +185,43 @@ function canvasToArrayBuffer(canvas, format = 'image/png') {
 function drawPage1OnCanvas(ctx, img, w, h, schoolName, contactPerson, config) {
   ctx.drawImage(img, 0, 0, w, h);
 
-  // School name
-  const snCfg = config.schoolName;
-  const snFontSize = Math.round(snCfg.fontSize * (h / 500));
-  ctx.font = `bold ${snFontSize}px "Segoe UI", Arial, sans-serif`;
-  ctx.fillStyle = snCfg.color;
+  const coverCfg = config.coverLine || { x: 0.5, y: 0.48, fontSize: 12, color: '#FFFFFF' };
+  const combinedText = [schoolName, contactPerson].filter(Boolean).join(' - ');
+  if (!combinedText) return;
+
+  const drawX = w * (coverCfg.x ?? 0.5);
+  const drawY = h * (coverCfg.y ?? 0.5);
+  const lineLength = w * 0.72;
+
+  let fontSize = Math.max(9, Math.round((coverCfg.fontSize || 12) * (h / 500)));
+  const maxTextWidth = lineLength * 0.98;
+
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(schoolName || '', w * snCfg.x, h * snCfg.y);
+  ctx.fillStyle = coverCfg.color || '#FFFFFF';
 
-  // Contact person
-  if (contactPerson) {
-    const cpCfg = config.contactPerson;
-    const cpFontSize = Math.round(cpCfg.fontSize * (h / 500));
-    ctx.font = `${cpFontSize}px "Segoe UI", Arial, sans-serif`;
-    ctx.fillStyle = cpCfg.color;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(contactPerson, w * cpCfg.x, h * cpCfg.y);
+  // Fit text to detected blue-line length.
+  while (fontSize > 9) {
+    ctx.font = `bold ${fontSize}px "Segoe UI", Arial, sans-serif`;
+    if (ctx.measureText(combinedText).width <= maxTextWidth) break;
+    fontSize -= 1;
   }
+
+  ctx.fillText(combinedText, drawX, drawY);
 }
 
-function drawPage13OnCanvas(ctx, img, w, h, discountedRate, standardRate, config, featureItems) {
+function drawPage13OnCanvas(
+  ctx,
+  img,
+  w,
+  h,
+  discountedRate,
+  standardRate,
+  lumpsumDiscountedRate,
+  lumpsumStandardRate,
+  config,
+  featureItems
+) {
   ctx.drawImage(img, 0, 0, w, h);
 
   // Discounted rate
@@ -109,24 +256,57 @@ function drawPage13OnCanvas(ctx, img, w, h, discountedRate, standardRate, config
     ctx.stroke();
   }
 
+  // Lumpsum discounted rate
+  const ldrCfg = config.lumpsumDiscountedRate;
+  const ldrFontSize = Math.round(ldrCfg.fontSize * (h / 500));
+  ctx.font = `bold ${ldrFontSize}px "Segoe UI", Arial, sans-serif`;
+  ctx.fillStyle = ldrCfg.color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`PKR ${lumpsumDiscountedRate}`, w * ldrCfg.x, h * ldrCfg.y);
+
+  // Lumpsum standard rate
+  const lsrCfg = config.lumpsumStandardRate;
+  const lsrFontSize = Math.round(lsrCfg.fontSize * (h / 500));
+  ctx.font = `bold ${lsrFontSize}px "Segoe UI", Arial, sans-serif`;
+  ctx.fillStyle = lsrCfg.color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lumpStdText = `PKR ${lumpsumStandardRate}`;
+  const lumpStdX = w * lsrCfg.x;
+  const lumpStdY = h * lsrCfg.y;
+  ctx.fillText(lumpStdText, lumpStdX, lumpStdY);
+
+  if (config.strikethrough) {
+    const lumpTextMetrics = ctx.measureText(lumpStdText);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = Math.max(2, lsrFontSize / 12);
+    ctx.beginPath();
+    ctx.moveTo(lumpStdX - lumpTextMetrics.width / 2 - 5, lumpStdY);
+    ctx.lineTo(lumpStdX + lumpTextMetrics.width / 2 + 5, lumpStdY);
+    ctx.stroke();
+  }
+
   // Feature items (tick list)
   if (featureItems && featureItems.length > 0) {
-    const startY = 0.58;
-    const lineHeight = 0.035;
-    const featureFontSize = Math.round(14 * (h / 500));
+    const featureCfg = config.featureList || { x: 0.15, y: 0.58, fontSize: 14, color: '#FFFFFF', lineHeight: 0.035 };
+    const startY = featureCfg.y;
+    const lineHeight = featureCfg.lineHeight || 0.035;
+    const startX = featureCfg.x;
+    const featureFontSize = Math.round((featureCfg.fontSize || 14) * (h / 500));
     ctx.font = `${featureFontSize}px "Segoe UI", Arial, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     featureItems.forEach((item, idx) => {
       const y = h * (startY + idx * lineHeight);
-      const x = w * 0.15;
+      const x = w * startX;
       // Green checkmark
       ctx.fillStyle = '#22c55e';
       ctx.font = `bold ${featureFontSize}px "Segoe UI", Arial, sans-serif`;
       ctx.fillText('\u2713', x, y);
       // Item text
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = featureCfg.color || '#FFFFFF';
       ctx.font = `${featureFontSize}px "Segoe UI", Arial, sans-serif`;
       ctx.fillText(item, x + featureFontSize * 1.5, y);
     });
@@ -147,13 +327,31 @@ async function processPage1ForPDF(schoolName, contactPerson, config) {
   return canvasToArrayBuffer(canvas);
 }
 
-async function processPage13ForPDF(discountedRate, standardRate, config, featureItems) {
+async function processPage13ForPDF(
+  discountedRate,
+  standardRate,
+  lumpsumDiscountedRate,
+  lumpsumStandardRate,
+  config,
+  featureItems
+) {
   const img = await loadImage('/proposal-templates/13.png');
   const canvas = document.createElement('canvas');
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
   const ctx = canvas.getContext('2d');
-  drawPage13OnCanvas(ctx, img, canvas.width, canvas.height, discountedRate, standardRate, config, featureItems);
+  drawPage13OnCanvas(
+    ctx,
+    img,
+    canvas.width,
+    canvas.height,
+    discountedRate,
+    standardRate,
+    lumpsumDiscountedRate,
+    lumpsumStandardRate,
+    config,
+    featureItems
+  );
   return canvasToArrayBuffer(canvas);
 }
 
@@ -162,7 +360,7 @@ async function processPage13ForPDF(discountedRate, standardRate, config, feature
 // ============================================
 
 async function generateProposalPDF(
-  schoolName, contactPerson, discountedRate, standardRate,
+  schoolName, contactPerson, discountedRate, standardRate, lumpsumDiscountedRate, lumpsumStandardRate,
   pageSelection, page1TextConfig, page13TextConfig, featureItems,
   setProgress
 ) {
@@ -183,7 +381,14 @@ async function generateProposalPDF(
     if (i === 1) {
       imageBytes = await processPage1ForPDF(schoolName, contactPerson, page1TextConfig);
     } else if (i === 13) {
-      imageBytes = await processPage13ForPDF(discountedRate, standardRate, page13TextConfig, featureItems);
+      imageBytes = await processPage13ForPDF(
+        discountedRate,
+        standardRate,
+        lumpsumDiscountedRate,
+        lumpsumStandardRate,
+        page13TextConfig,
+        featureItems
+      );
     } else {
       const response = await fetch(`/proposal-templates/${i}.png`);
       imageBytes = await response.arrayBuffer();
@@ -213,14 +418,18 @@ const ProposalGenerator = () => {
   const [leadSearch, setLeadSearch] = useState('');
   const [showLeadPicker, setShowLeadPicker] = useState(false);
   const [activePreviewTab, setActivePreviewTab] = useState('page1');
-  const [activeField, setActiveField] = useState('schoolName');
+  const [activeField, setActiveField] = useState('coverLine');
+  const [isDraggingText, setIsDraggingText] = useState(false);
   const previewCanvasRef = useRef(null);
+  const leadPickerRef = useRef(null);
 
   const {
     selectedLeadId, schoolName, setSchoolName,
     contactPerson, setContactPerson,
     standardRate, setStandardRate,
     discountedRate, setDiscountedRate,
+    lumpsumStandardRate, setLumpsumStandardRate,
+    lumpsumDiscountedRate, setLumpsumDiscountedRate,
     pageSelection, togglePage, selectedPageCount,
     page1TextConfig, page13TextConfig,
     updatePage1TextPos, updatePage13TextPos,
@@ -239,7 +448,7 @@ const ProposalGenerator = () => {
   useEffect(() => {
     const timer = setTimeout(() => renderPreview(), 200);
     return () => clearTimeout(timer);
-  }, [schoolName, contactPerson, discountedRate, standardRate,
+  }, [schoolName, contactPerson, discountedRate, standardRate, lumpsumDiscountedRate, lumpsumStandardRate,
     page1TextConfig, page13TextConfig, featureItems, activePreviewTab]);
 
   const renderPreview = useCallback(async () => {
@@ -261,31 +470,73 @@ const ProposalGenerator = () => {
       if (activePreviewTab === 'page1') {
         drawPage1OnCanvas(ctx, img, canvas.width, canvas.height, schoolName, contactPerson, page1TextConfig);
       } else {
-        drawPage13OnCanvas(ctx, img, canvas.width, canvas.height, discountedRate, standardRate, page13TextConfig, featureItems);
+        drawPage13OnCanvas(
+          ctx,
+          img,
+          canvas.width,
+          canvas.height,
+          discountedRate,
+          standardRate,
+          lumpsumDiscountedRate,
+          lumpsumStandardRate,
+          page13TextConfig,
+          featureItems
+        );
       }
+
     } catch (err) {
       console.error('Preview render error:', err);
     }
-  }, [activePreviewTab, schoolName, contactPerson, discountedRate, standardRate,
+  }, [activePreviewTab, schoolName, contactPerson, discountedRate, standardRate, lumpsumDiscountedRate, lumpsumStandardRate,
     page1TextConfig, page13TextConfig, featureItems]);
 
   // ============================================
   // CLICK-TO-POSITION ON PREVIEW
   // ============================================
-  const handleCanvasClick = useCallback((e) => {
-    const canvas = previewCanvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
+  const updateActiveFieldPosition = useCallback((x, y) => {
+    const clampedX = Math.max(0, Math.min(1, x));
+    const clampedY = Math.max(0, Math.min(1, y));
 
     if (activePreviewTab === 'page1') {
-      updatePage1TextPos(activeField, { x, y });
+      updatePage1TextPos(activeField, { x: clampedX, y: clampedY });
     } else {
-      updatePage13TextPos(activeField, { x, y });
+      updatePage13TextPos(activeField, { x: clampedX, y: clampedY });
     }
   }, [activePreviewTab, activeField, updatePage1TextPos, updatePage13TextPos]);
+
+  const getCanvasPoint = useCallback((event) => {
+    const canvas = previewCanvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    return { x, y };
+  }, []);
+
+  const handleCanvasClick = useCallback((e) => {
+    const point = getCanvasPoint(e);
+    if (!point) return;
+
+    updateActiveFieldPosition(point.x, point.y);
+  }, [getCanvasPoint, updateActiveFieldPosition]);
+
+  const handleCanvasMouseDown = useCallback((e) => {
+    const point = getCanvasPoint(e);
+    if (!point) return;
+    setIsDraggingText(true);
+    updateActiveFieldPosition(point.x, point.y);
+  }, [getCanvasPoint, updateActiveFieldPosition]);
+
+  const handleCanvasMouseMove = useCallback((e) => {
+    if (!isDraggingText) return;
+    const point = getCanvasPoint(e);
+    if (!point) return;
+    updateActiveFieldPosition(point.x, point.y);
+  }, [isDraggingText, getCanvasPoint, updateActiveFieldPosition]);
+
+  const stopDragging = useCallback(() => {
+    setIsDraggingText(false);
+  }, []);
 
   // ============================================
   // LEAD PICKER
@@ -303,6 +554,17 @@ const ProposalGenerator = () => {
     setShowLeadPicker(false);
   }, [selectLead]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (leadPickerRef.current && !leadPickerRef.current.contains(event.target)) {
+        setShowLeadPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // ============================================
   // GENERATE & DOWNLOAD
   // ============================================
@@ -317,7 +579,7 @@ const ProposalGenerator = () => {
       await saveProposalToDb();
 
       const pdfBytes = await generateProposalPDF(
-        schoolName, contactPerson, discountedRate, standardRate,
+        schoolName, contactPerson, discountedRate, standardRate, lumpsumDiscountedRate, lumpsumStandardRate,
         pageSelection, page1TextConfig, page13TextConfig, featureItems,
         setProgress
       );
@@ -345,27 +607,30 @@ const ProposalGenerator = () => {
   // ============================================
   const getActiveFieldConfig = () => {
     if (activePreviewTab === 'page1') {
-      return page1TextConfig[activeField] || page1TextConfig.schoolName;
+      return page1TextConfig[activeField] || page1TextConfig.coverLine;
     }
     return page13TextConfig[activeField] || page13TextConfig.discountedRate;
   };
 
   const activeConfig = getActiveFieldConfig();
 
+
   // Field options for current tab
   const fieldOptions = activePreviewTab === 'page1'
     ? [
-      { key: 'schoolName', label: 'School Name' },
-      { key: 'contactPerson', label: 'Contact Person' },
+      { key: 'coverLine', label: 'Cover Line (School - Focal Person)' },
     ]
     : [
       { key: 'discountedRate', label: 'Discounted Rate' },
       { key: 'standardRate', label: 'Standard Rate' },
+      { key: 'lumpsumDiscountedRate', label: 'Lumpsum Discounted Rate' },
+      { key: 'lumpsumStandardRate', label: 'Lumpsum Standard Rate' },
+      { key: 'featureList', label: 'Feature List' },
     ];
 
   // Set activeField to first option when tab changes
   useEffect(() => {
-    setActiveField(activePreviewTab === 'page1' ? 'schoolName' : 'discountedRate');
+    setActiveField(activePreviewTab === 'page1' ? 'coverLine' : 'discountedRate');
   }, [activePreviewTab]);
 
   // ============================================
@@ -397,7 +662,7 @@ const ProposalGenerator = () => {
             {/* Lead Picker */}
             <div style={staticStyles.fieldGroup}>
               <label style={staticStyles.label}>Select Lead (optional)</label>
-              <div style={{ position: 'relative' }}>
+              <div ref={leadPickerRef} style={{ position: 'relative' }}>
                 <input
                   type="text"
                   value={leadSearch}
@@ -438,6 +703,13 @@ const ProposalGenerator = () => {
               </div>
             </div>
 
+            <div style={staticStyles.groupHeader}>
+              <div style={staticStyles.groupTitle}>Page 1: Cover Details</div>
+              <div style={staticStyles.groupHint}>
+                These fields are combined as "School Name - Focal Person" and auto-placed on the blue line on Page 1.
+              </div>
+            </div>
+
             {/* School Name */}
             <div style={staticStyles.fieldGroup}>
               <label style={staticStyles.label}>School Name *</label>
@@ -462,7 +734,13 @@ const ProposalGenerator = () => {
               />
             </div>
 
-            {/* Rates Row */}
+            <div style={staticStyles.groupHeader}>
+              <div style={staticStyles.groupTitle}>Page 13: Per-Student Model</div>
+              <div style={staticStyles.groupHint}>
+                These are the existing per-student rates shown on the left pricing column.
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.md }}>
               <div style={staticStyles.fieldGroup}>
                 <label style={staticStyles.label}>Discounted Rate</label>
@@ -486,6 +764,42 @@ const ProposalGenerator = () => {
                     value={standardRate}
                     onChange={(e) => setStandardRate(e.target.value)}
                     placeholder="2,500"
+                    style={{ ...rs.input, paddingLeft: '52px' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={staticStyles.groupHeader}>
+              <div style={staticStyles.groupTitle}>Page 13: Lumpsum Model</div>
+              <div style={staticStyles.groupHint}>
+                New lumpsum rates shown on the right pricing column.
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.md }}>
+              <div style={staticStyles.fieldGroup}>
+                <label style={staticStyles.label}>Lumpsum Discounted Rate</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={staticStyles.currencyPrefix}>PKR</span>
+                  <input
+                    type="text"
+                    value={lumpsumDiscountedRate}
+                    onChange={(e) => setLumpsumDiscountedRate(e.target.value)}
+                    placeholder="35,000"
+                    style={{ ...rs.input, paddingLeft: '52px' }}
+                  />
+                </div>
+              </div>
+              <div style={staticStyles.fieldGroup}>
+                <label style={staticStyles.label}>Lumpsum Standard Rate</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={staticStyles.currencyPrefix}>PKR</span>
+                  <input
+                    type="text"
+                    value={lumpsumStandardRate}
+                    onChange={(e) => setLumpsumStandardRate(e.target.value)}
+                    placeholder="50,000"
                     style={{ ...rs.input, paddingLeft: '52px' }}
                   />
                 </div>
@@ -590,7 +904,7 @@ const ProposalGenerator = () => {
         <div style={rs.previewCard}>
           <h3 style={staticStyles.sectionTitle}>Live Preview</h3>
           <p style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs, margin: `0 0 ${SPACING.sm} 0` }}>
-            Click on the image to reposition the selected text field
+            Click and drag on the image to reposition the selected text field.
           </p>
 
           {/* Preview Tabs */}
@@ -674,8 +988,18 @@ const ProposalGenerator = () => {
             <canvas
               ref={previewCanvasRef}
               onClick={handleCanvasClick}
-              style={{ width: '100%', cursor: 'crosshair', borderRadius: BORDER_RADIUS.md, display: 'block' }}
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={stopDragging}
+              onMouseLeave={stopDragging}
+              style={{
+                width: '100%',
+                cursor: isDraggingText ? 'grabbing' : 'grab',
+                borderRadius: BORDER_RADIUS.md,
+                display: 'block',
+              }}
             />
+
           </div>
         </div>
 
@@ -737,14 +1061,6 @@ const ProposalGenerator = () => {
           )}
         </div>
       </div>
-
-      {/* Click outside handler for lead picker */}
-      {showLeadPicker && (
-        <div
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 5 }}
-          onClick={() => setShowLeadPicker(false)}
-        />
-      )}
     </div>
   );
 };
@@ -833,6 +1149,26 @@ const staticStyles = {
     marginBottom: SPACING.xs,
     color: COLORS.text.white,
     fontSize: FONT_SIZES.sm,
+  },
+  groupHeader: {
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderLeft: '3px solid rgba(139, 92, 246, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  groupTitle: {
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: FONT_SIZES.xs,
+    marginBottom: '2px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+  },
+  groupHint: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
   },
   currencyPrefix: {
     position: 'absolute',
@@ -933,6 +1269,7 @@ const staticStyles = {
     backgroundColor: 'transparent',
   },
   canvasContainer: {
+    position: 'relative',
     borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden',
     border: '1px solid rgba(255, 255, 255, 0.1)',

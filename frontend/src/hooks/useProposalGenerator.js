@@ -23,13 +23,17 @@ const DEFAULT_FEATURE_ITEMS = [
 ];
 
 const DEFAULT_PAGE1_TEXT_CONFIG = {
-  schoolName: { x: 0.50, y: 0.46, fontSize: 28, color: '#FFFFFF' },
+  coverLine: { x: 0.5012, y: 0.5555, fontSize: 12, color: '#FFFFFF' },
+  schoolName: { x: 0.50, y: 0.5555, fontSize: 28, color: '#FFFFFF' },
   contactPerson: { x: 0.50, y: 0.51, fontSize: 20, color: '#FFFFFF' },
 };
 
 const DEFAULT_PAGE13_TEXT_CONFIG = {
-  discountedRate: { x: 0.46, y: 0.37, fontSize: 42, color: '#FFFFFF' },
-  standardRate: { x: 0.46, y: 0.43, fontSize: 32, color: 'rgba(255,255,255,0.6)' },
+  discountedRate: { x: 0.2454, y: 0.4125, fontSize: 20, color: '#FFFFFF' },
+  standardRate: { x: 0.2454, y: 0.4125, fontSize: 20, color: 'rgba(255,255,255,0.6)' },
+  lumpsumDiscountedRate: { x: 0.7549, y: 0.3326, fontSize: 20, color: '#FFFFFF' },
+  lumpsumStandardRate: { x: 0.7449, y: 0.3824, fontSize: 20, color: 'rgba(255,255,255,0.6)' },
+  featureList: { x: 0.1964, y: 0.7195, fontSize: 10, color: '#FFFFFF', lineHeight: 0.035 },
   strikethrough: true,
 };
 
@@ -44,6 +48,8 @@ export const useProposalGenerator = () => {
   const [contactPerson, setContactPerson] = useState('');
   const [standardRate, setStandardRate] = useState('2,500');
   const [discountedRate, setDiscountedRate] = useState('1,000');
+  const [lumpsumStandardRate, setLumpsumStandardRate] = useState('50,000');
+  const [lumpsumDiscountedRate, setLumpsumDiscountedRate] = useState('35,000');
 
   // ============================================
   // PAGE SELECTION
@@ -153,9 +159,14 @@ export const useProposalGenerator = () => {
   // SELECT LEAD (auto-fill)
   // ============================================
   const selectLead = useCallback((lead) => {
-    setSelectedLeadId(lead.id);
-    setSchoolName(lead.school_name || '');
-    setContactPerson(lead.contact_person || '');
+    // Normalize fields because some endpoints/objects may use camelCase keys.
+    const leadId = lead?.id || null;
+    const leadSchoolName = lead?.school_name || lead?.schoolName || lead?.name || '';
+    const leadContactPerson = lead?.contact_person || lead?.contactPerson || '';
+
+    setSelectedLeadId(leadId);
+    setSchoolName(leadSchoolName);
+    setContactPerson(leadContactPerson);
   }, []);
 
   const clearLeadSelection = useCallback(() => {
@@ -194,6 +205,8 @@ export const useProposalGenerator = () => {
         contact_person: contactPerson,
         standard_rate: `PKR ${standardRate}`,
         discounted_rate: `PKR ${discountedRate}`,
+        lumpsum_standard_rate: `PKR ${lumpsumStandardRate}`,
+        lumpsum_discounted_rate: `PKR ${lumpsumDiscountedRate}`,
         page_selection: pageSelection,
         feature_items: featureItems,
       };
@@ -209,7 +222,7 @@ export const useProposalGenerator = () => {
     } finally {
       setLoading(prev => ({ ...prev, saving: false }));
     }
-  }, [selectedLeadId, schoolName, contactPerson, standardRate, discountedRate, pageSelection, featureItems, fetchProposalHistory]);
+  }, [selectedLeadId, schoolName, contactPerson, standardRate, discountedRate, lumpsumStandardRate, lumpsumDiscountedRate, pageSelection, featureItems, fetchProposalHistory]);
 
   // ============================================
   // LOAD HISTORICAL PROPOSAL
@@ -223,6 +236,8 @@ export const useProposalGenerator = () => {
       setContactPerson(proposal.contact_person || '');
       setStandardRate((proposal.standard_rate || '').replace(/^PKR\s*/, ''));
       setDiscountedRate((proposal.discounted_rate || '').replace(/^PKR\s*/, ''));
+      setLumpsumStandardRate((proposal.lumpsum_standard_rate || '').replace(/^PKR\s*/, '') || '50,000');
+      setLumpsumDiscountedRate((proposal.lumpsum_discounted_rate || '').replace(/^PKR\s*/, '') || '35,000');
       if (proposal.page_selection && Object.keys(proposal.page_selection).length > 0) {
         setPageSelection(proposal.page_selection);
       }
@@ -268,6 +283,8 @@ export const useProposalGenerator = () => {
     setContactPerson('');
     setStandardRate('2,500');
     setDiscountedRate('1,000');
+    setLumpsumStandardRate('50,000');
+    setLumpsumDiscountedRate('35,000');
     setPageSelection({ ...DEFAULT_PAGE_SELECTION });
     setFeatureItems([...DEFAULT_FEATURE_ITEMS]);
     setPage1TextConfig({ ...DEFAULT_PAGE1_TEXT_CONFIG });
@@ -323,6 +340,8 @@ export const useProposalGenerator = () => {
     contactPerson, setContactPerson,
     standardRate, setStandardRate,
     discountedRate, setDiscountedRate,
+    lumpsumStandardRate, setLumpsumStandardRate,
+    lumpsumDiscountedRate, setLumpsumDiscountedRate,
     // Page selection
     pageSelection, togglePage, selectedPageCount,
     // Text config

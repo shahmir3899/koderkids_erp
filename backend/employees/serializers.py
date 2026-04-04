@@ -64,8 +64,8 @@ class TeacherProfileUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer for updating TeacherProfile
     """
-    first_name = serializers.CharField(write_only=True, required=False)
-    last_name = serializers.CharField(write_only=True, required=False)
+    first_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     
     class Meta:
         model = TeacherProfile
@@ -138,8 +138,8 @@ class AdminProfileUpdateSerializer(serializers.ModelSerializer):
     Serializer for updating Admin profile
     Allows updating first_name, last_name, and profile fields
     """
-    first_name = serializers.CharField(write_only=True, required=False)
-    last_name = serializers.CharField(write_only=True, required=False)
+    first_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     
     class Meta:
         model = TeacherProfile

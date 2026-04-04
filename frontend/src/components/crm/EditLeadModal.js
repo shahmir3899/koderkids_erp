@@ -490,8 +490,7 @@ const styles = {
     boxSizing: 'border-box',
   },
   option: {
-    background: '#4a3570',
-    color: '#ffffff',
+    ...MIXINS.selectOption,
   },
   textarea: {
     width: '100%',

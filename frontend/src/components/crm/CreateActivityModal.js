@@ -17,6 +17,7 @@ import {
   BORDER_RADIUS,
   TRANSITIONS,
   Z_INDEX,
+  MIXINS,
 } from '../../utils/designConstants';
 
 export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) => {
@@ -243,10 +244,6 @@ export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) =
             border-color: rgba(59, 130, 246, 0.6);
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
           }
-          .activity-modal-select option {
-            background: #1e293b;
-            color: #ffffff;
-          }
           @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
@@ -342,8 +339,8 @@ export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) =
                       }}
                       className="activity-modal-select"
                     >
-                      <option value="Call">Call</option>
-                      <option value="Meeting">Meeting</option>
+                      <option value="Call" style={styles.option}>Call</option>
+                      <option value="Meeting" style={styles.option}>Meeting</option>
                     </select>
                     {errors.activity_type && (
                       <p style={styles.errorText}>{errors.activity_type}</p>
@@ -568,9 +565,9 @@ export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) =
                         }}
                         className="activity-modal-select"
                       >
-                        <option value="">Select BDM...</option>
+                        <option value="" style={styles.option}>Select BDM...</option>
                         {bdms.map((bdm) => (
-                          <option key={bdm.id} value={bdm.id}>
+                          <option key={bdm.id} value={bdm.id} style={styles.option}>
                             {bdm.full_name}
                           </option>
                         ))}
@@ -592,9 +589,9 @@ export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) =
                         style={styles.select}
                         className="activity-modal-select"
                       >
-                        <option value="Scheduled">Scheduled</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
+                        <option value="Scheduled" style={styles.option}>Scheduled</option>
+                        <option value="Completed" style={styles.option}>Completed</option>
+                        <option value="Cancelled" style={styles.option}>Cancelled</option>
                       </select>
                     </div>
                   )}
@@ -613,14 +610,14 @@ export const CreateActivityModal = ({ onClose, onSuccess, preselectedLeadId }) =
                         }}
                         className="activity-modal-select"
                       >
-                        <option value="">Select outcome...</option>
-                        <option value="Interested">Interested</option>
-                        <option value="Not Interested">Not Interested</option>
-                        <option value="Follow-up Required">Follow-up Required</option>
-                        <option value="No Answer">No Answer</option>
-                        <option value="Wrong Number">Wrong Number</option>
-                        <option value="Callback Requested">Callback Requested</option>
-                        <option value="Other">Other</option>
+                        <option value="" style={styles.option}>Select outcome...</option>
+                        <option value="Interested" style={styles.option}>Interested</option>
+                        <option value="Not Interested" style={styles.option}>Not Interested</option>
+                        <option value="Follow-up Required" style={styles.option}>Follow-up Required</option>
+                        <option value="No Answer" style={styles.option}>No Answer</option>
+                        <option value="Wrong Number" style={styles.option}>Wrong Number</option>
+                        <option value="Callback Requested" style={styles.option}>Callback Requested</option>
+                        <option value="Other" style={styles.option}>Other</option>
                       </select>
                       {errors.outcome && (
                         <p style={styles.errorText}>{errors.outcome}</p>
@@ -875,6 +872,9 @@ const styles = {
     backgroundPosition: 'right 0.5rem center',
     backgroundSize: '1rem',
     paddingRight: '2rem',
+  },
+  option: {
+    ...MIXINS.selectOption,
   },
   errorText: {
     fontSize: FONT_SIZES.xs,

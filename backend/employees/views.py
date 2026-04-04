@@ -47,7 +47,11 @@ def get_supabase_client():
     try:
         from supabase import create_client, Client
         supabase_url = os.environ.get('REACT_APP_SUPABASE_URL', getattr(settings, 'SUPABASE_URL', ''))
-        supabase_key = os.environ.get('REACT_APP_SUPABASE_SEC_KEY', getattr(settings, 'SUPABASE_SERVICE_KEY', ''))
+        supabase_key = (
+            os.environ.get('REACT_APP_SUPABASE_SEC_KEY')
+            or getattr(settings, 'SUPABASE_KEY', '')
+            or getattr(settings, 'SUPABASE_SERVICE_KEY', '')
+        )
         
         if not supabase_url or not supabase_key:
             return None

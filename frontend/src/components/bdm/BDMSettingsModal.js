@@ -26,6 +26,15 @@ export const BDMSettingsModal = ({
   profile,
   onProfileUpdate,
 }) => {
+  const REQUIRED_FIELDS = ['first_name', 'gender'];
+  const FIELD_LABELS = {
+    first_name: 'First Name',
+    last_name: 'Last Name',
+    phone: 'Phone Number',
+    gender: 'Gender',
+    address: 'Address',
+  };
+
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -33,6 +42,7 @@ export const BDMSettingsModal = ({
     phone: '',
     address: '',
   });
+  const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
   const [passwordError, setPasswordError] = useState('');
@@ -48,6 +58,7 @@ export const BDMSettingsModal = ({
         phone: profile.phone || '',
         address: profile.address || '',
       });
+      setFormErrors({});
     }
   }, [profile]);
 
@@ -55,6 +66,71 @@ export const BDMSettingsModal = ({
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+
+    // Clear field error as user edits
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateProfileForm = () => {
+    const errors = {};
+
+    if (!formData.first_name.trim()) {
+      errors.first_name = 'First Name is required.';
+    }
+
+    if (!formData.gender) {
+      errors.gender = 'Gender is required.';
+    }
+
+    if (formData.phone && !/^\+?[0-9\s\-()]{7,20}$/.test(formData.phone)) {
+      errors.phone = 'Phone Number format is invalid.';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const toErrorText = (value) => {
+    if (Array.isArray(value)) return value[0];
+    if (typeof value === 'string') return value;
+    return 'Invalid value.';
+  };
+
+  const mapApiErrors = (apiErrorData) => {
+    const mapped = {};
+
+    if (!apiErrorData || typeof apiErrorData !== 'object') {
+      return mapped;
+    }
+
+    Object.keys(apiErrorData).forEach((field) => {
+      if (FIELD_LABELS[field]) {
+        mapped[field] = toErrorText(apiErrorData[field]);
+      }
+    });
+
+    if (apiErrorData.non_field_errors) {
+      mapped.general = toErrorText(apiErrorData.non_field_errors);
+    }
+
+    if (apiErrorData.detail && !mapped.general) {
+      mapped.general = toErrorText(apiErrorData.detail);
+    }
+
+    return mapped;
+  };
+
+  const formatErrorSummary = (errorMap) => {
+    const lines = Object.entries(errorMap)
+      .filter(([_, message]) => !!message)
+      .map(([field, message]) => {
+        if (field === 'general') return message;
+        return `${FIELD_LABELS[field] || field}: ${message}`;
+      });
+
+    return lines.length ? lines.join(' ') : 'Failed to update profile. Please check required fields.';
   };
 
   // Handle password change
@@ -105,11 +181,18 @@ export const BDMSettingsModal = ({
   // Handle form submission (for Personal Info only)
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validateProfileForm()) {
+      toast.error('Please fill all required fields marked with * and fix highlighted errors.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const updatedProfile = await updateBDMProfile(formData);
       toast.success('Profile updated successfully!');
+      setFormErrors({});
 
       if (onProfileUpdate) {
         onProfileUpdate(updatedProfile);
@@ -118,7 +201,13 @@ export const BDMSettingsModal = ({
       onClose();
     } catch (error) {
       console.error('❌ Error updating profile:', error);
-      toast.error('Failed to update profile. Please try again.');
+      const apiErrors = mapApiErrors(error.response?.data);
+      if (Object.keys(apiErrors).length > 0) {
+        setFormErrors(apiErrors);
+        toast.error(formatErrorSummary(apiErrors));
+      } else {
+        toast.error('Failed to update profile. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -188,18 +277,30 @@ export const BDMSettingsModal = ({
         {/* Content - Conditional Form Wrapper */}
         {activeTab === 'personal' && (
           <form onSubmit={handleSubmit} style={styles.form}>
+            {formErrors.general && (
+              <div style={styles.errorBanner}>
+                {formErrors.general}
+              </div>
+            )}
+
             <div style={styles.formGrid}>
               {/* First Name */}
               <div style={styles.formGroup}>
-                <label style={styles.label}>First Name</label>
+                <label style={styles.label}>
+                  First Name <span style={styles.requiredMark}>*</span>
+                </label>
                 <input
                   type="text"
                   name="first_name"
                   value={formData.first_name}
                   onChange={handleChange}
-                  style={styles.input}
+                  style={{
+                    ...styles.input,
+                    ...(formErrors.first_name ? styles.inputError : {}),
+                  }}
                   placeholder="Enter first name"
                 />
+                {formErrors.first_name && <small style={styles.fieldError}>{formErrors.first_name}</small>}
               </div>
 
               {/* Last Name */}
@@ -210,9 +311,13 @@ export const BDMSettingsModal = ({
                   name="last_name"
                   value={formData.last_name}
                   onChange={handleChange}
-                  style={styles.input}
+                  style={{
+                    ...styles.input,
+                    ...(formErrors.last_name ? styles.inputError : {}),
+                  }}
                   placeholder="Enter last name"
                 />
+                {formErrors.last_name && <small style={styles.fieldError}>{formErrors.last_name}</small>}
               </div>
 
               {/* Phone */}
@@ -223,25 +328,35 @@ export const BDMSettingsModal = ({
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  style={styles.input}
+                  style={{
+                    ...styles.input,
+                    ...(formErrors.phone ? styles.inputError : {}),
+                  }}
                   placeholder="e.g., +92 300 1234567"
                 />
+                {formErrors.phone && <small style={styles.fieldError}>{formErrors.phone}</small>}
               </div>
 
               {/* Gender */}
               <div style={styles.formGroup}>
-                <label style={styles.label}>Gender</label>
+                <label style={styles.label}>
+                  Gender <span style={styles.requiredMark}>*</span>
+                </label>
                 <select
                   name="gender"
                   value={formData.gender}
                   onChange={handleChange}
-                  style={styles.select}
+                  style={{
+                    ...styles.select,
+                    ...(formErrors.gender ? styles.inputError : {}),
+                  }}
                 >
                   <option value="">Select gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
                 </select>
+                {formErrors.gender && <small style={styles.fieldError}>{formErrors.gender}</small>}
               </div>
 
               {/* Email - Read Only */}
@@ -416,6 +531,10 @@ const styles = {
     fontWeight: '500',
     color: '#374151',
   },
+  requiredMark: {
+    color: '#DC2626',
+    fontWeight: '700',
+  },
   input: {
     padding: '0.75rem',
     border: '1px solid #D1D5DB',
@@ -423,6 +542,24 @@ const styles = {
     fontSize: '0.875rem',
     transition: 'all 0.15s ease',
     outline: 'none',
+  },
+  inputError: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
+  },
+  fieldError: {
+    color: '#DC2626',
+    fontSize: '0.75rem',
+    marginTop: '0.25rem',
+  },
+  errorBanner: {
+    backgroundColor: '#FEF2F2',
+    border: '1px solid #FCA5A5',
+    color: '#B91C1C',
+    borderRadius: '8px',
+    padding: '0.75rem',
+    marginBottom: '1rem',
+    fontSize: '0.875rem',
   },
   select: {
     padding: '0.75rem',

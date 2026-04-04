@@ -130,14 +130,21 @@ class LeadViewSet(viewsets.ModelViewSet):
             lead = serializer.save(created_by=user)
 
         # Send email if lead is assigned to BDM during creation (async)
+        # Keep lead creation successful even if notification infrastructure is down.
         if lead.assigned_to and lead.assigned_to.role == 'BDM':
-            if NotificationSettings.load().email_lead_assignment:
-                assigned_by_name = f"{self.request.user.first_name} {self.request.user.last_name}".strip() or self.request.user.username
-                send_lead_assignment_email_task.delay(lead.id, lead.assigned_to.id, assigned_by_name)
+            try:
+                if NotificationSettings.load().email_lead_assignment:
+                    assigned_by_name = f"{self.request.user.first_name} {self.request.user.last_name}".strip() or self.request.user.username
+                    send_lead_assignment_email_task.delay(lead.id, lead.assigned_to.id, assigned_by_name)
+            except Exception as e:
+                logger.error(f"Failed to queue lead assignment email for lead #{lead.id}: {str(e)}")
 
         # NOTIFICATION: Notify all admins when a BDM creates a lead
-        if user.role == 'BDM' and NotificationSettings.load().inapp_bdm_creates_lead:
+        if user.role == 'BDM':
             try:
+                if not NotificationSettings.load().inapp_bdm_creates_lead:
+                    return
+
                 admins = CustomUser.objects.filter(role='Admin', is_active=True)
                 bdm_name = user.get_full_name() or user.username
                 lead_label = lead.school_name or lead.phone

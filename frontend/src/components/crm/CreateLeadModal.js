@@ -265,7 +265,7 @@ export const CreateLeadModal = ({ onClose, onSuccess }) => {
                 style={styles.select}
               >
                 {Object.values(LEAD_SOURCES).map((source) => (
-                  <option key={source} value={source}>
+                  <option key={source} value={source} style={styles.selectOption}>
                     {source}
                   </option>
                 ))}
@@ -492,6 +492,9 @@ const styles = {
     outline: 'none',
     cursor: 'pointer',
     boxSizing: 'border-box',
+  },
+  selectOption: {
+    ...MIXINS.selectOption,
   },
   textarea: {
     width: '100%',

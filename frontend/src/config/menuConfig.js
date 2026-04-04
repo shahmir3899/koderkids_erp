@@ -213,6 +213,12 @@ export const MENU_SECTIONS = {
             path: '/crm/leads',
           },
           {
+            id: 'crm-activities',
+            label: 'Activities',
+            icon: faTasks,
+            path: '/crm/activities',
+          },
+          {
             id: 'crm-proposals',
             label: 'Proposal Generator',
             icon: faFileAlt,
@@ -226,6 +232,13 @@ export const MENU_SECTIONS = {
         label: 'Leads',
         icon: faUsers,
         path: '/crm/leads',
+        roles: ['BDM'],
+      },
+      {
+        id: 'bdm-activities',
+        label: 'Activities',
+        icon: faTasks,
+        path: '/crm/activities',
         roles: ['BDM'],
       },
       {

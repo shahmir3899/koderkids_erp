@@ -224,7 +224,17 @@ class BDMTargetAdmin(admin.ModelAdmin):
 
 @admin.register(ProposalOffer)
 class ProposalOfferAdmin(admin.ModelAdmin):
-    list_display = ['id', 'school_name', 'contact_person', 'standard_rate', 'discounted_rate', 'generated_by_name', 'created_at']
+    list_display = [
+        'id',
+        'school_name',
+        'contact_person',
+        'standard_rate',
+        'discounted_rate',
+        'lumpsum_standard_rate',
+        'lumpsum_discounted_rate',
+        'generated_by_name',
+        'created_at',
+    ]
     list_filter = ['created_at', 'generated_by']
     search_fields = ['school_name', 'contact_person']
     readonly_fields = ['created_at', 'updated_at']

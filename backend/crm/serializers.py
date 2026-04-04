@@ -174,6 +174,8 @@ class LeadDetailSerializer(LeadSerializer):
                 'school_name': p.school_name,
                 'standard_rate': p.standard_rate,
                 'discounted_rate': p.discounted_rate,
+                'lumpsum_standard_rate': p.lumpsum_standard_rate,
+                'lumpsum_discounted_rate': p.lumpsum_discounted_rate,
                 'generated_by_name': p.generated_by_name,
                 'created_at': p.created_at,
             }
@@ -427,7 +429,7 @@ class ProposalOfferListSerializer(serializers.ModelSerializer):
         model = ProposalOffer
         fields = [
             'id', 'lead', 'lead_school_name', 'school_name', 'contact_person',
-            'standard_rate', 'discounted_rate', 'generated_by_name',
+            'standard_rate', 'discounted_rate', 'lumpsum_standard_rate', 'lumpsum_discounted_rate', 'generated_by_name',
             'page_selection', 'feature_items', 'created_at',
         ]
 
@@ -440,7 +442,7 @@ class ProposalOfferDetailSerializer(serializers.ModelSerializer):
         model = ProposalOffer
         fields = [
             'id', 'lead', 'lead_school_name', 'school_name', 'contact_person',
-            'standard_rate', 'discounted_rate', 'generated_by', 'generated_by_name',
+            'standard_rate', 'discounted_rate', 'lumpsum_standard_rate', 'lumpsum_discounted_rate', 'generated_by', 'generated_by_name',
             'generated_by_username', 'page_selection', 'feature_items',
             'created_at', 'updated_at',
         ]
@@ -453,7 +455,17 @@ class ProposalOfferDetailSerializer(serializers.ModelSerializer):
 class ProposalOfferCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProposalOffer
-        fields = ['lead', 'school_name', 'contact_person', 'standard_rate', 'discounted_rate', 'page_selection', 'feature_items']
+        fields = [
+            'lead',
+            'school_name',
+            'contact_person',
+            'standard_rate',
+            'discounted_rate',
+            'lumpsum_standard_rate',
+            'lumpsum_discounted_rate',
+            'page_selection',
+            'feature_items',
+        ]
 
     def create(self, validated_data):
         request = self.context.get('request')
