@@ -415,24 +415,34 @@ export const getMenuForRole = (role) => {
   Object.entries(MENU_SECTIONS).forEach(([key, section]) => {
     // Check if section is visible for this role
     if (section.roles.includes(role)) {
-      // Filter items based on role
-      const filteredItems = section.items.filter((item) => {
-        // If item has specific roles, check them
-        if (item.roles && !item.roles.includes(role)) {
-          return false;
-        }
+      // Filter items based on role without mutating MENU_SECTIONS.
+      const filteredItems = section.items
+        .map((item) => {
+          // If item has specific roles, check them.
+          if (item.roles && !item.roles.includes(role)) {
+            return null;
+          }
 
-        // If item has dropdown with subItems, filter subItems
-        if (item.dropdown && item.subItems) {
-          item.subItems = item.subItems.filter((subItem) => {
-            return !subItem.roles || subItem.roles.includes(role);
-          });
-          // Only include dropdown if it has visible subItems
-          return item.subItems.length > 0;
-        }
+          // If item has dropdown with subItems, filter subItems immutably.
+          if (item.dropdown && item.subItems) {
+            const filteredSubItems = item.subItems.filter((subItem) => {
+              return !subItem.roles || subItem.roles.includes(role);
+            });
 
-        return true;
-      });
+            // Only include dropdown if it has visible subItems.
+            if (filteredSubItems.length === 0) {
+              return null;
+            }
+
+            return {
+              ...item,
+              subItems: filteredSubItems,
+            };
+          }
+
+          return item;
+        })
+        .filter(Boolean);
 
       // Only include section if it has visible items
       if (filteredItems.length > 0) {
