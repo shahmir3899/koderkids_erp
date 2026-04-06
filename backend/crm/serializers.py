@@ -172,6 +172,7 @@ class LeadDetailSerializer(LeadSerializer):
             {
                 'id': p.id,
                 'school_name': p.school_name,
+                'expected_strength': p.expected_strength,
                 'standard_rate': p.standard_rate,
                 'discounted_rate': p.discounted_rate,
                 'lumpsum_standard_rate': p.lumpsum_standard_rate,
@@ -428,7 +429,7 @@ class ProposalOfferListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProposalOffer
         fields = [
-            'id', 'lead', 'lead_school_name', 'school_name', 'contact_person',
+            'id', 'lead', 'lead_school_name', 'school_name', 'contact_person', 'expected_strength',
             'standard_rate', 'discounted_rate', 'lumpsum_standard_rate', 'lumpsum_discounted_rate', 'generated_by_name',
             'page_selection', 'feature_items', 'created_at',
         ]
@@ -441,7 +442,7 @@ class ProposalOfferDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProposalOffer
         fields = [
-            'id', 'lead', 'lead_school_name', 'school_name', 'contact_person',
+            'id', 'lead', 'lead_school_name', 'school_name', 'contact_person', 'expected_strength',
             'standard_rate', 'discounted_rate', 'lumpsum_standard_rate', 'lumpsum_discounted_rate', 'generated_by', 'generated_by_name',
             'generated_by_username', 'page_selection', 'feature_items',
             'created_at', 'updated_at',
@@ -459,6 +460,7 @@ class ProposalOfferCreateSerializer(serializers.ModelSerializer):
             'lead',
             'school_name',
             'contact_person',
+            'expected_strength',
             'standard_rate',
             'discounted_rate',
             'lumpsum_standard_rate',

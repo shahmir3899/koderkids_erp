@@ -7,6 +7,7 @@ import { PDFDocument } from "pdf-lib";
 import { toast } from "react-toastify";
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
+import { useMemo } from "react";
 
 import {
   COLORS,
@@ -415,6 +416,7 @@ async function generateProposalPDF(
 
 const ProposalGenerator = () => {
   const { isMobile, isTablet } = useResponsive();
+  const [currentStep, setCurrentStep] = useState(1);
   const [leadSearch, setLeadSearch] = useState('');
   const [showLeadPicker, setShowLeadPicker] = useState(false);
   const [activePreviewTab, setActivePreviewTab] = useState('page1');
@@ -426,6 +428,9 @@ const ProposalGenerator = () => {
   const {
     selectedLeadId, schoolName, setSchoolName,
     contactPerson, setContactPerson,
+    coverLineValue, setCoverLineValue,
+    expectedStrength, setExpectedStrength,
+    suggestedStandardRate,
     standardRate, setStandardRate,
     discountedRate, setDiscountedRate,
     lumpsumStandardRate, setLumpsumStandardRate,
@@ -440,16 +445,19 @@ const ProposalGenerator = () => {
     loadHistoricalProposal, deleteHistoricalProposal,
     saveProposalToDb, clearForm,
     loading, setLoading, isFormValid, progress, setProgress,
+    validateStep,
   } = useProposalGenerator();
 
-  // ============================================
-  // LIVE PREVIEW RENDERING
-  // ============================================
-  useEffect(() => {
-    const timer = setTimeout(() => renderPreview(), 200);
-    return () => clearTimeout(timer);
-  }, [schoolName, contactPerson, discountedRate, standardRate, lumpsumDiscountedRate, lumpsumStandardRate,
-    page1TextConfig, page13TextConfig, featureItems, activePreviewTab]);
+  const stepTitles = ['Cover Details', 'Per Student Model', 'Lumpsum Model', 'Preview & Download'];
+
+  const stepDescriptions = [
+    'Create the combined cover line that will appear on page 1.',
+    'Set discounted and standard pricing for the per-student model.',
+    'Set discounted and standard pricing for the lumpsum model.',
+    'Review the preview, adjust placement, and generate the final PDF.',
+  ];
+
+  const formatSummaryAmount = (value) => (value ? `PKR ${value}` : 'Please fill Amount here');
 
   const renderPreview = useCallback(async () => {
     const canvas = previewCanvasRef.current;
@@ -459,7 +467,6 @@ const ProposalGenerator = () => {
       const pageNum = activePreviewTab === 'page1' ? 1 : 13;
       const img = await loadImage(`/proposal-templates/${pageNum}.png`);
 
-      // Set canvas size to match image aspect ratio within container
       const containerWidth = canvas.parentElement?.clientWidth || 400;
       const aspectRatio = img.naturalHeight / img.naturalWidth;
       canvas.width = containerWidth;
@@ -483,12 +490,19 @@ const ProposalGenerator = () => {
           featureItems
         );
       }
-
     } catch (err) {
       console.error('Preview render error:', err);
     }
   }, [activePreviewTab, schoolName, contactPerson, discountedRate, standardRate, lumpsumDiscountedRate, lumpsumStandardRate,
     page1TextConfig, page13TextConfig, featureItems]);
+
+  // ============================================
+  // LIVE PREVIEW RENDERING
+  // ============================================
+  useEffect(() => {
+    const timer = setTimeout(() => renderPreview(), 200);
+    return () => clearTimeout(timer);
+  }, [currentStep, renderPreview]);
 
   // ============================================
   // CLICK-TO-POSITION ON PREVIEW
@@ -554,6 +568,29 @@ const ProposalGenerator = () => {
     setShowLeadPicker(false);
   }, [selectLead]);
 
+  const handleStepChange = useCallback((stepNumber) => {
+    if (stepNumber <= currentStep) {
+      setCurrentStep(stepNumber);
+    }
+  }, [currentStep]);
+
+  const handleNext = useCallback(() => {
+    if (!validateStep(currentStep)) {
+      if (currentStep === 1) {
+        toast.error('Please enter the combined cover field before continuing.');
+      } else {
+        toast.error('Please complete the required fields before continuing.');
+      }
+      return;
+    }
+
+    setCurrentStep((prev) => Math.min(prev + 1, 4));
+  }, [currentStep, validateStep]);
+
+  const handleBack = useCallback(() => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (leadPickerRef.current && !leadPickerRef.current.contains(event.target)) {
@@ -615,317 +652,145 @@ const ProposalGenerator = () => {
   const activeConfig = getActiveFieldConfig();
 
 
-  // Field options for current tab
-  const fieldOptions = activePreviewTab === 'page1'
-    ? [
-      { key: 'coverLine', label: 'Cover Line (School - Focal Person)' },
-    ]
-    : [
-      { key: 'discountedRate', label: 'Discounted Rate' },
-      { key: 'standardRate', label: 'Standard Rate' },
-      { key: 'lumpsumDiscountedRate', label: 'Lumpsum Discounted Rate' },
-      { key: 'lumpsumStandardRate', label: 'Lumpsum Standard Rate' },
-      { key: 'featureList', label: 'Feature List' },
-    ];
+  const currentFieldOptions = useMemo(() => {
+    if (currentStep === 1) {
+      return [{ key: 'coverLine', label: 'Cover Line (School - Focal Person)' }];
+    }
 
-  // Set activeField to first option when tab changes
+    if (currentStep === 2) {
+      return [
+        { key: 'discountedRate', label: 'Discounted Rate' },
+        { key: 'standardRate', label: 'Standard Rate' },
+      ];
+    }
+
+    if (currentStep === 3) {
+      return [
+        { key: 'lumpsumDiscountedRate', label: 'Lumpsum Discounted Rate' },
+        { key: 'lumpsumStandardRate', label: 'Lumpsum Standard Rate' },
+      ];
+    }
+
+    return activePreviewTab === 'page1'
+      ? [{ key: 'coverLine', label: 'Cover Line (School - Focal Person)' }]
+      : [
+        { key: 'discountedRate', label: 'Discounted Rate' },
+        { key: 'standardRate', label: 'Standard Rate' },
+        { key: 'lumpsumDiscountedRate', label: 'Lumpsum Discounted Rate' },
+        { key: 'lumpsumStandardRate', label: 'Lumpsum Standard Rate' },
+        { key: 'featureList', label: 'Feature List' },
+      ];
+  }, [currentStep, activePreviewTab]);
+
   useEffect(() => {
-    setActiveField(activePreviewTab === 'page1' ? 'coverLine' : 'discountedRate');
-  }, [activePreviewTab]);
+    if (currentStep === 1) {
+      setActivePreviewTab('page1');
+      setActiveField('coverLine');
+      return;
+    }
+
+    if (currentStep === 2) {
+      setActivePreviewTab('page13');
+      setActiveField((prev) => (prev === 'standardRate' ? prev : 'discountedRate'));
+      return;
+    }
+
+    if (currentStep === 3) {
+      setActivePreviewTab('page13');
+      setActiveField((prev) => (
+        prev === 'lumpsumStandardRate' ? prev : 'lumpsumDiscountedRate'
+      ));
+      return;
+    }
+
+    setActivePreviewTab('page1');
+    setActiveField('coverLine');
+  }, [currentStep]);
 
   // ============================================
   // RESPONSIVE STYLES
   // ============================================
   const rs = getResponsiveStyles(isMobile, isTablet);
 
-  return (
-    <div style={{ padding: isMobile ? SPACING.md : SPACING.xl, maxWidth: '1600px', margin: '0 auto' }}>
-      <PageHeader
-        title="Proposal Generator"
-        subtitle="Generate collaboration proposals for leads and clients"
-      />
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '1fr 1.4fr 0.8fr',
-        gap: SPACING.lg,
-        marginTop: SPACING.lg,
-      }}>
-        {/* ============================================ */}
-        {/* LEFT COLUMN - FORM + CONTROLS */}
-        {/* ============================================ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.lg }}>
-          {/* Proposal Details Card */}
-          <div style={rs.formCard}>
-            <h3 style={staticStyles.sectionTitle}>Proposal Details</h3>
-
-            {/* Lead Picker */}
-            <div style={staticStyles.fieldGroup}>
-              <label style={staticStyles.label}>Select Lead (optional)</label>
-              <div ref={leadPickerRef} style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  value={leadSearch}
-                  onChange={handleLeadSearch}
-                  onFocus={() => { if (leads.length > 0) setShowLeadPicker(true); }}
-                  placeholder="Search leads by name or phone..."
-                  style={rs.input}
-                />
-                {selectedLeadId && (
-                  <span style={staticStyles.selectedBadge}>Lead linked</span>
-                )}
-                {showLeadPicker && (
-                  <div style={staticStyles.dropdown}>
-                    {leadsLoading ? (
-                      <div style={staticStyles.dropdownEmpty}>Loading leads...</div>
-                    ) : leads.length === 0 ? (
-                      <div style={staticStyles.dropdownEmpty}>No leads found</div>
-                    ) : (
-                      leads.slice(0, 10).map(lead => (
-                        <div
-                          key={lead.id}
-                          style={staticStyles.dropdownItem}
-                          onClick={() => handleSelectLead(lead)}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.2)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                        >
-                          <div style={{ color: COLORS.text.white, fontSize: FONT_SIZES.sm }}>
-                            {lead.school_name || 'No name'}
-                          </div>
-                          <div style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs }}>
-                            {lead.contact_person || ''} {lead.phone ? `| ${lead.phone}` : ''} | {lead.status}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div style={staticStyles.groupHeader}>
-              <div style={staticStyles.groupTitle}>Page 1: Cover Details</div>
-              <div style={staticStyles.groupHint}>
-                These fields are combined as "School Name - Focal Person" and auto-placed on the blue line on Page 1.
-              </div>
-            </div>
-
-            {/* School Name */}
-            <div style={staticStyles.fieldGroup}>
-              <label style={staticStyles.label}>School Name *</label>
-              <input
-                type="text"
-                value={schoolName}
-                onChange={(e) => setSchoolName(e.target.value)}
-                placeholder="Enter school name"
-                style={rs.input}
-              />
-            </div>
-
-            {/* Contact Person */}
-            <div style={staticStyles.fieldGroup}>
-              <label style={staticStyles.label}>Contact Person</label>
-              <input
-                type="text"
-                value={contactPerson}
-                onChange={(e) => setContactPerson(e.target.value)}
-                placeholder="Enter contact person name"
-                style={rs.input}
-              />
-            </div>
-
-            <div style={staticStyles.groupHeader}>
-              <div style={staticStyles.groupTitle}>Page 13: Per-Student Model</div>
-              <div style={staticStyles.groupHint}>
-                These are the existing per-student rates shown on the left pricing column.
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.md }}>
-              <div style={staticStyles.fieldGroup}>
-                <label style={staticStyles.label}>Discounted Rate</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={staticStyles.currencyPrefix}>PKR</span>
-                  <input
-                    type="text"
-                    value={discountedRate}
-                    onChange={(e) => setDiscountedRate(e.target.value)}
-                    placeholder="1,000"
-                    style={{ ...rs.input, paddingLeft: '52px' }}
-                  />
-                </div>
-              </div>
-              <div style={staticStyles.fieldGroup}>
-                <label style={staticStyles.label}>Standard Rate</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={staticStyles.currencyPrefix}>PKR</span>
-                  <input
-                    type="text"
-                    value={standardRate}
-                    onChange={(e) => setStandardRate(e.target.value)}
-                    placeholder="2,500"
-                    style={{ ...rs.input, paddingLeft: '52px' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={staticStyles.groupHeader}>
-              <div style={staticStyles.groupTitle}>Page 13: Lumpsum Model</div>
-              <div style={staticStyles.groupHint}>
-                New lumpsum rates shown on the right pricing column.
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.md }}>
-              <div style={staticStyles.fieldGroup}>
-                <label style={staticStyles.label}>Lumpsum Discounted Rate</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={staticStyles.currencyPrefix}>PKR</span>
-                  <input
-                    type="text"
-                    value={lumpsumDiscountedRate}
-                    onChange={(e) => setLumpsumDiscountedRate(e.target.value)}
-                    placeholder="35,000"
-                    style={{ ...rs.input, paddingLeft: '52px' }}
-                  />
-                </div>
-              </div>
-              <div style={staticStyles.fieldGroup}>
-                <label style={staticStyles.label}>Lumpsum Standard Rate</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={staticStyles.currencyPrefix}>PKR</span>
-                  <input
-                    type="text"
-                    value={lumpsumStandardRate}
-                    onChange={(e) => setLumpsumStandardRate(e.target.value)}
-                    placeholder="50,000"
-                    style={{ ...rs.input, paddingLeft: '52px' }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Page Selection Card */}
-          <div style={rs.formCard}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={staticStyles.sectionTitle}>Pages to Include</h3>
-              <span style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs }}>
-                {selectedPageCount}/14 selected
-              </span>
-            </div>
-            <div style={staticStyles.pageThumbGrid}>
-              {Array.from({ length: 14 }, (_, i) => i + 1).map(pageNum => (
+  const renderLeadPicker = () => (
+    <div style={staticStyles.fieldGroup}>
+      <label style={staticStyles.label}>Select Lead (optional)</label>
+      <div ref={leadPickerRef} style={{ position: 'relative' }}>
+        <input
+          type="text"
+          value={leadSearch}
+          onChange={handleLeadSearch}
+          onFocus={() => { if (leads.length > 0) setShowLeadPicker(true); }}
+          placeholder="Search leads by name or phone..."
+          style={rs.input}
+        />
+        {selectedLeadId && (
+          <span style={staticStyles.selectedBadge}>Lead linked</span>
+        )}
+        {showLeadPicker && (
+          <div style={staticStyles.dropdown}>
+            {leadsLoading ? (
+              <div style={staticStyles.dropdownEmpty}>Loading leads...</div>
+            ) : leads.length === 0 ? (
+              <div style={staticStyles.dropdownEmpty}>No leads found</div>
+            ) : (
+              leads.slice(0, 10).map((lead) => (
                 <div
-                  key={pageNum}
-                  onClick={() => togglePage(pageNum)}
-                  style={{
-                    ...staticStyles.pageThumb,
-                    ...(pageSelection[pageNum] ? staticStyles.pageThumbActive : staticStyles.pageThumbInactive),
-                  }}
+                  key={lead.id}
+                  style={staticStyles.dropdownItem}
+                  onClick={() => handleSelectLead(lead)}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.2)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
-                  <img
-                    src={`/proposal-templates/${pageNum}.png`}
-                    alt={`Page ${pageNum}`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      opacity: pageSelection[pageNum] ? 1 : 0.3,
-                      transition: `opacity ${TRANSITIONS.fast}`,
-                    }}
-                    loading="lazy"
-                  />
-                  <span style={staticStyles.pageThumbLabel}>
-                    {pageNum}
-                  </span>
-                  {!pageSelection[pageNum] && (
-                    <div style={staticStyles.pageThumbOverlay} />
-                  )}
+                  <div style={{ color: COLORS.text.white, fontSize: FONT_SIZES.sm }}>
+                    {lead.school_name || 'No name'}
+                  </div>
+                  <div style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs }}>
+                    {lead.contact_person || ''} {lead.phone ? `| ${lead.phone}` : ''} | {lead.status}
+                  </div>
                 </div>
-              ))}
-            </div>
+              ))
+            )}
           </div>
+        )}
+      </div>
+    </div>
+  );
 
-          {/* Feature Items Card (Page 13 tick list) */}
-          <div style={rs.formCard}>
-            <h3 style={staticStyles.sectionTitle}>Features List (Page 13)</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.xs }}>
-              {featureItems.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: SPACING.xs, alignItems: 'center' }}>
-                  <span style={{ color: '#22c55e', fontWeight: 'bold', fontSize: FONT_SIZES.sm, flexShrink: 0 }}>{'\u2713'}</span>
-                  <input
-                    type="text"
-                    value={item}
-                    onChange={(e) => updateFeatureItem(idx, e.target.value)}
-                    style={{ ...rs.input, flex: 1 }}
-                  />
-                  <button
-                    onClick={() => removeFeatureItem(idx)}
-                    style={staticStyles.miniDeleteBtn}
-                    title="Remove"
-                  >
-                    x
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => addFeatureItem('New feature')}
-              style={staticStyles.addItemBtn}
-            >
-              + Add Item
-            </button>
-          </div>
+  const renderPreviewWorkspace = ({
+    title,
+    description,
+    showTabs = false,
+    showControls = true,
+    showStrikethrough = false,
+  }) => (
+    <div style={rs.previewCard}>
+      <h3 style={staticStyles.sectionTitle}>{title}</h3>
+      <p style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs, margin: `0 0 ${SPACING.sm} 0` }}>
+        {description}
+      </p>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: SPACING.md, flexWrap: 'wrap' }}>
+      {showTabs && (
+        <div style={staticStyles.tabRow}>
+          {['page1', 'page13'].map((tab) => (
             <button
-              onClick={handleGenerate}
-              disabled={!isFormValid || loading.generating}
+              key={tab}
+              onClick={() => setActivePreviewTab(tab)}
               style={{
-                ...rs.primaryButton,
-                ...(!isFormValid || loading.generating ? staticStyles.disabledButton : {}),
+                ...staticStyles.tabButton,
+                ...(activePreviewTab === tab ? staticStyles.tabButtonActive : {}),
               }}
             >
-              {loading.generating ? (progress || 'Generating...') : `Generate PDF (${selectedPageCount} pages)`}
+              {tab === 'page1' ? 'Page 1 - Cover' : 'Page 13 - Pricing'}
             </button>
-            <button onClick={clearForm} style={rs.secondaryButton}>
-              Clear
-            </button>
-          </div>
+          ))}
         </div>
+      )}
 
-        {/* ============================================ */}
-        {/* CENTER COLUMN - LIVE PREVIEW */}
-        {/* ============================================ */}
-        <div style={rs.previewCard}>
-          <h3 style={staticStyles.sectionTitle}>Live Preview</h3>
-          <p style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs, margin: `0 0 ${SPACING.sm} 0` }}>
-            Click and drag on the image to reposition the selected text field.
-          </p>
-
-          {/* Preview Tabs */}
-          <div style={staticStyles.tabRow}>
-            {['page1', 'page13'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActivePreviewTab(tab)}
-                style={{
-                  ...staticStyles.tabButton,
-                  ...(activePreviewTab === tab ? staticStyles.tabButtonActive : {}),
-                }}
-              >
-                {tab === 'page1' ? 'Page 1 - Cover' : 'Page 13 - Pricing'}
-              </button>
-            ))}
-          </div>
-
-          {/* Active field selector */}
+      {showControls && (
+        <>
           <div style={{ display: 'flex', gap: SPACING.sm, flexWrap: 'wrap', marginBottom: SPACING.sm }}>
-            {fieldOptions.map(opt => (
+            {currentFieldOptions.map((opt) => (
               <button
                 key={opt.key}
                 onClick={() => setActiveField(opt.key)}
@@ -939,7 +804,6 @@ const ProposalGenerator = () => {
             ))}
           </div>
 
-          {/* Controls: Color + Font Size */}
           <div style={{ display: 'flex', gap: SPACING.md, alignItems: 'center', marginBottom: SPACING.sm, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs }}>
               <label style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs }}>Color</label>
@@ -970,7 +834,7 @@ const ProposalGenerator = () => {
                 railStyle={{ backgroundColor: 'rgba(255,255,255,0.15)', height: 4 }}
               />
             </div>
-            {activePreviewTab === 'page13' && (
+            {showStrikethrough && (
               <label style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
@@ -982,30 +846,272 @@ const ProposalGenerator = () => {
               </label>
             )}
           </div>
+        </>
+      )}
 
-          {/* Canvas Preview */}
-          <div style={staticStyles.canvasContainer}>
-            <canvas
-              ref={previewCanvasRef}
-              onClick={handleCanvasClick}
-              onMouseDown={handleCanvasMouseDown}
-              onMouseMove={handleCanvasMouseMove}
-              onMouseUp={stopDragging}
-              onMouseLeave={stopDragging}
-              style={{
-                width: '100%',
-                cursor: isDraggingText ? 'grabbing' : 'grab',
-                borderRadius: BORDER_RADIUS.md,
-                display: 'block',
-              }}
-            />
+      <div style={staticStyles.canvasContainer}>
+        <canvas
+          ref={previewCanvasRef}
+          onClick={handleCanvasClick}
+          onMouseDown={handleCanvasMouseDown}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseUp={stopDragging}
+          onMouseLeave={stopDragging}
+          style={{
+            width: '100%',
+            cursor: isDraggingText ? 'grabbing' : 'grab',
+            borderRadius: BORDER_RADIUS.md,
+            display: 'block',
+          }}
+        />
+      </div>
+    </div>
+  );
 
+  const renderStepOne = () => (
+    <div style={staticStyles.stepBodyLayout(isMobile, isTablet)}>
+      <div style={rs.formCard}>
+        <h3 style={staticStyles.sectionTitle}>Combined Cover Field</h3>
+        <p style={staticStyles.stepHint}>
+          This text is placed on page 1 as a single line in the format School Name - Focal Person.
+        </p>
+
+        {renderLeadPicker()}
+
+        <div style={staticStyles.fieldGroup}>
+          <label style={staticStyles.label}>Cover Line *</label>
+          <input
+            type="text"
+            value={coverLineValue}
+            onChange={(e) => setCoverLineValue(e.target.value)}
+            placeholder="School Name - Focal Person"
+            style={rs.input}
+          />
+        </div>
+
+        <div style={staticStyles.infoPanel}>
+          <div style={staticStyles.infoPanelTitle}>Parsed values</div>
+          <div style={staticStyles.infoMetaRow}>
+            <span style={staticStyles.metaBadge}>School: {schoolName || 'Not set'}</span>
+            <span style={staticStyles.metaBadge}>Focal Person: {contactPerson || 'Not set'}</span>
+          </div>
+        </div>
+      </div>
+
+      {renderPreviewWorkspace({
+        title: 'Live Preview',
+        description: 'Adjust the cover line directly on page 1 while editing this step.',
+        showControls: true,
+      })}
+    </div>
+  );
+
+  const renderStepTwo = () => (
+    <div style={staticStyles.stepBodyLayout(isMobile, isTablet)}>
+      <div style={rs.formCard}>
+        <h3 style={staticStyles.sectionTitle}>Per Student Model</h3>
+        <p style={staticStyles.stepHint}>
+          Set the discounted and standard rates shown in the per-student pricing column.
+        </p>
+
+        <div style={staticStyles.fieldGroup}>
+          <label style={staticStyles.label}>Expected Strength</label>
+          <input
+            type="number"
+            min="1"
+            value={expectedStrength}
+            onChange={(e) => setExpectedStrength(e.target.value)}
+            placeholder="Please fill student count here"
+            style={rs.input}
+          />
+          <p style={staticStyles.helperText}>
+            {suggestedStandardRate
+              ? `Starting price suggestion applied from slab: PKR ${suggestedStandardRate}`
+              : 'Enter expected strength to prefill the standard rate from the slab table.'}
+          </p>
+        </div>
+
+        <div style={staticStyles.twoColumnGrid}>
+          <div style={staticStyles.fieldGroup}>
+            <label style={staticStyles.label}>Discounted Rate</label>
+            <div style={{ position: 'relative' }}>
+              <span style={staticStyles.currencyPrefix}>PKR</span>
+              <input
+                type="text"
+                value={discountedRate}
+                onChange={(e) => setDiscountedRate(e.target.value)}
+                placeholder="Please fill Amount here"
+                style={{ ...rs.input, paddingLeft: '52px' }}
+              />
+            </div>
+          </div>
+
+          <div style={staticStyles.fieldGroup}>
+            <label style={staticStyles.label}>Standard Rate</label>
+            <div style={{ position: 'relative' }}>
+              <span style={staticStyles.currencyPrefix}>PKR</span>
+              <input
+                type="text"
+                value={standardRate}
+                onChange={(e) => setStandardRate(e.target.value)}
+                placeholder="Please fill Amount here"
+                style={{ ...rs.input, paddingLeft: '52px' }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {renderPreviewWorkspace({
+        title: 'Per Student Preview',
+        description: 'Fine-tune the discounted and standard per-student rates on page 13 from this step.',
+        showControls: true,
+        showStrikethrough: true,
+      })}
+    </div>
+  );
+
+  const renderStepThree = () => (
+    <div style={staticStyles.stepBodyLayout(isMobile, isTablet)}>
+      <div style={rs.formCard}>
+        <h3 style={staticStyles.sectionTitle}>Lumpsum Model</h3>
+        <p style={staticStyles.stepHint}>
+          Set the discounted and standard rates shown in the lumpsum pricing column.
+        </p>
+
+        <div style={staticStyles.twoColumnGrid}>
+          <div style={staticStyles.fieldGroup}>
+            <label style={staticStyles.label}>Lumpsum Discounted Rate</label>
+            <div style={{ position: 'relative' }}>
+              <span style={staticStyles.currencyPrefix}>PKR</span>
+              <input
+                type="text"
+                value={lumpsumDiscountedRate}
+                onChange={(e) => setLumpsumDiscountedRate(e.target.value)}
+                placeholder="Please fill Amount here"
+                style={{ ...rs.input, paddingLeft: '52px' }}
+              />
+            </div>
+          </div>
+
+          <div style={staticStyles.fieldGroup}>
+            <label style={staticStyles.label}>Lumpsum Standard Rate</label>
+            <div style={{ position: 'relative' }}>
+              <span style={staticStyles.currencyPrefix}>PKR</span>
+              <input
+                type="text"
+                value={lumpsumStandardRate}
+                onChange={(e) => setLumpsumStandardRate(e.target.value)}
+                placeholder="Please fill Amount here"
+                style={{ ...rs.input, paddingLeft: '52px' }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {renderPreviewWorkspace({
+        title: 'Lumpsum Preview',
+        description: 'Adjust the lumpsum pricing placement and styling on page 13 from this step.',
+        showControls: true,
+        showStrikethrough: true,
+      })}
+    </div>
+  );
+
+  const renderStepFour = () => (
+    <div style={staticStyles.stepFourLayout(isMobile, isTablet)}>
+      <div style={staticStyles.stepFourSidebar}>
+        <div style={rs.formCard}>
+          <h3 style={staticStyles.sectionTitle}>Proposal Summary</h3>
+          <div style={staticStyles.summaryGrid}>
+            <div style={staticStyles.summaryItem}>
+              <span style={staticStyles.summaryLabel}>Cover Line</span>
+              <span style={staticStyles.summaryValue}>{coverLineValue || 'Not set'}</span>
+            </div>
+            <div style={staticStyles.summaryItem}>
+              <span style={staticStyles.summaryLabel}>Per Student</span>
+              <span style={staticStyles.summaryValue}>{formatSummaryAmount(discountedRate)} / {formatSummaryAmount(standardRate)}</span>
+            </div>
+            <div style={staticStyles.summaryItem}>
+              <span style={staticStyles.summaryLabel}>Lumpsum</span>
+              <span style={staticStyles.summaryValue}>{formatSummaryAmount(lumpsumDiscountedRate)} / {formatSummaryAmount(lumpsumStandardRate)}</span>
+            </div>
+            <div style={staticStyles.summaryItem}>
+              <span style={staticStyles.summaryLabel}>Expected Strength</span>
+              <span style={staticStyles.summaryValue}>{expectedStrength || 'Not set'}</span>
+            </div>
+            <div style={staticStyles.summaryItem}>
+              <span style={staticStyles.summaryLabel}>Selected Pages</span>
+              <span style={staticStyles.summaryValue}>{selectedPageCount} of 14</span>
+            </div>
           </div>
         </div>
 
-        {/* ============================================ */}
-        {/* RIGHT COLUMN - HISTORY */}
-        {/* ============================================ */}
+        <div style={rs.formCard}>
+          <div style={staticStyles.historyHeader}>
+            <h3 style={staticStyles.sectionTitle}>Pages to Include</h3>
+            <span style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs }}>
+              {selectedPageCount}/14 selected
+            </span>
+          </div>
+          <div style={staticStyles.pageThumbGrid}>
+            {Array.from({ length: 14 }, (_, i) => i + 1).map((pageNum) => (
+              <div
+                key={pageNum}
+                onClick={() => togglePage(pageNum)}
+                style={{
+                  ...staticStyles.pageThumb,
+                  ...(pageSelection[pageNum] ? staticStyles.pageThumbActive : staticStyles.pageThumbInactive),
+                }}
+              >
+                <img
+                  src={`/proposal-templates/${pageNum}.png`}
+                  alt={`Page ${pageNum}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    borderRadius: '4px',
+                    opacity: pageSelection[pageNum] ? 1 : 0.3,
+                    transition: `opacity ${TRANSITIONS.fast}`,
+                  }}
+                  loading="lazy"
+                />
+                <span style={staticStyles.pageThumbLabel}>{pageNum}</span>
+                {!pageSelection[pageNum] && <div style={staticStyles.pageThumbOverlay} />}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={rs.formCard}>
+          <h3 style={staticStyles.sectionTitle}>Features List</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.xs }}>
+            {featureItems.map((item, idx) => (
+              <div key={idx} style={{ display: 'flex', gap: SPACING.xs, alignItems: 'center' }}>
+                <span style={{ color: '#22c55e', fontWeight: 'bold', fontSize: FONT_SIZES.sm, flexShrink: 0 }}>{'\u2713'}</span>
+                <input
+                  type="text"
+                  value={item}
+                  onChange={(e) => updateFeatureItem(idx, e.target.value)}
+                  style={{ ...rs.input, flex: 1 }}
+                />
+                <button
+                  onClick={() => removeFeatureItem(idx)}
+                  style={staticStyles.miniDeleteBtn}
+                  title="Remove"
+                >
+                  x
+                </button>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => addFeatureItem('New feature')} style={staticStyles.addItemBtn}>
+            + Add Item
+          </button>
+        </div>
+
         <div style={rs.historyCard}>
           <div style={staticStyles.historyHeader}>
             <h3 style={staticStyles.sectionTitle}>History</h3>
@@ -1019,8 +1125,8 @@ const ProposalGenerator = () => {
           ) : proposalHistory.length === 0 ? (
             <div style={staticStyles.emptyState}>No proposals yet</div>
           ) : (
-            <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-              {proposalHistory.map(proposal => (
+            <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+              {proposalHistory.map((proposal) => (
                 <div
                   key={proposal.id}
                   style={{
@@ -1028,10 +1134,7 @@ const ProposalGenerator = () => {
                     ...(selectedHistoryProposal?.id === proposal.id ? staticStyles.historyItemActive : {}),
                   }}
                 >
-                  <div
-                    style={{ cursor: 'pointer', flex: 1 }}
-                    onClick={() => loadHistoricalProposal(proposal.id)}
-                  >
+                  <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => loadHistoricalProposal(proposal.id)}>
                     <div style={{ color: COLORS.text.white, fontWeight: FONT_WEIGHTS.semibold, fontSize: FONT_SIZES.sm }}>
                       {proposal.school_name}
                     </div>
@@ -1058,6 +1161,118 @@ const ProposalGenerator = () => {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+
+      <div style={rs.previewCard}>
+        <h3 style={staticStyles.sectionTitle}>Final Preview</h3>
+        <p style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs, margin: `0 0 ${SPACING.sm} 0` }}>
+          Review both proposal pages before downloading. Adjustments are handled in the earlier steps.
+        </p>
+
+        <div style={staticStyles.tabRow}>
+          {['page1', 'page13'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActivePreviewTab(tab)}
+              style={{
+                ...staticStyles.tabButton,
+                ...(activePreviewTab === tab ? staticStyles.tabButtonActive : {}),
+              }}
+            >
+              {tab === 'page1' ? 'Page 1 - Cover' : 'Page 13 - Pricing'}
+            </button>
+          ))}
+        </div>
+
+        <div style={staticStyles.canvasContainer}>
+          <canvas
+            ref={previewCanvasRef}
+            onClick={handleCanvasClick}
+            onMouseDown={handleCanvasMouseDown}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseUp={stopDragging}
+            onMouseLeave={stopDragging}
+            style={{
+              width: '100%',
+              cursor: isDraggingText ? 'grabbing' : 'grab',
+              borderRadius: BORDER_RADIUS.md,
+              display: 'block',
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: isMobile ? SPACING.md : SPACING.xl, maxWidth: '1480px', margin: '0 auto' }}>
+      <PageHeader
+        title="Proposal Generator"
+        subtitle="Generate collaboration proposals for leads and clients"
+      />
+
+      <div style={staticStyles.stepperRow(isMobile)}>
+        {stepTitles.map((title, index) => {
+          const stepNumber = index + 1;
+          const isActive = stepNumber === currentStep;
+          const isComplete = stepNumber < currentStep;
+
+          return (
+            <button
+              key={title}
+              onClick={() => handleStepChange(stepNumber)}
+              style={staticStyles.stepperButton(isActive, isComplete)}
+            >
+              <span style={staticStyles.stepperIndex(isActive, isComplete)}>{stepNumber}</span>
+              <span style={staticStyles.stepperText}>{title}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={staticStyles.stepHeaderCard}>
+        <div style={staticStyles.stepHeaderEyebrow}>Step {currentStep} of 4</div>
+        <h2 style={staticStyles.stepHeaderTitle}>{stepTitles[currentStep - 1]}</h2>
+        <p style={staticStyles.stepHeaderDescription}>{stepDescriptions[currentStep - 1]}</p>
+      </div>
+
+      <div style={{ marginTop: SPACING.lg }}>
+        {currentStep === 1 && renderStepOne()}
+        {currentStep === 2 && renderStepTwo()}
+        {currentStep === 3 && renderStepThree()}
+        {currentStep === 4 && renderStepFour()}
+      </div>
+
+      <div style={staticStyles.wizardFooter}>
+        <div style={{ display: 'flex', gap: SPACING.md, flexWrap: 'wrap' }}>
+          {currentStep > 1 && (
+            <button onClick={handleBack} style={rs.secondaryButton}>
+              Back
+            </button>
+          )}
+          <button onClick={clearForm} style={rs.secondaryButton}>
+            Clear
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: SPACING.md, flexWrap: 'wrap' }}>
+          {currentStep < 4 ? (
+            <button onClick={handleNext} style={rs.primaryButton}>
+              Next Step
+            </button>
+          ) : (
+            <button
+              onClick={handleGenerate}
+              disabled={!isFormValid || loading.generating}
+              style={{
+                ...rs.primaryButton,
+                ...(!isFormValid || loading.generating ? staticStyles.disabledButton : {}),
+              }}
+            >
+              {loading.generating ? (progress || 'Generating...') : `Generate PDF (${selectedPageCount} pages)`}
+            </button>
           )}
         </div>
       </div>
@@ -1134,21 +1349,117 @@ const getResponsiveStyles = (isMobile, isTablet) => ({
 // STATIC STYLES
 // ============================================
 const staticStyles = {
+  stepperRow: (isMobile) => ({
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+  }),
+  stepperButton: (isActive, isComplete) => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: `${SPACING.md} ${SPACING.md}`,
+    borderRadius: BORDER_RADIUS.lg,
+    border: `1px solid ${isActive ? 'rgba(59, 130, 246, 0.55)' : 'rgba(255, 255, 255, 0.12)'}`,
+    backgroundColor: isActive
+      ? 'rgba(59, 130, 246, 0.18)'
+      : isComplete
+      ? 'rgba(34, 197, 94, 0.14)'
+      : 'rgba(255, 255, 255, 0.05)',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: `all ${TRANSITIONS.fast}`,
+  }),
+  stepperIndex: (isActive, isComplete) => ({
+    width: '28px',
+    height: '28px',
+    borderRadius: '999px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    backgroundColor: isActive ? 'rgba(59, 130, 246, 0.9)' : isComplete ? 'rgba(34, 197, 94, 0.85)' : 'rgba(255, 255, 255, 0.14)',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+  }),
+  stepperText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    lineHeight: 1.3,
+  },
+  stepHeaderCard: {
+    ...MIXINS.glassmorphicCard,
+    marginTop: SPACING.lg,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  stepHeaderEyebrow: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginBottom: SPACING.xs,
+  },
+  stepHeaderTitle: {
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    margin: 0,
+  },
+  stepHeaderDescription: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+    margin: `${SPACING.xs} 0 0 0`,
+  },
+  wizardFooter: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SPACING.md,
+    flexWrap: 'wrap',
+    marginTop: SPACING.xl,
+    paddingTop: SPACING.md,
+  },
   sectionTitle: {
     fontSize: FONT_SIZES.lg,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.text.white,
     margin: 0,
   },
+  stepHint: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
+    margin: 0,
+  },
+  stepBodyLayout: (isMobile, isTablet) => ({
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr' : '0.9fr 1.1fr',
+    gap: SPACING.lg,
+    alignItems: 'start',
+  }),
   fieldGroup: {
     display: 'flex',
     flexDirection: 'column',
+  },
+  twoColumnGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: SPACING.md,
   },
   label: {
     fontWeight: FONT_WEIGHTS.semibold,
     marginBottom: SPACING.xs,
     color: COLORS.text.white,
     fontSize: FONT_SIZES.sm,
+  },
+  helperText: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
+    marginTop: SPACING.xs,
+    marginBottom: 0,
   },
   groupHeader: {
     marginTop: SPACING.sm,
@@ -1167,6 +1478,32 @@ const staticStyles = {
     letterSpacing: '0.4px',
   },
   groupHint: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
+  },
+  infoPanel: {
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  infoPanelTitle: {
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    marginBottom: SPACING.sm,
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+  },
+  infoMetaRow: {
+    display: 'flex',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+  metaBadge: {
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     color: COLORS.text.whiteSubtle,
     fontSize: FONT_SIZES.xs,
   },
@@ -1273,6 +1610,42 @@ const staticStyles = {
     borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden',
     border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  stepFourLayout: (isMobile, isTablet) => ({
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr' : '0.95fr 1.05fr',
+    gap: SPACING.lg,
+    alignItems: 'start',
+  }),
+  stepFourSidebar: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.lg,
+  },
+  summaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: SPACING.sm,
+  },
+  summaryItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  summaryLabel: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+  },
+  summaryValue: {
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    wordBreak: 'break-word',
   },
   // Page selection thumbnails
   pageThumbGrid: {

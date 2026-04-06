@@ -2,7 +2,7 @@
 // USE PROPOSAL GENERATOR HOOK
 // ============================================
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { proposalService } from '../services/proposalService';
@@ -29,12 +29,31 @@ const DEFAULT_PAGE1_TEXT_CONFIG = {
 };
 
 const DEFAULT_PAGE13_TEXT_CONFIG = {
-  discountedRate: { x: 0.2454, y: 0.4125, fontSize: 20, color: '#FFFFFF' },
-  standardRate: { x: 0.2454, y: 0.4125, fontSize: 20, color: 'rgba(255,255,255,0.6)' },
+  discountedRate: { x: 0.2454, y: 0.3326, fontSize: 20, color: '#FFFFFF' },
+  standardRate: { x: 0.2454, y: 0.3824, fontSize: 20, color: 'rgba(255,255,255,0.6)' },
   lumpsumDiscountedRate: { x: 0.7549, y: 0.3326, fontSize: 20, color: '#FFFFFF' },
-  lumpsumStandardRate: { x: 0.7449, y: 0.3824, fontSize: 20, color: 'rgba(255,255,255,0.6)' },
+  lumpsumStandardRate: { x: 0.7549, y: 0.3824, fontSize: 20, color: 'rgba(255,255,255,0.6)' },
   featureList: { x: 0.1964, y: 0.7195, fontSize: 10, color: '#FFFFFF', lineHeight: 0.035 },
   strikethrough: true,
+};
+
+const STANDARD_RATE_SLABS = [
+  { maxStudents: 30, startingPrice: '2,000' },
+  { maxStudents: 50, startingPrice: '1,300' },
+  { maxStudents: 80, startingPrice: '800' },
+  { maxStudents: 120, startingPrice: '700' },
+  { maxStudents: 150, startingPrice: '700' },
+];
+
+const getSuggestedStandardRateFromStrength = (expectedStrength) => {
+  const normalizedStrength = Number.parseInt(expectedStrength, 10);
+
+  if (!Number.isFinite(normalizedStrength) || normalizedStrength <= 0) {
+    return '';
+  }
+
+  const matchedSlab = STANDARD_RATE_SLABS.find(({ maxStudents }) => normalizedStrength <= maxStudents);
+  return matchedSlab?.startingPrice || '';
 };
 
 export const useProposalGenerator = () => {
@@ -46,10 +65,53 @@ export const useProposalGenerator = () => {
   const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [schoolName, setSchoolName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
-  const [standardRate, setStandardRate] = useState('2,500');
-  const [discountedRate, setDiscountedRate] = useState('1,000');
-  const [lumpsumStandardRate, setLumpsumStandardRate] = useState('50,000');
-  const [lumpsumDiscountedRate, setLumpsumDiscountedRate] = useState('35,000');
+  const [expectedStrength, setExpectedStrength] = useState('');
+  const [standardRate, setStandardRate] = useState('');
+  const [discountedRate, setDiscountedRate] = useState('');
+  const [lumpsumStandardRate, setLumpsumStandardRate] = useState('');
+  const [lumpsumDiscountedRate, setLumpsumDiscountedRate] = useState('');
+  const lastSuggestedStandardRateRef = useRef('');
+
+  const suggestedStandardRate = useMemo(() => {
+    return getSuggestedStandardRateFromStrength(expectedStrength);
+  }, [expectedStrength]);
+
+  const coverLineValue = useMemo(() => {
+    return [schoolName.trim(), contactPerson.trim()].filter(Boolean).join(' - ');
+  }, [schoolName, contactPerson]);
+
+  const setCoverLineValue = useCallback((value) => {
+    const rawValue = value || '';
+    const separatorIndex = rawValue.indexOf(' - ');
+
+    if (separatorIndex === -1) {
+      setSchoolName(rawValue);
+      setContactPerson('');
+      return;
+    }
+
+    setSchoolName(rawValue.slice(0, separatorIndex).trim());
+    setContactPerson(rawValue.slice(separatorIndex + 3).trim());
+  }, []);
+
+  useEffect(() => {
+    if (!expectedStrength) {
+      lastSuggestedStandardRateRef.current = '';
+      return;
+    }
+
+    const nextSuggestedRate = suggestedStandardRate || '';
+
+    setStandardRate((previousRate) => {
+      if (!previousRate || previousRate === lastSuggestedStandardRateRef.current) {
+        return nextSuggestedRate;
+      }
+
+      return previousRate;
+    });
+
+    lastSuggestedStandardRateRef.current = nextSuggestedRate;
+  }, [expectedStrength, suggestedStandardRate]);
 
   // ============================================
   // PAGE SELECTION
@@ -163,10 +225,12 @@ export const useProposalGenerator = () => {
     const leadId = lead?.id || null;
     const leadSchoolName = lead?.school_name || lead?.schoolName || lead?.name || '';
     const leadContactPerson = lead?.contact_person || lead?.contactPerson || '';
+    const leadExpectedStrength = lead?.expected_strength || lead?.expectedStrength || '';
 
     setSelectedLeadId(leadId);
     setSchoolName(leadSchoolName);
     setContactPerson(leadContactPerson);
+    setExpectedStrength(leadExpectedStrength ? String(leadExpectedStrength) : '');
   }, []);
 
   const clearLeadSelection = useCallback(() => {
@@ -203,10 +267,11 @@ export const useProposalGenerator = () => {
         lead: selectedLeadId,
         school_name: schoolName,
         contact_person: contactPerson,
-        standard_rate: `PKR ${standardRate}`,
-        discounted_rate: `PKR ${discountedRate}`,
-        lumpsum_standard_rate: `PKR ${lumpsumStandardRate}`,
-        lumpsum_discounted_rate: `PKR ${lumpsumDiscountedRate}`,
+        expected_strength: expectedStrength ? Number.parseInt(expectedStrength, 10) : null,
+        standard_rate: standardRate ? `PKR ${standardRate}` : '',
+        discounted_rate: discountedRate ? `PKR ${discountedRate}` : '',
+        lumpsum_standard_rate: lumpsumStandardRate ? `PKR ${lumpsumStandardRate}` : '',
+        lumpsum_discounted_rate: lumpsumDiscountedRate ? `PKR ${lumpsumDiscountedRate}` : '',
         page_selection: pageSelection,
         feature_items: featureItems,
       };
@@ -222,7 +287,7 @@ export const useProposalGenerator = () => {
     } finally {
       setLoading(prev => ({ ...prev, saving: false }));
     }
-  }, [selectedLeadId, schoolName, contactPerson, standardRate, discountedRate, lumpsumStandardRate, lumpsumDiscountedRate, pageSelection, featureItems, fetchProposalHistory]);
+  }, [selectedLeadId, schoolName, contactPerson, expectedStrength, standardRate, discountedRate, lumpsumStandardRate, lumpsumDiscountedRate, pageSelection, featureItems, fetchProposalHistory]);
 
   // ============================================
   // LOAD HISTORICAL PROPOSAL
@@ -234,10 +299,11 @@ export const useProposalGenerator = () => {
       setSelectedLeadId(proposal.lead);
       setSchoolName(proposal.school_name);
       setContactPerson(proposal.contact_person || '');
+      setExpectedStrength(proposal.expected_strength ? String(proposal.expected_strength) : '');
       setStandardRate((proposal.standard_rate || '').replace(/^PKR\s*/, ''));
       setDiscountedRate((proposal.discounted_rate || '').replace(/^PKR\s*/, ''));
-      setLumpsumStandardRate((proposal.lumpsum_standard_rate || '').replace(/^PKR\s*/, '') || '50,000');
-      setLumpsumDiscountedRate((proposal.lumpsum_discounted_rate || '').replace(/^PKR\s*/, '') || '35,000');
+      setLumpsumStandardRate((proposal.lumpsum_standard_rate || '').replace(/^PKR\s*/, ''));
+      setLumpsumDiscountedRate((proposal.lumpsum_discounted_rate || '').replace(/^PKR\s*/, ''));
       if (proposal.page_selection && Object.keys(proposal.page_selection).length > 0) {
         setPageSelection(proposal.page_selection);
       }
@@ -252,6 +318,25 @@ export const useProposalGenerator = () => {
     } finally {
       setLoading(prev => ({ ...prev, history: false }));
     }
+  }, []);
+
+  // ============================================
+  // CLEAR FORM
+  // ============================================
+  const clearForm = useCallback(() => {
+    setSelectedLeadId(null);
+    setSchoolName('');
+    setContactPerson('');
+    setExpectedStrength('');
+    setStandardRate('');
+    setDiscountedRate('');
+    setLumpsumStandardRate('');
+    setLumpsumDiscountedRate('');
+    setPageSelection({ ...DEFAULT_PAGE_SELECTION });
+    setFeatureItems([...DEFAULT_FEATURE_ITEMS]);
+    setPage1TextConfig({ ...DEFAULT_PAGE1_TEXT_CONFIG });
+    setPage13TextConfig({ ...DEFAULT_PAGE13_TEXT_CONFIG });
+    setSelectedHistoryProposal(null);
   }, []);
 
   // ============================================
@@ -272,25 +357,7 @@ export const useProposalGenerator = () => {
     } finally {
       setLoading(prev => ({ ...prev, deleting: false }));
     }
-  }, [selectedHistoryProposal, fetchProposalHistory]);
-
-  // ============================================
-  // CLEAR FORM
-  // ============================================
-  const clearForm = useCallback(() => {
-    setSelectedLeadId(null);
-    setSchoolName('');
-    setContactPerson('');
-    setStandardRate('2,500');
-    setDiscountedRate('1,000');
-    setLumpsumStandardRate('50,000');
-    setLumpsumDiscountedRate('35,000');
-    setPageSelection({ ...DEFAULT_PAGE_SELECTION });
-    setFeatureItems([...DEFAULT_FEATURE_ITEMS]);
-    setPage1TextConfig({ ...DEFAULT_PAGE1_TEXT_CONFIG });
-    setPage13TextConfig({ ...DEFAULT_PAGE13_TEXT_CONFIG });
-    setSelectedHistoryProposal(null);
-  }, []);
+  }, [selectedHistoryProposal, fetchProposalHistory, clearForm]);
 
   // ============================================
   // VALIDATION
@@ -302,6 +369,21 @@ export const useProposalGenerator = () => {
   const selectedPageCount = useMemo(() => {
     return Object.values(pageSelection).filter(Boolean).length;
   }, [pageSelection]);
+
+  const validateStep = useCallback((step) => {
+    switch (step) {
+      case 1:
+        return schoolName.trim().length > 0;
+      case 2:
+        return expectedStrength.trim().length > 0;
+      case 3:
+        return true;
+      case 4:
+        return schoolName.trim().length > 0 && expectedStrength.trim().length > 0 && selectedPageCount > 0;
+      default:
+        return false;
+    }
+  }, [schoolName, expectedStrength, selectedPageCount]);
 
   // ============================================
   // INITIAL FETCH
@@ -338,7 +420,10 @@ export const useProposalGenerator = () => {
     // Form state
     selectedLeadId, schoolName, setSchoolName,
     contactPerson, setContactPerson,
+    expectedStrength, setExpectedStrength,
+    coverLineValue, setCoverLineValue,
     standardRate, setStandardRate,
+    suggestedStandardRate,
     discountedRate, setDiscountedRate,
     lumpsumStandardRate, setLumpsumStandardRate,
     lumpsumDiscountedRate, setLumpsumDiscountedRate,
@@ -360,5 +445,6 @@ export const useProposalGenerator = () => {
     saveProposalToDb, clearForm,
     // State
     loading, setLoading, isFormValid, progress, setProgress,
+    validateStep,
   };
 };

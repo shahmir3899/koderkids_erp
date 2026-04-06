@@ -228,6 +228,7 @@ class ProposalOfferAdmin(admin.ModelAdmin):
         'id',
         'school_name',
         'contact_person',
+        'expected_strength',
         'standard_rate',
         'discounted_rate',
         'lumpsum_standard_rate',

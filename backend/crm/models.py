@@ -451,6 +451,7 @@ class ProposalOffer(models.Model):
     )
     school_name = models.CharField(max_length=200)
     contact_person = models.CharField(max_length=100, blank=True)
+    expected_strength = models.PositiveIntegerField(null=True, blank=True)
     standard_rate = models.CharField(max_length=50, default='PKR 2,500')
     discounted_rate = models.CharField(max_length=50, default='PKR 1,000')
     lumpsum_standard_rate = models.CharField(max_length=50, default='PKR 50,000')
