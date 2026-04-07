@@ -39,7 +39,7 @@ import { ConvertLeadModal } from '../../components/crm/ConvertLeadModal';
 import { EditLeadModal } from '../../components/crm/EditLeadModal';
 
 // CRM Services & Constants
-import { fetchLeads, deleteLead } from '../../api/services/crmService';
+import { fetchLeads, deleteLead, fetchBDMs, bulkAssignLeads } from '../../api/services/crmService';
 import { LEAD_STATUS, LEAD_SOURCES } from '../../utils/constants';
 
 // Status sort priority: active leads first, dead leads last
@@ -206,7 +206,7 @@ function LeadsListPage() {
     },
     cardsGrid: {
       display: 'grid',
-      gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+      gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(2, 1fr)',
       gap: SPACING.lg,
       alignItems: 'start',
     },
@@ -249,10 +249,16 @@ function LeadsListPage() {
   const [loading, setLoading] = useState({
     leads: true,
     delete: false,
+    bulkAssign: false,
   });
 
   // Error State
   const [error, setError] = useState(null);
+
+  // Bulk Selection State (Admin only)
+  const [selectedLeadIds, setSelectedLeadIds] = useState(new Set());
+  const [bdms, setBdms] = useState([]);
+  const [bulkBdmId, setBulkBdmId] = useState('');
 
   // ============================================
   // DATA FETCHING
@@ -438,6 +444,60 @@ function LeadsListPage() {
 
   // User role for card actions
   const userRole = localStorage.getItem('role');
+  const isAdmin = userRole === 'Admin';
+
+  // Load BDMs for bulk assignment dropdown (Admin only)
+  useEffect(() => {
+    if (isAdmin) {
+      fetchBDMs().then(setBdms).catch(() => setBdms([]));
+    }
+  }, [isAdmin]);
+
+  // Clear invalid selections when filtered leads change
+  useEffect(() => {
+    setSelectedLeadIds((prev) => {
+      const visibleIds = new Set(leads.map((l) => l.id));
+      const next = new Set([...prev].filter((id) => visibleIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [leads]);
+
+  const toggleLeadSelect = useCallback((leadId) => {
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(leadId)) {
+        next.delete(leadId);
+      } else {
+        next.add(leadId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedLeadIds((prev) => {
+      const visibleIds = leads.map((l) => l.id);
+      const allSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.has(id));
+      return allSelected ? new Set() : new Set(visibleIds);
+    });
+  }, [leads]);
+
+  const handleBulkAssign = useCallback(async () => {
+    if (selectedLeadIds.size === 0 || !bulkBdmId) return;
+    setLoading((prev) => ({ ...prev, bulkAssign: true }));
+    try {
+      const result = await bulkAssignLeads([...selectedLeadIds], Number(bulkBdmId));
+      toast.success(result.message || `${result.updated_count} lead(s) reassigned`);
+      setSelectedLeadIds(new Set());
+      setBulkBdmId('');
+      loadLeads();
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Bulk assignment failed';
+      toast.error(msg);
+    } finally {
+      setLoading((prev) => ({ ...prev, bulkAssign: false }));
+    }
+  }, [selectedLeadIds, bulkBdmId, loadLeads]);
 
   // ============================================
   // RENDER
@@ -550,6 +610,78 @@ function LeadsListPage() {
         )}
       </div>
 
+      {/* Bulk Action Bar (Admin only) */}
+      {isAdmin && selectedLeadIds.size > 0 && (
+        <div style={{
+          ...MIXINS.glassmorphicCard,
+          borderRadius: BORDER_RADIUS.lg,
+          padding: `${SPACING.sm} ${SPACING.lg}`,
+          marginBottom: SPACING.lg,
+          display: 'flex',
+          alignItems: 'center',
+          gap: SPACING.md,
+          flexWrap: 'wrap',
+          border: '1px solid rgba(139, 92, 246, 0.4)',
+        }}>
+          <span style={{ color: COLORS.text.white, fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semibold }}>
+            {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selected
+          </span>
+          <select
+            value={bulkBdmId}
+            onChange={(e) => setBulkBdmId(e.target.value)}
+            style={{ ...responsiveStyles.select, width: 'auto', minWidth: '180px' }}
+          >
+            <option value="" style={responsiveStyles.option}>Select BDM...</option>
+            {bdms.map((bdm) => (
+              <option key={bdm.id} value={bdm.id} style={responsiveStyles.option}>
+                {bdm.full_name || bdm.username}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleBulkAssign}
+            disabled={!bulkBdmId || loading.bulkAssign}
+            style={{
+              ...responsiveStyles.primaryButton,
+              width: 'auto',
+              opacity: (!bulkBdmId || loading.bulkAssign) ? 0.5 : 1,
+              cursor: (!bulkBdmId || loading.bulkAssign) ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {loading.bulkAssign ? 'Assigning...' : 'Assign Selected'}
+          </button>
+          <button
+            onClick={() => { setSelectedLeadIds(new Set()); setBulkBdmId(''); }}
+            style={{
+              ...styles.clearFiltersButton,
+              color: COLORS.text.whiteMedium,
+            }}
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
+      {/* Select All toggle (Admin only, when leads visible) */}
+      {isAdmin && !loading.leads && leads.length > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: SPACING.sm,
+          marginBottom: SPACING.md,
+        }}>
+          <input
+            type="checkbox"
+            checked={leads.length > 0 && leads.every((l) => selectedLeadIds.has(l.id))}
+            onChange={toggleSelectAll}
+            style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#8B5CF6' }}
+          />
+          <span style={{ color: COLORS.text.whiteMedium, fontSize: FONT_SIZES.sm }}>
+            Select all ({leads.length})
+          </span>
+        </div>
+      )}
+
       {/* Lead Cards Grid */}
       {loading.leads ? (
         <LoadingSpinner />
@@ -567,8 +699,11 @@ function LeadsListPage() {
               onView={handleViewDetails}
               onConvert={handleConvertClick}
               onDelete={handleDeleteClick}
-              isAdmin={userRole === 'Admin'}
+              isAdmin={isAdmin}
               isMobile={isMobile}
+              selectable={isAdmin}
+              selected={selectedLeadIds.has(lead.id)}
+              onToggleSelect={toggleLeadSelect}
             />
           ))}
         </div>

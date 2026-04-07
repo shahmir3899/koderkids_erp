@@ -3,7 +3,7 @@
 # ============================================
 
 from django.contrib import admin
-from .models import Lead, Activity, BDMTarget, ProposalOffer
+from .models import Lead, Activity, BDMTarget, ProposalOffer, ProposalRateSlab
 
 
 @admin.register(Lead)
@@ -239,3 +239,20 @@ class ProposalOfferAdmin(admin.ModelAdmin):
     list_filter = ['created_at', 'generated_by']
     search_fields = ['school_name', 'contact_person']
     readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(ProposalRateSlab)
+class ProposalRateSlabAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'pricing_mode',
+        'min_students',
+        'max_students',
+        'suggested_standard_rate',
+        'suggested_discounted_rate',
+        'is_active',
+        'sort_order',
+    ]
+    list_filter = ['pricing_mode', 'is_active']
+    search_fields = ['pricing_mode']
+    ordering = ['pricing_mode', 'sort_order', 'min_students']

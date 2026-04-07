@@ -44,4 +44,52 @@ export const proposalService = {
       { headers: getAuthHeaders() }
     );
   },
+
+  fetchRateSlabs: async () => {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/crm/proposal-rate-slabs/suggestions/`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  fetchAllRateSlabs: async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.mode) params.append('mode', filters.mode);
+    if (typeof filters.is_active !== 'undefined') {
+      params.append('is_active', String(filters.is_active));
+    }
+
+    const query = params.toString();
+    const response = await axios.get(
+      `${API_BASE_URL}/api/crm/proposal-rate-slabs/${query ? `?${query}` : ''}`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  createRateSlab: async (payload) => {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/crm/proposal-rate-slabs/`,
+      payload,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  updateRateSlab: async (slabId, payload) => {
+    const response = await axios.patch(
+      `${API_BASE_URL}/api/crm/proposal-rate-slabs/${slabId}/`,
+      payload,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  deleteRateSlab: async (slabId) => {
+    await axios.delete(
+      `${API_BASE_URL}/api/crm/proposal-rate-slabs/${slabId}/`,
+      { headers: getAuthHeaders() }
+    );
+  },
 };

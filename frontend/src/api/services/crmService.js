@@ -336,6 +336,31 @@ export const deleteActivity = async (activityId) => {
   }
 };
 
+/**
+ * Bulk assign leads to a BDM (Admin only)
+ * @param {Array<number>} leadIds - Array of lead IDs
+ * @param {number} bdmId - Target BDM user ID
+ * @returns {Promise<Object>} Result with updated_count and message
+ */
+export const bulkAssignLeads = async (leadIds, bdmId) => {
+  try {
+    console.log(`📦 Bulk assigning ${leadIds.length} leads to BDM ID: ${bdmId}`);
+
+    const response = await axios.post(
+      `${API_URL}${CRM_BASE}/leads/bulk-assign/`,
+      { lead_ids: leadIds, bdm_id: bdmId },
+      { headers: getAuthHeaders() }
+    );
+
+    console.log('✅ Bulk assignment result:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error bulk assigning leads:', error.response?.data || error.message);
+    handleAuthError(error);
+    throw error;
+  }
+};
+
 // ============================================
 // BDM OPERATIONS
 // ============================================

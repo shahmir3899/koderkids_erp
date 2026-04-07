@@ -2,14 +2,14 @@
 // USE PROPOSAL GENERATOR HOOK
 // ============================================
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { proposalService } from '../services/proposalService';
 import { fetchLeads, fetchLeadById } from '../api/services/crmService';
 
 const DEFAULT_PAGE_SELECTION = {
-  1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true,
+  1: true, 2: true, 3: true, 4: true, 5: false, 6: false, 7: true,
   8: true, 9: true, 10: true, 11: true, 12: true, 13: true, 14: true,
 };
 
@@ -37,23 +37,41 @@ const DEFAULT_PAGE13_TEXT_CONFIG = {
   strikethrough: true,
 };
 
-const STANDARD_RATE_SLABS = [
-  { maxStudents: 30, startingPrice: '2,000' },
-  { maxStudents: 50, startingPrice: '1,300' },
-  { maxStudents: 80, startingPrice: '800' },
-  { maxStudents: 120, startingPrice: '700' },
-  { maxStudents: 150, startingPrice: '700' },
-];
+const DEFAULT_RATE_SLABS = {
+  per_student: [
+    { min_students: 1, max_students: 30, suggested_standard_rate: 2000, suggested_discounted_rate: 1000, sort_order: 1 },
+    { min_students: 31, max_students: 50, suggested_standard_rate: 1300, suggested_discounted_rate: 1000, sort_order: 2 },
+    { min_students: 51, max_students: 80, suggested_standard_rate: 800, suggested_discounted_rate: 700, sort_order: 3 },
+    { min_students: 81, max_students: 120, suggested_standard_rate: 700, suggested_discounted_rate: 600, sort_order: 4 },
+    { min_students: 121, max_students: 150, suggested_standard_rate: 700, suggested_discounted_rate: 600, sort_order: 5 },
+  ],
+  lumpsum: [
+    { min_students: 1, max_students: 30, suggested_standard_rate: 50000, suggested_discounted_rate: 35000, sort_order: 1 },
+    { min_students: 31, max_students: 50, suggested_standard_rate: 50000, suggested_discounted_rate: 35000, sort_order: 2 },
+    { min_students: 51, max_students: 80, suggested_standard_rate: 50000, suggested_discounted_rate: 35000, sort_order: 3 },
+    { min_students: 81, max_students: 120, suggested_standard_rate: 50000, suggested_discounted_rate: 35000, sort_order: 4 },
+    { min_students: 121, max_students: 150, suggested_standard_rate: 50000, suggested_discounted_rate: 35000, sort_order: 5 },
+  ],
+};
 
-const getSuggestedStandardRateFromStrength = (expectedStrength) => {
+const normalizeNumericRate = (value) => {
+  if (value === null || value === undefined || value === '') return '';
+  const parsed = Number.parseInt(String(value).replace(/,/g, ''), 10);
+  return Number.isFinite(parsed) ? String(parsed) : '';
+};
+
+const findMatchingSlab = (slabs, expectedStrength) => {
   const normalizedStrength = Number.parseInt(expectedStrength, 10);
-
-  if (!Number.isFinite(normalizedStrength) || normalizedStrength <= 0) {
-    return '';
+  if (!Number.isFinite(normalizedStrength) || normalizedStrength <= 0 || !Array.isArray(slabs)) {
+    return null;
   }
 
-  const matchedSlab = STANDARD_RATE_SLABS.find(({ maxStudents }) => normalizedStrength <= maxStudents);
-  return matchedSlab?.startingPrice || '';
+  return slabs.find((slab) => {
+    const min = Number.parseInt(slab.min_students, 10);
+    const max = Number.parseInt(slab.max_students, 10);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return false;
+    return normalizedStrength >= min && normalizedStrength <= max;
+  }) || null;
 };
 
 export const useProposalGenerator = () => {
@@ -70,11 +88,22 @@ export const useProposalGenerator = () => {
   const [discountedRate, setDiscountedRate] = useState('');
   const [lumpsumStandardRate, setLumpsumStandardRate] = useState('');
   const [lumpsumDiscountedRate, setLumpsumDiscountedRate] = useState('');
-  const lastSuggestedStandardRateRef = useRef('');
+  const [rateSlabs, setRateSlabs] = useState({ ...DEFAULT_RATE_SLABS });
+  const [slabLoading, setSlabLoading] = useState(false);
+  const [slabSaving, setSlabSaving] = useState(false);
 
-  const suggestedStandardRate = useMemo(() => {
-    return getSuggestedStandardRateFromStrength(expectedStrength);
-  }, [expectedStrength]);
+  const matchedPerStudentSlab = useMemo(() => {
+    return findMatchingSlab(rateSlabs.per_student, expectedStrength);
+  }, [rateSlabs.per_student, expectedStrength]);
+
+  const matchedLumpsumSlab = useMemo(() => {
+    return findMatchingSlab(rateSlabs.lumpsum, expectedStrength);
+  }, [rateSlabs.lumpsum, expectedStrength]);
+
+  const suggestedStandardRate = useMemo(() => normalizeNumericRate(matchedPerStudentSlab?.suggested_standard_rate), [matchedPerStudentSlab]);
+  const suggestedDiscountedRate = useMemo(() => normalizeNumericRate(matchedPerStudentSlab?.suggested_discounted_rate), [matchedPerStudentSlab]);
+  const suggestedLumpsumStandardRate = useMemo(() => normalizeNumericRate(matchedLumpsumSlab?.suggested_standard_rate), [matchedLumpsumSlab]);
+  const suggestedLumpsumDiscountedRate = useMemo(() => normalizeNumericRate(matchedLumpsumSlab?.suggested_discounted_rate), [matchedLumpsumSlab]);
 
   const coverLineValue = useMemo(() => {
     return [schoolName.trim(), contactPerson.trim()].filter(Boolean).join(' - ');
@@ -96,22 +125,19 @@ export const useProposalGenerator = () => {
 
   useEffect(() => {
     if (!expectedStrength) {
-      lastSuggestedStandardRateRef.current = '';
       return;
     }
 
-    const nextSuggestedRate = suggestedStandardRate || '';
+    const nextPerStudentStandard = suggestedStandardRate || '';
+    const nextPerStudentDiscounted = suggestedDiscountedRate || '';
+    const nextLumpsumStandard = suggestedLumpsumStandardRate || '';
+    const nextLumpsumDiscounted = suggestedLumpsumDiscountedRate || '';
 
-    setStandardRate((previousRate) => {
-      if (!previousRate || previousRate === lastSuggestedStandardRateRef.current) {
-        return nextSuggestedRate;
-      }
-
-      return previousRate;
-    });
-
-    lastSuggestedStandardRateRef.current = nextSuggestedRate;
-  }, [expectedStrength, suggestedStandardRate]);
+    setStandardRate(nextPerStudentStandard);
+    setDiscountedRate(nextPerStudentDiscounted);
+    setLumpsumStandardRate(nextLumpsumStandard);
+    setLumpsumDiscountedRate(nextLumpsumDiscounted);
+  }, [expectedStrength, suggestedStandardRate, suggestedDiscountedRate, suggestedLumpsumStandardRate, suggestedLumpsumDiscountedRate]);
 
   // ============================================
   // PAGE SELECTION
@@ -120,6 +146,26 @@ export const useProposalGenerator = () => {
 
   const togglePage = useCallback((pageNum) => {
     setPageSelection(prev => ({ ...prev, [pageNum]: !prev[pageNum] }));
+  }, []);
+
+  const selectAllPages = useCallback(() => {
+    const allSelected = Object.keys(DEFAULT_PAGE_SELECTION).reduce((acc, pageNum) => {
+      acc[pageNum] = true;
+      return acc;
+    }, {});
+    setPageSelection(allSelected);
+  }, []);
+
+  const unselectAllPages = useCallback(() => {
+    const allUnselected = Object.keys(DEFAULT_PAGE_SELECTION).reduce((acc, pageNum) => {
+      acc[pageNum] = false;
+      return acc;
+    }, {});
+    setPageSelection(allUnselected);
+  }, []);
+
+  const resetDefaultPageSelection = useCallback(() => {
+    setPageSelection({ ...DEFAULT_PAGE_SELECTION });
   }, []);
 
   // ============================================
@@ -178,6 +224,73 @@ export const useProposalGenerator = () => {
   const updateFeatureItem = useCallback((index, text) => {
     setFeatureItems(prev => prev.map((item, i) => i === index ? text : item));
   }, []);
+
+  // ============================================
+  // RATE SLABS
+  // ============================================
+  const loadRateSlabs = useCallback(async () => {
+    setSlabLoading(true);
+    try {
+      const data = await proposalService.fetchRateSlabs();
+      setRateSlabs({
+        per_student: Array.isArray(data?.per_student) && data.per_student.length > 0 ? data.per_student : DEFAULT_RATE_SLABS.per_student,
+        lumpsum: Array.isArray(data?.lumpsum) && data.lumpsum.length > 0 ? data.lumpsum : DEFAULT_RATE_SLABS.lumpsum,
+      });
+    } catch (err) {
+      console.error('Error fetching rate slabs:', err);
+      setRateSlabs({ ...DEFAULT_RATE_SLABS });
+    } finally {
+      setSlabLoading(false);
+    }
+  }, []);
+
+  const createRateSlab = useCallback(async (payload) => {
+    setSlabSaving(true);
+    try {
+      const created = await proposalService.createRateSlab(payload);
+      await loadRateSlabs();
+      toast.success('Rate slab created');
+      return created;
+    } catch (err) {
+      console.error('Error creating rate slab:', err);
+      toast.error(err?.response?.data?.detail || 'Failed to create slab');
+      return null;
+    } finally {
+      setSlabSaving(false);
+    }
+  }, [loadRateSlabs]);
+
+  const updateRateSlab = useCallback(async (slabId, payload) => {
+    setSlabSaving(true);
+    try {
+      const updated = await proposalService.updateRateSlab(slabId, payload);
+      await loadRateSlabs();
+      toast.success('Rate slab updated');
+      return updated;
+    } catch (err) {
+      console.error('Error updating rate slab:', err);
+      toast.error(err?.response?.data?.detail || 'Failed to update slab');
+      return null;
+    } finally {
+      setSlabSaving(false);
+    }
+  }, [loadRateSlabs]);
+
+  const deleteRateSlab = useCallback(async (slabId) => {
+    setSlabSaving(true);
+    try {
+      await proposalService.deleteRateSlab(slabId);
+      await loadRateSlabs();
+      toast.success('Rate slab deleted');
+      return true;
+    } catch (err) {
+      console.error('Error deleting rate slab:', err);
+      toast.error(err?.response?.data?.detail || 'Failed to delete slab');
+      return false;
+    } finally {
+      setSlabSaving(false);
+    }
+  }, [loadRateSlabs]);
 
   // ============================================
   // LEADS STATE
@@ -304,9 +417,10 @@ export const useProposalGenerator = () => {
       setDiscountedRate((proposal.discounted_rate || '').replace(/^PKR\s*/, ''));
       setLumpsumStandardRate((proposal.lumpsum_standard_rate || '').replace(/^PKR\s*/, ''));
       setLumpsumDiscountedRate((proposal.lumpsum_discounted_rate || '').replace(/^PKR\s*/, ''));
-      if (proposal.page_selection && Object.keys(proposal.page_selection).length > 0) {
-        setPageSelection(proposal.page_selection);
-      }
+      setPageSelection({
+        ...DEFAULT_PAGE_SELECTION,
+        ...(proposal.page_selection || {}),
+      });
       if (Array.isArray(proposal.feature_items) && proposal.feature_items.length > 0) {
         setFeatureItems(proposal.feature_items);
       }
@@ -379,6 +493,8 @@ export const useProposalGenerator = () => {
       case 3:
         return true;
       case 4:
+        return true;
+      case 5:
         return schoolName.trim().length > 0 && expectedStrength.trim().length > 0 && selectedPageCount > 0;
       default:
         return false;
@@ -391,7 +507,8 @@ export const useProposalGenerator = () => {
   useEffect(() => {
     loadLeads();
     fetchProposalHistory();
-  }, [loadLeads, fetchProposalHistory]);
+    loadRateSlabs();
+  }, [loadLeads, fetchProposalHistory, loadRateSlabs]);
 
   // ============================================
   // AUTO-SELECT LEAD FROM URL PARAM (?leadId=X)
@@ -424,11 +541,24 @@ export const useProposalGenerator = () => {
     coverLineValue, setCoverLineValue,
     standardRate, setStandardRate,
     suggestedStandardRate,
+    suggestedDiscountedRate,
     discountedRate, setDiscountedRate,
+    suggestedLumpsumStandardRate,
     lumpsumStandardRate, setLumpsumStandardRate,
+    suggestedLumpsumDiscountedRate,
     lumpsumDiscountedRate, setLumpsumDiscountedRate,
+    matchedPerStudentSlab,
+    matchedLumpsumSlab,
+    rateSlabs,
+    slabLoading,
+    slabSaving,
+    loadRateSlabs,
+    createRateSlab,
+    updateRateSlab,
+    deleteRateSlab,
     // Page selection
     pageSelection, togglePage, selectedPageCount,
+    selectAllPages, unselectAllPages, resetDefaultPageSelection,
     // Text config
     page1TextConfig, page13TextConfig,
     updatePage1TextPos, updatePage13TextPos,

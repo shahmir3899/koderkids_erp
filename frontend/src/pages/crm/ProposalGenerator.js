@@ -431,11 +431,19 @@ const ProposalGenerator = () => {
     coverLineValue, setCoverLineValue,
     expectedStrength, setExpectedStrength,
     suggestedStandardRate,
+    suggestedDiscountedRate,
     standardRate, setStandardRate,
     discountedRate, setDiscountedRate,
+    suggestedLumpsumStandardRate,
     lumpsumStandardRate, setLumpsumStandardRate,
+    suggestedLumpsumDiscountedRate,
     lumpsumDiscountedRate, setLumpsumDiscountedRate,
+    matchedPerStudentSlab,
+    matchedLumpsumSlab,
+    rateSlabs, slabLoading, slabSaving,
+    createRateSlab, updateRateSlab, deleteRateSlab,
     pageSelection, togglePage, selectedPageCount,
+    selectAllPages, unselectAllPages, resetDefaultPageSelection,
     page1TextConfig, page13TextConfig,
     updatePage1TextPos, updatePage13TextPos,
     updateTextColor, updateFontSize, toggleStrikethrough,
@@ -448,16 +456,194 @@ const ProposalGenerator = () => {
     validateStep,
   } = useProposalGenerator();
 
-  const stepTitles = ['Cover Details', 'Per Student Model', 'Lumpsum Model', 'Preview & Download'];
+  const stepTitles = ['Cover Details', 'Per Student Model', 'Lumpsum Model', 'Features Preview', 'Preview & Download'];
 
   const stepDescriptions = [
     'Create the combined cover line that will appear on page 1.',
     'Set discounted and standard pricing for the per-student model.',
     'Set discounted and standard pricing for the lumpsum model.',
+    'Fine-tune the feature points list on page 13 with a dedicated preview.',
     'Review the preview, adjust placement, and generate the final PDF.',
   ];
 
   const formatSummaryAmount = (value) => (value ? `PKR ${value}` : 'Please fill Amount here');
+  const userRole = localStorage.getItem('role') || '';
+  const isAdmin = userRole === 'Admin';
+  const [slabDraftByMode, setSlabDraftByMode] = useState({
+    per_student: {
+      min_students: '1',
+      max_students: '30',
+      suggested_standard_rate: '',
+      suggested_discounted_rate: '',
+      sort_order: '1',
+      is_active: true,
+    },
+    lumpsum: {
+      min_students: '1',
+      max_students: '30',
+      suggested_standard_rate: '',
+      suggested_discounted_rate: '',
+      sort_order: '1',
+      is_active: true,
+    },
+  });
+  const [editingSlabIdByMode, setEditingSlabIdByMode] = useState({
+    per_student: null,
+    lumpsum: null,
+  });
+
+  const resetSlabDraft = (mode) => {
+    setSlabDraftByMode((prev) => ({
+      ...prev,
+      [mode]: {
+        min_students: '1',
+        max_students: '30',
+        suggested_standard_rate: '',
+        suggested_discounted_rate: '',
+        sort_order: '1',
+        is_active: true,
+      },
+    }));
+    setEditingSlabIdByMode((prev) => ({ ...prev, [mode]: null }));
+  };
+
+  const handleSlabDraftChange = (mode, field, value) => {
+    setSlabDraftByMode((prev) => ({
+      ...prev,
+      [mode]: { ...prev[mode], [field]: value },
+    }));
+  };
+
+  const startSlabEdit = (mode, slab) => {
+    setEditingSlabIdByMode((prev) => ({ ...prev, [mode]: slab.id }));
+    setSlabDraftByMode((prev) => ({
+      ...prev,
+      [mode]: {
+        min_students: String(slab.min_students ?? 1),
+        max_students: String(slab.max_students ?? 1),
+        suggested_standard_rate: String(slab.suggested_standard_rate ?? ''),
+        suggested_discounted_rate: slab.suggested_discounted_rate ? String(slab.suggested_discounted_rate) : '',
+        sort_order: String(slab.sort_order ?? 0),
+        is_active: Boolean(slab.is_active),
+      },
+    }));
+  };
+
+  const saveSlabDraft = async (mode) => {
+    const draft = slabDraftByMode[mode];
+    const payload = {
+      pricing_mode: mode,
+      min_students: Number.parseInt(draft.min_students, 10),
+      max_students: Number.parseInt(draft.max_students, 10),
+      suggested_standard_rate: Number.parseInt(draft.suggested_standard_rate, 10),
+      suggested_discounted_rate: draft.suggested_discounted_rate
+        ? Number.parseInt(draft.suggested_discounted_rate, 10)
+        : null,
+      sort_order: Number.parseInt(draft.sort_order, 10) || 0,
+      is_active: Boolean(draft.is_active),
+    };
+
+    if (!Number.isFinite(payload.min_students) || !Number.isFinite(payload.max_students) || !Number.isFinite(payload.suggested_standard_rate)) {
+      toast.error('Please fill valid slab range and standard rate');
+      return;
+    }
+
+    if (editingSlabIdByMode[mode]) {
+      const updated = await updateRateSlab(editingSlabIdByMode[mode], payload);
+      if (updated) resetSlabDraft(mode);
+      return;
+    }
+
+    const created = await createRateSlab(payload);
+    if (created) resetSlabDraft(mode);
+  };
+
+  const removeSlab = async (slabId) => {
+    if (!window.confirm('Delete this slab?')) return;
+    await deleteRateSlab(slabId);
+  };
+
+  const renderSlabTable = (mode, slabs, matchedSlab) => (
+    <div style={staticStyles.slabPanel}>
+      <div style={staticStyles.slabPanelHeader}>
+        <span style={staticStyles.slabPanelTitle}>Live Slabs ({mode === 'per_student' ? 'Per Student' : 'Lumpsum'})</span>
+        {slabLoading && <span style={staticStyles.slabMuted}>Loading...</span>}
+      </div>
+      {Array.isArray(slabs) && slabs.length > 0 ? (
+        <div style={staticStyles.slabTableWrap}>
+          <table style={staticStyles.slabTable}>
+            <thead>
+              <tr>
+                <th style={staticStyles.slabTh}>Range</th>
+                <th style={staticStyles.slabTh}>Std</th>
+                <th style={staticStyles.slabTh}>Disc</th>
+                <th style={staticStyles.slabTh}>Status</th>
+                {isAdmin && <th style={staticStyles.slabTh}>Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {slabs.map((slab) => {
+                const isMatched = matchedSlab?.id === slab.id;
+                return (
+                  <tr key={slab.id || `${mode}-${slab.min_students}-${slab.max_students}`} style={isMatched ? staticStyles.slabRowActive : undefined}>
+                    <td style={staticStyles.slabTd}>{slab.min_students}-{slab.max_students}</td>
+                    <td style={staticStyles.slabTd}>PKR {slab.suggested_standard_rate}</td>
+                    <td style={staticStyles.slabTd}>{slab.suggested_discounted_rate ? `PKR ${slab.suggested_discounted_rate}` : '-'}</td>
+                    <td style={staticStyles.slabTd}>{slab.is_active === false ? 'Inactive' : 'Active'}</td>
+                    {isAdmin && (
+                      <td style={staticStyles.slabTd}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button type="button" onClick={() => startSlabEdit(mode, slab)} style={staticStyles.slabMiniBtn}>Edit</button>
+                          {slab.id && (
+                            <button type="button" onClick={() => removeSlab(slab.id)} style={staticStyles.slabDangerBtn}>Delete</button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p style={staticStyles.slabMuted}>No slabs configured.</p>
+      )}
+    </div>
+  );
+
+  const renderSlabAdminEditor = (mode) => {
+    if (!isAdmin) return null;
+
+    const draft = slabDraftByMode[mode];
+    return (
+      <div style={staticStyles.slabPanel}>
+        <div style={staticStyles.slabPanelHeader}>
+          <span style={staticStyles.slabPanelTitle}>{editingSlabIdByMode[mode] ? 'Edit Slab' : 'Add Slab'}</span>
+          {slabSaving && <span style={staticStyles.slabMuted}>Saving...</span>}
+        </div>
+        <div style={staticStyles.slabFormGrid(isMobile)}>
+          <input type="number" min="1" value={draft.min_students} onChange={(e) => handleSlabDraftChange(mode, 'min_students', e.target.value)} placeholder="Min" style={rs.input} />
+          <input type="number" min="1" value={draft.max_students} onChange={(e) => handleSlabDraftChange(mode, 'max_students', e.target.value)} placeholder="Max" style={rs.input} />
+          <input type="number" min="1" value={draft.suggested_standard_rate} onChange={(e) => handleSlabDraftChange(mode, 'suggested_standard_rate', e.target.value)} placeholder="Standard" style={rs.input} />
+          <input type="number" min="0" value={draft.suggested_discounted_rate} onChange={(e) => handleSlabDraftChange(mode, 'suggested_discounted_rate', e.target.value)} placeholder="Discounted" style={rs.input} />
+          <input type="number" min="0" value={draft.sort_order} onChange={(e) => handleSlabDraftChange(mode, 'sort_order', e.target.value)} placeholder="Sort" style={rs.input} />
+          <label style={staticStyles.slabCheckboxRow}>
+            <input type="checkbox" checked={draft.is_active} onChange={(e) => handleSlabDraftChange(mode, 'is_active', e.target.checked)} />
+            <span style={staticStyles.slabMuted}>Active</span>
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: SPACING.xs, flexWrap: 'wrap', marginTop: SPACING.xs }}>
+          <button type="button" onClick={() => saveSlabDraft(mode)} style={staticStyles.addItemBtn}>
+            {editingSlabIdByMode[mode] ? 'Update Slab' : 'Create Slab'}
+          </button>
+          {editingSlabIdByMode[mode] && (
+            <button type="button" onClick={() => resetSlabDraft(mode)} style={staticStyles.slabMiniBtn}>Cancel Edit</button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderPreview = useCallback(async () => {
     const canvas = previewCanvasRef.current;
@@ -584,7 +770,7 @@ const ProposalGenerator = () => {
       return;
     }
 
-    setCurrentStep((prev) => Math.min(prev + 1, 4));
+    setCurrentStep((prev) => Math.min(prev + 1, 5));
   }, [currentStep, validateStep]);
 
   const handleBack = useCallback(() => {
@@ -671,6 +857,12 @@ const ProposalGenerator = () => {
       ];
     }
 
+    if (currentStep === 4) {
+      return [
+        { key: 'featureList', label: 'Feature List' },
+      ];
+    }
+
     return activePreviewTab === 'page1'
       ? [{ key: 'coverLine', label: 'Cover Line (School - Focal Person)' }]
       : [
@@ -700,6 +892,18 @@ const ProposalGenerator = () => {
       setActiveField((prev) => (
         prev === 'lumpsumStandardRate' ? prev : 'lumpsumDiscountedRate'
       ));
+      return;
+    }
+
+    if (currentStep === 4) {
+      setActivePreviewTab('page13');
+      setActiveField('featureList');
+      return;
+    }
+
+    if (currentStep === 5) {
+      setActivePreviewTab('page1');
+      setActiveField('coverLine');
       return;
     }
 
@@ -817,7 +1021,7 @@ const ProposalGenerator = () => {
                 style={staticStyles.colorInput}
               />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs, flex: 1, minWidth: 120 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs, flex: 1, minWidth: isMobile ? 80 : 120 }}>
               <label style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs, whiteSpace: 'nowrap' }}>
                 Size: {activeConfig?.fontSize || 20}
               </label>
@@ -929,9 +1133,14 @@ const ProposalGenerator = () => {
               ? `Starting price suggestion applied from slab: PKR ${suggestedStandardRate}`
               : 'Enter expected strength to prefill the standard rate from the slab table.'}
           </p>
+          <p style={staticStyles.helperText}>
+            {suggestedDiscountedRate
+              ? `Discounted rate suggestion from slab: PKR ${suggestedDiscountedRate}`
+              : 'Discounted suggestion will appear if configured in slabs.'}
+          </p>
         </div>
 
-        <div style={staticStyles.twoColumnGrid}>
+        <div style={staticStyles.twoColumnGrid(isMobile, isTablet)}>
           <div style={staticStyles.fieldGroup}>
             <label style={staticStyles.label}>Discounted Rate</label>
             <div style={{ position: 'relative' }}>
@@ -960,6 +1169,9 @@ const ProposalGenerator = () => {
             </div>
           </div>
         </div>
+
+        {renderSlabTable('per_student', rateSlabs.per_student, matchedPerStudentSlab)}
+        {renderSlabAdminEditor('per_student')}
       </div>
 
       {renderPreviewWorkspace({
@@ -979,7 +1191,33 @@ const ProposalGenerator = () => {
           Set the discounted and standard rates shown in the lumpsum pricing column.
         </p>
 
-        <div style={staticStyles.twoColumnGrid}>
+        <div style={staticStyles.fieldGroup}>
+          <label style={staticStyles.label}>Expected Strength</label>
+          <input
+            type="number"
+            min="1"
+            value={expectedStrength}
+            onChange={(e) => setExpectedStrength(e.target.value)}
+            placeholder="Carries from Per Student step"
+            style={rs.input}
+          />
+          <p style={staticStyles.helperText}>
+            Uses the same expected strength as Step 2 and updates both steps together.
+          </p>
+        </div>
+
+        <p style={staticStyles.helperText}>
+          {suggestedLumpsumStandardRate
+            ? `Lumpsum standard suggestion from slab: PKR ${suggestedLumpsumStandardRate}`
+            : 'Enter expected strength to match a lumpsum slab.'}
+        </p>
+        <p style={staticStyles.helperText}>
+          {suggestedLumpsumDiscountedRate
+            ? `Lumpsum discounted suggestion from slab: PKR ${suggestedLumpsumDiscountedRate}`
+            : 'Lumpsum discounted suggestion will appear if configured.'}
+        </p>
+
+        <div style={staticStyles.twoColumnGrid(isMobile, isTablet)}>
           <div style={staticStyles.fieldGroup}>
             <label style={staticStyles.label}>Lumpsum Discounted Rate</label>
             <div style={{ position: 'relative' }}>
@@ -1008,6 +1246,9 @@ const ProposalGenerator = () => {
             </div>
           </div>
         </div>
+
+        {renderSlabTable('lumpsum', rateSlabs.lumpsum, matchedLumpsumSlab)}
+        {renderSlabAdminEditor('lumpsum')}
       </div>
 
       {renderPreviewWorkspace({
@@ -1020,11 +1261,53 @@ const ProposalGenerator = () => {
   );
 
   const renderStepFour = () => (
+    <div style={staticStyles.stepBodyLayout(isMobile, isTablet)}>
+      <div style={rs.formCard}>
+        <h3 style={staticStyles.sectionTitle}>Features List</h3>
+        <p style={staticStyles.stepHint}>
+          Edit the feature points and use this step to adjust list placement on page 13.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.xs }}>
+          {featureItems.map((item, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: SPACING.xs, alignItems: 'center' }}>
+              <span style={{ color: '#22c55e', fontWeight: 'bold', fontSize: FONT_SIZES.sm, flexShrink: 0 }}>{'\u2713'}</span>
+              <input
+                type="text"
+                value={item}
+                onChange={(e) => updateFeatureItem(idx, e.target.value)}
+                style={{ ...rs.input, flex: 1 }}
+              />
+              <button
+                onClick={() => removeFeatureItem(idx)}
+                style={staticStyles.miniDeleteBtn}
+                title="Remove"
+              >
+                x
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={() => addFeatureItem('New feature')} style={staticStyles.addItemBtn}>
+          + Add Item
+        </button>
+      </div>
+
+      {renderPreviewWorkspace({
+        title: 'Features List Preview',
+        description: 'Dedicated preview for feature points on page 13. Drag or click to reposition.',
+        showControls: true,
+      })}
+    </div>
+  );
+
+  const renderStepFive = () => (
     <div style={staticStyles.stepFourLayout(isMobile, isTablet)}>
       <div style={staticStyles.stepFourSidebar}>
         <div style={rs.formCard}>
           <h3 style={staticStyles.sectionTitle}>Proposal Summary</h3>
-          <div style={staticStyles.summaryGrid}>
+          <div style={staticStyles.summaryGrid(isMobile, isTablet)}>
             <div style={staticStyles.summaryItem}>
               <span style={staticStyles.summaryLabel}>Cover Line</span>
               <span style={staticStyles.summaryValue}>{coverLineValue || 'Not set'}</span>
@@ -1055,7 +1338,15 @@ const ProposalGenerator = () => {
               {selectedPageCount}/14 selected
             </span>
           </div>
-          <div style={staticStyles.pageThumbGrid}>
+          <p style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs, marginTop: 0 }}>
+            Click any page thumbnail to add/remove it from the generated PDF.
+          </p>
+          <div style={{ display: 'flex', gap: SPACING.xs, flexWrap: 'wrap', marginBottom: SPACING.sm }}>
+            <button onClick={selectAllPages} style={staticStyles.addItemBtn}>Select All</button>
+            <button onClick={unselectAllPages} style={staticStyles.miniDeleteBtn}>Unselect All</button>
+            <button onClick={resetDefaultPageSelection} style={staticStyles.fieldChip}>Default (5 & 6 off)</button>
+          </div>
+          <div style={staticStyles.pageThumbGrid(isMobile, isTablet)}>
             {Array.from({ length: 14 }, (_, i) => i + 1).map((pageNum) => (
               <div
                 key={pageNum}
@@ -1083,33 +1374,6 @@ const ProposalGenerator = () => {
               </div>
             ))}
           </div>
-        </div>
-
-        <div style={rs.formCard}>
-          <h3 style={staticStyles.sectionTitle}>Features List</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.xs }}>
-            {featureItems.map((item, idx) => (
-              <div key={idx} style={{ display: 'flex', gap: SPACING.xs, alignItems: 'center' }}>
-                <span style={{ color: '#22c55e', fontWeight: 'bold', fontSize: FONT_SIZES.sm, flexShrink: 0 }}>{'\u2713'}</span>
-                <input
-                  type="text"
-                  value={item}
-                  onChange={(e) => updateFeatureItem(idx, e.target.value)}
-                  style={{ ...rs.input, flex: 1 }}
-                />
-                <button
-                  onClick={() => removeFeatureItem(idx)}
-                  style={staticStyles.miniDeleteBtn}
-                  title="Remove"
-                >
-                  x
-                </button>
-              </div>
-            ))}
-          </div>
-          <button onClick={() => addFeatureItem('New feature')} style={staticStyles.addItemBtn}>
-            + Add Item
-          </button>
         </div>
 
         <div style={rs.historyCard}>
@@ -1233,7 +1497,7 @@ const ProposalGenerator = () => {
       </div>
 
       <div style={staticStyles.stepHeaderCard}>
-        <div style={staticStyles.stepHeaderEyebrow}>Step {currentStep} of 4</div>
+        <div style={staticStyles.stepHeaderEyebrow}>Step {currentStep} of 5</div>
         <h2 style={staticStyles.stepHeaderTitle}>{stepTitles[currentStep - 1]}</h2>
         <p style={staticStyles.stepHeaderDescription}>{stepDescriptions[currentStep - 1]}</p>
       </div>
@@ -1243,6 +1507,7 @@ const ProposalGenerator = () => {
         {currentStep === 2 && renderStepTwo()}
         {currentStep === 3 && renderStepThree()}
         {currentStep === 4 && renderStepFour()}
+        {currentStep === 5 && renderStepFive()}
       </div>
 
       <div style={staticStyles.wizardFooter}>
@@ -1258,7 +1523,7 @@ const ProposalGenerator = () => {
         </div>
 
         <div style={{ display: 'flex', gap: SPACING.md, flexWrap: 'wrap' }}>
-          {currentStep < 4 ? (
+          {currentStep < 5 ? (
             <button onClick={handleNext} style={rs.primaryButton}>
               Next Step
             </button>
@@ -1351,7 +1616,7 @@ const getResponsiveStyles = (isMobile, isTablet) => ({
 const staticStyles = {
   stepperRow: (isMobile) => ({
     display: 'grid',
-    gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))',
+    gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, minmax(0, 1fr))',
     gap: SPACING.sm,
     marginTop: SPACING.lg,
   }),
@@ -1444,7 +1709,12 @@ const staticStyles = {
     display: 'flex',
     flexDirection: 'column',
   },
-  twoColumnGrid: {
+  twoColumnGrid: (isMobile, isTablet) => ({
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+    gap: SPACING.md,
+  }),
+  twoColumnGridStatic: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: SPACING.md,
@@ -1460,6 +1730,84 @@ const staticStyles = {
     fontSize: FONT_SIZES.xs,
     marginTop: SPACING.xs,
     marginBottom: 0,
+  },
+  slabPanel: {
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  slabPanelHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  slabPanelTitle: {
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+  },
+  slabMuted: {
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
+  },
+  slabTableWrap: {
+    overflowX: 'auto',
+  },
+  slabTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    minWidth: '420px',
+  },
+  slabTh: {
+    textAlign: 'left',
+    padding: '6px 8px',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
+  },
+  slabTd: {
+    padding: '6px 8px',
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.xs,
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    verticalAlign: 'middle',
+  },
+  slabRowActive: {
+    backgroundColor: 'rgba(34, 197, 94, 0.16)',
+  },
+  slabMiniBtn: {
+    padding: '4px 8px',
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    color: '#BFDBFE',
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.xs,
+    cursor: 'pointer',
+  },
+  slabDangerBtn: {
+    padding: '4px 8px',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    color: '#FCA5A5',
+    border: 'none',
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: FONT_SIZES.xs,
+    cursor: 'pointer',
+  },
+  slabFormGrid: (isMobile) => ({
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
+    gap: SPACING.xs,
+  }),
+  slabCheckboxRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
   },
   groupHeader: {
     marginTop: SPACING.sm,
@@ -1622,7 +1970,12 @@ const staticStyles = {
     flexDirection: 'column',
     gap: SPACING.lg,
   },
-  summaryGrid: {
+  summaryGrid: (isMobile, isTablet) => ({
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: SPACING.sm,
+  }),
+  summaryGridStatic: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: SPACING.sm,
@@ -1648,7 +2001,12 @@ const staticStyles = {
     wordBreak: 'break-word',
   },
   // Page selection thumbnails
-  pageThumbGrid: {
+  pageThumbGrid: (isMobile, isTablet) => ({
+    display: 'grid',
+    gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : isTablet ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)',
+    gap: SPACING.xs,
+  }),
+  pageThumbGridStatic: {
     display: 'grid',
     gridTemplateColumns: 'repeat(5, 1fr)',
     gap: SPACING.xs,

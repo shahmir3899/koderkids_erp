@@ -4,7 +4,7 @@
 
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Lead, Activity, BDMTarget, ProposalOffer
+from .models import Lead, Activity, BDMTarget, ProposalOffer, ProposalRateSlab
 from students.models import CustomUser, School
 
 
@@ -453,6 +453,24 @@ class ProposalOfferDetailSerializer(serializers.ModelSerializer):
         return obj.generated_by.username if obj.generated_by else None
 
 
+DEFAULT_PROPOSAL_PAGE_SELECTION = {
+    1: True,
+    2: True,
+    3: True,
+    4: True,
+    5: False,
+    6: False,
+    7: True,
+    8: True,
+    9: True,
+    10: True,
+    11: True,
+    12: True,
+    13: True,
+    14: True,
+}
+
+
 class ProposalOfferCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProposalOffer
@@ -470,6 +488,10 @@ class ProposalOfferCreateSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+        page_selection = validated_data.get('page_selection')
+        if not isinstance(page_selection, dict) or len(page_selection) == 0:
+            validated_data['page_selection'] = dict(DEFAULT_PROPOSAL_PAGE_SELECTION)
+
         request = self.context.get('request')
         if request and request.user:
             validated_data['generated_by'] = request.user
@@ -477,3 +499,45 @@ class ProposalOfferCreateSerializer(serializers.ModelSerializer):
                 request.user.get_full_name() or request.user.username
             )
         return super().create(validated_data)
+
+
+class ProposalRateSlabSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProposalRateSlab
+        fields = [
+            'id',
+            'pricing_mode',
+            'min_students',
+            'max_students',
+            'suggested_standard_rate',
+            'suggested_discounted_rate',
+            'is_active',
+            'sort_order',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        instance = self.instance
+        pricing_mode = attrs.get('pricing_mode', instance.pricing_mode if instance else None)
+        min_students = attrs.get('min_students', instance.min_students if instance else None)
+        max_students = attrs.get('max_students', instance.max_students if instance else None)
+        is_active = attrs.get('is_active', instance.is_active if instance else True)
+
+        if min_students is not None and max_students is not None and min_students > max_students:
+            raise serializers.ValidationError('min_students must be less than or equal to max_students')
+
+        if pricing_mode and min_students is not None and max_students is not None and is_active:
+            overlap_qs = ProposalRateSlab.objects.filter(
+                pricing_mode=pricing_mode,
+                is_active=True,
+                min_students__lte=max_students,
+                max_students__gte=min_students,
+            )
+            if instance:
+                overlap_qs = overlap_qs.exclude(pk=instance.pk)
+            if overlap_qs.exists():
+                raise serializers.ValidationError('Overlapping active slab exists for this pricing mode')
+
+        return attrs

@@ -475,3 +475,54 @@ class ProposalOffer(models.Model):
 
     def __str__(self):
         return f"Proposal for {self.school_name} ({self.created_at.strftime('%Y-%m-%d') if self.created_at else 'draft'})"
+
+
+class ProposalRateSlab(models.Model):
+    """Slab-based suggested pricing for proposal generator."""
+
+    MODE_PER_STUDENT = 'per_student'
+    MODE_LUMPSUM = 'lumpsum'
+    MODE_CHOICES = [
+        (MODE_PER_STUDENT, 'Per Student'),
+        (MODE_LUMPSUM, 'Lumpsum'),
+    ]
+
+    pricing_mode = models.CharField(max_length=20, choices=MODE_CHOICES)
+    min_students = models.PositiveIntegerField(default=1)
+    max_students = models.PositiveIntegerField()
+    suggested_standard_rate = models.PositiveIntegerField()
+    suggested_discounted_rate = models.PositiveIntegerField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['pricing_mode', 'sort_order', 'min_students', 'max_students']
+        verbose_name = 'Proposal Rate Slab'
+        verbose_name_plural = 'Proposal Rate Slabs'
+
+    def clean(self):
+        if self.min_students > self.max_students:
+            raise ValidationError('min_students must be less than or equal to max_students')
+
+        overlap_qs = ProposalRateSlab.objects.filter(
+            pricing_mode=self.pricing_mode,
+            is_active=True,
+            min_students__lte=self.max_students,
+            max_students__gte=self.min_students,
+        )
+        if self.pk:
+            overlap_qs = overlap_qs.exclude(pk=self.pk)
+        if overlap_qs.exists():
+            raise ValidationError('Overlapping active slab exists for this pricing mode')
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.get_pricing_mode_display()} {self.min_students}-{self.max_students}: "
+            f"PKR {self.suggested_standard_rate}"
+        )

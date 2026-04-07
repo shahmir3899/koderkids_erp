@@ -50,6 +50,9 @@ export const LeadCard = ({
   onDelete,
   isAdmin = false,
   isMobile = false,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredButton, setHoveredButton] = useState(null);
@@ -144,6 +147,26 @@ export const LeadCard = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Selection Checkbox (Admin bulk mode) */}
+      {selectable && (
+        <div
+          style={{
+            position: 'absolute',
+            top: SPACING.sm,
+            right: SPACING.sm,
+            zIndex: 2,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect && onToggleSelect(lead.id)}
+            style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#8B5CF6' }}
+          />
+        </div>
+      )}
+
       {/* Top Row: Status + Source badges */}
       <div style={styles.badgeRow}>
         <LeadStatusBadge status={status} />
@@ -309,6 +332,7 @@ const styles = {
     transition: `all ${TRANSITIONS.normal}`,
     cursor: 'default',
     border: '1px solid rgba(255, 255, 255, 0.18)',
+    position: 'relative',
   },
 
   badgeRow: {

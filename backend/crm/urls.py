@@ -9,6 +9,7 @@ from .views import (
     ActivityViewSet,
     BDMTargetViewSet,
     ProposalOfferViewSet,
+    ProposalRateSlabViewSet,
     dashboard_stats,
     lead_sources_breakdown,
     conversion_metrics,
@@ -26,6 +27,7 @@ router.register(r'leads', LeadViewSet, basename='lead')
 router.register(r'activities', ActivityViewSet, basename='activity')
 router.register(r'targets', BDMTargetViewSet, basename='target')
 router.register(r'proposals', ProposalOfferViewSet, basename='proposal')
+router.register(r'proposal-rate-slabs', ProposalRateSlabViewSet, basename='proposal-rate-slab')
 
 urlpatterns = [
     # Router URLs (ViewSets)

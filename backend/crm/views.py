@@ -11,7 +11,7 @@ from django.db.models import Count, Q, Sum
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from .models import Lead, Activity, BDMTarget, ProposalOffer
+from .models import Lead, Activity, BDMTarget, ProposalOffer, ProposalRateSlab
 from .serializers import (
     LeadSerializer,
     LeadCardSerializer,
@@ -22,6 +22,7 @@ from .serializers import (
     ProposalOfferListSerializer,
     ProposalOfferDetailSerializer,
     ProposalOfferCreateSerializer,
+    ProposalRateSlabSerializer,
 )
 from .permissions import IsBDMOrAdmin, IsAdminOnly, IsAdminOrOwner
 from students.models import School, CustomUser
@@ -378,6 +379,78 @@ class LeadViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+    @action(detail=False, methods=['post'], url_path='bulk-assign')
+    def bulk_assign(self, request):
+        """
+        Bulk assign leads to a BDM (Admin only).
+        POST /api/crm/leads/bulk-assign/
+        Body: { "lead_ids": [1,2,3], "bdm_id": 5 }
+        """
+        if request.user.role != 'Admin':
+            return Response(
+                {'error': 'Only admins can bulk-assign leads.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        lead_ids = request.data.get('lead_ids', [])
+        bdm_id = request.data.get('bdm_id')
+
+        if not lead_ids or not isinstance(lead_ids, list):
+            return Response(
+                {'error': 'lead_ids must be a non-empty list.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not bdm_id:
+            return Response(
+                {'error': 'bdm_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Cap to 500 per request
+        if len(lead_ids) > 500:
+            return Response(
+                {'error': 'Maximum 500 leads per bulk assignment.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate BDM
+        try:
+            bdm = CustomUser.objects.get(id=bdm_id, role='BDM')
+        except CustomUser.DoesNotExist:
+            return Response(
+                {'error': 'BDM not found or user is not a BDM.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Deduplicate and validate lead IDs
+        unique_ids = list(set(int(lid) for lid in lead_ids if str(lid).isdigit()))
+        leads_qs = Lead.objects.filter(id__in=unique_ids)
+        found_ids = set(leads_qs.values_list('id', flat=True))
+        missing_ids = [lid for lid in unique_ids if lid not in found_ids]
+
+        if missing_ids:
+            return Response(
+                {'error': f'Leads not found: {missing_ids}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Perform bulk update
+        updated_count = leads_qs.update(assigned_to=bdm)
+
+        # Queue assignment emails
+        if NotificationSettings.load().email_bulk_lead_assignment:
+            assigned_by_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+            for lead_id in found_ids:
+                send_lead_assignment_email_task.delay(lead_id, bdm.id, assigned_by_name)
+
+        return Response({
+            'message': f'{updated_count} lead(s) assigned to {bdm.get_full_name()}.',
+            'updated_count': updated_count,
+            'bdm_name': bdm.get_full_name(),
+            'lead_ids': list(found_ids),
+        })
+
     def destroy(self, request, *args, **kwargs):
         """
         Delete a lead and its associated activities
@@ -660,6 +733,50 @@ class ProposalOfferViewSet(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+
+
+class ProposalRateSlabViewSet(viewsets.ModelViewSet):
+    """CRUD for proposal rate slabs (admin write, CRM users read)."""
+
+    queryset = ProposalRateSlab.objects.all()
+    serializer_class = ProposalRateSlabSerializer
+    permission_classes = [IsAuthenticated, IsBDMOrAdmin]
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsAdminOnly()]
+        return [IsAuthenticated(), IsBDMOrAdmin()]
+
+    def get_queryset(self):
+        queryset = ProposalRateSlab.objects.all()
+        mode = self.request.query_params.get('mode')
+        if mode:
+            queryset = queryset.filter(pricing_mode=mode)
+
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            active_flag = str(is_active).lower() in ['1', 'true', 'yes']
+            queryset = queryset.filter(is_active=active_flag)
+
+        return queryset.order_by('pricing_mode', 'sort_order', 'min_students', 'max_students')
+
+    @action(detail=False, methods=['get'], url_path='suggestions')
+    def suggestions(self, request):
+        slabs = ProposalRateSlab.objects.filter(is_active=True).order_by(
+            'pricing_mode', 'sort_order', 'min_students', 'max_students'
+        )
+        serializer = self.get_serializer(slabs, many=True)
+
+        grouped = {
+            'per_student': [],
+            'lumpsum': [],
+        }
+        for slab in serializer.data:
+            mode = slab.get('pricing_mode')
+            if mode in grouped:
+                grouped[mode].append(slab)
+
+        return Response(grouped)
 
 
 # ============================================
