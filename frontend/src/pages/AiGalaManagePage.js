@@ -2,7 +2,7 @@
  * AiGalaManagePage - Admin Contest Management
  * Allows admins to create, edit, and manage AI Gala contests.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faStar,
@@ -50,6 +50,7 @@ const AiGalaManagePage = () => {
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [stats, setStats] = useState(null);
     const [isLoadingStats, setIsLoadingStats] = useState(false);
+    const [groupBy, setGroupBy] = useState('month');
 
     useEffect(() => {
         loadGalleries();
@@ -135,6 +136,54 @@ const AiGalaManagePage = () => {
         return flow[currentStatus] || null;
     };
 
+    const getTimelineText = (gallery) => {
+        if (gallery.status === 'voting' && gallery.is_voting_open) {
+            const daysLeft = gallery.days_until_voting_ends || 0;
+            if (daysLeft <= 0) return 'Voting ends today';
+            return `Voting ends in ${daysLeft} day${daysLeft > 1 ? 's' : ''}`;
+        }
+        if (gallery.status === 'active' && gallery.voting_start_date) {
+            const daysToStart = gallery.days_until_voting_starts || 0;
+            if (daysToStart <= 0) return 'Voting starts today';
+            return `Voting starts in ${daysToStart} day${daysToStart > 1 ? 's' : ''}`;
+        }
+        if (gallery.status === 'closed') {
+            return 'Voting has ended';
+        }
+        if (!gallery.voting_start_date && !gallery.voting_end_date) {
+            return 'Voting schedule not configured';
+        }
+        if (!gallery.voting_start_date) {
+            return 'Voting start date is missing';
+        }
+        if (!gallery.voting_end_date) {
+            return 'Voting end date is missing';
+        }
+        return 'Voting schedule pending';
+    };
+
+    const groupedGalleries = useMemo(() => {
+        const bucket = {};
+
+        galleries.forEach((gallery) => {
+            let key = 'Ungrouped';
+            if (groupBy === 'school') {
+                key = gallery.target_display || 'All Schools';
+            } else if (groupBy === 'month') {
+                key = gallery.month_label || 'No Month';
+            } else if (groupBy === 'status') {
+                key = STATUS_CONFIG[gallery.status]?.label || 'Other';
+            }
+
+            if (!bucket[key]) {
+                bucket[key] = [];
+            }
+            bucket[key].push(gallery);
+        });
+
+        return Object.entries(bucket);
+    }, [galleries, groupBy]);
+
     if (isLoading) {
         return (
             <div style={styles.loadingContainer}>
@@ -188,6 +237,19 @@ const AiGalaManagePage = () => {
             <div style={styles.galleriesSection}>
                 <h2 style={styles.sectionTitle}>All Contests ({galleries.length})</h2>
 
+                <div style={styles.groupingBar}>
+                    <span style={styles.groupingLabel}>Group by</span>
+                    <select
+                        value={groupBy}
+                        onChange={(e) => setGroupBy(e.target.value)}
+                        style={styles.groupingSelect}
+                    >
+                        <option value="month">Month</option>
+                        <option value="school">School</option>
+                        <option value="status">Status</option>
+                    </select>
+                </div>
+
                 {galleries.length === 0 ? (
                     <div style={styles.emptyState}>
                         <FontAwesomeIcon icon={faStar} style={styles.emptyIcon} />
@@ -200,109 +262,134 @@ const AiGalaManagePage = () => {
                         </button>
                     </div>
                 ) : (
-                    <div style={styles.galleriesGrid}>
-                        {galleries.map((gallery) => {
-                            const statusConfig = STATUS_CONFIG[gallery.status] || STATUS_CONFIG.draft;
-                            const nextStatus = getNextStatus(gallery.status);
-
-                            return (
-                                <div key={gallery.id} style={styles.galleryCard}>
-                                    {/* Card Header */}
-                                    <div style={styles.cardHeader}>
-                                        <div style={styles.cardTitleRow}>
-                                            <h3 style={styles.cardTitle}>{gallery.title}</h3>
-                                            <span style={{
-                                                ...styles.statusBadge,
-                                                backgroundColor: statusConfig.bgColor,
-                                                color: statusConfig.color,
-                                            }}>
-                                                <FontAwesomeIcon icon={statusConfig.icon} style={{ marginRight: '6px' }} />
-                                                {statusConfig.label}
-                                            </span>
-                                        </div>
-                                        <p style={styles.cardTheme}>{gallery.theme}</p>
-                                    </div>
-
-                                    {/* Target Info */}
-                                    {gallery.target_display && gallery.target_display !== 'All Schools' && (
-                                        <div style={styles.targetBadge}>
-                                            <FontAwesomeIcon icon={faUsers} style={{ marginRight: '6px' }} />
-                                            {gallery.target_display}
-                                        </div>
-                                    )}
-
-                                    {/* Card Stats */}
-                                    <div style={styles.cardStats}>
-                                        <div style={styles.statItem}>
-                                            <FontAwesomeIcon icon={faCalendarAlt} style={styles.statIcon} />
-                                            <span>{gallery.month_label}</span>
-                                        </div>
-                                        <div style={styles.statItem}>
-                                            <FontAwesomeIcon icon={faImage} style={styles.statIcon} />
-                                            <span>{gallery.total_creations || 0} creations</span>
-                                        </div>
-                                        <div style={styles.statItem}>
-                                            <FontAwesomeIcon icon={faUsers} style={styles.statIcon} />
-                                            <span>{gallery.total_votes || 0} votes</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Winners (if closed) */}
-                                    {gallery.status === 'closed' && gallery.winners?.length > 0 && (
-                                        <div style={styles.winnersSection}>
-                                            <FontAwesomeIcon icon={faTrophy} style={{ color: COLORS.studentDashboard.badgeGold, marginRight: '8px' }} />
-                                            <span style={styles.winnersText}>
-                                                Winners: {gallery.winners.slice(0, 3).map(w => w.student_name).join(', ')}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Card Actions */}
-                                    <div style={styles.cardActions}>
-                                        {/* Status Change Button */}
-                                        {nextStatus && (
-                                            <button
-                                                style={styles.actionButton}
-                                                onClick={() => handleStatusChange(gallery.id, nextStatus)}
-                                                title={`Move to ${nextStatus}`}
-                                            >
-                                                <FontAwesomeIcon icon={STATUS_CONFIG[nextStatus].icon} />
-                                                <span>Move to {STATUS_CONFIG[nextStatus].label}</span>
-                                            </button>
-                                        )}
-
-                                        {/* View Stats */}
-                                        <button
-                                            style={styles.iconButton}
-                                            onClick={() => handleViewStats(gallery)}
-                                            title="View Statistics"
-                                        >
-                                            <FontAwesomeIcon icon={faChartBar} />
-                                        </button>
-
-                                        {/* Download Report */}
-                                        <button
-                                            style={styles.iconButton}
-                                            onClick={() => handleDownloadReport(gallery)}
-                                            title="Download Report"
-                                        >
-                                            <FontAwesomeIcon icon={faFileDownload} />
-                                        </button>
-
-                                        {/* Download Certificates (only for closed) */}
-                                        {gallery.status === 'closed' && (
-                                            <button
-                                                style={styles.iconButton}
-                                                onClick={() => handleDownloadCertificates(gallery)}
-                                                title="Download All Certificates"
-                                            >
-                                                <FontAwesomeIcon icon={faCertificate} />
-                                            </button>
-                                        )}
-                                    </div>
+                    <div style={styles.groupedSectionList}>
+                        {groupedGalleries.map(([groupKey, groupItems]) => (
+                            <div key={groupKey} style={styles.groupSection}>
+                                <div style={styles.groupHeader}>
+                                    <h3 style={styles.groupTitle}>{groupKey}</h3>
+                                    <span style={styles.groupCount}>{groupItems.length} contests</span>
                                 </div>
-                            );
-                        })}
+                                <div style={styles.galleriesGrid}>
+                                    {groupItems.map((gallery) => {
+                                        const statusConfig = STATUS_CONFIG[gallery.status] || STATUS_CONFIG.draft;
+                                        const nextStatus = getNextStatus(gallery.status);
+
+                                        return (
+                                            <div key={gallery.id} style={styles.galleryCard}>
+                                                <div style={styles.cardHeader}>
+                                                    <div style={styles.cardTitleRow}>
+                                                        <h3 style={styles.cardTitle}>{gallery.title}</h3>
+                                                        <span
+                                                            style={{
+                                                                ...styles.statusBadge,
+                                                                backgroundColor: statusConfig.bgColor,
+                                                                color: statusConfig.color,
+                                                            }}
+                                                        >
+                                                            <FontAwesomeIcon icon={statusConfig.icon} style={{ marginRight: '6px' }} />
+                                                            {statusConfig.label}
+                                                        </span>
+                                                    </div>
+                                                    <p style={styles.cardTheme}>{gallery.theme}</p>
+                                                </div>
+
+                                                {gallery.target_display && gallery.target_display !== 'All Schools' && (
+                                                    <div style={styles.targetBadge}>
+                                                        <FontAwesomeIcon icon={faUsers} style={{ marginRight: '6px' }} />
+                                                        {gallery.target_display}
+                                                    </div>
+                                                )}
+
+                                                {gallery.cover_image_url && (
+                                                    <div style={styles.manageCoverWrap}>
+                                                        <img
+                                                            src={gallery.cover_image_url}
+                                                            alt={gallery.title}
+                                                            style={styles.manageCoverImage}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                <p style={styles.cardDescription}>
+                                                    {gallery.description || 'No description provided for this contest.'}
+                                                </p>
+
+                                                <div style={styles.cardStats}>
+                                                    <div style={styles.statItem}>
+                                                        <FontAwesomeIcon icon={faCalendarAlt} style={styles.statIcon} />
+                                                        <span>{gallery.month_label}</span>
+                                                    </div>
+                                                    <div style={styles.statItem}>
+                                                        <FontAwesomeIcon icon={faImage} style={styles.statIcon} />
+                                                        <span>{gallery.total_projects || gallery.total_creations || 0} creations</span>
+                                                    </div>
+                                                    <div style={styles.statItem}>
+                                                        <FontAwesomeIcon icon={faUsers} style={styles.statIcon} />
+                                                        <span>{gallery.total_votes || 0} votes</span>
+                                                    </div>
+                                                </div>
+
+                                                <div style={styles.timelineInfo}>
+                                                    <div style={styles.timelineDates}>
+                                                        <span>Start: {gallery.voting_start_date || 'Not set'}</span>
+                                                        <span>End: {gallery.voting_end_date || 'Not set'}</span>
+                                                    </div>
+                                                    <div style={styles.timelineChip}>{getTimelineText(gallery)}</div>
+                                                </div>
+
+                                                {gallery.status === 'closed' && gallery.winners?.length > 0 && (
+                                                    <div style={styles.winnersSection}>
+                                                        <FontAwesomeIcon icon={faTrophy} style={{ color: COLORS.studentDashboard.badgeGold, marginRight: '8px' }} />
+                                                        <span style={styles.winnersText}>
+                                                            Winners: {gallery.winners.slice(0, 3).map((w) => w.student_name).join(', ')}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                <div style={styles.cardActions}>
+                                                    {nextStatus && (
+                                                        <button
+                                                            style={styles.actionButton}
+                                                            onClick={() => handleStatusChange(gallery.id, nextStatus)}
+                                                            title={`Move to ${nextStatus}`}
+                                                        >
+                                                            <FontAwesomeIcon icon={STATUS_CONFIG[nextStatus].icon} />
+                                                            <span>Move to {STATUS_CONFIG[nextStatus].label}</span>
+                                                        </button>
+                                                    )}
+
+                                                    <button
+                                                        style={styles.iconButton}
+                                                        onClick={() => handleViewStats(gallery)}
+                                                        title="View Statistics"
+                                                    >
+                                                        <FontAwesomeIcon icon={faChartBar} />
+                                                    </button>
+
+                                                    <button
+                                                        style={styles.iconButton}
+                                                        onClick={() => handleDownloadReport(gallery)}
+                                                        title="Download Report"
+                                                    >
+                                                        <FontAwesomeIcon icon={faFileDownload} />
+                                                    </button>
+
+                                                    {gallery.status === 'closed' && (
+                                                        <button
+                                                            style={styles.iconButton}
+                                                            onClick={() => handleDownloadCertificates(gallery)}
+                                                            title="Download All Certificates"
+                                                        >
+                                                            <FontAwesomeIcon icon={faCertificate} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
@@ -445,6 +532,16 @@ const CreateGalleryModal = ({ onClose, onSuccess }) => {
         // Teachers must select at least one school
         if (isTeacher && formData.target_school_ids.length === 0) {
             toast.error('Please select at least one school for the contest');
+            return;
+        }
+
+        if (formData.voting_start_date && !formData.voting_end_date) {
+            toast.error('Please select a voting end date when a start date is provided');
+            return;
+        }
+
+        if (formData.voting_start_date && formData.voting_end_date && formData.voting_end_date < formData.voting_start_date) {
+            toast.error('Voting end date cannot be earlier than voting start date');
             return;
         }
 
@@ -617,6 +714,7 @@ const CreateGalleryModal = ({ onClose, onSuccess }) => {
                             onChange={e => setCoverImage(e.target.files[0])}
                             style={styles.input}
                         />
+                        <p style={styles.helperText}>Recommended image ratio: 16:9 (for example 1600 x 900)</p>
                     </div>
 
                     <div style={styles.checkboxGroup}>
@@ -820,7 +918,7 @@ const StatsModal = ({ gallery, stats, isLoading, onClose }) => {
                 ) : stats ? (
                     <div style={styles.statsGrid}>
                         <div style={styles.statCard}>
-                            <div style={styles.statNumber}>{stats.total_creations || 0}</div>
+                            <div style={styles.statNumber}>{stats.total_projects || stats.total_creations || 0}</div>
                             <div style={styles.statLabel}>Total Projects</div>
                         </div>
                         <div style={styles.statCard}>
@@ -836,10 +934,10 @@ const StatsModal = ({ gallery, stats, isLoading, onClose }) => {
                             <div style={styles.statLabel}>Comments</div>
                         </div>
 
-                        {stats.creations_by_class && stats.creations_by_class.length > 0 && (
+                        {(stats.projects_by_class || stats.creations_by_class)?.length > 0 && (
                             <div style={styles.breakdownSection}>
                                 <h4 style={styles.breakdownTitle}>Projects by Class</h4>
-                                {stats.creations_by_class.map((item, index) => (
+                                {(stats.projects_by_class || stats.creations_by_class).map((item, index) => (
                                     <div key={index} style={styles.breakdownRow}>
                                         <span>{item.student__student_class || 'Unknown'}</span>
                                         <span style={styles.breakdownCount}>{item.count}</span>
@@ -976,6 +1074,53 @@ const styles = {
     galleriesSection: {
         marginTop: SPACING.lg,
     },
+    groupedSectionList: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: SPACING.lg,
+    },
+    groupSection: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: SPACING.md,
+    },
+    groupHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    groupTitle: {
+        margin: 0,
+        fontSize: FONT_SIZES.md,
+        fontWeight: FONT_WEIGHTS.semibold,
+        color: COLORS.text.primary,
+    },
+    groupCount: {
+        fontSize: FONT_SIZES.xs,
+        color: COLORS.text.tertiary,
+        fontWeight: FONT_WEIGHTS.semibold,
+        textTransform: 'uppercase',
+    },
+    groupingBar: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: SPACING.sm,
+        marginBottom: SPACING.md,
+    },
+    groupingLabel: {
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.text.secondary,
+        fontWeight: FONT_WEIGHTS.medium,
+    },
+    groupingSelect: {
+        padding: '8px 12px',
+        borderRadius: BORDER_RADIUS.md,
+        border: `1px solid ${COLORS.border.default}`,
+        backgroundColor: COLORS.background.white,
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.text.primary,
+        cursor: 'pointer',
+    },
     sectionTitle: {
         fontSize: FONT_SIZES.lg,
         fontWeight: FONT_WEIGHTS.semibold,
@@ -1037,6 +1182,30 @@ const styles = {
         color: COLORS.text.tertiary,
         margin: 0,
     },
+    manageCoverWrap: {
+        marginTop: SPACING.sm,
+        marginBottom: SPACING.sm,
+        borderRadius: BORDER_RADIUS.md,
+        overflow: 'hidden',
+        border: `1px solid ${COLORS.border.default}`,
+        backgroundColor: COLORS.background.gray,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    manageCoverImage: {
+        width: '100%',
+        height: '140px',
+        objectFit: 'contain',
+        display: 'block',
+    },
+    cardDescription: {
+        margin: 0,
+        marginBottom: SPACING.md,
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 1.5,
+    },
     targetBadge: {
         display: 'inline-flex',
         alignItems: 'center',
@@ -1074,6 +1243,31 @@ const styles = {
     },
     statIcon: {
         color: COLORS.text.tertiary,
+    },
+    timelineInfo: {
+        marginBottom: SPACING.md,
+        padding: SPACING.sm,
+        borderRadius: BORDER_RADIUS.md,
+        backgroundColor: COLORS.background.lightGray,
+    },
+    timelineDates: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: SPACING.md,
+        flexWrap: 'wrap',
+        fontSize: FONT_SIZES.xs,
+        color: COLORS.text.tertiary,
+        marginBottom: SPACING.xs,
+    },
+    timelineChip: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '4px 10px',
+        borderRadius: BORDER_RADIUS.full,
+        backgroundColor: `${COLORS.primary}20`,
+        color: COLORS.primary,
+        fontSize: FONT_SIZES.xs,
+        fontWeight: FONT_WEIGHTS.semibold,
     },
     winnersSection: {
         display: 'flex',
@@ -1171,6 +1365,11 @@ const styles = {
         fontWeight: FONT_WEIGHTS.medium,
         color: COLORS.text.secondary,
         marginBottom: SPACING.xs,
+    },
+    helperText: {
+        margin: `${SPACING.xs} 0 0 0`,
+        fontSize: FONT_SIZES.xs,
+        color: COLORS.text.tertiary,
     },
     input: {
         width: '100%',

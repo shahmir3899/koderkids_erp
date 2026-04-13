@@ -146,6 +146,15 @@ class Gallery(models.Model):
         delta = self.voting_end_date - today
         return max(0, delta.days)
 
+    @property
+    def days_until_voting_starts(self):
+        """Days remaining before voting starts."""
+        if not self.voting_start_date:
+            return 0
+        today = timezone.now().date()
+        delta = self.voting_start_date - today
+        return max(0, delta.days)
+
 
 class Project(models.Model):
     """

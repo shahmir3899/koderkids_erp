@@ -18,4 +18,8 @@ app.conf.beat_schedule = {
         'task': 'employees.email_tasks.send_aging_alerts_task',
         'schedule': crontab(hour=9, minute=0),  # Daily at 9 AM
     },
+    'aigala-auto-transition-statuses': {
+        'task': 'aigala.tasks.auto_transition_galleries_task',
+        'schedule': crontab(minute=0),  # Hourly
+    },
 }

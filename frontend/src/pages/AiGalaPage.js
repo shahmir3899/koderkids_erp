@@ -229,6 +229,34 @@ const AiGalaPage = () => {
     const isVotingOpen = activeGallery?.is_voting_open;
     const canUpload = activeGallery?.status === 'active' && !myProject;
 
+    const votingTimelineText = activeGallery
+        ? (() => {
+            if (activeGallery.status === 'voting' && isVotingOpen) {
+                const daysLeft = activeGallery.days_until_voting_ends || 0;
+                if (daysLeft <= 0) return 'Voting ends today';
+                return `Voting ends in ${daysLeft} day${daysLeft > 1 ? 's' : ''}`;
+            }
+            if (activeGallery.status === 'active' && activeGallery.voting_start_date) {
+                const daysToStart = activeGallery.days_until_voting_starts || 0;
+                if (daysToStart <= 0) return 'Voting starts today';
+                return `Voting starts in ${daysToStart} day${daysToStart > 1 ? 's' : ''}`;
+            }
+            if (activeGallery.status === 'closed') {
+                return 'Voting has ended';
+            }
+            if (!activeGallery.voting_start_date && !activeGallery.voting_end_date) {
+                return 'Voting schedule not configured';
+            }
+            if (!activeGallery.voting_start_date) {
+                return 'Voting start date is missing';
+            }
+            if (!activeGallery.voting_end_date) {
+                return 'Voting end date is missing';
+            }
+            return null;
+        })()
+        : null;
+
     if (isLoading) {
         return (
             <div style={styles.loadingContainer}>
@@ -303,6 +331,13 @@ const AiGalaPage = () => {
                         </>
                     )}
 
+                    {!isVotingOpen && votingTimelineText && (
+                        <div style={styles.infoItem}>
+                            <FontAwesomeIcon icon={faClock} style={{ marginRight: '6px' }} />
+                            <span style={styles.infoValue}>{votingTimelineText}</span>
+                        </div>
+                    )}
+
                     {activeGallery.status === 'closed' && (
                         <div style={styles.statusBadge}>
                             <FontAwesomeIcon icon={faTrophy} style={{ marginRight: '6px' }} />
@@ -352,6 +387,43 @@ const AiGalaPage = () => {
                             <span>All Certificates</span>
                         </button>
                     )}
+                </div>
+            )}
+
+            {activeGallery?.cover_image_url && (
+                <div style={styles.galleryCoverSection}>
+                    <img
+                        src={activeGallery.cover_image_url}
+                        alt={activeGallery.title || activeGallery.theme || 'AI Gala cover'}
+                        style={styles.galleryCoverImage}
+                    />
+                </div>
+            )}
+
+            {activeGallery && (
+                <div style={styles.gallerySummaryCard}>
+                    {activeGallery.description ? (
+                        <p style={styles.galleryDescription}>{activeGallery.description}</p>
+                    ) : (
+                        <p style={styles.galleryDescriptionMuted}>No description provided for this contest yet.</p>
+                    )}
+
+                    <div style={styles.galleryDatesRow}>
+                        <div style={styles.galleryDatePill}>
+                            <span style={styles.galleryDateLabel}>Voting Starts</span>
+                            <span style={styles.galleryDateValue}>{activeGallery.voting_start_date || 'Not set'}</span>
+                        </div>
+                        <div style={styles.galleryDatePill}>
+                            <span style={styles.galleryDateLabel}>Voting Ends</span>
+                            <span style={styles.galleryDateValue}>{activeGallery.voting_end_date || 'Not set'}</span>
+                        </div>
+                        {votingTimelineText && (
+                            <div style={styles.galleryDatePillAccent}>
+                                <FontAwesomeIcon icon={faClock} />
+                                <span>{votingTimelineText}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -587,6 +659,81 @@ const styles = {
         padding: SPACING.lg,
         marginBottom: SPACING.lg,
         boxShadow: SHADOWS.sm,
+    },
+    galleryCoverSection: {
+        backgroundColor: COLORS.background.white,
+        borderRadius: BORDER_RADIUS.lg,
+        overflow: 'hidden',
+        marginBottom: SPACING.md,
+        boxShadow: SHADOWS.sm,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: SPACING.sm,
+    },
+    galleryCoverImage: {
+        width: '100%',
+        height: '280px',
+        objectFit: 'contain',
+        display: 'block',
+        backgroundColor: COLORS.background.gray,
+    },
+    gallerySummaryCard: {
+        backgroundColor: COLORS.background.white,
+        borderRadius: BORDER_RADIUS.lg,
+        padding: SPACING.lg,
+        marginBottom: SPACING.lg,
+        boxShadow: SHADOWS.sm,
+    },
+    galleryDescription: {
+        margin: 0,
+        marginBottom: SPACING.md,
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 1.6,
+    },
+    galleryDescriptionMuted: {
+        margin: 0,
+        marginBottom: SPACING.md,
+        color: COLORS.text.tertiary,
+        fontSize: FONT_SIZES.sm,
+        fontStyle: 'italic',
+    },
+    galleryDatesRow: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: SPACING.sm,
+    },
+    galleryDatePill: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+        padding: '10px 12px',
+        borderRadius: BORDER_RADIUS.md,
+        backgroundColor: COLORS.background.gray,
+        minWidth: '160px',
+    },
+    galleryDatePillAccent: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: SPACING.xs,
+        padding: '10px 12px',
+        borderRadius: BORDER_RADIUS.md,
+        backgroundColor: `${COLORS.primary}18`,
+        color: COLORS.primary,
+        fontSize: FONT_SIZES.sm,
+        fontWeight: FONT_WEIGHTS.semibold,
+    },
+    galleryDateLabel: {
+        fontSize: FONT_SIZES.xs,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+        letterSpacing: '0.4px',
+    },
+    galleryDateValue: {
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.text.primary,
+        fontWeight: FONT_WEIGHTS.semibold,
     },
     infoItem: {
         display: 'flex',

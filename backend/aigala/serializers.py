@@ -157,6 +157,7 @@ class GalleryListSerializer(serializers.ModelSerializer):
     total_projects = serializers.IntegerField(read_only=True)
     total_votes = serializers.IntegerField(read_only=True)
     is_voting_open = serializers.BooleanField(read_only=True)
+    days_until_voting_starts = serializers.IntegerField(read_only=True)
     days_until_voting_ends = serializers.IntegerField(read_only=True)
     my_project = serializers.SerializerMethodField()
     my_votes_remaining = serializers.SerializerMethodField()
@@ -173,7 +174,7 @@ class GalleryListSerializer(serializers.ModelSerializer):
             'id', 'title', 'month_label', 'theme', 'description',
             'cover_image_url', 'status',
             'class_date', 'gallery_open_date', 'voting_start_date', 'voting_end_date',
-            'is_voting_open', 'days_until_voting_ends',
+            'is_voting_open', 'days_until_voting_starts', 'days_until_voting_ends',
             'total_projects', 'total_votes',
             'max_votes_per_user', 'allow_comments', 'allow_downloads',
             'my_project', 'my_votes_remaining', 'my_votes_cast',

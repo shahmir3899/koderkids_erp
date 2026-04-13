@@ -145,6 +145,37 @@ def notify_vote_received(project, voter):
     )
 
 
+def auto_transition_gallery_status(gallery, today=None):
+    """Auto-transition a gallery based on voting start/end dates."""
+    today = today or timezone.now().date()
+    current_status = gallery.status
+
+    if current_status == 'active' and gallery.voting_start_date and gallery.voting_start_date <= today:
+        gallery.status = 'voting'
+        gallery.save(update_fields=['status', 'updated_at'])
+        notify_gallery_voting(gallery)
+        current_status = 'voting'
+
+    if current_status == 'voting' and gallery.voting_end_date and gallery.voting_end_date < today:
+        gallery.status = 'closed'
+        gallery.save(update_fields=['status', 'updated_at'])
+        calculate_gallery_winners(gallery)
+        notify_gallery_closed(gallery)
+
+    return gallery.status
+
+
+def auto_transition_due_galleries(today=None):
+    """Auto-transition all galleries that have reached voting boundaries."""
+    today = today or timezone.now().date()
+    due_galleries = Gallery.objects.filter(
+        Q(status='active', voting_start_date__isnull=False, voting_start_date__lte=today) |
+        Q(status='voting', voting_end_date__isnull=False, voting_end_date__lt=today)
+    )
+    for gallery in due_galleries:
+        auto_transition_gallery_status(gallery, today=today)
+
+
 # ============== PERMISSION HELPERS ==============
 
 def is_admin_or_teacher(user):
@@ -211,6 +242,7 @@ def list_galleries(request):
     from django.db.models import Q
 
     user = request.user
+    auto_transition_due_galleries()
     include_drafts = request.query_params.get('include_drafts', '').lower() == 'true'
 
     # Admin sees all galleries
@@ -302,6 +334,8 @@ def gallery_detail(request, gallery_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
+    auto_transition_gallery_status(gallery)
+
     # Don't show draft galleries to non-admins
     if gallery.status == 'draft' and not request.user.is_staff:
         return Response(
@@ -321,6 +355,8 @@ def active_gallery(request):
     Get the currently active or voting gallery.
     Returns the most recent one if multiple exist.
     """
+    auto_transition_due_galleries()
+
     gallery = Gallery.objects.filter(
         status__in=['active', 'voting']
     ).order_by('-class_date').first()
@@ -833,6 +869,7 @@ def vote_for_project(request, project_id):
         )
 
     gallery = project.gallery
+    auto_transition_gallery_status(gallery)
 
     # Check if voting is open
     if not gallery.is_voting_open:
@@ -1079,6 +1116,8 @@ def my_gala_data(request):
             {'error': 'Student profile not found'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    auto_transition_due_galleries()
 
     # Get current active/voting gallery
     current_gallery = Gallery.objects.filter(
