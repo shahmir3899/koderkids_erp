@@ -156,7 +156,7 @@ const ProjectDetailModal = ({
             document.body.removeChild(a);
             toast.success('Certificate downloaded!');
         } catch (error) {
-            const message = error.response?.data?.error || 'Failed to download certificate';
+            const message = error.userMessage || error.response?.data?.error || 'Failed to download certificate';
             toast.error(message);
         }
     };

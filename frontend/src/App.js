@@ -312,7 +312,11 @@ function AppContent() {
 
 function AppWithLoader() {
   const { isLoading, loadingMessage } = useLoading();
+  const location = useLocation();
   const [showInitialLoader, setShowInitialLoader] = React.useState(true);
+  const isLoaderExcludedPage = location.pathname.startsWith('/ai-gala/manage');
+  const shouldShowGlobalLoader = !isLoaderExcludedPage && (showInitialLoader || isLoading);
+  const shouldRenderContent = !showInitialLoader || isLoaderExcludedPage;
 
   React.useEffect(() => {
     // Show initial loader for 2 seconds
@@ -325,13 +329,13 @@ function AppWithLoader() {
 
   return (
     <>
-      {(showInitialLoader || isLoading) && (
+      {shouldShowGlobalLoader && (
         <ERPLoader 
-          isLoading={showInitialLoader || isLoading} 
+          isLoading={shouldShowGlobalLoader} 
           loadingMessage={loadingMessage}
         />
       )}
-      {!showInitialLoader && <AppContent />}
+      {shouldRenderContent && <AppContent />}
     </>
   );
 }

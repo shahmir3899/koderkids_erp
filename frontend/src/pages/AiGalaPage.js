@@ -1,6 +1,6 @@
 /**
  * AiGalaPage Component
- * Main page for AI Gala contests - displays creations grid, voting, and upload.
+ * Main page for AI Galas - displays creations grid, voting, and upload.
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -66,19 +66,24 @@ const AiGalaPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('votes'); // 'votes', 'recent', 'name'
 
-    // Load galleries on mount
-    useEffect(() => {
-        loadGalleries();
+    const loadGalleryDetails = useCallback(async (galleryId) => {
+        setIsLoadingProjects(true);
+        try {
+            const data = await aiGalaService.getGalleryDetail(galleryId);
+            setActiveGallery(data);
+            setProjects(data.projects || []);
+            setMyProject(data.my_project);
+            setVotesRemaining(data.my_votes_remaining || 0);
+            setVotedProjectIds(data.my_votes_cast || []);
+        } catch (error) {
+            console.error('Error loading gallery details:', error);
+            toast.error('Failed to load gala');
+        } finally {
+            setIsLoadingProjects(false);
+        }
     }, []);
 
-    // Load active gallery details when selected
-    useEffect(() => {
-        if (selectedGalleryId) {
-            loadGalleryDetails(selectedGalleryId);
-        }
-    }, [selectedGalleryId]);
-
-    const loadGalleries = async () => {
+    const loadGalleries = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await aiGalaService.getGalleries();
@@ -91,28 +96,23 @@ const AiGalaPage = () => {
             }
         } catch (error) {
             console.error('Error loading galleries:', error);
-            toast.error('Failed to load contests');
+            toast.error('Failed to load galas');
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const loadGalleryDetails = async (galleryId) => {
-        setIsLoadingProjects(true);
-        try {
-            const data = await aiGalaService.getGalleryDetail(galleryId);
-            setActiveGallery(data);
-            setProjects(data.projects || []);
-            setMyProject(data.my_project);
-            setVotesRemaining(data.my_votes_remaining || 0);
-            setVotedProjectIds(data.my_votes_cast || []);
-        } catch (error) {
-            console.error('Error loading gallery details:', error);
-            toast.error('Failed to load contest');
-        } finally {
-            setIsLoadingProjects(false);
+    // Load galleries on mount
+    useEffect(() => {
+        loadGalleries();
+    }, [loadGalleries]);
+
+    // Load active gallery details when selected
+    useEffect(() => {
+        if (selectedGalleryId) {
+            loadGalleryDetails(selectedGalleryId);
         }
-    };
+    }, [selectedGalleryId, loadGalleryDetails]);
 
     const handleVote = async (projectId, hasVoted) => {
         try {
@@ -180,7 +180,7 @@ const AiGalaPage = () => {
             document.body.removeChild(a);
             toast.success('Report downloaded!');
         } catch (error) {
-            toast.error('Failed to download report');
+            toast.error(error.userMessage || error.response?.data?.error || 'Failed to download report');
         }
     };
 
@@ -199,7 +199,7 @@ const AiGalaPage = () => {
             document.body.removeChild(a);
             toast.success('Certificates downloaded!');
         } catch (error) {
-            toast.error('Failed to download certificates');
+            toast.error(error.userMessage || error.response?.data?.error || 'Failed to download certificates');
         }
     };
 
@@ -276,7 +276,7 @@ const AiGalaPage = () => {
                         <div>
                             <h1 style={styles.pageTitle}>AI Gala</h1>
                             <p style={styles.pageSubtitle}>
-                                Monthly creative AI contests
+                                Monthly creative AI galas
                             </p>
                         </div>
                     </div>
@@ -405,7 +405,7 @@ const AiGalaPage = () => {
                     {activeGallery.description ? (
                         <p style={styles.galleryDescription}>{activeGallery.description}</p>
                     ) : (
-                        <p style={styles.galleryDescriptionMuted}>No description provided for this contest yet.</p>
+                        <p style={styles.galleryDescriptionMuted}>No description provided for this gala yet.</p>
                     )}
 
                     <div style={styles.galleryDatesRow}>
@@ -578,6 +578,7 @@ const styles = {
         minHeight: '100vh',
         backgroundColor: COLORS.background.gray,
         padding: SPACING.xl,
+        maxWidth: LAYOUT.maxWidth.full,
     },
     loadingContainer: {
         display: 'flex',
@@ -934,3 +935,4 @@ const styles = {
 };
 
 export default AiGalaPage;
+

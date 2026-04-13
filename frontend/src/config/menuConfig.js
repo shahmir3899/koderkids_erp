@@ -395,7 +395,7 @@ export const MENU_SECTIONS = {
       },
       {
         id: 'ai-gala-manage',
-        label: 'Manage Contests',
+        label: 'Manage Galas',
         icon: faImages,
         path: '/ai-gala/manage',
         roles: ['Admin', 'Teacher'],
@@ -492,3 +492,4 @@ export default {
   isPathActive,
   getDashboardPath,
 };
+

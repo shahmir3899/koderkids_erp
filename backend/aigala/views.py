@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db import transaction
 from django.db.models import F, Count, Q
 from django.utils import timezone
 
@@ -492,6 +493,80 @@ def update_gallery(request, gallery_id):
             GalleryDetailSerializer(gallery, context={'request': request}).data
         )
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_gallery(request, gallery_id):
+    """
+    DELETE /api/aigala/galleries/{id}/delete/
+    Delete a gallery.
+    - Admin only
+    - Default: blocked if gallery has related projects/votes/comments
+    - Force mode (?force=true): cascade delete related data
+    """
+    if request.user.role != 'Admin':
+        return Response(
+            {'error': 'Only admins can delete contests'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        gallery = Gallery.objects.get(id=gallery_id)
+    except Gallery.DoesNotExist:
+        return Response(
+            {'error': 'Gallery not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    force_delete = request.query_params.get('force', '').lower() == 'true'
+
+    related_projects = gallery.projects.all()
+    project_count = related_projects.count()
+    vote_count = Vote.objects.filter(project__gallery=gallery).count()
+    comment_count = Comment.objects.filter(project__gallery=gallery).count()
+
+    has_related_data = project_count > 0 or vote_count > 0 or comment_count > 0
+    if has_related_data and not force_delete:
+        return Response(
+            {
+                'error': 'Contest has related participation data. Force delete is required.',
+                'requires_force': True,
+                'related_counts': {
+                    'projects': project_count,
+                    'votes': vote_count,
+                    'comments': comment_count,
+                }
+            },
+            status=status.HTTP_409_CONFLICT
+        )
+
+    # Collect storage paths before DB deletion.
+    cover_path = gallery.cover_image_path
+    project_image_paths = [
+        p.image_path for p in related_projects.only('image_path') if p.image_path
+    ]
+
+    with transaction.atomic():
+        gallery_title = gallery.title
+        gallery.delete()
+
+    # Best-effort storage cleanup (non-blocking).
+    if cover_path:
+        delete_image(cover_path)
+    for image_path in project_image_paths:
+        delete_image(image_path)
+
+    return Response(
+        {
+            'message': 'Contest deleted successfully',
+            'deleted_gallery': {
+                'id': gallery_id,
+                'title': gallery_title,
+            },
+            'forced': force_delete,
+        }
+    )
 
 
 @api_view(['POST'])

@@ -1,6 +1,6 @@
 /**
  * AiGalaManagePage - Admin Contest Management
- * Allows admins to create, edit, and manage AI Gala contests.
+ * Allows admins to create, edit, and manage AI Gala galas.
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -20,6 +20,8 @@ import {
     faUsers,
     faImage,
     faTrophy,
+    faTrash,
+    faInfoCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import {
@@ -34,6 +36,7 @@ import {
 import { aiGalaService } from '../services/aiGalaService';
 import { useSchools } from '../hooks/useSchools';
 import { useClasses } from '../hooks/useClasses';
+import { ConfirmationModal } from '../components/common/modals/ConfirmationModal';
 
 const STATUS_CONFIG = {
     draft: { label: 'Draft', color: COLORS.text.tertiary, icon: faEdit, bgColor: COLORS.background.gray },
@@ -41,6 +44,35 @@ const STATUS_CONFIG = {
     voting: { label: 'Voting', color: COLORS.primary, icon: faVoteYea, bgColor: '#F3E8FF' },
     closed: { label: 'Closed', color: COLORS.status.error, icon: faLock, bgColor: COLORS.status.errorLight },
 };
+const STATUS_FLOW = ['draft', 'active', 'voting', 'closed'];
+
+const ROLE_STAGE_GUIDANCE = {
+    Admin: {
+        draft: 'Finalize details, dates, cover image, and targeting before launch.',
+        active: 'Drive submissions, monitor entries, and prepare transition to voting.',
+        voting: 'Encourage fair voting and monitor engagement until voting closes.',
+        closed: 'Publish outcomes, download reports/certificates, and archive or delete if needed.',
+    },
+    Teacher: {
+        draft: 'Gala is not open yet. Review theme and get students ready.',
+        active: 'Help students submit quality projects for your assigned schools.',
+        voting: 'Encourage responsible voting and participation.',
+        closed: 'Review results and celebrate participants and winners.',
+    },
+    Student: {
+        draft: 'Gala is not open yet. Prepare your idea and theme concept.',
+        active: 'Upload your best project before submissions close.',
+        voting: 'Vote thoughtfully for your favorite projects.',
+        closed: 'Check final results and certificates.',
+    },
+};
+
+const COMMON_GUIDELINES = [
+    'Create galas in Draft first and verify title, theme, and month.',
+    'Set voting start and end dates together so schedule is clear.',
+    'Use a clear description and a 16:9 cover image for best display.',
+    'Move status only when the current stage goals are complete.',
+];
 
 const AiGalaManagePage = () => {
     const [galleries, setGalleries] = useState([]);
@@ -51,6 +83,13 @@ const AiGalaManagePage = () => {
     const [stats, setStats] = useState(null);
     const [isLoadingStats, setIsLoadingStats] = useState(false);
     const [groupBy, setGroupBy] = useState('month');
+    const isAdmin = localStorage.getItem('role') === 'Admin';
+    const [deleteTargetGallery, setDeleteTargetGallery] = useState(null);
+    const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+    const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
+    const [forceDeleteCounts, setForceDeleteCounts] = useState(null);
+    const [isDeletingContest, setIsDeletingContest] = useState(false);
+    const userRole = localStorage.getItem('role') || 'Teacher';
 
     useEffect(() => {
         loadGalleries();
@@ -64,7 +103,7 @@ const AiGalaManagePage = () => {
             setGalleries(data || []);
         } catch (error) {
             console.error('Error loading galleries:', error);
-            toast.error('Failed to load contests');
+            toast.error('Failed to load galas');
         } finally {
             setIsLoading(false);
         }
@@ -73,7 +112,7 @@ const AiGalaManagePage = () => {
     const handleStatusChange = async (galleryId, newStatus) => {
         try {
             await aiGalaService.adminUpdateGalleryStatus(galleryId, newStatus);
-            toast.success(`Contest status updated to ${newStatus}`);
+            toast.success(`Gala status updated to ${newStatus}`);
             loadGalleries();
         } catch (error) {
             const message = error.response?.data?.error || 'Failed to update status';
@@ -109,7 +148,7 @@ const AiGalaManagePage = () => {
             document.body.removeChild(a);
             toast.success('Report downloaded!');
         } catch (error) {
-            toast.error('Failed to download report');
+            toast.error(error.userMessage || error.response?.data?.error || 'Failed to download report');
         }
     };
 
@@ -127,7 +166,60 @@ const AiGalaManagePage = () => {
             document.body.removeChild(a);
             toast.success('Certificates downloaded!');
         } catch (error) {
-            toast.error('Failed to download certificates');
+            toast.error(error.userMessage || error.response?.data?.error || 'Failed to download certificates');
+        }
+    };
+
+    const resetDeleteFlow = () => {
+        setDeleteTargetGallery(null);
+        setShowDeleteConfirmModal(false);
+        setShowForceDeleteModal(false);
+        setForceDeleteCounts(null);
+        setIsDeletingContest(false);
+    };
+
+    const handleDeleteContest = (gallery) => {
+        setDeleteTargetGallery(gallery);
+        setShowDeleteConfirmModal(true);
+    };
+
+    const confirmDeleteContest = async () => {
+        if (!deleteTargetGallery) return;
+        setIsDeletingContest(true);
+        try {
+            await aiGalaService.adminDeleteGallery(deleteTargetGallery.id);
+            toast.success('Gala deleted successfully');
+            resetDeleteFlow();
+            loadGalleries();
+        } catch (error) {
+            const responseData = error.response?.data;
+            const needsForce = responseData?.requires_force;
+
+            if (!needsForce) {
+                toast.error(responseData?.error || 'Failed to delete gala');
+                setIsDeletingContest(false);
+                return;
+            }
+
+            const counts = responseData?.related_counts || {};
+            setForceDeleteCounts(counts);
+            setShowDeleteConfirmModal(false);
+            setShowForceDeleteModal(true);
+            setIsDeletingContest(false);
+        }
+    };
+
+    const confirmForceDeleteContest = async () => {
+        if (!deleteTargetGallery) return;
+        setIsDeletingContest(true);
+        try {
+            await aiGalaService.adminDeleteGallery(deleteTargetGallery.id, { force: true });
+            toast.success('Gala and related data deleted successfully');
+            resetDeleteFlow();
+            loadGalleries();
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Failed to force delete gala');
+            setIsDeletingContest(false);
         }
     };
 
@@ -136,7 +228,15 @@ const AiGalaManagePage = () => {
         return flow[currentStatus] || null;
     };
 
+    const getStatusStepIndex = (status) => {
+        const index = STATUS_FLOW.indexOf(status);
+        return index >= 0 ? index : 0;
+    };
+
     const getTimelineText = (gallery) => {
+        if (gallery.status === 'draft') {
+            return 'Gala is inactive';
+        }
         if (gallery.status === 'voting' && gallery.is_voting_open) {
             const daysLeft = gallery.days_until_voting_ends || 0;
             if (daysLeft <= 0) return 'Voting ends today';
@@ -184,11 +284,12 @@ const AiGalaManagePage = () => {
         return Object.entries(bucket);
     }, [galleries, groupBy]);
 
+    const stageGuidance = ROLE_STAGE_GUIDANCE[userRole] || ROLE_STAGE_GUIDANCE.Teacher;
+
     if (isLoading) {
         return (
             <div style={styles.loadingContainer}>
                 <FontAwesomeIcon icon={faSpinner} spin style={styles.loadingIcon} />
-                <p>Loading galleries...</p>
             </div>
         );
     }
@@ -201,8 +302,8 @@ const AiGalaManagePage = () => {
                     <div style={styles.titleSection}>
                         <FontAwesomeIcon icon={faStar} style={styles.titleIcon} />
                         <div>
-                            <h1 style={styles.pageTitle}>Manage Contests</h1>
-                            <p style={styles.pageSubtitle}>Create and manage monthly contests</p>
+                            <h1 style={styles.pageTitle}>Manage Galas</h1>
+                            <p style={styles.pageSubtitle}>Create and manage monthly galas</p>
                         </div>
                     </div>
                     <button
@@ -210,27 +311,79 @@ const AiGalaManagePage = () => {
                         onClick={() => setShowCreateModal(true)}
                     >
                         <FontAwesomeIcon icon={faPlus} />
-                        <span>Create Contest</span>
+                        <span>Create Gala</span>
                     </button>
                 </div>
             </div>
 
-            {/* Gallery Status Flow Guide */}
-            <div style={styles.flowGuide}>
-                <h3 style={styles.flowTitle}>Contest Lifecycle</h3>
-                <div style={styles.flowSteps}>
-                    {Object.entries(STATUS_CONFIG).map(([key, config], index) => (
-                        <React.Fragment key={key}>
-                            <div style={styles.flowStep}>
-                                <div style={{ ...styles.flowIcon, backgroundColor: config.bgColor, color: config.color }}>
-                                    <FontAwesomeIcon icon={config.icon} />
-                                </div>
-                                <span style={styles.flowLabel}>{config.label}</span>
-                            </div>
-                            {index < 3 && <div style={styles.flowArrow}>→</div>}
-                        </React.Fragment>
-                    ))}
+            <div style={styles.guidelinesPanel}>
+                <div style={styles.guidelinesHeader}>
+                    <div style={styles.guidelinesTitleWrap}>
+                        <FontAwesomeIcon icon={faInfoCircle} style={styles.guidelinesIcon} />
+                        <div>
+                            <h2 style={styles.guidelinesTitle}>Gala Guidelines</h2>
+                            <p style={styles.guidelinesSubtitle}>Guidance for planning, running, and closing galas</p>
+                        </div>
+                    </div>
                 </div>
+
+                <div style={styles.guidelinesIntroBlock}>
+                    <h3 style={styles.guidelineCardTitle}>What galas are</h3>
+                    <p style={styles.guidelineCardText}>
+                        AI Galas are themed monthly showcases where students submit creations,
+                        voting happens in a defined window, and final results are announced after closure.
+                    </p>
+                </div>
+
+                <div style={styles.guidelinesGrid}>
+                    <div style={styles.guidelineCard}>
+                        <h3 style={styles.guidelineCardTitle}>How to add a gala</h3>
+                        <ul style={styles.guidelineList}>
+                            <li>Create the gala with title, theme, month, and description.</li>
+                            <li>Set both voting start and voting end dates.</li>
+                            <li>Configure schools/classes and upload optional cover image.</li>
+                            <li>Keep it in Draft until everything is reviewed.</li>
+                        </ul>
+                    </div>
+                    <div style={styles.guidelineCard}>
+                        <h3 style={styles.guidelineCardTitle}>Baseline checklist</h3>
+                        <ul style={styles.commonGuidelinesList}>
+                            {COMMON_GUIDELINES.map((item) => (
+                                <li key={item}>{item}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                <div style={styles.stageGuideGrid}>
+                    {STATUS_FLOW.map((statusKey) => {
+                        const flowConfig = STATUS_CONFIG[statusKey];
+                        return (
+                            <div key={`guide-${statusKey}`} style={styles.stageGuideCard}>
+                                <div style={styles.stageGuideHeaderRow}>
+                                    <span
+                                        style={{
+                                            ...styles.stageGuideBadge,
+                                            backgroundColor: flowConfig.bgColor,
+                                            color: flowConfig.color,
+                                        }}
+                                    >
+                                        <FontAwesomeIcon icon={flowConfig.icon} style={{ marginRight: '6px' }} />
+                                        {flowConfig.label}
+                                    </span>
+                                </div>
+                                <p style={styles.stageGuideText}>{stageGuidance[statusKey]}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {isAdmin && (
+                    <div style={styles.adminOnlyNote}>
+                        <strong>Admin only:</strong> Delete is available on each gala. Normal delete is blocked when participation data exists;
+                        use Force Delete only when you intentionally want cascade removal of projects, votes, and comments.
+                    </div>
+                )}
             </div>
 
             {/* Galleries List */}
@@ -253,12 +406,12 @@ const AiGalaManagePage = () => {
                 {galleries.length === 0 ? (
                     <div style={styles.emptyState}>
                         <FontAwesomeIcon icon={faStar} style={styles.emptyIcon} />
-                        <p>No contests created yet.</p>
+                        <p>No galas created yet.</p>
                         <button
                             style={styles.createButtonSmall}
                             onClick={() => setShowCreateModal(true)}
                         >
-                            Create Your First Contest
+                            Create Your First Gala
                         </button>
                     </div>
                 ) : (
@@ -267,12 +420,13 @@ const AiGalaManagePage = () => {
                             <div key={groupKey} style={styles.groupSection}>
                                 <div style={styles.groupHeader}>
                                     <h3 style={styles.groupTitle}>{groupKey}</h3>
-                                    <span style={styles.groupCount}>{groupItems.length} contests</span>
+                                    <span style={styles.groupCount}>{groupItems.length} galas</span>
                                 </div>
                                 <div style={styles.galleriesGrid}>
                                     {groupItems.map((gallery) => {
                                         const statusConfig = STATUS_CONFIG[gallery.status] || STATUS_CONFIG.draft;
                                         const nextStatus = getNextStatus(gallery.status);
+                                        const currentStage = getStatusStepIndex(gallery.status);
 
                                         return (
                                             <div key={gallery.id} style={styles.galleryCard}>
@@ -293,6 +447,54 @@ const AiGalaManagePage = () => {
                                                     <p style={styles.cardTheme}>{gallery.theme}</p>
                                                 </div>
 
+                                                <div style={styles.cardLifecycleWrap}>
+                                                    <div style={styles.cardLifecycleSteps}>
+                                                        {STATUS_FLOW.map((statusKey, index) => {
+                                                            const flowConfig = STATUS_CONFIG[statusKey];
+                                                            const isCurrent = index === currentStage;
+                                                            const isCompleted = index < currentStage;
+
+                                                            return (
+                                                                <React.Fragment key={`${gallery.id}-${statusKey}`}>
+                                                                    <div style={styles.cardLifecycleStep}>
+                                                                        <div
+                                                                            style={{
+                                                                                ...styles.cardLifecycleIcon,
+                                                                                backgroundColor: isCurrent || isCompleted ? flowConfig.bgColor : COLORS.background.gray,
+                                                                                color: isCurrent || isCompleted ? flowConfig.color : COLORS.text.tertiary,
+                                                                                opacity: isCurrent || isCompleted ? 1 : 0.5,
+                                                                                border: isCurrent ? `2px solid ${flowConfig.color}` : '2px solid transparent',
+                                                                            }}
+                                                                        >
+                                                                            <FontAwesomeIcon icon={flowConfig.icon} />
+                                                                        </div>
+                                                                        <span
+                                                                            style={{
+                                                                                ...styles.cardLifecycleLabel,
+                                                                                color: isCurrent ? flowConfig.color : COLORS.text.tertiary,
+                                                                            }}
+                                                                        >
+                                                                            {flowConfig.label}
+                                                                        </span>
+                                                                    </div>
+                                                                    {index < STATUS_FLOW.length - 1 && (
+                                                                        <div
+                                                                            style={{
+                                                                                ...styles.cardLifecycleConnector,
+                                                                                backgroundColor: index < currentStage ? COLORS.primary : COLORS.border.default,
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div style={styles.cardLifecycleStageText}>
+                                                        <FontAwesomeIcon icon={faHourglassHalf} style={{ marginRight: '6px' }} />
+                                                        Stage {currentStage + 1} of {STATUS_FLOW.length}: {statusConfig.label}
+                                                    </div>
+                                                </div>
+
                                                 {gallery.target_display && gallery.target_display !== 'All Schools' && (
                                                     <div style={styles.targetBadge}>
                                                         <FontAwesomeIcon icon={faUsers} style={{ marginRight: '6px' }} />
@@ -311,7 +513,7 @@ const AiGalaManagePage = () => {
                                                 )}
 
                                                 <p style={styles.cardDescription}>
-                                                    {gallery.description || 'No description provided for this contest.'}
+                                                    {gallery.description || 'No description provided for this gala.'}
                                                 </p>
 
                                                 <div style={styles.cardStats}>
@@ -374,6 +576,16 @@ const AiGalaManagePage = () => {
                                                         <FontAwesomeIcon icon={faFileDownload} />
                                                     </button>
 
+                                                    {isAdmin && (
+                                                        <button
+                                                            style={styles.deleteButton}
+                                                            onClick={() => handleDeleteContest(gallery)}
+                                                            title="Delete Gala"
+                                                        >
+                                                            <FontAwesomeIcon icon={faTrash} />
+                                                        </button>
+                                                    )}
+
                                                     {gallery.status === 'closed' && (
                                                         <button
                                                             style={styles.iconButton}
@@ -394,7 +606,7 @@ const AiGalaManagePage = () => {
                 )}
             </div>
 
-            {/* Create Contest Modal */}
+            {/* Create Gala Modal */}
             {showCreateModal && (
                 <CreateGalleryModal
                     onClose={() => setShowCreateModal(false)}
@@ -418,11 +630,45 @@ const AiGalaManagePage = () => {
                     }}
                 />
             )}
+
+            <ConfirmationModal
+                isOpen={showDeleteConfirmModal}
+                title="Delete Gala"
+                message="This action will permanently delete the gala."
+                itemName={deleteTargetGallery?.title || ''}
+                confirmText="Delete"
+                cancelText="Cancel"
+                variant="danger"
+                isLoading={isDeletingContest}
+                onConfirm={confirmDeleteContest}
+                onCancel={() => {
+                    if (!isDeletingContest) {
+                        resetDeleteFlow();
+                    }
+                }}
+            />
+
+            <ConfirmationModal
+                isOpen={showForceDeleteModal}
+                title="Force Delete Gala"
+                message={`This gala has related participation data and requires force delete. Projects: ${forceDeleteCounts?.projects || 0}, Votes: ${forceDeleteCounts?.votes || 0}, Comments: ${forceDeleteCounts?.comments || 0}. This is irreversible.`}
+                itemName={deleteTargetGallery?.title || ''}
+                confirmText="Force Delete"
+                cancelText="Keep Gala"
+                variant="warning"
+                isLoading={isDeletingContest}
+                onConfirm={confirmForceDeleteContest}
+                onCancel={() => {
+                    if (!isDeletingContest) {
+                        resetDeleteFlow();
+                    }
+                }}
+            />
         </div>
     );
 };
 
-// Create Contest Modal Component
+// Create Gala Modal Component
 const CreateGalleryModal = ({ onClose, onSuccess }) => {
     const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
                     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -531,7 +777,7 @@ const CreateGalleryModal = ({ onClose, onSuccess }) => {
 
         // Teachers must select at least one school
         if (isTeacher && formData.target_school_ids.length === 0) {
-            toast.error('Please select at least one school for the contest');
+            toast.error('Please select at least one school for the gala');
             return;
         }
 
@@ -582,11 +828,11 @@ const CreateGalleryModal = ({ onClose, onSuccess }) => {
             }
 
             await aiGalaService.adminCreateGallery(submitData);
-            toast.success('Contest created successfully!');
+            toast.success('Gala created successfully!');
             onSuccess();
         } catch (error) {
             // Extract detailed error message
-            let message = 'Failed to create contest';
+            let message = 'Failed to create gala';
             if (error.response?.data) {
                 const errorData = error.response.data;
                 if (typeof errorData === 'string') {
@@ -610,7 +856,7 @@ const CreateGalleryModal = ({ onClose, onSuccess }) => {
     return (
         <div style={styles.modalOverlay} onClick={onClose}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
-                <h2 style={styles.modalTitle}>Create New Contest</h2>
+                <h2 style={styles.modalTitle}>Create New Gala</h2>
                 <form onSubmit={handleSubmit}>
                     <div style={styles.formGroup}>
                         <label style={styles.label}>Title *</label>
@@ -863,7 +1109,7 @@ const CreateGalleryModal = ({ onClose, onSuccess }) => {
                                 ) : (
                                     <span style={styles.summaryGlobal}>
                                         <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#10B981', marginRight: '6px' }} />
-                                        Global Contest - All students can participate
+                                        Global Gala - All students can participate
                                     </span>
                                 )
                             ) : (
@@ -889,7 +1135,7 @@ const CreateGalleryModal = ({ onClose, onSuccess }) => {
                             ) : (
                                 <>
                                     <FontAwesomeIcon icon={faPlus} />
-                                    <span>Create Contest</span>
+                                    <span>Create Gala</span>
                                 </>
                             )}
                         </button>
@@ -1027,49 +1273,126 @@ const styles = {
         cursor: 'pointer',
         transition: `all ${TRANSITIONS.fast}`,
     },
-    flowGuide: {
+    guidelinesPanel: {
         backgroundColor: COLORS.background.white,
-        borderRadius: BORDER_RADIUS.lg,
+        borderRadius: BORDER_RADIUS.xl,
         padding: SPACING.lg,
         marginBottom: SPACING.lg,
         boxShadow: SHADOWS.sm,
+        border: `1px solid ${COLORS.border.default}`,
     },
-    flowTitle: {
-        fontSize: FONT_SIZES.md,
-        fontWeight: FONT_WEIGHTS.semibold,
-        color: COLORS.text.primary,
-        marginBottom: SPACING.md,
-    },
-    flowSteps: {
+    guidelinesHeader: {
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         gap: SPACING.md,
         flexWrap: 'wrap',
+        marginBottom: SPACING.md,
     },
-    flowStep: {
+    guidelinesTitleWrap: {
         display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: SPACING.xs,
+        alignItems: 'flex-start',
+        gap: SPACING.sm,
     },
-    flowIcon: {
-        width: '48px',
-        height: '48px',
-        borderRadius: BORDER_RADIUS.full,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '20px',
+    guidelinesIcon: {
+        color: COLORS.primary,
+        marginTop: '2px',
     },
-    flowLabel: {
-        fontSize: FONT_SIZES.sm,
-        fontWeight: FONT_WEIGHTS.medium,
-        color: COLORS.text.secondary,
+    guidelinesTitle: {
+        margin: 0,
+        color: COLORS.text.primary,
+        fontSize: FONT_SIZES.lg,
+        fontWeight: FONT_WEIGHTS.semibold,
     },
-    flowArrow: {
-        fontSize: '24px',
+    guidelinesSubtitle: {
+        margin: `${SPACING.xs} 0 0 0`,
         color: COLORS.text.tertiary,
+        fontSize: FONT_SIZES.sm,
+    },
+    guidelinesIntroBlock: {
+        borderRadius: BORDER_RADIUS.lg,
+        border: `1px solid ${COLORS.border.default}`,
+        backgroundColor: COLORS.background.lightGray,
+        padding: SPACING.md,
+        marginBottom: SPACING.md,
+    },
+    guidelinesGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: SPACING.md,
+    },
+    guidelineCard: {
+        borderRadius: BORDER_RADIUS.lg,
+        border: `1px solid ${COLORS.border.default}`,
+        backgroundColor: COLORS.background.lightGray,
+        padding: SPACING.md,
+    },
+    guidelineCardTitle: {
+        margin: 0,
+        fontSize: FONT_SIZES.md,
+        color: COLORS.text.primary,
+        fontWeight: FONT_WEIGHTS.semibold,
+    },
+    guidelineCardText: {
+        margin: `${SPACING.sm} 0 0 0`,
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 1.6,
+    },
+    guidelineList: {
+        margin: `${SPACING.sm} 0 0 ${SPACING.md}`,
+        padding: 0,
+        paddingLeft: SPACING.md,
+        listStyleType: 'disc',
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 1.7,
+    },
+    commonGuidelinesList: {
+        margin: `${SPACING.sm} 0 0 ${SPACING.md}`,
+        paddingLeft: SPACING.md,
+        listStyleType: 'disc',
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 1.7,
+    },
+    stageGuideGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+        gap: SPACING.sm,
+    },
+    stageGuideCard: {
+        borderRadius: BORDER_RADIUS.md,
+        border: `1px solid ${COLORS.border.default}`,
+        backgroundColor: COLORS.background.white,
+        padding: SPACING.sm,
+    },
+    stageGuideHeaderRow: {
+        marginBottom: SPACING.xs,
+    },
+    stageGuideBadge: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '4px 10px',
+        borderRadius: BORDER_RADIUS.full,
+        fontSize: FONT_SIZES.xs,
+        fontWeight: FONT_WEIGHTS.semibold,
+    },
+    stageGuideText: {
+        margin: 0,
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 1.6,
+    },
+    adminOnlyNote: {
+        marginTop: SPACING.md,
+        padding: SPACING.sm,
+        borderRadius: BORDER_RADIUS.md,
+        backgroundColor: COLORS.status.warningLight,
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        border: `1px solid ${COLORS.status.warningDark}33`,
+        lineHeight: 1.6,
     },
     galleriesSection: {
         marginTop: SPACING.lg,
@@ -1181,6 +1504,53 @@ const styles = {
         fontSize: FONT_SIZES.sm,
         color: COLORS.text.tertiary,
         margin: 0,
+    },
+    cardLifecycleWrap: {
+        marginBottom: SPACING.md,
+        padding: SPACING.sm,
+        backgroundColor: COLORS.background.lightGray,
+        borderRadius: BORDER_RADIUS.md,
+    },
+    cardLifecycleSteps: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: SPACING.xs,
+        overflowX: 'auto',
+        paddingBottom: SPACING.xs,
+    },
+    cardLifecycleStep: {
+        minWidth: '56px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '4px',
+    },
+    cardLifecycleIcon: {
+        width: '28px',
+        height: '28px',
+        borderRadius: BORDER_RADIUS.full,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: FONT_SIZES.xs,
+        flexShrink: 0,
+    },
+    cardLifecycleLabel: {
+        fontSize: '10px',
+        fontWeight: FONT_WEIGHTS.medium,
+        whiteSpace: 'nowrap',
+    },
+    cardLifecycleConnector: {
+        width: '18px',
+        height: '2px',
+        borderRadius: BORDER_RADIUS.full,
+        flexShrink: 0,
+    },
+    cardLifecycleStageText: {
+        marginTop: SPACING.xs,
+        fontSize: FONT_SIZES.xs,
+        fontWeight: FONT_WEIGHTS.semibold,
+        color: COLORS.text.secondary,
     },
     manageCoverWrap: {
         marginTop: SPACING.sm,
@@ -1310,6 +1680,19 @@ const styles = {
         justifyContent: 'center',
         backgroundColor: COLORS.background.gray,
         color: COLORS.text.secondary,
+        border: 'none',
+        borderRadius: BORDER_RADIUS.md,
+        cursor: 'pointer',
+        transition: `all ${TRANSITIONS.fast}`,
+    },
+    deleteButton: {
+        width: '40px',
+        height: '40px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.status.errorLight,
+        color: COLORS.status.error,
         border: 'none',
         borderRadius: BORDER_RADIUS.md,
         cursor: 'pointer',
@@ -1601,3 +1984,4 @@ const styles = {
 };
 
 export default AiGalaManagePage;
+

@@ -24,6 +24,10 @@ urlpatterns = [
     # Update gallery (admin)
     path('galleries/<int:gallery_id>/update/', views.update_gallery, name='gallery-update'),
 
+    # Delete gallery (admin)
+    path('galleries/<int:gallery_id>/delete/', views.delete_gallery, name='gallery-delete'),
+    path('galleries/<int:gallery_id>/delete', views.delete_gallery, name='gallery-delete-no-slash'),
+
     # Update gallery status (admin)
     path('galleries/<int:gallery_id>/status/', views.update_gallery_status, name='gallery-status'),
 
@@ -74,6 +78,10 @@ urlpatterns = [
 
     # Admin gallery stats
     path('admin/galleries/<int:gallery_id>/stats/', views.admin_gallery_stats, name='admin-gallery-stats'),
+
+    # Admin delete gallery aliases (compatibility)
+    path('admin/galleries/<int:gallery_id>/delete/', views.delete_gallery, name='admin-gallery-delete'),
+    path('admin/galleries/<int:gallery_id>/delete', views.delete_gallery, name='admin-gallery-delete-no-slash'),
 
     # ============== PDF ENDPOINTS ==============
     # Participation report PDF (admin only)

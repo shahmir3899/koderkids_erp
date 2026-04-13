@@ -46,6 +46,13 @@ const generateRequestKey = (config) => {
 // Configuration
 const DEBOUNCE_DELAY = 200; // milliseconds - delay before hiding loader
 const DEBUG = process.env.NODE_ENV === 'development'; // Enable debug logs in dev
+const LOADER_EXCLUDED_ROUTES = ['/ai-gala/manage'];
+
+const isLoaderExcludedRoute = () => {
+  if (typeof window === 'undefined') return false;
+  const path = (window.location.pathname || '').toLowerCase();
+  return LOADER_EXCLUDED_ROUTES.some((route) => path.startsWith(route));
+};
 
 // ============================================
 // DEBUG LOGGING (Development Only)
@@ -85,12 +92,15 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
       // Usage: axios.get(url, { silent: true })
       // This prevents the ERPLoader from showing for background polling
       const isSilent = config.silent === true;
-      config._isSilent = isSilent; // Store for response interceptor
+      const isExcludedRoute = isLoaderExcludedRoute();
+      config._isSilent = isSilent || isExcludedRoute; // Store for response interceptor
 
-      if (isSilent) {
-        logDebug('🔇 Silent request (no loader)', {
+      if (config._isSilent) {
+        logDebug('🔇 Silent/excluded request (no loader)', {
           url: config.url,
           method: config.method,
+          isSilent,
+          isExcludedRoute,
         });
         return config; // Skip all loader logic
       }

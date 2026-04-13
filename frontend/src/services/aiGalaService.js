@@ -21,6 +21,35 @@ const getMultipartHeaders = () => ({
     // Browser sets Content-Type with boundary for multipart
 });
 
+const extractApiErrorMessage = async (error, fallbackMessage) => {
+    const statusCode = error?.response?.status;
+    const responseData = error?.response?.data;
+
+    let message = fallbackMessage;
+
+    try {
+        if (responseData instanceof Blob) {
+            const rawText = await responseData.text();
+            if (rawText) {
+                try {
+                    const parsed = JSON.parse(rawText);
+                    message = parsed?.error || parsed?.detail || fallbackMessage;
+                } catch {
+                    message = rawText;
+                }
+            }
+        } else if (typeof responseData === 'string') {
+            message = responseData;
+        } else if (responseData && typeof responseData === 'object') {
+            message = responseData.error || responseData.detail || fallbackMessage;
+        }
+    } catch {
+        message = fallbackMessage;
+    }
+
+    return statusCode ? `${message} (HTTP ${statusCode})` : message;
+};
+
 /**
  * AI Gala Service object
  */
@@ -377,6 +406,49 @@ export const aiGalaService = {
         }
     },
 
+    /**
+     * Admin: Delete a gallery/contest
+     * @param {number} galleryId
+     * @param {object} options
+     * @param {boolean} options.force - Force cascade delete related participation data
+     */
+    adminDeleteGallery: async (galleryId, options = {}) => {
+        const params = {};
+        if (options.force) params.force = 'true';
+
+        const primaryUrl = `${API_URL}/api/aigala/galleries/${galleryId}/delete/`;
+        const fallbackUrl = `${API_URL}/api/aigala/admin/galleries/${galleryId}/delete/`;
+
+        try {
+            const response = await axios.delete(
+                primaryUrl,
+                {
+                    headers: getAuthHeaders(),
+                    params,
+                }
+            );
+            return response.data;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                try {
+                    const fallbackResponse = await axios.delete(
+                        fallbackUrl,
+                        {
+                            headers: getAuthHeaders(),
+                            params,
+                        }
+                    );
+                    return fallbackResponse.data;
+                } catch (fallbackError) {
+                    console.error('Error deleting gallery (fallback):', fallbackError);
+                    throw fallbackError;
+                }
+            }
+            console.error('Error deleting gallery:', error);
+            throw error;
+        }
+    },
+
     // ==================== PDF DOWNLOADS ====================
 
     /**
@@ -395,6 +467,7 @@ export const aiGalaService = {
             return response.data;
         } catch (error) {
             console.error('Error downloading participation report:', error);
+            error.userMessage = await extractApiErrorMessage(error, 'Failed to download participation report');
             throw error;
         }
     },
@@ -415,6 +488,7 @@ export const aiGalaService = {
             return response.data;
         } catch (error) {
             console.error('Error downloading certificate:', error);
+            error.userMessage = await extractApiErrorMessage(error, 'Failed to download certificate');
             throw error;
         }
     },
@@ -435,6 +509,7 @@ export const aiGalaService = {
             return response.data;
         } catch (error) {
             console.error('Error downloading all certificates:', error);
+            error.userMessage = await extractApiErrorMessage(error, 'Failed to download all certificates');
             throw error;
         }
     },
