@@ -206,7 +206,7 @@ def list_galleries(request):
     List galleries visible to the current user based on targeting.
     Query params:
         - status: filter by status (active, voting, closed)
-        - include_drafts: if 'true', include draft galleries (admin only)
+        - include_drafts: if 'true', include manageable draft galleries
     """
     from django.db.models import Q
 
@@ -220,13 +220,24 @@ def list_galleries(request):
         else:
             galleries = Gallery.objects.exclude(status='draft')
 
-    # Teacher sees global + galleries targeting their assigned schools
+    # Teacher sees global + galleries targeting their assigned schools.
+    # For drafts, only include drafts the teacher can manage.
     elif user.role == 'Teacher':
         teacher_schools = user.assigned_schools.all()
-        galleries = Gallery.objects.filter(
+
+        teacher_non_draft_galleries = Gallery.objects.filter(
             Q(target_schools__isnull=True) |  # No target = global
             Q(target_schools__in=teacher_schools)
-        ).exclude(status='draft').distinct()
+        ).exclude(status='draft')
+
+        if include_drafts:
+            teacher_manageable_drafts = Gallery.objects.filter(status='draft').filter(
+                Q(created_by=user) |
+                Q(target_schools__in=teacher_schools)
+            )
+            galleries = (teacher_non_draft_galleries | teacher_manageable_drafts).distinct()
+        else:
+            galleries = teacher_non_draft_galleries.distinct()
 
     # Student sees global + galleries targeting their school/class
     elif user.role == 'Student':

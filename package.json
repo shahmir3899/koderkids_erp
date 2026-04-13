@@ -1,8 +1,4 @@
 {
-  "dependencies": {
-    "react-modal": "^3.16.3"
-  },
-  "devDependencies": {
-    "sharp": "^0.34.5"
-  }
+  "private": true,
+  "description": "Workspace root – do not install packages here. See frontend/ and backend/ subdirectories."
 }
