@@ -254,7 +254,7 @@ export const MENU_SECTIONS = {
   MONITORING: {
     id: 'monitoring',
     label: 'Monitoring',
-    roles: ['Admin', 'BDM'],
+    roles: ['Admin', 'BDM', 'Teacher'],
     items: [
       {
         id: 'monitoring-visits',
@@ -262,6 +262,20 @@ export const MENU_SECTIONS = {
         icon: faClipboardList,
         path: '/monitoring',
         roles: ['Admin', 'BDM'],
+      },
+      {
+        id: 'monitoring-templates',
+        label: 'Eval Templates',
+        icon: faClipboardList,
+        path: '/monitoring/templates',
+        roles: ['Admin'],
+      },
+      {
+        id: 'monitoring-evaluations',
+        label: 'Evaluation History',
+        icon: faChartBar,
+        path: '/monitoring/evaluations',
+        roles: ['Admin', 'Teacher'],
       },
     ],
   },

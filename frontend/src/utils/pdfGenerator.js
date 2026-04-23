@@ -681,6 +681,7 @@ export class PDFGenerator {
       totalEarning = 0,
       totalDeduction = 0,
       netPay = 0,
+      monitoringVisits = [],
     } = options;
 
     try {
@@ -1014,9 +1015,56 @@ export class PDFGenerator {
       });
 
       // ============================================
+      // MONITORING VISITS SECTION (Full Width)
+      // ============================================
+      let yMonitoring = Math.min(yEarnings, yDeductions) - lineHeight * 1.5;
+
+      yMonitoring = drawSectionHeader('MONITORING VISITS', this.margin, yMonitoring, 170);
+
+      if (!Array.isArray(monitoringVisits) || monitoringVisits.length === 0) {
+        page.drawText('No monitoring visits in this period.', {
+          x: this.margin,
+          y: yMonitoring,
+          size: this.fontSize,
+          font: fontRegular,
+          color: rgb(0.45, 0.45, 0.45),
+        });
+        yMonitoring -= lineHeight;
+      } else {
+        const maxRows = 8;
+        const rowsToRender = monitoringVisits.slice(0, maxRows);
+
+        rowsToRender.forEach((visit) => {
+          const scoreText = visit?.score === null || visit?.score === undefined
+            ? '-'
+            : `${Number(visit.score).toFixed(2)}%`;
+          const rowText = `${formatDateWithOrdinal(visit?.visit_date)} | ${visit?.school_name || '-'} | ${visit?.status || '-'} | Score: ${scoreText}`;
+          page.drawText(rowText.slice(0, 110), {
+            x: this.margin,
+            y: yMonitoring,
+            size: this.fontSize,
+            font: fontRegular,
+            color: rgb(0, 0, 0),
+          });
+          yMonitoring -= lineHeight;
+        });
+
+        if (monitoringVisits.length > maxRows) {
+          page.drawText(`... and ${monitoringVisits.length - maxRows} more visit(s)`, {
+            x: this.margin,
+            y: yMonitoring,
+            size: this.fontSize - 1,
+            font: fontRegular,
+            color: rgb(0.45, 0.45, 0.45),
+          });
+          yMonitoring -= lineHeight;
+        }
+      }
+
+      // ============================================
       // NET PAYABLE SECTION (Highlighted Box)
       // ============================================
-      yPosition = Math.min(yEarnings, yDeductions) - lineHeight * 2;
+      yPosition = yMonitoring - lineHeight * 1.2;
 
       // Draw highlighted box for Net Payable
       const boxWidth = 250;

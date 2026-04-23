@@ -41,6 +41,7 @@ from .views import (
     SalarySlipListView,
     SalarySlipCreateView,
     SalarySlipDetailView,
+    SalarySlipMonitoringLinesPreviewView,
 
     # Notification Settings
     NotificationSettingsView,
@@ -163,6 +164,7 @@ urlpatterns = [
     # GET - Retrieve specific slip (own only for non-admins)
     # DELETE - Delete slip (Admin only)
     path('salary-slips/<int:pk>/', SalarySlipDetailView.as_view(), name='salary-slip-detail'),
+    path('salary-slips/monitoring-lines/', SalarySlipMonitoringLinesPreviewView.as_view(), name='salary-slip-monitoring-lines'),
 
     # ============================================
     # BDM Proforma Endpoints (Teacher Attitude Evaluation)
@@ -178,16 +180,18 @@ urlpatterns = [
     # ============================================
     # Teacher Evaluation Endpoints
     # URLs: /employees/teacher-evaluation/...
+    # NOTE: calculate/ must come before <int:teacher_id>/ to avoid Django
+    # trying to cast the string "calculate" as an integer (which would 404).
     # ============================================
 
     # GET - List all teacher evaluations (Admin only)
     path('teacher-evaluation/', teacher_evaluation_list, name='teacher-evaluation-list'),
 
+    # POST - Calculate/recalculate evaluations (MUST be before <int:teacher_id>/)
+    path('teacher-evaluation/calculate/', calculate_evaluation, name='teacher-evaluation-calculate'),
+
     # GET - View specific teacher's evaluations
     path('teacher-evaluation/<int:teacher_id>/', teacher_evaluation_detail, name='teacher-evaluation-detail'),
-
-    # POST - Calculate/recalculate evaluations
-    path('teacher-evaluation/calculate/', calculate_evaluation, name='teacher-evaluation-calculate'),
 
     # GET - Get own evaluations (Teacher self-service)
     path('my-evaluation/', my_evaluation, name='my-evaluation'),

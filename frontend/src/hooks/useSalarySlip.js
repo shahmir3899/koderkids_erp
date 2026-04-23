@@ -108,6 +108,7 @@ export function useSalarySlip() {
   // Salary slip history state
   const [salarySlipHistory, setSalarySlipHistory] = useState([]);
   const [selectedHistorySlip, setSelectedHistorySlip] = useState(null);
+  const [monitoringVisits, setMonitoringVisits] = useState([]);
 
   // ============================================
   // HELPERS
@@ -244,6 +245,31 @@ export function useSalarySlip() {
   };
   loadTeacherProfile();
 }, [selectedTeacherId, teachers]);
+
+  useEffect(() => {
+    const loadMonitoringPreview = async () => {
+      if (!selectedTeacherId || !formData.fromDate || !formData.tillDate) {
+        setMonitoringVisits([]);
+        return;
+      }
+
+      try {
+        const payload = await salaryService.fetchMonitoringLinesPreview(
+          selectedTeacherId,
+          formData.fromDate,
+          formData.tillDate
+        );
+        if (!isMounted.current) return;
+        setMonitoringVisits(payload?.monitoring_visits_snapshot || []);
+      } catch (err) {
+        if (!isMounted.current) return;
+        console.warn('Monitoring preview unavailable:', err?.response?.data || err.message);
+        setMonitoringVisits([]);
+      }
+    };
+
+    loadMonitoringPreview();
+  }, [selectedTeacherId, formData.fromDate, formData.tillDate]);
 
   // ============================================
   // CALCULATED VALUES (Memoized)
@@ -492,6 +518,7 @@ export function useSalarySlip() {
         ...calculations,
         earnings: [{ category: 'Salary', amount: calculations.proratedSalary }, ...earnings],
         deductions,
+        monitoringVisits,
       };
 
       // Generate PDF blob
@@ -563,6 +590,7 @@ export function useSalarySlip() {
       // Update earnings and deductions from snapshot
       setEarnings(slip.earnings_snapshot || []);
       setDeductions(slip.deductions_snapshot || []);
+      setMonitoringVisits(slip.monitoring_visits_snapshot || []);
 
       // Update selected teacher - set flags FIRST to prevent useEffect from re-fetching
       isLoadingHistoricalRef.current = true;
@@ -617,6 +645,7 @@ export function useSalarySlip() {
     setFormData(INITIAL_FORM_STATE);
     setEarnings([]);
     setDeductions([]);
+    setMonitoringVisits([]);
   }, []);
 
   // ============================================
@@ -641,6 +670,7 @@ export function useSalarySlip() {
     // History State
     salarySlipHistory,
     selectedHistorySlip,
+    monitoringVisits,
 
     // Actions
     updateFormField,

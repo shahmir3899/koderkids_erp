@@ -40,6 +40,13 @@ class MonitoringVisit(models.Model):
         on_delete=models.CASCADE,
         related_name='monitoring_visits',
     )
+    assigned_teachers = models.ManyToManyField(
+        CustomUser,
+        blank=True,
+        related_name='assigned_monitoring_visits',
+        limit_choices_to={'role': 'Teacher', 'is_active': True},
+        help_text='Teachers selected during visit planning for evaluation.',
+    )
     visit_date = models.DateField()
     planned_time = models.TimeField(null=True, blank=True, help_text='BDM planned visit time')
     start_time = models.TimeField(null=True, blank=True)
@@ -196,7 +203,6 @@ class TeacherEvaluation(models.Model):
 
     class Meta:
         ordering = ['-submitted_at']
-        unique_together = ('visit', 'teacher')
         verbose_name = 'Teacher Evaluation'
         verbose_name_plural = 'Teacher Evaluations'
 
@@ -235,11 +241,14 @@ class TeacherEvaluation(models.Model):
             total_weight += weight
 
         if total_weight > 0:
-            self.normalized_score = (weighted_sum / total_weight).quantize(Decimal('0.01'))
+            score_0_to_100 = (weighted_sum / total_weight).quantize(Decimal('0.01'))
         else:
-            self.normalized_score = Decimal('0.00')
+            score_0_to_100 = Decimal('0.00')
 
-        self.total_score = weighted_sum.quantize(Decimal('0.01'))
+        # Persist both score fields on the same 0-100 scale to avoid DB overflow
+        # and keep API responses consistent.
+        self.normalized_score = score_0_to_100
+        self.total_score = score_0_to_100
         self.save(update_fields=['total_score', 'normalized_score'])
 
 

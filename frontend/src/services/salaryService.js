@@ -89,6 +89,25 @@ export const salaryService = {
   },
 
   /**
+   * Preview monitoring visit rows for a salary period.
+   * @param {number} teacherId
+   * @param {string} fromDate - YYYY-MM-DD
+   * @param {string} tillDate - YYYY-MM-DD
+   */
+  fetchMonitoringLinesPreview: async (teacherId, fromDate, tillDate) => {
+    const params = new URLSearchParams();
+    if (teacherId) params.append('teacher_id', teacherId);
+    if (fromDate) params.append('from_date', fromDate);
+    if (tillDate) params.append('till_date', tillDate);
+
+    const response = await axios.get(
+      `${API_BASE_URL}/employees/salary-slips/monitoring-lines/?${params.toString()}`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  /**
    * Save salary slip to database (Admin only)
    * Creates new or updates existing slip for same teacher/period
    * @param {Object} slipData - Complete salary slip data

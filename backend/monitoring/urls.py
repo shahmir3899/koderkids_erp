@@ -18,6 +18,7 @@ urlpatterns = [
 
     # School working days
     path('schools/<int:school_id>/working-days/', views.school_working_days, name='school-working-days'),
+    path('schools/<int:school_id>/teachers/', views.school_teachers, name='school-teachers'),
 
     # Form templates
     path('templates/', views.template_list, name='template-list'),

@@ -12,6 +12,7 @@ from .models import (
     TeacherEvaluation,
     EvaluationResponse,
 )
+from students.models import CustomUser
 
 
 # ============================================
@@ -134,7 +135,13 @@ class TeacherEvaluationListSerializer(serializers.ModelSerializer):
 class MonitoringVisitSerializer(serializers.ModelSerializer):
     school_name = serializers.CharField(source='school.name', read_only=True)
     bdm_name = serializers.SerializerMethodField()
+    assigned_teachers = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=CustomUser.objects.filter(role='Teacher', is_active=True),
+        required=False,
+    )
     teacher_count = serializers.SerializerMethodField()
+    teacher_names = serializers.SerializerMethodField()
     evaluations_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -143,7 +150,8 @@ class MonitoringVisitSerializer(serializers.ModelSerializer):
             'id', 'bdm', 'school', 'school_name', 'bdm_name',
             'visit_date', 'planned_time', 'start_time', 'end_time',
             'status', 'purpose', 'notes',
-            'teacher_count', 'evaluations_count',
+            'assigned_teachers',
+            'teacher_count', 'teacher_names', 'evaluations_count',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -157,7 +165,14 @@ class MonitoringVisitSerializer(serializers.ModelSerializer):
     def get_teacher_count(self, obj):
         if hasattr(obj, '_teacher_count'):
             return obj._teacher_count
-        return obj.school.teachers.filter(role='Teacher', is_active=True).count()
+        return obj.assigned_teachers.filter(role='Teacher', is_active=True).count()
+
+    def get_teacher_names(self, obj):
+        teachers = obj.assigned_teachers.filter(role='Teacher', is_active=True)
+        names = []
+        for teacher in teachers:
+            names.append(teacher.get_full_name() or teacher.username)
+        return names
 
     def get_evaluations_count(self, obj):
         if hasattr(obj, '_evaluations_count'):
@@ -189,6 +204,30 @@ class MonitoringVisitSerializer(serializers.ModelSerializer):
             if requested_bdm and requested_bdm != user:
                 raise serializers.ValidationError({
                     'bdm': 'BDMs cannot assign visits to another BDM.'
+                })
+
+        selected_teachers = attrs.get('assigned_teachers')
+        school = attrs.get('school') or getattr(self.instance, 'school', None)
+
+        if self.instance is None and (selected_teachers is None or len(selected_teachers) == 0):
+            raise serializers.ValidationError({
+                'assigned_teachers': 'Select at least one teacher while planning the visit.'
+            })
+
+        if selected_teachers is not None and len(selected_teachers) == 0:
+            raise serializers.ValidationError({
+                'assigned_teachers': 'At least one teacher must remain assigned to the visit.'
+            })
+
+        if school and selected_teachers:
+            invalid = [
+                t.get_full_name() or t.username
+                for t in selected_teachers
+                if not t.assigned_schools.filter(id=school.id).exists()
+            ]
+            if invalid:
+                raise serializers.ValidationError({
+                    'assigned_teachers': f'These teachers are not assigned to {school.name}: {", ".join(invalid)}'
                 })
 
         return attrs

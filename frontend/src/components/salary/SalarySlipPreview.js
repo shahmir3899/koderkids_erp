@@ -15,6 +15,7 @@ export function SalarySlipPreview({ data }) {
   };
 
   const schoolsList = parseSchools(data.schools);
+  const monitoringVisits = Array.isArray(data.monitoringVisits) ? data.monitoringVisits : [];
 
   return (
     <div style={{
@@ -94,6 +95,41 @@ export function SalarySlipPreview({ data }) {
         <p style={{ fontWeight: 'bold', color: '#DC2626', marginTop: '0.5rem' }}>
           Total Deductions: {formatCurrency(data.totalDeduction)}
         </p>
+      </div>
+
+      {/* Monitoring Visits */}
+      <div style={{ marginBottom: '1rem' }}>
+        <p style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
+          Monitoring Visits ({monitoringVisits.length})
+        </p>
+        {monitoringVisits.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', borderBottom: '1px solid #E5E7EB', padding: '6px 4px' }}>Date</th>
+                  <th style={{ textAlign: 'left', borderBottom: '1px solid #E5E7EB', padding: '6px 4px' }}>School</th>
+                  <th style={{ textAlign: 'left', borderBottom: '1px solid #E5E7EB', padding: '6px 4px' }}>Status</th>
+                  <th style={{ textAlign: 'right', borderBottom: '1px solid #E5E7EB', padding: '6px 4px' }}>Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monitoringVisits.map((visit, idx) => (
+                  <tr key={`${visit.visit_id || 'row'}-${idx}`}>
+                    <td style={{ padding: '6px 4px', borderBottom: '1px solid #F3F4F6' }}>{formatDateWithOrdinal(visit.visit_date)}</td>
+                    <td style={{ padding: '6px 4px', borderBottom: '1px solid #F3F4F6' }}>{visit.school_name || '-'}</td>
+                    <td style={{ padding: '6px 4px', borderBottom: '1px solid #F3F4F6' }}>{visit.status || '-'}</td>
+                    <td style={{ padding: '6px 4px', borderBottom: '1px solid #F3F4F6', textAlign: 'right' }}>
+                      {visit.score === null || visit.score === undefined ? '-' : `${Number(visit.score).toFixed(2)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p style={{ marginLeft: '1.5rem', color: '#6B7280' }}>No monitoring visits in this period.</p>
+        )}
       </div>
 
       {/* Net Payable */}

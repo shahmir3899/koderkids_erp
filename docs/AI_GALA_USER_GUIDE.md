@@ -295,6 +295,51 @@ For developers integrating with AI Gala:
 
 ---
 
+## Seed Data For Testing
+
+AI Gala automated tests use a reusable seed-data mixin in [backend/aigala/tests.py](../backend/aigala/tests.py):
+
+- `AiGalaSeedDataMixin.setUp_seed_data()` creates:
+- 1 admin user
+- 1 teacher user (assigned to one school)
+- 2 schools
+- 3 students across multiple schools/classes
+
+- Helper methods:
+- `create_gallery(...)` for quick gallery setup with sensible date defaults
+- `create_project(...)` for fast project creation linked to a gallery/student
+
+This seed setup is test-only and created inside the Django test database, so it does not modify production data.
+
+### Covered Test Scenarios
+
+- Gallery visibility including teacher-manageable drafts (`include_drafts=true`)
+- Date-driven lifecycle auto-transition (`active -> voting`)
+- Student upload rules (active-only, one submission per student)
+- Voting rules (cannot vote own project, per-user vote cap)
+- Delete flow (admin-only, `force=true` required when related data exists)
+
+### Running AI Gala Tests
+
+From [backend](../backend):
+
+```bash
+python manage.py test aigala.tests --keepdb -v 2
+```
+
+From [frontend](../frontend):
+
+```bash
+set CI=true && npm test -- src/services/aiGalaService.test.js src/App.test.js
+```
+
+The frontend test file [frontend/src/services/aiGalaService.test.js](../frontend/src/services/aiGalaService.test.js) verifies:
+
+- delete endpoint fallback retry behavior
+- HTTP-aware error messaging for report download failures
+
+---
+
 ## Contact & Support
 
 For issues or questions about AI Gala:
@@ -303,4 +348,4 @@ For issues or questions about AI Gala:
 
 ---
 
-*Last Updated: January 2026*
+*Last Updated: April 2026*

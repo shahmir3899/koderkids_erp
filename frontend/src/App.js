@@ -59,6 +59,9 @@ import ProposalGenerator from './pages/crm/ProposalGenerator';
 
 // Monitoring Pages
 import MonitoringPage from './pages/monitoring/MonitoringPage';
+import MonitoringTemplatesPage from './pages/monitoring/MonitoringTemplatesPage';
+import VisitDetailPage from './pages/monitoring/VisitDetailPage';
+import EvaluationHistoryPage from './pages/monitoring/EvaluationHistoryPage';
 
 // Task Pages
 import TaskManagementPage from './pages/TaskManagementPage';
@@ -252,6 +255,9 @@ function AppContent() {
 
       {/* ✅ Monitoring Routes - Admin & BDM */}
       <Route path="/monitoring" element={<ProtectedRoute element={<MonitoringPage />} allowedRoles={["Admin", "BDM"]} />} />
+      <Route path="/monitoring/templates" element={<ProtectedRoute element={<MonitoringTemplatesPage />} allowedRoles={["Admin"]} />} />
+      <Route path="/monitoring/visits/:visitId" element={<ProtectedRoute element={<VisitDetailPage />} allowedRoles={["Admin", "BDM"]} />} />
+      <Route path="/monitoring/evaluations" element={<ProtectedRoute element={<EvaluationHistoryPage />} allowedRoles={["Admin", "Teacher"]} />} />
 
       {/* ✅ Task Routes */}
       <Route path="/task-management" element={<ProtectedRoute element={<TaskManagementPage />} allowedRoles={["Admin"]} />} />

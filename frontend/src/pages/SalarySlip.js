@@ -224,6 +224,7 @@ function SalarySlipPage() {
     // History
     salarySlipHistory,
     selectedHistorySlip,
+    monitoringVisits,
     fetchSalarySlipHistory,
     loadHistoricalSlip,
     deleteHistoricalSlip,
@@ -592,6 +593,7 @@ function SalarySlipPage() {
                   ...calculations,
                   earnings: [{ category: 'Salary', amount: calculations.proratedSalary }, ...earnings],
                   deductions,
+                  monitoringVisits,
                 }}
               />
               <div style={{ marginTop: SPACING.lg }}>
@@ -872,6 +874,7 @@ function SalarySlipPage() {
                   ...calculations,
                   earnings: [{ category: 'Salary', amount: calculations.proratedSalary }, ...earnings],
                   deductions,
+                  monitoringVisits,
                 }}
               />
             </div>

@@ -9,10 +9,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db.models import Avg
 from supabase import create_client, Client
 from django.conf import settings
 import uuid
 import os
+from datetime import date
 
 
 from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification, SalarySlip, NotificationSettings
@@ -34,6 +36,85 @@ from .serializers import (
     NotificationSettingsSerializer,
 )
 from students.models import CustomUser, School
+
+
+def _parse_iso_date(raw_value):
+    if not raw_value:
+        return None
+    if isinstance(raw_value, date):
+        return raw_value
+    try:
+        return date.fromisoformat(str(raw_value))
+    except (TypeError, ValueError):
+        return None
+
+
+def build_monitoring_visit_snapshot(employee, from_date, till_date):
+    """Build phase-1 monitoring rows for salary slips.
+
+    Rules:
+    - Teacher: one row per visited evaluation record set in period, score = average normalized score per visit.
+    - BDM: one row per visit in period, score blank.
+    """
+    if not employee or not from_date or not till_date:
+        return []
+
+    try:
+        from monitoring.models import MonitoringVisit, TeacherEvaluation
+    except Exception:
+        return []
+
+    rows = []
+
+    if employee.role == 'Teacher':
+        evaluations = (
+            TeacherEvaluation.objects
+            .filter(
+                teacher=employee,
+                visit__visit_date__gte=from_date,
+                visit__visit_date__lte=till_date,
+            )
+            .values('visit_id', 'visit__visit_date', 'visit__school__name', 'visit__status')
+            .annotate(avg_score=Avg('normalized_score'))
+            .order_by('visit__visit_date', 'visit_id')
+        )
+
+        for item in evaluations:
+            avg_score = item.get('avg_score')
+            rows.append({
+                'visit_id': item['visit_id'],
+                'visit_date': item['visit__visit_date'].isoformat() if item.get('visit__visit_date') else None,
+                'school_name': item.get('visit__school__name') or '-',
+                'status': item.get('visit__status') or '-',
+                'score': round(float(avg_score), 2) if avg_score is not None else None,
+                'notes': '',
+            })
+
+        return rows
+
+    if employee.role == 'BDM':
+        visits = (
+            MonitoringVisit.objects
+            .filter(
+                bdm=employee,
+                visit_date__gte=from_date,
+                visit_date__lte=till_date,
+            )
+            .select_related('school')
+            .order_by('visit_date', 'id')
+        )
+
+        for visit in visits:
+            rows.append({
+                'visit_id': visit.id,
+                'visit_date': visit.visit_date.isoformat() if visit.visit_date else None,
+                'school_name': visit.school.name if visit.school else '-',
+                'status': visit.status,
+                'score': None,  # As requested for phase 1 BDM rows
+                'notes': '',
+            })
+
+    return rows
 
 
 # ============================================
@@ -980,17 +1061,27 @@ class SalarySlipCreateView(APIView):
         )
 
         if serializer.is_valid():
+            teacher = serializer.validated_data.get('teacher')
+            from_date = serializer.validated_data.get('from_date')
+            till_date = serializer.validated_data.get('till_date')
+            monitoring_snapshot = build_monitoring_visit_snapshot(teacher, from_date, till_date)
+
             # Check if updating existing
             if serializer.instance:
                 # Update existing slip
                 for attr, value in serializer.validated_data.items():
                     setattr(serializer.instance, attr, value)
+                serializer.instance.monitoring_visits_snapshot = monitoring_snapshot
+                serializer.instance.monitoring_visits_count = len(monitoring_snapshot)
                 serializer.instance.generated_by = request.user
                 serializer.instance.save()
                 slip = serializer.instance
             else:
                 # Create new slip
-                slip = serializer.save()
+                slip = serializer.save(
+                    monitoring_visits_snapshot=monitoring_snapshot,
+                    monitoring_visits_count=len(monitoring_snapshot),
+                )
 
             response_serializer = SalarySlipSerializer(slip)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -1053,7 +1144,15 @@ class SalarySlipDetailView(APIView):
         )
 
         if serializer.is_valid():
-            updated_slip = serializer.save()
+            teacher = serializer.validated_data.get('teacher', slip.teacher)
+            from_date = serializer.validated_data.get('from_date', slip.from_date)
+            till_date = serializer.validated_data.get('till_date', slip.till_date)
+            monitoring_snapshot = build_monitoring_visit_snapshot(teacher, from_date, till_date)
+
+            updated_slip = serializer.save(
+                monitoring_visits_snapshot=monitoring_snapshot,
+                monitoring_visits_count=len(monitoring_snapshot),
+            )
             response_serializer = SalarySlipSerializer(updated_slip)
             return Response(response_serializer.data)
 
@@ -1074,6 +1173,38 @@ class SalarySlipDetailView(APIView):
             {'message': 'Salary slip deleted successfully'},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+class SalarySlipMonitoringLinesPreviewView(APIView):
+    """Preview monitoring visit rows for a salary period before generating a slip."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        teacher_id = request.query_params.get('teacher_id')
+        from_date = _parse_iso_date(request.query_params.get('from_date'))
+        till_date = _parse_iso_date(request.query_params.get('till_date'))
+
+        if not from_date or not till_date:
+            return Response(
+                {'error': 'from_date and till_date are required (YYYY-MM-DD).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if request.user.role == 'Admin':
+            if not teacher_id:
+                return Response({'error': 'teacher_id is required for admin preview.'}, status=status.HTTP_400_BAD_REQUEST)
+            teacher = get_object_or_404(CustomUser, id=teacher_id)
+        else:
+            teacher = request.user
+            if teacher_id and str(teacher.id) != str(teacher_id):
+                return Response({'error': 'You can only preview your own monitoring lines.'}, status=status.HTTP_403_FORBIDDEN)
+
+        rows = build_monitoring_visit_snapshot(teacher, from_date, till_date)
+        return Response({
+            'teacher': teacher.id,
+            'monitoring_visits_snapshot': rows,
+            'monitoring_visits_count': len(rows),
+        })
 
 
 # ============================================

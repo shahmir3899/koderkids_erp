@@ -56,6 +56,7 @@ const AiGalaPage = () => {
     };
     const userRole = getUserRole();
     const isAdminOrTeacher = userRole === 'Admin' || userRole === 'Teacher';
+    const isStudent = userRole === 'Student';
 
     // User state
     const [myProject, setMyProject] = useState(null);
@@ -228,6 +229,24 @@ const AiGalaPage = () => {
 
     const isVotingOpen = activeGallery?.is_voting_open;
     const canUpload = activeGallery?.status === 'active' && !myProject;
+    const uploadStatusMessage = activeGallery
+        ? (() => {
+            if (!isStudent || canUpload) return null;
+            if (myProject) {
+                return 'You have already submitted a creation to this gala.';
+            }
+            if (activeGallery.status === 'draft') {
+                return 'This gala is not open for submissions yet.';
+            }
+            if (activeGallery.status === 'voting') {
+                return 'Submissions are closed. Voting is now open.';
+            }
+            if (activeGallery.status === 'closed') {
+                return 'This gala is closed. Results are available.';
+            }
+            return 'This gala is not accepting submissions right now.';
+        })()
+        : null;
 
     const votingTimelineText = activeGallery
         ? (() => {
@@ -387,6 +406,13 @@ const AiGalaPage = () => {
                             <span>All Certificates</span>
                         </button>
                     )}
+                </div>
+            )}
+
+            {uploadStatusMessage && (
+                <div style={styles.uploadStatusNotice}>
+                    <FontAwesomeIcon icon={faClock} style={styles.uploadStatusIcon} />
+                    <span>{uploadStatusMessage}</span>
                 </div>
             )}
 
@@ -660,6 +686,23 @@ const styles = {
         padding: SPACING.lg,
         marginBottom: SPACING.lg,
         boxShadow: SHADOWS.sm,
+    },
+    uploadStatusNotice: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: SPACING.sm,
+        backgroundColor: COLORS.background.white,
+        borderRadius: BORDER_RADIUS.lg,
+        padding: SPACING.md,
+        marginBottom: SPACING.lg,
+        boxShadow: SHADOWS.sm,
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        fontWeight: FONT_WEIGHTS.medium,
+    },
+    uploadStatusIcon: {
+        color: COLORS.primary,
+        flexShrink: 0,
     },
     galleryCoverSection: {
         backgroundColor: COLORS.background.white,

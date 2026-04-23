@@ -7,7 +7,7 @@ import { faTimes, faCheck, faChevronRight, faChevronLeft, faStar, faClipboardChe
 
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, TRANSITIONS, MIXINS } from '../../utils/designConstants';
 import { useResponsive } from '../../hooks/useResponsive';
-import { fetchVisitTeachers, fetchTemplates, fetchTemplateDetail, submitEvaluation } from '../../services/monitoringService';
+import { fetchVisitTeachers, fetchTemplates, fetchTemplateDetail, submitEvaluation, updateEvaluation } from '../../services/monitoringService';
 import DynamicFormRenderer from './DynamicFormRenderer';
 
 // ============================================
@@ -19,7 +19,17 @@ const Z_INDEX_MODAL = 9999;
 // EVALUATION WIZARD COMPONENT
 // ============================================
 
-const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName }) => {
+const EvaluationWizard = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  visitId,
+  visitSchoolName,
+  editEvaluation = null,
+  initialTemplates = [],
+  onTemplatesLoaded,
+}) => {
+  // editEvaluation — when set, wizard pre-populates from an existing evaluation (edit mode)
   const { isMobile, isTablet } = useResponsive();
 
   // ============================================
@@ -58,19 +68,27 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
     setLoading(true);
     setError('');
     try {
-      const [teacherData, templateData] = await Promise.all([
-        fetchVisitTeachers(visitId),
-        fetchTemplates(),
-      ]);
+      const teacherPromise = fetchVisitTeachers(visitId);
+      const shouldFetchTemplates = !Array.isArray(initialTemplates) || initialTemplates.length === 0;
+      const templatePromise = shouldFetchTemplates
+        ? fetchTemplates()
+        : Promise.resolve(initialTemplates);
+
+      const [teacherData, templateData] = await Promise.all([teacherPromise, templatePromise]);
+
       setTeachers(Array.isArray(teacherData) ? teacherData : []);
-      setTemplates(Array.isArray(templateData) ? templateData : []);
+      const resolvedTemplates = Array.isArray(templateData) ? templateData : [];
+      setTemplates(resolvedTemplates);
+      if (shouldFetchTemplates && typeof onTemplatesLoaded === 'function') {
+        onTemplatesLoaded(resolvedTemplates);
+      }
     } catch (err) {
       console.error('Error loading step 1 data:', err);
       setError('Failed to load teachers or templates. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [visitId]);
+  }, [visitId, initialTemplates, onTemplatesLoaded]);
 
   const loadTemplateFields = useCallback(async (templateId) => {
     if (!templateId) return;
@@ -105,6 +123,25 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
       loadStep1Data();
     }
   }, [isOpen, visitId, loadStep1Data]);
+
+  // Pre-populate form when editing an existing evaluation
+  useEffect(() => {
+    if (isOpen && editEvaluation) {
+      // Pre-fill qualitative fields and skip to step 3 so reviewer can tweak remarks
+      setRemarks(editEvaluation.remarks || '');
+      setAreasOfImprovement(editEvaluation.areas_of_improvement || '');
+      setTeacherStrengths(editEvaluation.teacher_strengths || '');
+      // Pre-fill form values from stored responses
+      if (Array.isArray(editEvaluation.responses)) {
+        const vals = {};
+        editEvaluation.responses.forEach((r) => {
+          vals[r.field] = { value: r.value ?? '', numeric_value: r.numeric_value ?? null };
+        });
+        setFormValues(vals);
+      }
+      setCurrentStep(3);
+    }
+  }, [isOpen, editEvaluation]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -167,7 +204,6 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
   };
 
   const handleTeacherSelect = (teacher) => {
-    if (teacher.already_evaluated) return;
     setSelectedTeacher(teacher);
   };
 
@@ -332,21 +368,37 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
     setError('');
 
     try {
-      await submitEvaluation(visitId, {
-        teacher_id: selectedTeacher.id,
-        template_id: selectedTemplate.id,
-        responses: Object.entries(formValues).map(([fieldId, val]) => ({
-          field_id: parseInt(fieldId),
-          value: val.value,
-          numeric_value: val.numeric_value,
-        })),
-        remarks,
-        areas_of_improvement: areasOfImprovement,
-        teacher_strengths: teacherStrengths,
-      });
+      if (editEvaluation) {
+        // Edit mode — update remarks and responses
+        await updateEvaluation(editEvaluation.id, {
+          remarks,
+          areas_of_improvement: areasOfImprovement,
+          teacher_strengths: teacherStrengths,
+          responses: Object.entries(formValues).map(([fieldId, val]) => ({
+            field_id: parseInt(fieldId),
+            value: val.value,
+            numeric_value: val.numeric_value,
+          })),
+        });
+        toast.success('Evaluation updated successfully!');
+      } else {
+        // Create mode
+        await submitEvaluation(visitId, {
+          teacher_id: selectedTeacher.id,
+          template_id: selectedTemplate.id,
+          responses: Object.entries(formValues).map(([fieldId, val]) => ({
+            field_id: parseInt(fieldId),
+            value: val.value,
+            numeric_value: val.numeric_value,
+          })),
+          remarks,
+          areas_of_improvement: areasOfImprovement,
+          teacher_strengths: teacherStrengths,
+        });
+        toast.success('Evaluation submitted successfully!');
+      }
 
-      toast.success('Evaluation submitted successfully!');
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(editEvaluation ? 'edit' : 'create');
       onClose();
     } catch (err) {
       console.error('Error submitting evaluation:', err);
@@ -355,7 +407,7 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
         err?.response?.data?.detail ||
         err?.response?.data?.message ||
         (typeof err?.response?.data === 'string' ? err.response.data : null) ||
-        'Failed to submit evaluation. Please try again.';
+        (editEvaluation ? 'Failed to update evaluation. Please try again.' : 'Failed to submit evaluation. Please try again.');
       setError(apiError);
       toast.error(apiError);
     } finally {
@@ -396,7 +448,7 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
         )}
         {teachers.map((teacher) => {
           const isSelected = selectedTeacher?.id === teacher.id;
-          const isDisabled = teacher.already_evaluated;
+          const isDisabled = false;
 
           return (
             <div
@@ -437,6 +489,12 @@ const EvaluationWizard = ({ isOpen, onClose, onSuccess, visitId, visitSchoolName
                   <span style={styles.evaluatedBadge}>
                     <FontAwesomeIcon icon={faCheck} style={{ marginRight: '4px' }} />
                     Evaluated
+                  </span>
+                )}
+                {!isDisabled && teacher.already_evaluated && (
+                  <span style={styles.evaluatedBadge}>
+                    <FontAwesomeIcon icon={faCheck} style={{ marginRight: '4px' }} />
+                    Evaluated ({teacher.evaluation_count || 1})
                   </span>
                 )}
                 {isSelected && !isDisabled && (

@@ -20,7 +20,7 @@ import {
 } from "../../utils/designConstants";
 
 import { useResponsive } from "../../hooks/useResponsive";
-import { createVisit, fetchSchoolWorkingDays, updateVisit } from "../../services/monitoringService";
+import { createVisit, fetchSchoolWorkingDays, fetchSchoolTeachers, updateVisit } from "../../services/monitoringService";
 import { API_URL } from "../../utils/constants";
 import { getAuthHeaders } from "../../utils/authHelpers";
 import { fetchBDMs } from "../../api/services/crmService";
@@ -60,6 +60,9 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
   const [selectedDate, setSelectedDate] = useState(null);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [loadingWorkingDays, setLoadingWorkingDays] = useState(false);
+  const [teachersBySchool, setTeachersBySchool] = useState({});
+  const [selectedTeacherIdsBySchool, setSelectedTeacherIdsBySchool] = useState({});
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
 
   // ============================================================
   // DATA FETCHING
@@ -85,6 +88,53 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
       setLoadingSchools(false);
     }
   }, []);
+
+  const loadTeachersForSchools = useCallback(async (schools) => {
+    if (!schools || schools.length === 0) {
+      setTeachersBySchool({});
+      return;
+    }
+
+    setLoadingTeachers(true);
+    try {
+      const results = await Promise.all(
+        schools.map(async (school) => {
+          const teachers = await fetchSchoolTeachers(school.id);
+          return [school.id, Array.isArray(teachers) ? teachers : []];
+        })
+      );
+
+      const teacherMap = {};
+      results.forEach(([schoolId, teachers]) => {
+        teacherMap[schoolId] = teachers;
+      });
+      setTeachersBySchool(teacherMap);
+
+      setSelectedTeacherIdsBySchool((prev) => {
+        const next = { ...prev };
+        schools.forEach((school) => {
+          const availableIds = new Set((teacherMap[school.id] || []).map((t) => Number(t.id)));
+          const existing = (next[school.id] || []).map(Number).filter((id) => availableIds.has(id));
+          if (existing.length > 0) {
+            next[school.id] = existing;
+          } else if (!isEditMode) {
+            next[school.id] = [];
+          }
+        });
+        Object.keys(next).forEach((schoolId) => {
+          if (!schools.some((s) => String(s.id) === String(schoolId))) {
+            delete next[schoolId];
+          }
+        });
+        return next;
+      });
+    } catch (err) {
+      console.error('Error loading teachers for schools:', err);
+      setError('Failed to load teachers for selected schools.');
+    } finally {
+      setLoadingTeachers(false);
+    }
+  }, [isEditMode]);
 
   const fetchWorkingDays = useCallback(async (schools) => {
     if (!schools || schools.length === 0) return;
@@ -200,12 +250,24 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
           [schoolId]: initialVisit.planned_time || "",
         });
         setSelectedBdmId(initialVisit.bdm ? String(initialVisit.bdm) : "");
+        const initialAssigned = Array.isArray(initialVisit.assigned_teachers)
+          ? initialVisit.assigned_teachers.map((id) => Number(id))
+          : [];
+        setSelectedTeacherIdsBySchool({
+          [schoolId]: initialAssigned,
+        });
         setCurrentStep(3);
       }
     } else {
       resetWizard();
     }
   }, [isOpen, fetchSchools, isEditMode, initialVisit]);
+
+  useEffect(() => {
+    if (isOpen && selectedSchools.length > 0) {
+      loadTeachersForSchools(selectedSchools);
+    }
+  }, [isOpen, selectedSchools, loadTeachersForSchools]);
 
   useEffect(() => {
     if (selectedSchools.length > 0 && currentStep === 2) {
@@ -238,6 +300,8 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
     setError(null);
     setIsSubmitting(false);
     setPlannedTimes({});
+    setTeachersBySchool({});
+    setSelectedTeacherIdsBySchool({});
     setSelectedBdmId("");
   };
 
@@ -318,6 +382,16 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
         setError("Please select at least one school to continue.");
         return;
       }
+      const schoolsWithoutTeachers = selectedSchools.filter((school) => {
+        const selectedIds = selectedTeacherIdsBySchool[school.id] || [];
+        return selectedIds.length === 0;
+      });
+
+      if (schoolsWithoutTeachers.length > 0) {
+        setError("Please select at least one teacher for each selected school.");
+        return;
+      }
+
       setCurrentStep(2);
     } else if (currentStep === 2) {
       if (!selectedDate) {
@@ -449,6 +523,33 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
       </div>
 
       <div style={styles.formGroup}>
+        <label style={styles.label}>Assigned Teachers <span style={{ color: COLORS.status.error }}>*</span></label>
+        <select
+          multiple
+          value={(selectedTeacherIdsBySchool[editingSchoolKey] || []).map(String)}
+          onChange={(e) => {
+            const selectedIds = Array.from(e.target.selectedOptions).map((option) => Number(option.value));
+            setSelectedTeacherIdsBySchool((prev) => ({
+              ...prev,
+              [editingSchoolKey]: selectedIds,
+            }));
+          }}
+          style={styles.multiSelect}
+        >
+          {(teachersBySchool[editingSchoolKey] || []).map((teacher) => (
+            <option key={teacher.id} value={teacher.id}>
+              {teacher.name}
+            </option>
+          ))}
+        </select>
+        <div style={styles.helperText}>
+          {(teachersBySchool[editingSchoolKey] || []).length === 0
+            ? 'No active teachers assigned to this school.'
+            : 'Hold Ctrl/Cmd to select multiple teachers.'}
+        </div>
+      </div>
+
+      <div style={styles.formGroup}>
         <label style={styles.label}>Purpose (optional)</label>
         <input
           type="text"
@@ -513,6 +614,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
         if (schoolKey !== undefined) {
           payload.planned_time = plannedTimeValue || null;
         }
+  payload.assigned_teachers = selectedTeacherIdsBySchool[schoolKey] || [];
 
         if (isAdmin) {
           const resolvedBdmId = selectedBdmId || String(initialVisit?.bdm || "");
@@ -536,6 +638,7 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
             purpose: purpose || undefined,
             notes: notes || undefined,
             planned_time: plannedTimes[school.id] || undefined,
+            assigned_teachers: selectedTeacherIdsBySchool[school.id] || [],
           };
 
           if (isAdmin && selectedBdmId) {
@@ -825,6 +928,11 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
                         onClick={() => {
                           if (isSelected) {
                             setSelectedSchools(selectedSchools.filter((s) => s.id !== school.id));
+                            setSelectedTeacherIdsBySchool((prev) => {
+                              const next = { ...prev };
+                              delete next[school.id];
+                              return next;
+                            });
                           } else {
                             setSelectedSchools([...selectedSchools, school]);
                           }
@@ -857,6 +965,34 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
                               {school.location || school.address}
                             </div>
                           )}
+                          <div style={{ marginTop: SPACING.sm }}>
+                            <div style={{ ...styles.label, marginBottom: SPACING.xs }}>Assigned Teachers <span style={{ color: COLORS.status.error }}>*</span></div>
+                            <select
+                              multiple
+                              value={(selectedTeacherIdsBySchool[school.id] || []).map(String)}
+                              onChange={(e) => {
+                                const selectedIds = Array.from(e.target.selectedOptions).map((option) => Number(option.value));
+                                setSelectedTeacherIdsBySchool((prev) => ({
+                                  ...prev,
+                                  [school.id]: selectedIds,
+                                }));
+                              }}
+                              style={styles.multiSelect}
+                            >
+                              {(teachersBySchool[school.id] || []).map((teacher) => (
+                                <option key={teacher.id} value={teacher.id}>
+                                  {teacher.name}
+                                </option>
+                              ))}
+                            </select>
+                            <div style={styles.helperText}>
+                              {loadingTeachers
+                                ? 'Loading teachers...'
+                                : ((teachersBySchool[school.id] || []).length === 0
+                                  ? 'No active teachers assigned to this school.'
+                                  : 'Hold Ctrl/Cmd to select multiple teachers.')}
+                            </div>
+                          </div>
                         </div>
                         {isSelected && (
                           <div style={styles.selectedBadge}>Selected</div>
@@ -1264,6 +1400,26 @@ const PlanVisitModal = ({ isOpen, onClose, onSuccess, mode = "create", initialVi
                   </div>
                 )}
 
+                {/* Assigned Teachers */}
+                <div style={styles.reviewRow}>
+                  <div style={styles.reviewLabel}>
+                    <FontAwesomeIcon icon={faUsers} style={styles.reviewIcon} />
+                    Assigned Teachers
+                  </div>
+                  <div style={styles.reviewValue}>
+                    {selectedSchools.map((school) => {
+                      const ids = selectedTeacherIdsBySchool[school.id] || [];
+                      const teacherMap = new Map((teachersBySchool[school.id] || []).map((t) => [Number(t.id), t.name]));
+                      const names = ids.map((id) => teacherMap.get(Number(id))).filter(Boolean);
+                      return (
+                        <div key={`review-teachers-${school.id}`} style={{ marginBottom: SPACING.xs }}>
+                          <strong>{school.name}:</strong> {names.length > 0 ? names.join(', ') : 'No teachers selected'}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Purpose */}
                 <div style={styles.reviewRow}>
                   <div style={styles.reviewLabel}>
@@ -1645,6 +1801,20 @@ const styles = {
     transition: `all ${TRANSITIONS.normal}`,
     boxSizing: "border-box",
     appearance: "none",
+  },
+
+  multiSelect: {
+    width: "100%",
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    minHeight: "92px",
+    fontSize: FONT_SIZES.sm,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    color: COLORS.text.white,
+    outline: "none",
+    transition: `all ${TRANSITIONS.normal}`,
+    boxSizing: "border-box",
   },
 
   helperText: {

@@ -315,6 +315,15 @@ class SalarySlip(models.Model):
         blank=True,
         help_text="JSON array of deductions at time of generation"
     )
+    monitoring_visits_snapshot = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="JSON array of monitoring visits for this salary period"
+    )
+    monitoring_visits_count = models.IntegerField(
+        default=0,
+        help_text="Number of monitoring visit rows included in this slip"
+    )
 
     # Totals
     total_earnings = models.DecimalField(
@@ -659,26 +668,29 @@ class TeacherEvaluationScore(models.Model):
             score.attendance_score = 0
 
         # 2. Attitude Score (from Monitoring Evaluation or legacy BDM Proforma)
-        # Prefer new monitoring evaluations over legacy proforma
+        # Prefer new monitoring evaluations over legacy proforma.
+        # If multiple evaluations exist for this teacher in the month (multiple
+        # visits), take the average — fairer than picking just the latest.
         monitoring_score = None
         try:
             from monitoring.models import TeacherEvaluation
-            monitoring_eval = TeacherEvaluation.objects.filter(
+            from django.db.models import Avg as _Avg
+            monitoring_agg = TeacherEvaluation.objects.filter(
                 teacher=teacher,
                 visit__visit_date__month=month,
                 visit__visit_date__year=year,
                 normalized_score__gt=0,
-            ).order_by('-submitted_at').first()
+            ).aggregate(avg_score=_Avg('normalized_score'))
 
-            if monitoring_eval:
-                monitoring_score = monitoring_eval.normalized_score
+            if monitoring_agg['avg_score'] is not None:
+                monitoring_score = monitoring_agg['avg_score']
         except Exception:
             pass  # monitoring app may not be installed yet
 
         if monitoring_score is not None:
             score.attitude_score = monitoring_score
         else:
-            # Fall back to legacy BDM Proforma
+            # Fall back to legacy BDM Proforma (historical data only)
             proforma = BDMVisitProforma.objects.filter(
                 teacher=teacher,
                 month=month,
@@ -695,7 +707,7 @@ class TeacherEvaluationScore(models.Model):
         from students.models import Student
         students_in_schools = Student.objects.filter(
             school__in=teacher_schools,
-            is_active=True
+            status='Active'
         )
 
         if students_in_schools.exists():

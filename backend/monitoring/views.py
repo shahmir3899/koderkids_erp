@@ -33,6 +33,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def parse_positive_int(value, default):
+    try:
+        parsed = int(value)
+        return parsed if parsed >= 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
 # ============================================
 # PERMISSION HELPERS
 # ============================================
@@ -87,8 +95,28 @@ def visit_list(request):
         # Annotate counts to avoid N+1
         visits = visits.annotate(
             _evaluations_count=Count('evaluations', distinct=True),
-            _teacher_count=Count('school__teachers', filter=Q(school__teachers__role='Teacher', school__teachers__is_active=True), distinct=True),
+            _teacher_count=Count('assigned_teachers', filter=Q(assigned_teachers__role='Teacher', assigned_teachers__is_active=True), distinct=True),
         )
+
+        paginate = request.query_params.get('paginate') == 'true'
+        limit = parse_positive_int(request.query_params.get('limit'), 20)
+        offset = parse_positive_int(request.query_params.get('offset'), 0)
+        limit = min(max(limit, 1), 100)
+
+        if paginate:
+            total_count = visits.count()
+            paged_visits = visits[offset:offset + limit]
+            serializer = MonitoringVisitSerializer(paged_visits, many=True)
+            next_offset = offset + limit if (offset + limit) < total_count else None
+            previous_offset = max(offset - limit, 0) if offset > 0 else None
+            return Response({
+                'count': total_count,
+                'limit': limit,
+                'offset': offset,
+                'next_offset': next_offset,
+                'previous_offset': previous_offset,
+                'results': serializer.data,
+            })
 
         serializer = MonitoringVisitSerializer(visits, many=True)
         return Response(serializer.data)
@@ -173,6 +201,25 @@ def visit_detail(request, visit_id):
         return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'GET':
+        if request.query_params.get('compact') == 'true':
+            evaluations_qs = visit.evaluations.all()
+            evaluations_count = evaluations_qs.count()
+            latest_evaluation = evaluations_qs.order_by('-submitted_at').values('submitted_at').first()
+            teachers_qs = visit.assigned_teachers.filter(role='Teacher', is_active=True)
+            teacher_count = teachers_qs.count()
+            teacher_names = [teacher.get_full_name() or teacher.username for teacher in teachers_qs]
+            return Response({
+                'id': visit.id,
+                'status': visit.status,
+                'school_name': visit.school.name,
+                'visit_date': visit.visit_date,
+                'teacher_count': teacher_count,
+                'teacher_names': teacher_names,
+                'evaluations_count': evaluations_count,
+                'evaluation_count': evaluations_count,
+                'last_evaluation_submitted_at': latest_evaluation['submitted_at'] if latest_evaluation else None,
+                'updated_at': visit.updated_at,
+            })
         serializer = MonitoringVisitDetailSerializer(visit)
         return Response(serializer.data)
 
@@ -218,11 +265,11 @@ def visit_detail(request, visit_id):
 
         return Response(serializer.data)
 
-    # DELETE — cancel
-    if visit.status == 'completed':
+    # DELETE — remove visit
+    if visit.status == 'completed' and not is_admin(request.user):
         return Response(
-            {'error': 'Cannot delete a completed visit'},
-            status=status.HTTP_400_BAD_REQUEST,
+            {'error': 'Only Admin can delete a completed visit'},
+            status=status.HTTP_403_FORBIDDEN,
         )
     visit.delete()
     return Response({'message': 'Visit deleted'}, status=status.HTTP_200_OK)
@@ -305,22 +352,51 @@ def visit_teachers(request, visit_id):
     if is_bdm(request.user) and visit.bdm != request.user:
         return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-    teachers = CustomUser.objects.filter(
-        assigned_schools=visit.school,
+    teachers = visit.assigned_teachers.filter(
         role='Teacher',
         is_active=True,
     ).values('id', 'username', 'first_name', 'last_name')
 
     # Check which teachers already have an evaluation for this visit
-    evaluated_ids = set(
-        visit.evaluations.values_list('teacher_id', flat=True)
-    )
+    evaluated_counts = {}
+    for teacher_id in visit.evaluations.values_list('teacher_id', flat=True):
+        evaluated_counts[teacher_id] = evaluated_counts.get(teacher_id, 0) + 1
 
     teacher_data = [
         {
             'id': t['id'],
             'name': f"{t['first_name']} {t['last_name']}".strip() or t['username'],
-            'already_evaluated': t['id'] in evaluated_ids,
+            'already_evaluated': t['id'] in evaluated_counts,
+            'evaluation_count': evaluated_counts.get(t['id'], 0),
+        }
+        for t in teachers
+    ]
+
+    return Response(teacher_data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def school_teachers(request, school_id):
+    """GET /api/monitoring/schools/<id>/teachers/ — Active teachers assigned to a school."""
+    if not is_admin_or_bdm(request.user):
+        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        school = School.objects.get(id=school_id, is_active=True)
+    except School.DoesNotExist:
+        return Response({'error': 'School not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    teachers = CustomUser.objects.filter(
+        assigned_schools=school,
+        role='Teacher',
+        is_active=True,
+    ).distinct().values('id', 'username', 'first_name', 'last_name')
+
+    teacher_data = [
+        {
+            'id': t['id'],
+            'name': f"{t['first_name']} {t['last_name']}".strip() or t['username'],
         }
         for t in teachers
     ]
@@ -534,13 +610,6 @@ def visit_evaluations(request, visit_id):
     except EvaluationFormTemplate.DoesNotExist:
         return Response({'error': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Check for duplicate
-    if TeacherEvaluation.objects.filter(visit=visit, teacher=teacher).exists():
-        return Response(
-            {'error': 'Evaluation already exists for this teacher in this visit'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
     # Validate required fields
     required_field_ids = set(
         template.fields.filter(is_required=True).values_list('id', flat=True)
@@ -591,12 +660,13 @@ def visit_evaluations(request, visit_id):
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def evaluation_detail(request, evaluation_id):
     """
-    GET /api/monitoring/evaluations/<id>/  — Evaluation detail
-    PUT /api/monitoring/evaluations/<id>/  — Update evaluation
+    GET    /api/monitoring/evaluations/<id>/  — Evaluation detail
+    PUT    /api/monitoring/evaluations/<id>/  — Update evaluation
+    DELETE /api/monitoring/evaluations/<id>/  — Delete evaluation (blocked if visit completed)
     """
     if not is_admin_or_bdm(request.user):
         return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
@@ -616,6 +686,18 @@ def evaluation_detail(request, evaluation_id):
     if request.method == 'GET':
         serializer = TeacherEvaluationSerializer(evaluation)
         return Response(serializer.data)
+
+    if request.method == 'DELETE':
+        # Only Admin can delete; blocked if visit is completed
+        if not is_admin(request.user):
+            return Response({'error': 'Only Admin can delete evaluations'}, status=status.HTTP_403_FORBIDDEN)
+        if evaluation.visit.status == 'completed':
+            return Response(
+                {'error': 'Cannot delete an evaluation from a completed visit'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        evaluation.delete()
+        return Response({'message': 'Evaluation deleted'}, status=status.HTTP_200_OK)
 
     # PUT — update remarks and responses
     data = request.data

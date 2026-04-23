@@ -135,6 +135,23 @@ def bdm_proforma_list(request):
         })
 
     elif request.method == 'POST':
+        # DEPRECATED: BDMVisitProforma creation is no longer supported.
+        # Use the monitoring TeacherEvaluation workflow instead:
+        #   1. Create a MonitoringVisit  → POST /api/monitoring/visits/
+        #   2. Submit evaluations        → POST /api/monitoring/visits/<id>/evaluations/
+        return Response(
+            {
+                'error': 'This endpoint has been retired.',
+                'detail': (
+                    'Creating BDMVisitProforma records directly is no longer supported. '
+                    'Please use the monitoring visit workflow: create a MonitoringVisit and '
+                    'submit TeacherEvaluations through /api/monitoring/visits/<id>/evaluations/.'
+                ),
+            },
+            status=status.HTTP_410_GONE,
+        )
+
+        # --- DEAD CODE BELOW (kept for historical reference) ---
         # Validate required fields
         required_fields = ['teacher_id', 'school_id', 'visit_date', 'month', 'year']
         for field in required_fields:

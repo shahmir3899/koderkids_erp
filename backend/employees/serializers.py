@@ -268,6 +268,7 @@ class SalarySlipListSerializer(serializers.ModelSerializer):
             'id', 'teacher', 'teacher_name', 'employee_name',
             'from_date', 'till_date', 'payment_date',
             'period_display', 'month',
+            'monitoring_visits_count',
             'net_pay', 'generated_at',
         ]
 
@@ -299,6 +300,7 @@ class SalarySlipSerializer(serializers.ModelSerializer):
             # Financial
             'basic_salary', 'no_of_days', 'normalized_days', 'prorated_salary',
             'earnings_snapshot', 'deductions_snapshot',
+            'monitoring_visits_snapshot', 'monitoring_visits_count',
             'total_earnings', 'total_deductions', 'net_pay',
             # Formatting
             'line_spacing',
@@ -333,10 +335,12 @@ class SalarySlipCreateSerializer(serializers.ModelSerializer):
             # Financial
             'basic_salary', 'no_of_days', 'normalized_days', 'prorated_salary',
             'earnings_snapshot', 'deductions_snapshot',
+            'monitoring_visits_snapshot', 'monitoring_visits_count',
             'total_earnings', 'total_deductions', 'net_pay',
             # Formatting
             'line_spacing',
         ]
+        read_only_fields = ['monitoring_visits_snapshot', 'monitoring_visits_count']
 
     def create(self, validated_data):
         # Set the generated_by to current user
