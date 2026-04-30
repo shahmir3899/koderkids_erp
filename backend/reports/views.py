@@ -1,6 +1,7 @@
 import logging
 import re
 import os
+import uuid
 from zipfile import ZIP_DEFLATED, ZipFile
 from django.http import HttpResponse
 from django.utils.timezone import now
@@ -9,7 +10,8 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from students.models import Student, Attendance, LessonPlan, Student, Attendance, LessonPlan, StudentImage
-from django.db.models import Count
+from django.db.models import Count, Max, Sum
+from django.db.models.functions import TruncDay
 from datetime import datetime, timedelta
 from weasyprint import HTML, CSS
 from supabase import create_client
@@ -26,7 +28,14 @@ from django.http import JsonResponse
 from datetime import datetime, timedelta
 
 from lessons.serializers import LessonPlanSerializer
-from .models import CustomReport, ReportTemplate, ReportRequest, RequestStatusLog, GeneratedReport
+from .models import (
+    CustomReport,
+    ReportTemplate,
+    ReportRequest,
+    RequestStatusLog,
+    GeneratedReport,
+    StudentReportGenerationEvent,
+)
 from .serializers import (
     CustomReportSerializer,
     CustomReportListSerializer,
@@ -40,6 +49,11 @@ from .serializers import (
     ApproveRequestSerializer,
     RejectRequestSerializer,
     GeneratedReportSerializer,
+    StudentReportClassBreakdownSerializer,
+    StudentReportUserSummarySerializer,
+    StudentReportTimelinePointSerializer,
+    SchoolReportCardSerializer,
+    AdminMonitoringSerializer,
 )
 from authentication.permissions import (
     IsAdminUser,
@@ -422,6 +436,70 @@ def get_date_range(mode, month, start_date, end_date):
     logger.info(f"Date range: {start_date} to {end_date}, period={period}")
     return start_date, end_date, period
 
+
+def _log_student_report_generation_event(
+    *,
+    event_type,
+    user,
+    student,
+    school,
+    student_class,
+    mode,
+    month,
+    start_date,
+    end_date,
+    request_id=None,
+):
+    """
+    Best-effort analytics logging for report generation.
+    Never raises; report generation must not fail if analytics logging fails.
+    """
+    try:
+        StudentReportGenerationEvent.objects.create(
+            event_type=event_type,
+            generated_by=user,
+            student=student,
+            school=school,
+            student_class=student_class or '',
+            period_mode=mode,
+            period_month=month if mode == 'month' else None,
+            period_start=start_date,
+            period_end=end_date,
+            request_id=request_id,
+            source='reports_page',
+        )
+    except Exception as exc:
+        logger.warning("Failed to log report generation analytics event: %s", exc)
+
+
+def _month_boundaries(month_str):
+    month_start = datetime.strptime(month_str, '%Y-%m').date()
+    if month_start.month == 12:
+        month_end = datetime(month_start.year, 12, 31).date()
+    else:
+        month_end = (datetime(month_start.year, month_start.month + 1, 1) - timedelta(days=1)).date()
+    return month_start, month_end
+
+
+def _scoped_report_events(request, month, school_id=None, class_id=None, user_id=None):
+    month_start, month_end = _month_boundaries(month)
+    queryset = StudentReportGenerationEvent.objects.filter(
+        generated_at__date__range=[month_start, month_end]
+    ).select_related('generated_by', 'school')
+
+    if school_id:
+        queryset = queryset.filter(school_id=school_id)
+    if class_id:
+        queryset = queryset.filter(student_class=class_id)
+    if user_id:
+        queryset = queryset.filter(generated_by_id=user_id)
+
+    if request.user.role == 'Teacher':
+        assigned_school_ids = request.user.assigned_schools.values_list('id', flat=True)
+        queryset = queryset.filter(school_id__in=assigned_school_ids)
+
+    return queryset
+
 def fetch_student_data(student_id, school_id, student_class, start_date, end_date):
     """Fetch student, attendance, and lesson data efficiently."""
     logger.info(f"Fetching student data: student_id={student_id}, school_id={school_id}, student_class={student_class}")
@@ -527,6 +605,7 @@ def generate_bulk_pdf_zip(request):
         include_background_dict = request.data.get('includeBackground', {})  # {student_id: bool} – per student
 
         start_date_parsed, end_date_parsed, period = get_date_range(mode, month, start_date, end_date)
+        request_uuid = uuid.uuid4()
 
         # Create ZIP in memory
         zip_buffer = BytesIO()
@@ -549,6 +628,19 @@ def generate_bulk_pdf_zip(request):
 
                     pdf_buffer = generate_pdf_content(
                         student, attendance_data, lessons_data, image_urls, period, include_background=include_background
+                    )
+
+                    _log_student_report_generation_event(
+                        event_type='bulk_pdf_item',
+                        user=request.user,
+                        student=student,
+                        school=student.school if student else None,
+                        student_class=student.student_class if student else student_class,
+                        mode=mode,
+                        month=month,
+                        start_date=start_date_parsed,
+                        end_date=end_date_parsed,
+                        request_id=request_uuid,
                     )
 
                     safe_name = f"{student.reg_num}_{student.name.replace(' ', '_')}.pdf"
@@ -803,6 +895,182 @@ def get_student_progress_images(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_reports_monthly_breakdown(request):
+    month = request.GET.get('month')
+    if not month:
+        return Response({"error": "month is required (YYYY-MM)"}, status=400)
+
+    try:
+        events = _scoped_report_events(
+            request=request,
+            month=month,
+            school_id=request.GET.get('school_id'),
+            class_id=request.GET.get('class_id'),
+            user_id=request.GET.get('user_id'),
+        )
+    except ValueError:
+        return Response({"error": "Invalid month format. Use YYYY-MM"}, status=400)
+
+    by_class = list(
+        events.values('student_class').annotate(generated_count=Count('id')).order_by('student_class')
+    )
+    by_user_raw = list(
+        events.values('generated_by_id', 'generated_by__username', 'generated_by__first_name', 'generated_by__last_name')
+        .annotate(generated_count=Count('id'), last_generated_at=Max('generated_at'))
+        .order_by('-generated_count')
+    )
+    timeline = list(
+        events.annotate(bucket=TruncDay('generated_at')).values('bucket').annotate(generated_count=Count('id')).order_by('bucket')
+    )
+
+    user_ids = [row['generated_by_id'] for row in by_user_raw if row['generated_by_id']]
+    users_map = {}
+    if user_ids:
+        from students.models import CustomUser
+        users = CustomUser.objects.filter(id__in=user_ids).prefetch_related('assigned_schools')
+        users_map = {user.id: user for user in users}
+
+    by_user = [
+        {
+            'user_id': row['generated_by_id'],
+            'username': row['generated_by__username'],
+            'full_name': f"{row['generated_by__first_name'] or ''} {row['generated_by__last_name'] or ''}".strip(),
+            'assigned_schools': [
+                {'id': school.id, 'name': school.name}
+                for school in users_map[row['generated_by_id']].assigned_schools.all()
+            ] if row['generated_by_id'] in users_map else [],
+            'generated_count': row['generated_count'],
+            'last_generated_at': row['last_generated_at'],
+        }
+        for row in by_user_raw
+    ]
+
+    # Build school -> classes universe with zero-count support
+    from students.models import School, Student
+    if request.user.role == 'Teacher':
+        school_qs = request.user.assigned_schools.all()
+    else:
+        school_qs = School.objects.all()
+
+    school_rows = list(school_qs.values('id', 'name'))
+    classes_per_school = {}
+    class_rows = Student.objects.filter(
+        school_id__in=[s['id'] for s in school_rows],
+        status='Active',
+    ).values('school_id', 'student_class').distinct()
+    for row in class_rows:
+        classes_per_school.setdefault(row['school_id'], set()).add(row['student_class'])
+
+    event_class_counts = {
+        (row['school_id'], row['student_class']): row['generated_count']
+        for row in events.values('school_id', 'student_class').annotate(generated_count=Count('id'))
+    }
+
+    by_school = []
+    for school in school_rows:
+        school_id = school['id']
+        class_names = sorted(classes_per_school.get(school_id, set()), key=lambda c: str(c))
+        class_cards = []
+        total_generated = 0
+        for class_name in class_names:
+            count = event_class_counts.get((school_id, class_name), 0)
+            total_generated += count
+            class_cards.append({
+                'class_name': class_name,
+                'generated_count': count,
+            })
+        by_school.append({
+            'school_id': school_id,
+            'school_name': school['name'],
+            'total_generated': total_generated,
+            'classes': class_cards,
+        })
+
+    return Response(
+        {
+            'month': month,
+            'total': events.count(),
+            'by_class': StudentReportClassBreakdownSerializer(by_class, many=True).data,
+            'by_user': StudentReportUserSummarySerializer(by_user, many=True).data,
+            'by_school': SchoolReportCardSerializer(by_school, many=True).data,
+            'timeline': StudentReportTimelinePointSerializer(timeline, many=True).data,
+        }
+    )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_reports_user_summary(request):
+    month = request.GET.get('month')
+    if not month:
+        return Response({"error": "month is required (YYYY-MM)"}, status=400)
+
+    try:
+        events = _scoped_report_events(
+            request=request,
+            month=month,
+            school_id=request.GET.get('school_id'),
+            class_id=request.GET.get('class_id'),
+            user_id=request.GET.get('user_id'),
+        )
+    except ValueError:
+        return Response({"error": "Invalid month format. Use YYYY-MM"}, status=400)
+
+    summary = list(
+        events.values('generated_by_id', 'generated_by__username', 'generated_by__first_name', 'generated_by__last_name')
+        .annotate(generated_count=Count('id'), last_generated_at=Max('generated_at'))
+        .order_by('-generated_count')
+    )
+    payload = [
+        {
+            'user_id': row['generated_by_id'],
+            'username': row['generated_by__username'],
+            'full_name': f"{row['generated_by__first_name'] or ''} {row['generated_by__last_name'] or ''}".strip(),
+            'assigned_schools': [],
+            'generated_count': row['generated_count'],
+            'last_generated_at': row['last_generated_at'],
+        }
+        for row in summary
+    ]
+    return Response({'month': month, 'results': StudentReportUserSummarySerializer(payload, many=True).data})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_reports_timeline(request):
+    month = request.GET.get('month')
+    if not month:
+        return Response({"error": "month is required (YYYY-MM)"}, status=400)
+
+    bucket = request.GET.get('bucket', 'day')
+    if bucket != 'day':
+        return Response({"error": "Only bucket=day is currently supported"}, status=400)
+
+    try:
+        events = _scoped_report_events(
+            request=request,
+            month=month,
+            school_id=request.GET.get('school_id'),
+            class_id=request.GET.get('class_id'),
+            user_id=request.GET.get('user_id'),
+        )
+    except ValueError:
+        return Response({"error": "Invalid month format. Use YYYY-MM"}, status=400)
+
+    timeline = list(
+        events.annotate(bucket=TruncDay('generated_at')).values('bucket').annotate(generated_count=Count('id')).order_by('bucket')
+    )
+    return Response(
+        {
+            'month': month,
+            'bucket': bucket,
+            'results': StudentReportTimelinePointSerializer(timeline, many=True).data,
+        }
+    )
+
+
 
 
 @api_view(['GET', 'POST'])
@@ -858,6 +1126,18 @@ def generate_pdf(request):
         image_urls = selected_images if request.method == 'POST' and selected_images else fetch_student_images(student_id, start_date, end_date)
         logger.info(f"Progress image URLs: {image_urls}")
         buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, include_background=include_background)
+        _log_student_report_generation_event(
+            event_type='single_pdf',
+            user=request.user,
+            student=student,
+            school=student.school if student else None,
+            student_class=student.student_class if student else student_class,
+            mode=mode,
+            month=month,
+            start_date=start_date,
+            end_date=end_date,
+            request_id=None,
+        )
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=student_report_{student.reg_num}_{period.replace(" ", "_")}.pdf'
         logger.info(f"Successfully generated PDF for student {student_id}")
@@ -1677,7 +1957,7 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
     queryset = ReportRequest.objects.all()
 
     def get_permissions(self):
-        if self.action in ['approve', 'reject', 'pending', 'stats']:
+        if self.action in ['approve', 'reject', 'pending', 'stats', 'admin_monitoring']:
             return [IsAuthenticated(), IsAdminUser()]
         if self.action in ['update', 'partial_update']:
             return [IsAuthenticated(), IsRequestOwnerAndDraft()]
@@ -1957,6 +2237,87 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
             'generated': by_status.get('GENERATED', 0),
             'draft': by_status.get('DRAFT', 0),
         })
+
+    @action(detail=False, methods=['get'], url_path='admin-monitoring')
+    def admin_monitoring(self, request):
+        """
+        Admin dashboard metrics for self-service report workflows.
+        GET /api/reports/requests/admin-monitoring/?from=YYYY-MM-DD&to=YYYY-MM-DD
+        """
+        from_param = request.query_params.get('from')
+        to_param = request.query_params.get('to')
+
+        try:
+            if from_param and to_param:
+                start_date = datetime.strptime(from_param, '%Y-%m-%d').date()
+                end_date = datetime.strptime(to_param, '%Y-%m-%d').date()
+            else:
+                today = now().date()
+                start_date = today.replace(day=1)
+                end_date = today
+        except ValueError:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=400)
+
+        requests_qs = ReportRequest.objects.filter(created_at__date__range=[start_date, end_date]).select_related(
+            'requested_by', 'template'
+        )
+        generated_qs = GeneratedReport.objects.filter(generated_at__date__range=[start_date, end_date])
+
+        by_status = dict(
+            requests_qs.values('status').annotate(count=Count('id')).values_list('status', 'count')
+        )
+        by_template = list(
+            requests_qs.values('template__code', 'template__name').annotate(count=Count('id')).order_by('-count')
+        )
+        by_requester_role = list(
+            requests_qs.values('requested_by__role').annotate(count=Count('id')).order_by('-count')
+        )
+        top_requesters_raw = list(
+            requests_qs.values('requested_by_id', 'requested_by__username', 'requested_by__first_name', 'requested_by__last_name')
+            .annotate(total=Count('id'))
+            .order_by('-total')[:10]
+        )
+        generated_timeline = list(
+            generated_qs.annotate(bucket=TruncDay('generated_at')).values('bucket').annotate(count=Count('id')).order_by('bucket')
+        )
+
+        payload = {
+            'totals': {
+                'requests_total': requests_qs.count(),
+                'generated_total': generated_qs.count(),
+                'downloads_total': generated_qs.aggregate(total=Sum('download_count')).get('total') or 0,
+                'pending': by_status.get('SUBMITTED', 0),
+                'approved': by_status.get('APPROVED', 0),
+                'rejected': by_status.get('REJECTED', 0),
+                'generated': by_status.get('GENERATED', 0),
+            },
+            'by_template': [
+                {
+                    'template_code': row['template__code'],
+                    'template_name': row['template__name'],
+                    'count': row['count'],
+                }
+                for row in by_template
+            ],
+            'by_requester_role': [
+                {'role': row['requested_by__role'], 'count': row['count']}
+                for row in by_requester_role
+            ],
+            'top_requesters': [
+                {
+                    'user_id': row['requested_by_id'],
+                    'username': row['requested_by__username'],
+                    'full_name': f"{row['requested_by__first_name'] or ''} {row['requested_by__last_name'] or ''}".strip(),
+                    'count': row['total'],
+                }
+                for row in top_requesters_raw
+            ],
+            'generated_timeline': [
+                {'bucket': row['bucket'], 'count': row['count']}
+                for row in generated_timeline
+            ],
+        }
+        return Response(AdminMonitoringSerializer(payload).data)
 
     @action(detail=True, methods=['get'])
     def download(self, request, pk=None):

@@ -22,4 +22,8 @@ app.conf.beat_schedule = {
         'task': 'aigala.tasks.auto_transition_galleries_task',
         'schedule': crontab(minute=0),  # Hourly
     },
+    'purge-old-report-generation-events': {
+        'task': 'reports.tasks.purge_old_student_report_generation_events',
+        'schedule': crontab(hour=2, minute=30),  # Daily at 2:30 AM
+    },
 }

@@ -485,6 +485,78 @@ class GeneratedReport(models.Model):
 
 
 # =============================================================================
+# STUDENT REPORT GENERATION EVENT MODEL (Analytics)
+# =============================================================================
+class StudentReportGenerationEvent(models.Model):
+    """
+    Tracks report generation events from the ReportsPage flow.
+    Used for analytics by month/class/user/timeline.
+    """
+    EVENT_TYPE_CHOICES = [
+        ('single_pdf', 'Single PDF'),
+        ('bulk_pdf_item', 'Bulk PDF Item'),
+    ]
+    PERIOD_MODE_CHOICES = [
+        ('month', 'Month'),
+        ('range', 'Date Range'),
+    ]
+    SOURCE_CHOICES = [
+        ('reports_page', 'Reports Page'),
+    ]
+
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='student_report_generation_events',
+    )
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='report_generation_events',
+    )
+    school = models.ForeignKey(
+        'students.School',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='report_generation_events',
+    )
+    student_class = models.CharField(max_length=50, blank=True)
+    period_mode = models.CharField(max_length=10, choices=PERIOD_MODE_CHOICES)
+    period_month = models.CharField(max_length=7, blank=True, null=True, help_text='YYYY-MM for month mode')
+    period_start = models.DateField()
+    period_end = models.DateField()
+    request_id = models.UUIDField(null=True, blank=True, help_text='Groups events from one bulk request')
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='reports_page')
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Student Report Generation Event'
+        verbose_name_plural = 'Student Report Generation Events'
+        ordering = ['-generated_at']
+        indexes = [
+            models.Index(fields=['generated_at']),
+            models.Index(fields=['period_month']),
+            models.Index(fields=['generated_by', 'generated_at']),
+            models.Index(fields=['school', 'student_class', 'period_month']),
+            models.Index(fields=['request_id']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['request_id', 'student', 'event_type'],
+                condition=models.Q(request_id__isnull=False),
+                name='uniq_bulk_request_student_event_type',
+            )
+        ]
+
+    def __str__(self):
+        actor = self.generated_by.username if self.generated_by else 'unknown'
+        return f'{self.event_type} by {actor} at {self.generated_at.isoformat()}'
+
+
+# =============================================================================
 # EXISTING MODEL (unchanged)
 # =============================================================================
 class CustomReport(models.Model):

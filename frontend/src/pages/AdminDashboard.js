@@ -37,6 +37,7 @@ import {
 // Dashboard Components
 import LoginActivityWidget from '../components/dashboard/LoginActivityWidget';
 import AdminTeacherAttendanceWidget from '../components/dashboard/AdminTeacherAttendanceWidget';
+import ReportAnalyticsSection from '../components/dashboard/ReportAnalyticsSection';
 
 // Floating AI Agent Chat
 import FloatingAgentChat from '../components/admin/FloatingAgentChat';
@@ -61,6 +62,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { reportAnalyticsService } from '../services/reportAnalyticsService';
 
 // ============================================
 // MAIN COMPONENT
@@ -141,6 +143,11 @@ function AdminDashboard() {
   // UI State
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const [reportAnalytics, setReportAnalytics] = useState({
+    loading: false,
+    monthBreakdown: null,
+    adminMonitoring: null,
+  });
 
   // Profile state (still using local state since it's user-specific)
   const [profile, setProfile] = useState(null);
@@ -156,6 +163,39 @@ function AdminDashboard() {
     registrations: isLoadingRegistrations,
     studentData: isLoadingStudentData,
   };
+
+  useEffect(() => {
+    const fetchReportAnalytics = async () => {
+      if (!selectedMonthForAPI) return;
+      setReportAnalytics((prev) => ({ ...prev, loading: true }));
+      const [monthBreakdownResult, adminMonitoringResult] = await Promise.allSettled([
+        reportAnalyticsService.getStudentReportsMonthlyBreakdown({ month: selectedMonthForAPI }),
+        reportAnalyticsService.getAdminMonitoring(),
+      ]);
+
+      if (monthBreakdownResult.status === 'rejected') {
+        console.warn(
+          'Monthly breakdown unavailable:',
+          monthBreakdownResult.reason?.response?.data || monthBreakdownResult.reason?.message
+        );
+      }
+      if (adminMonitoringResult.status === 'rejected') {
+        console.warn(
+          'Admin monitoring unavailable:',
+          adminMonitoringResult.reason?.response?.data || adminMonitoringResult.reason?.message
+        );
+      }
+
+      setReportAnalytics({
+        loading: false,
+        monthBreakdown:
+          monthBreakdownResult.status === 'fulfilled' ? monthBreakdownResult.value : null,
+        adminMonitoring:
+          adminMonitoringResult.status === 'fulfilled' ? adminMonitoringResult.value : null,
+      });
+    };
+    fetchReportAnalytics();
+  }, [selectedMonthForAPI]);
   // ============================================
   // PROFILE FETCH EFFECT
   // ============================================
@@ -844,6 +884,13 @@ function AdminDashboard() {
           </div>
         )}
       </CollapsibleSection>
+
+      <ReportAnalyticsSection
+        isMobile={isMobile}
+        selectedMonth={selectedMonthForAPI}
+        analytics={reportAnalytics}
+        pageStyles={pageStyles}
+      />
 
       {/* Floating Action Button - Send Notification */}
       <FloatingNotificationButton 

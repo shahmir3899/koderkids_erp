@@ -8,6 +8,9 @@ from .views import (
     get_student_achieved_topics_count,
     get_student_image_uploads_count,
     get_student_progress_images,
+    student_reports_monthly_breakdown,
+    student_reports_user_summary,
+    student_reports_timeline,
     CustomReportViewSet,
     ReportTemplateViewSet,
     ReportRequestViewSet,
@@ -30,6 +33,9 @@ urlpatterns = [
     path('student-achieved-topics-count/', get_student_achieved_topics_count, name='get_student_achieved_topics_count'),
     path('student-image-uploads-count/', get_student_image_uploads_count, name='get_student_image_uploads_count'),
     path('student-progress-images/', get_student_progress_images, name='get_student_progress_images'),
+    path('analytics/student-reports/monthly-breakdown/', student_reports_monthly_breakdown, name='student_reports_monthly_breakdown'),
+    path('analytics/student-reports/user-summary/', student_reports_user_summary, name='student_reports_user_summary'),
+    path('analytics/student-reports/timeline/', student_reports_timeline, name='student_reports_timeline'),
 
     # Custom Reports API (ViewSet routes)
     # This creates:

@@ -4,7 +4,14 @@
 # Location: backend/reports/serializers.py
 
 from rest_framework import serializers
-from .models import CustomReport, ReportTemplate, ReportRequest, RequestStatusLog, GeneratedReport
+from .models import (
+    CustomReport,
+    ReportTemplate,
+    ReportRequest,
+    RequestStatusLog,
+    GeneratedReport,
+    StudentReportGenerationEvent,
+)
 
 
 # =============================================================================
@@ -434,3 +441,45 @@ class CustomReportCreateSerializer(serializers.ModelSerializer):
             validated_data['generated_by'] = request.user
             validated_data['generated_by_name'] = request.user.get_full_name() or request.user.username
         return super().update(instance, validated_data)
+
+
+# =============================================================================
+# ANALYTICS SERIALIZERS
+# =============================================================================
+class StudentReportClassBreakdownSerializer(serializers.Serializer):
+    student_class = serializers.CharField()
+    generated_count = serializers.IntegerField()
+
+
+class StudentReportUserSummarySerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(allow_null=True)
+    username = serializers.CharField(allow_null=True)
+    full_name = serializers.CharField(allow_blank=True)
+    assigned_schools = serializers.ListField(child=serializers.DictField(), required=False)
+    generated_count = serializers.IntegerField()
+    last_generated_at = serializers.DateTimeField(allow_null=True)
+
+
+class StudentReportTimelinePointSerializer(serializers.Serializer):
+    bucket = serializers.DateTimeField()
+    generated_count = serializers.IntegerField()
+
+
+class SchoolClassRowSerializer(serializers.Serializer):
+    class_name = serializers.CharField()
+    generated_count = serializers.IntegerField()
+
+
+class SchoolReportCardSerializer(serializers.Serializer):
+    school_id = serializers.IntegerField(allow_null=True)
+    school_name = serializers.CharField()
+    total_generated = serializers.IntegerField()
+    classes = SchoolClassRowSerializer(many=True)
+
+
+class AdminMonitoringSerializer(serializers.Serializer):
+    totals = serializers.DictField(child=serializers.IntegerField())
+    by_template = serializers.ListField(child=serializers.DictField(), required=False)
+    by_requester_role = serializers.ListField(child=serializers.DictField(), required=False)
+    top_requesters = serializers.ListField(child=serializers.DictField(), required=False)
+    generated_timeline = serializers.ListField(child=serializers.DictField(), required=False)

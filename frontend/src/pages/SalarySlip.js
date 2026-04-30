@@ -17,6 +17,7 @@ import { ErrorDisplay } from '../components/common/ui/ErrorDisplay';
 import { EarningsDeductionsList } from '../components/salary/EarningsDeductionsList';
 import { CalculatedValues } from '../components/salary/CalculatedValues';
 import { SalarySlipPreview } from '../components/salary/SalarySlipPreview';
+import ReportCompletionLine from '../components/salary/ReportCompletionLine';
 import { PageHeader } from '../components/common/PageHeader';
 
 // Design Constants
@@ -32,6 +33,7 @@ import {
 
 // Responsive Hook
 import { useResponsive } from '../hooks/useResponsive';
+import { reportAnalyticsService } from '../services/reportAnalyticsService';
 
 // ============================================
 // RESPONSIVE STYLES GENERATOR
@@ -203,6 +205,14 @@ function SalarySlipPage() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   // Track existing slip found during duplicate check (for fresh prints)
   const [existingSlipForPeriod, setExistingSlipForPeriod] = useState(null);
+  const [reportCompletion, setReportCompletion] = useState({
+    loading: false,
+    percentage: null,
+    userCount: 0,
+    totalGenerated: 0,
+    userGenerated: 0,
+    month: '',
+  });
 
   const {
     formData,
@@ -261,6 +271,59 @@ function SalarySlipPage() {
   const formatCurrency = (amount) => {
     return `PKR ${parseFloat(amount || 0).toLocaleString()}`
   };
+
+  useEffect(() => {
+    const fetchCompletion = async () => {
+      const month = formData.fromDate ? formData.fromDate.slice(0, 7) : '';
+      if (!month || !selectedTeacherId || isSelfServiceMode) {
+        setReportCompletion((prev) => ({
+          ...prev,
+          loading: false,
+          percentage: null,
+          month,
+          totalGenerated: 0,
+          userGenerated: 0,
+          userCount: 0,
+        }));
+        return;
+      }
+
+      setReportCompletion((prev) => ({ ...prev, loading: true, month }));
+      try {
+        const summary = await reportAnalyticsService.getStudentReportsUserSummary({
+          month,
+        });
+        const results = Array.isArray(summary?.results) ? summary.results : [];
+        const matchedUser = results.find((row) => String(row.user_id) === String(selectedTeacherId));
+        const totalGenerated = results.reduce((acc, row) => acc + (row.generated_count || 0), 0);
+        const userGenerated = matchedUser?.generated_count || 0;
+        const percentage = totalGenerated > 0
+          ? Number(((userGenerated / totalGenerated) * 100).toFixed(1))
+          : 0;
+
+        setReportCompletion({
+          loading: false,
+          percentage,
+          userCount: results.length,
+          totalGenerated,
+          userGenerated,
+          month,
+        });
+      } catch (e) {
+        console.warn('Report completion analytics unavailable:', e?.response?.data || e.message);
+        setReportCompletion({
+          loading: false,
+          percentage: null,
+          userCount: 0,
+          totalGenerated: 0,
+          userGenerated: 0,
+          month,
+        });
+      }
+    };
+
+    fetchCompletion();
+  }, [formData.fromDate, selectedTeacherId, isSelfServiceMode]);
 
   // Handle generate button click
   const handleGenerateClick = () => {
@@ -621,6 +684,10 @@ function SalarySlipPage() {
           {/* EMPLOYEE BASIC INFO SECTION */}
           {/* ============================================ */}
           <CollapsibleSection title="👤 Employee Basic Info">
+            <ReportCompletionLine
+              isSelfServiceMode={isSelfServiceMode}
+              reportCompletion={reportCompletion}
+            />
             <div style={styles.formGrid}>
 
               {/* Teacher Selection - Only show for Admin */}
