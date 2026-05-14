@@ -1,0 +1,1662 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "koder-kids-waha",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c0627dbd-09b3-46eb-959f-ba30074bebdc",
+      "name": "WAHA Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        368
+      ],
+      "webhookId": "koder-kids-waha-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "message",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.body.payload.fromMe }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8a39022c-4af4-4782-8ffe-cd4a40434f38",
+      "name": "Is Incoming Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "chatId",
+              "value": "={{ $json.body.payload.from }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "messageText",
+              "value": "={{ $json.body.payload.body.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "senderName",
+              "value": "={{ $json.body.payload.notifyName }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "wahaSession",
+              "value": "={{ $json.body.session }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "phoneNumber",
+              "value": "={{ $json.body.payload.from.replace('@c.us', '') }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "msgLower",
+              "value": "={{ $json.body.payload.body.trim().toLowerCase() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f847219f-aa25-4045-966f-a096b981467c",
+      "name": "Extract Message Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -224,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-menu",
+              "leftValue": "={{ $json.msgLower }}",
+              "rightValue": "menu",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "8368f64a-4b3d-4cf9-869e-51bdc17b5da7",
+      "name": "Wants Main Menu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        16,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-p",
+              "leftValue": "={{ $('Extract Message Data').item.json.msgLower }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "640f7f97-f896-433e-aa03-b01888a77078",
+      "name": "Is Option 1 (Parent)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        256,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-s",
+              "leftValue": "={{ $('Extract Message Data').item.json.msgLower }}",
+              "rightValue": "2",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "8f51fa9e-b41b-4a90-86b7-0201f603f31f",
+      "name": "Is Option 2 (School)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        256,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-o",
+              "leftValue": "={{ $('Extract Message Data').item.json.msgLower }}",
+              "rightValue": "3",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "c86f0f46-a76a-4364-88f6-8916fa7fe4d8",
+      "name": "Is Option 3 (Other)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        256,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\",\n  \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\",\n  \"text\": \"Welcome to Koder Kids! 👋\\n\\nPakistan's leading AI, Coding & Robotics education platform for children.\\n\\nHow can we help you today? Please reply with a number:\\n\\n1️⃣  Parent Inquiry\\n2️⃣  School Collaboration / ERP\\n3️⃣  Other Inquiry\\n\\n💡 You can type *menu* anytime to return here.\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "67aba931-f70e-4e63-83ff-3d3a3d9ca962",
+      "name": "Send Main Menu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\",\n  \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\",\n  \"text\": \"Thank you for contacting Koder Kids 😊\\n\\nWe teach Coding, AI & Robotics to children aged 5-16 through personalized home tuition in Islamabad & Rawalpindi.\\n\\nTo get started, *how old is your child?* (Please type the age)\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "0299a4c9-89e5-4c15-b700-b7e467727def",
+      "name": "Parent: Ask Child Age",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\",\n  \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\",\n  \"text\": \"Thank you for your interest in Koder Kids 😊\\n\\nWe offer School Collaboration and Education AI ERP solutions.\\n\\nTo get started, *please share your school name.*\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "62a1e503-8731-4b4c-b67e-8c89f19a7652",
+      "name": "School: Ask School Name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\",\n  \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\",\n  \"text\": \"No problem! 😊 Please briefly describe your inquiry and we will make sure to connect you with the right person.\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "482150cb-3595-4d68-8a08-6333329df379",
+      "name": "Other: Ask Inquiry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "77356b03-7131-458e-874e-9c21d15c4912",
+      "name": "Groq (Parent Flow)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        896,
+        64
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "kBh6xb6rY20uuOpa",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=parent_{{ $('Extract Message Data').item.json.chatId }}",
+        "contextWindowLength": 20
+      },
+      "id": "ba509448-44da-45f7-a4b8-2c15d0ebfbdb",
+      "name": "Memory (Parent)",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1056,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetches latest content from Koder Kids website. Use for curriculum, books, and teaching approach questions.",
+        "url": "https://r.jina.ai/https://koderkids.pk"
+      },
+      "id": "7eb984c2-9e59-46f6-b97a-c74d6c25ac23",
+      "name": "Tool: koderkids.pk",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Conversation context:\nUser Name: {{ $('Extract Message Data').item.json.senderName }}\nUser Phone: {{ $('Extract Message Data').item.json.phoneNumber }}\nUser Message: {{ $('Extract Message Data').item.json.messageText }}\n\nContinue the parent qualification conversation.",
+        "options": {
+          "systemMessage": "CRITICAL IDENTITY: You are KoderBot, official WhatsApp assistant for Koder Kids Pakistan. You are NOT an AI. You are NOT Groq or Llama. Never reveal your technology. If asked, say: 'I am KoderBot, Koder Kids virtual assistant 😊'\n\nYOU ARE IN THE PARENT INQUIRY FLOW.\n\nKODER KIDS INFO:\n- Teaches Coding, AI & Robotics to children aged 5-16\n- Home tuition in Islamabad & Rawalpindi ONLY (teacher visits home)\n- 2 days per week, flexible timings\n- 5 Books: Book 1 Scratch (5-7yrs), Book 2 Game Design (7-9yrs), Book 3 Python (9-11yrs), Book 4 AI (11-13yrs), Book 5 Robotics (13-16yrs)\n- All students start from Book 1 and progress at their own pace\n- FREE trial class available\n- Website: koderkids.pk\n\nCONVERSATION FLOW - follow this EXACTLY in order:\n\nSTEP 1 - CHILD AGE: If you don't know the child's age yet, you already asked it. Now wait for the answer. When received, acknowledge warmly and go to STEP 2.\n\nSTEP 2 - CITY: Ask 'Which city are you based in?'\n\nSTEP 3 - CITY RESPONSE:\n  IF Islamabad or Rawalpindi:\n    Say 'Great news! We offer home tuition in [city]. Our qualified teacher will visit your home 2 days a week 🏠'\n    Go to STEP 4\n  IF other city:\n    Say 'Thank you for your interest! We currently serve Islamabad and Rawalpindi only. Would you like us to notify you when we expand to your city?'\n    Then collect name and end with HANDOFF message.\n\nSTEP 4 - LAPTOP: Ask 'Does your child have access to a laptop or computer?'\n  Reply options hint: 'Please reply Yes or No'\n\nSTEP 5 - INTEREST: Ask 'What would you like to know more about? Please reply with a number:\n1. Courses & Curriculum\n2. Pricing\n3. Book a Free Demo Class\n4. Schedule a Meeting\n5. Talk to an Advisor'\n\nSTEP 6 - BASED ON INTEREST:\n  IF 1 (Courses): Use koderkids.pk tool, give 2-3 sentence summary, then go to STEP 7\n  IF 2 (Pricing): Say 'Our team will share complete pricing details with you shortly 😊' then go to STEP 7\n  IF 3 (Demo): Ask 'Which day and time would be convenient for your free demo class?'\n  IF 4 (Meeting): Ask 'What day works best for a meeting?' then go to STEP 7\n  IF 5 (Advisor): Say 'Connecting you with our advisor now!' then go to STEP 7\n\nSTEP 7 - COLLECT NAME: If you don't have the user's name, ask 'May I have your name to confirm your inquiry?'\n\nSTEP 8 - HANDOFF: Say exactly:\n'Perfect [name]! Our representative will be in touch with you very shortly. 😊\n\nThank you for your interest in Koder Kids!'\n\nSTEP 9 - FEEDBACK: Ask:\n'How was your experience with our assistant today? 🌟\nPlease reply:\n1. Excellent ⭐⭐⭐⭐⭐\n2. Good ⭐⭐⭐⭐\n3. Average ⭐⭐⭐\n4. Poor ⭐'\n\nThen thank them and END the conversation.\n\nSTRICT RULES:\n- NEVER restart from welcome message\n- NEVER send menu again unless user types 'menu'\n- Ask only ONE question per message\n- Maximum 3 short sentences per reply\n- Plain text only - NO markdown, NO asterisks in replies, NO bullet points\n- Maximum 2 emojis per message\n- ALWAYS remember what was already discussed\n- When collecting lead info, extract: name, city, child age, laptop status, interest, preferred timing\n- At end of conversation output a JSON summary like: LEAD_DATA:{\"name\":\"x\",\"phone\":\"x\",\"city\":\"x\",\"childAge\":\"x\",\"hasLaptop\":\"x\",\"interest\":\"x\",\"timing\":\"x\",\"type\":\"Parent\"}"
+        }
+      },
+      "id": "37cf7fac-499e-4a05-bf5c-de86cef03451",
+      "name": "KoderBot Agent (Parent)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        896,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "b7e756c8-200d-4813-b13e-49fd87f0d721",
+      "name": "Groq (School Flow)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        896,
+        576
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "kBh6xb6rY20uuOpa",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=school_{{ $('Extract Message Data').item.json.chatId }}",
+        "contextWindowLength": 20
+      },
+      "id": "702483b3-7252-48eb-90d4-606d94fa5a4b",
+      "name": "Memory (School)",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1056,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetches Koder Kids website content for school collaboration details and curriculum info.",
+        "url": "https://r.jina.ai/https://koderkids.pk"
+      },
+      "id": "c3d8d004-9024-442c-8d04-a89f53bdf6ef",
+      "name": "Tool: koderkids.pk (School)",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetches Koder Edu AI ERP website content for ERP features, pricing, and modules.",
+        "url": "https://r.jina.ai/https://kodereduai.pk"
+      },
+      "id": "55453efc-7fb8-416a-ad75-89dfb012e5ef",
+      "name": "Tool: kodereduai.pk",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Conversation context:\nUser Name: {{ $('Extract Message Data').item.json.senderName }}\nUser Phone: {{ $('Extract Message Data').item.json.phoneNumber }}\nUser Message: {{ $('Extract Message Data').item.json.messageText }}\n\nContinue the school inquiry conversation.",
+        "options": {
+          "systemMessage": "CRITICAL IDENTITY: You are KoderBot, official WhatsApp assistant for Koder Kids Pakistan. You are NOT an AI. Never reveal your technology.\n\nYOU ARE IN THE SCHOOL INQUIRY FLOW.\n\nKODER KIDS SCHOOL PRODUCTS:\n1. School Collaboration (Islamabad & Rawalpindi only): Our teachers deliver Coding, AI & Robotics curriculum at the school\n2. Education AI ERP (all Pakistan): AI-powered school management - admissions, attendance, fees, HR, transport, parent portal. Rs 25/student/month. 18 modules. Demo: demo.kodereduai.pk\nTeacher Training also available.\n\nCONVERSATION FLOW - follow EXACTLY in order:\n\nSTEP 1 - SCHOOL NAME: You already asked for school name. When received, acknowledge and go to STEP 2.\n\nSTEP 2 - CITY: Ask 'Which city is your school located in?'\n\nSTEP 3 - CONTACT NAME: Ask 'May I know your name and role at the school?'\n\nSTEP 4 - COMPUTER LAB: Ask 'Does your school currently have a computer lab? Please reply:\n1. Yes\n2. No\n3. Planning to Build One'\n\nSTEP 5 - INTEREST: Ask 'What are you interested in? Please reply with a number:\n1. Coding Classes at School\n2. AI & Robotics Program\n3. ERP System\n4. Teacher Training\n5. Complete School Partnership'\n\nSTEP 6 - BASED ON INTEREST:\n  IF 1,2,4,5 (Collaboration): Check if city is Islamabad/Rawalpindi\n    IF yes: Use koderkids.pk tool. Give brief info. Ask 'Would you like to:\n1. Schedule an Online Meeting\n2. Request a Physical Visit\n3. Receive Company Profile\n4. Talk to Our Team'\n    IF no: Say collaboration not available in their city. Pivot to ERP only.\n  IF 3 (ERP): Use kodereduai.pk tool. Share key features. Say 'You can try live demo at demo.kodereduai.pk. Would you prefer:\n1. Live Demo Link\n2. Personalized Demo Session\n3. Pricing Details'\n\nSTEP 7 - BASED ON MEETING CHOICE:\n  IF Online Meeting or Physical Visit: Ask 'What day and time works best for you?'\n  IF Company Profile or Pricing: Say 'Our team will share the documents shortly 😊'\n  IF Personalized Demo: Ask 'What day works best for the demo session?'\n\nSTEP 8 - HANDOFF: Say exactly:\n'Perfect! Our representative will be in touch with you very shortly. 😊\n\nThank you for your interest in Koder Kids!'\n\nSTEP 9 - FEEDBACK: Ask:\n'How was your experience with our assistant today? 🌟\nPlease reply:\n1. Excellent\n2. Good\n3. Average\n4. Poor'\n\nThen thank them and END.\n\nSTRICT RULES:\n- NEVER restart from welcome message\n- Ask only ONE question per message\n- Maximum 3 short sentences per reply\n- Plain text only\n- Maximum 2 emojis\n- ALWAYS remember previous answers\n- At end output: LEAD_DATA:{\"name\":\"x\",\"phone\":\"x\",\"schoolName\":\"x\",\"city\":\"x\",\"computerLab\":\"x\",\"interest\":\"x\",\"meetingTime\":\"x\",\"type\":\"School\"}"
+        }
+      },
+      "id": "2c513c78-0f6d-4ad4-acb4-1ed4da105a37",
+      "name": "KoderBot Agent (School)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        896,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "ed0bf440-692a-46d6-8d4c-23a06d64718b",
+      "name": "Groq (Other Flow)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        896,
+        864
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "kBh6xb6rY20uuOpa",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=other_{{ $('Extract Message Data').item.json.chatId }}",
+        "contextWindowLength": 10
+      },
+      "id": "1b7598f5-3b0d-427c-b0e4-7f9441c1de0f",
+      "name": "Memory (Other)",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1056,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User Name: {{ $('Extract Message Data').item.json.senderName }}\nUser Phone: {{ $('Extract Message Data').item.json.phoneNumber }}\nInquiry: {{ $('Extract Message Data').item.json.messageText }}",
+        "options": {
+          "systemMessage": "IDENTITY: You are KoderBot, official WhatsApp assistant for Koder Kids Pakistan.\n\nYOU ARE IN THE OTHER INQUIRY FLOW.\n\nYour job is to:\n1. Understand what the person needs\n2. Route them to the correct department\n3. Collect their name and phone\n4. Send handoff message\n\nROUTING RULES:\n- Mentions child, coding, classes, learning → Say 'This sounds like a parent inquiry! Let me connect you with our team. Could you share your name?'\n- Mentions school, institution, ERP, management → Say 'This sounds like a school inquiry! Let me connect you with our team. Could you share your name?'\n- Job, career, hiring → Say 'For career opportunities, please email us at hr@koderkids.pk 😊'\n- Partnership, investment → Say 'For partnership inquiries, please email us at info@koderkids.pk 😊'\n- Anything else → Collect name and say 'Our team will be in touch shortly 😊'\n\nAfter collecting name, say:\n'Thank you [name]! Our representative will contact you shortly on this number. 😊\n\nThank you for reaching out to Koder Kids!'\n\nSTRICT RULES:\n- Maximum 2-3 sentences per reply\n- Plain text only\n- Maximum 2 emojis\n- Always be warm and helpful\n- Output at end: LEAD_DATA:{\"name\":\"x\",\"phone\":\"x\",\"inquiry\":\"x\",\"type\":\"Other\"}"
+        }
+      },
+      "id": "fa2277a8-d59b-4ca4-a815-5a2c1e861b9b",
+      "name": "KoderBot Agent (Other)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        896,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/startTyping",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "042cab79-c531-4401-b5ab-fc95767a137e",
+      "name": "Start Typing (Parent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1296,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 5) + 7 }}"
+      },
+      "id": "33404342-6443-4537-8776-2aba63034076",
+      "name": "Delay (Parent)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1456,
+        272
+      ],
+      "webhookId": "delay-p-wh"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/stopTyping",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "6f1cf99d-6f9a-4535-9101-8401d44e2625",
+      "name": "Stop Typing (Parent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1616,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\", \"text\": {{ JSON.stringify($('KoderBot Agent (Parent)').item.json.output) }}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "c96470e6-42df-4028-9cc6-7901fc2b7a08",
+      "name": "Send Parent Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1776,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/startTyping",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "e9fff524-0629-4ea1-baf2-e31d3ef7399f",
+      "name": "Start Typing (School)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1296,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 5) + 7 }}"
+      },
+      "id": "ab15bd8b-8471-4b8a-afbf-dc751d00fe81",
+      "name": "Delay (School)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1456,
+        464
+      ],
+      "webhookId": "delay-s-wh"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/stopTyping",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "c035f5a0-6f93-4dbd-a413-d0bc4fb2542b",
+      "name": "Stop Typing (School)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1616,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\", \"text\": {{ JSON.stringify($('KoderBot Agent (School)').item.json.output) }}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "109f6a8d-4f21-4a9b-ac60-59e8afc62d62",
+      "name": "Send School Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1776,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/startTyping",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "7f51d898-5039-43d0-9e93-a896877be060",
+      "name": "Start Typing (Other)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1296,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 5) + 7 }}"
+      },
+      "id": "f41ca200-b43f-4ed9-b84e-4fb429cb56eb",
+      "name": "Delay (Other)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1456,
+        672
+      ],
+      "webhookId": "delay-o-wh"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/stopTyping",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "b4a810bf-37b9-42df-8001-f5b4fb794035",
+      "name": "Stop Typing (Other)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1616,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"session\": \"{{ $('Extract Message Data').item.json.wahaSession }}\", \"chatId\": \"{{ $('Extract Message Data').item.json.chatId }}\", \"text\": {{ JSON.stringify($('KoderBot Agent (Other)').item.json.output) }}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "ead774fa-3dc1-4228-831d-e772fda44ab1",
+      "name": "Send Other Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1776,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-lead-p",
+              "leftValue": "={{ $('KoderBot Agent (Parent)').item.json.output }}",
+              "rightValue": "LEAD_DATA:",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "caeeab9b-e4d1-4f52-8aad-ff929765543a",
+      "name": "Is Lead Ready? (Parent)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-lead-s",
+              "leftValue": "={{ $('KoderBot Agent (School)').item.json.output }}",
+              "rightValue": "LEAD_DATA:",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "ed05cbab-a745-4aac-b1c2-1e22b045d95f",
+      "name": "Is Lead Ready? (School)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"default\",\n  \"chatId\": \"923339446254@c.us\",\n  \"text\": \"🔔 NEW PARENT LEAD\\n\\nName: {{ $('Extract Message Data').item.json.senderName }}\\nPhone: {{ $('Extract Message Data').item.json.phoneNumber }}\\nDetails: {{ $('KoderBot Agent (Parent)').item.json.output.substring(0, 500) }}\\n\\nPlease follow up! 📞\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "55f8568c-c115-46e3-90ca-901ea021b850",
+      "name": "Notify Sales Rep 1 (Parent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2368,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"default\",\n  \"chatId\": \"923329779989@c.us\",\n  \"text\": \"🔔 NEW PARENT LEAD\\n\\nName: {{ $('Extract Message Data').item.json.senderName }}\\nPhone: {{ $('Extract Message Data').item.json.phoneNumber }}\\nDetails: {{ $('KoderBot Agent (Parent)').item.json.output.substring(0, 500) }}\\n\\nPlease follow up! 📞\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "baac44d0-8aad-4cd7-9b40-3b8639fed881",
+      "name": "Notify Sales Rep 2 (Parent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2368,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://212.224.86.152:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Api-Key",
+              "value": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"default\",\n  \"chatId\": \"923185414080@c.us\",\n  \"text\": \"🔔 NEW SCHOOL LEAD\\n\\nName: {{ $('Extract Message Data').item.json.senderName }}\\nPhone: {{ $('Extract Message Data').item.json.phoneNumber }}\\nDetails: {{ $('KoderBot Agent (School)').item.json.output.substring(0, 500) }}\\n\\nPlease follow up! 📞\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "dd20f6d8-7830-4e00-9f4b-66a549232f51",
+      "name": "Notify Sales Rep 3 (School)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2368,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "e1629533-ea8a-4b60-891c-4fd3759fe7a2",
+      "name": "ACK (Parent)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2560,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "6629e040-00bf-4aae-832a-9faff2ad73a7",
+      "name": "ACK (School)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2560,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "81e13410-7008-494f-b25e-b3ca6e0ed97f",
+      "name": "ACK (Other)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1936,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "1398d859-12db-4a0a-9230-43b5b51b0c2f",
+      "name": "ACK (Menu)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        736,
+        64
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "32af05ca-272e-4c4f-be35-12f05211b3df",
+      "name": "No Operation, do nothing",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        576
+      ]
+    }
+  ],
+  "connections": {
+    "WAHA Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is Incoming Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Incoming Message?": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Data": {
+      "main": [
+        [
+          {
+            "node": "Wants Main Menu?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wants Main Menu?": {
+      "main": [
+        [
+          {
+            "node": "Send Main Menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Option 1 (Parent)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Option 1 (Parent)?": {
+      "main": [
+        [
+          {
+            "node": "Parent: Ask Child Age",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Option 2 (School)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Option 2 (School)?": {
+      "main": [
+        [
+          {
+            "node": "School: Ask School Name",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Option 3 (Other)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Option 3 (Other)?": {
+      "main": [
+        [
+          {
+            "node": "Other: Ask Inquiry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "KoderBot Agent (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Main Menu": {
+      "main": [
+        [
+          {
+            "node": "ACK (Menu)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parent: Ask Child Age": {
+      "main": [
+        [
+          {
+            "node": "KoderBot Agent (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "School: Ask School Name": {
+      "main": [
+        [
+          {
+            "node": "KoderBot Agent (School)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Other: Ask Inquiry": {
+      "main": [
+        [
+          {
+            "node": "KoderBot Agent (Other)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq (Parent Flow)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "KoderBot Agent (Parent)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory (Parent)": {
+      "ai_memory": [
+        [
+          {
+            "node": "KoderBot Agent (Parent)",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: koderkids.pk": {
+      "ai_tool": [
+        [
+          {
+            "node": "KoderBot Agent (Parent)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KoderBot Agent (Parent)": {
+      "main": [
+        [
+          {
+            "node": "Start Typing (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq (School Flow)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "KoderBot Agent (School)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory (School)": {
+      "ai_memory": [
+        [
+          {
+            "node": "KoderBot Agent (School)",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: koderkids.pk (School)": {
+      "ai_tool": [
+        [
+          {
+            "node": "KoderBot Agent (School)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: kodereduai.pk": {
+      "ai_tool": [
+        [
+          {
+            "node": "KoderBot Agent (School)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KoderBot Agent (School)": {
+      "main": [
+        [
+          {
+            "node": "Start Typing (School)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq (Other Flow)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "KoderBot Agent (Other)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory (Other)": {
+      "ai_memory": [
+        [
+          {
+            "node": "KoderBot Agent (Other)",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KoderBot Agent (Other)": {
+      "main": [
+        [
+          {
+            "node": "Start Typing (Other)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Typing (Parent)": {
+      "main": [
+        [
+          {
+            "node": "Delay (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delay (Parent)": {
+      "main": [
+        [
+          {
+            "node": "Stop Typing (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stop Typing (Parent)": {
+      "main": [
+        [
+          {
+            "node": "Send Parent Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Parent Reply": {
+      "main": [
+        [
+          {
+            "node": "Is Lead Ready? (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Typing (School)": {
+      "main": [
+        [
+          {
+            "node": "Delay (School)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delay (School)": {
+      "main": [
+        [
+          {
+            "node": "Stop Typing (School)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stop Typing (School)": {
+      "main": [
+        [
+          {
+            "node": "Send School Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send School Reply": {
+      "main": [
+        [
+          {
+            "node": "Is Lead Ready? (School)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Typing (Other)": {
+      "main": [
+        [
+          {
+            "node": "Delay (Other)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delay (Other)": {
+      "main": [
+        [
+          {
+            "node": "Stop Typing (Other)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stop Typing (Other)": {
+      "main": [
+        [
+          {
+            "node": "Send Other Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Other Reply": {
+      "main": [
+        [
+          {
+            "node": "ACK (Other)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Lead Ready? (Parent)": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales Rep 1 (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ACK (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Lead Ready? (School)": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales Rep 3 (School)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ACK (School)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Sales Rep 1 (Parent)": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales Rep 2 (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Sales Rep 2 (Parent)": {
+      "main": [
+        [
+          {
+            "node": "ACK (Parent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Sales Rep 3 (School)": {
+      "main": [
+        [
+          {
+            "node": "ACK (School)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "f1a5be6bd9cbd26b9c3979a94ca05ae2a58354198a9ca74c35dacb52c403c6f0"
+  }
+}

@@ -19,6 +19,7 @@ from .views import (
     admin_dashboard_overview,
     admin_lead_distribution,
     admin_recent_activities,
+    whatsapp_lead_ingest,
 )
 
 # Create router for ViewSets
@@ -32,6 +33,9 @@ router.register(r'proposal-rate-slabs', ProposalRateSlabViewSet, basename='propo
 urlpatterns = [
     # Router URLs (ViewSets)
     path('', include(router.urls)),
+
+    # WhatsApp WAHA n8n bot ingest (secured by X-Bot-Key header)
+    path('leads/whatsapp/', whatsapp_lead_ingest, name='whatsapp_lead_ingest'),
 
     # BDM List (for activity assignment dropdown)
     path('bdm-list/', bdm_list, name='bdm_list'),
@@ -61,6 +65,7 @@ LEADS:
 - DELETE /api/crm/leads/{id}/               # Delete lead
 - POST   /api/crm/leads/{id}/convert/       # Convert lead to school
 - PATCH  /api/crm/leads/{id}/assign/        # Assign lead to BDM
+- POST   /api/crm/leads/whatsapp/           # WAHA n8n bot ingest (X-Bot-Key auth)
 
 ACTIVITIES:
 - GET    /api/crm/activities/               # List activities

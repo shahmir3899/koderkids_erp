@@ -1,0 +1,575 @@
+{
+  "name": "KoderKids WhatsApp Bot v3 (WAHA + Buttons + CRM)",
+  "nodes": [
+    {
+      "id": "wh_main",
+      "name": "WAHA Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-880, 360],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "koder-kids-waha",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "koder-kids-waha-v3-webhook"
+    },
+    {
+      "id": "parse_payload",
+      "name": "Parse Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-660, 360],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Parse the WAHA webhook payload into a flat shape used downstream.\n// Handles: text, button replies, list replies, group/self detection.\n// ------------------------------------------------------------------\nconst raw = $input.first().json;\nconst body = raw.body || raw;\nconst payload = body.payload || {};\nconst event = body.event || '';\nconst session = body.session || 'default';\n\nconst from = payload.from || '';\nconst fromMe = payload.fromMe === true;\nconst isGroup = typeof from === 'string' && (from.endsWith('@g.us') || /^\\d+-\\d+@/.test(from));\nconst phoneNumber = typeof from === 'string' ? from.replace('@c.us', '').replace('@g.us', '') : '';\nconst senderName = payload.notifyName || payload._data?.notifyName || '';\n\nconst rawBody = (payload.body || '').toString();\nconst messageText = rawBody.trim();\nconst msgLower = messageText.toLowerCase();\n\n// Detect interactive replies across WAHA engines\nconst selectedButtonId =\n  payload.selectedButtonId ||\n  payload._data?.selectedButtonId ||\n  payload.buttonsResponseMessage?.selectedButtonId ||\n  payload.message?.buttonsResponseMessage?.selectedButtonId ||\n  '';\n\nconst selectedRowId =\n  payload.selectedRowId ||\n  payload._data?.selectedRowId ||\n  payload.listResponseMessage?.singleSelectReply?.selectedRowId ||\n  payload.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||\n  '';\n\nconst isInteractiveReply = !!(selectedButtonId || selectedRowId);\nconst interactiveId = selectedButtonId || selectedRowId || '';\n\n// Decide whether this webhook should be processed at all\nconst skip = (\n  event !== 'message' ||\n  fromMe ||\n  isGroup ||\n  !from ||\n  (!messageText && !isInteractiveReply)\n);\n\nreturn [{ json: {\n  event,\n  session,\n  chatId: from,\n  phoneNumber,\n  senderName,\n  fromMe,\n  isGroup,\n  messageText,\n  msgLower,\n  selectedButtonId,\n  selectedRowId,\n  interactiveId,\n  isInteractiveReply,\n  skip\n} }];\n"
+      }
+    },
+    {
+      "id": "ack_immediate",
+      "name": "Ack 200 OK (Early)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-440, 360],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": { "responseCode": 200 }
+      }
+    },
+    {
+      "id": "if_skip",
+      "name": "Skip? (Group / Self / Non-message)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-220, 360],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "noop_skip",
+      "name": "Drop Silently",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [0, 200],
+      "parameters": {}
+    },
+    {
+      "id": "inject_env",
+      "name": "Inject Env Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 520],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Merge OS env into the webhook item. n8n 2.x task runners often hide\n// process.env unless vars are passed into the runner — try several sources.\n// If WAHA_BASE_URL is still empty, set FALLBACK_WAHA_BASE_URL below (your\n// WAHA host) or fix Docker env on the n8n (+ worker) service.\n// ------------------------------------------------------------------\nconst FALLBACK_WAHA_BASE_URL = 'http://212.224.86.152:3000';\n\nfunction readEnv() {\n  try {\n    if (typeof globalThis !== 'undefined' && globalThis.process?.env)\n      return globalThis.process.env;\n  } catch (_) {}\n  try {\n    if (typeof process !== 'undefined' && process.env) return process.env;\n  } catch (_) {}\n  return {};\n}\n\nconst row = $input.first().json;\nconst parse = $('Parse Payload').first().json;\nconst base = { ...parse, ...row };\nconst env = readEnv();\nconst trimSlash = (s) => (s || '').toString().replace(/\\/+$/, '');\n\nlet wahaBaseUrl = trimSlash(env.WAHA_BASE_URL || FALLBACK_WAHA_BASE_URL);\nif (!wahaBaseUrl || !/^https?:\\/\\//i.test(wahaBaseUrl)) {\n  throw new Error(\n    '[Inject Env Config] WAHA_BASE_URL missing or invalid. Set WAHA_BASE_URL on the n8n ' +\n    'container, or edit FALLBACK_WAHA_BASE_URL in this node. Must start with http:// or https://'\n  );\n}\n\nconst wahaApiKey = (env.WAHA_API_KEY || '').toString();\nif (!wahaApiKey) {\n  throw new Error(\n    '[Inject Env Config] WAHA_API_KEY is empty. Set WAHA_API_KEY for the n8n process ' +\n    '(same as your WAHA X-Api-Key).'\n  );\n}\n\nreturn [{ json: {\n  ...base,\n  wahaSession: env.WAHA_SESSION || 'default',\n  wahaBaseUrl,\n  wahaApiKey,\n  backendUrl: trimSlash(env.BACKEND_URL || ''),\n  backendWaBotKey: (env.BACKEND_WA_BOT_KEY || '').toString(),\n  salesRep1: (env.SALES_REP_1 || '').toString(),\n  salesRep2: (env.SALES_REP_2 || '').toString(),\n  salesRep3: (env.SALES_REP_3 || '').toString(),\n  frontendUrl: (env.FRONTEND_URL || '').toString()\n} }];\n"
+      }
+    },
+    {
+      "id": "load_session",
+      "name": "Load Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [180, 520],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Load + prune sessions from workflow staticData.\n// Drops sessions older than 7 days.\n// Merge Parse Payload + Inject row so chatId survives if upstream omits fields.\n// ------------------------------------------------------------------\nconst SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;\nconst now = Date.now();\nconst staticData = $getWorkflowStaticData('global');\nconst sessions = staticData.sessions || {};\n\n// TTL cleanup\nfor (const key of Object.keys(sessions)) {\n  const u = Date.parse(sessions[key]?.updatedAt || '');\n  if (!u || now - u > SEVEN_DAYS_MS) delete sessions[key];\n}\nstaticData.sessions = sessions;\n\nconst row = $input.first().json;\nconst parse = $('Parse Payload').first().json;\nconst d = { ...parse, ...row };\nconst chatId = d.chatId;\nconst session = sessions[chatId] || {\n  step: 'new',\n  role: null,\n  data: {},\n  history: [],\n  updatedAt: new Date().toISOString()\n};\n\nreturn [{ json: { ...d, session } }];\n"
+      }
+    },
+    {
+      "id": "normalize_step",
+      "name": "Normalize Step",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 520],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Force step -> 'menu' if user typed a known menu-trigger keyword.\n// Brand new sessions also start at 'menu'.\n// ------------------------------------------------------------------\nconst d = $input.first().json;\nconst session = d.session || { step: 'new' };\nconst msg = (d.msgLower || '').trim();\nconst MENU = new Set([\n  'menu', 'hi', 'hello', 'start', 'restart',\n  'help', '0', 'back', 'main menu', 'home', 'hey'\n]);\n\nlet effectiveStep = session.step || 'new';\nif (session.step === 'new' || MENU.has(msg)) effectiveStep = 'menu';\n\n// Group all parent_* and school_* steps into one route key for the switch\nlet routeKey = effectiveStep;\nif (effectiveStep.startsWith('awaiting_parent_')) routeKey = 'parent_fsm';\nelse if (effectiveStep.startsWith('awaiting_school_')) routeKey = 'school_fsm';\nelse if (effectiveStep === 'awaiting_role') routeKey = 'role';\nelse if (effectiveStep === 'menu') routeKey = 'menu';\nelse if (effectiveStep === 'in_other') routeKey = 'other';\nelse if (effectiveStep === 'lead_done') routeKey = 'menu'; // re-show menu after handoff\nelse routeKey = 'other';\n\nreturn [{ json: { ...d, effectiveStep, routeKey } }];\n"
+      }
+    },
+    {
+      "id": "switch_step",
+      "name": "Route by Step",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [440, 520],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "typeValidation": "loose", "version": 2 },
+                "combinator": "and",
+                "conditions": [{ "id": "sw1", "leftValue": "={{ $json.routeKey }}", "rightValue": "menu", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "Menu"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "typeValidation": "loose", "version": 2 },
+                "combinator": "and",
+                "conditions": [{ "id": "sw2", "leftValue": "={{ $json.routeKey }}", "rightValue": "role", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "Role"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "typeValidation": "loose", "version": 2 },
+                "combinator": "and",
+                "conditions": [{ "id": "sw3", "leftValue": "={{ $json.routeKey }}", "rightValue": "parent_fsm", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "Parent"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "typeValidation": "loose", "version": 2 },
+                "combinator": "and",
+                "conditions": [{ "id": "sw4", "leftValue": "={{ $json.routeKey }}", "rightValue": "school_fsm", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "School"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      }
+    },
+    {
+      "id": "handler_menu",
+      "name": "Build Main Menu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 100],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Send the role-picker main menu.\n// Returns ONE WAHA sendButtons payload with embedded numbered fallback\n// inside the body text (works on every WAHA engine).\n// WAHA session name comes from \"Inject Env Config\" (process.env merge).\n// ------------------------------------------------------------------\nconst d = $input.first().json;\nconst cfg = $('Inject Env Config').first().json;\nconst wahaSession = cfg.wahaSession || 'default';\nconst chatId = d.chatId;\nconst session = d.session;\n\nconst body = [\n  \"Welcome to Koder Kids! 👋\",\n  \"\",\n  \"Pakistan's leading AI, Coding & Robotics education platform.\",\n  \"\",\n  \"Please tell us who you are:\",\n  \"\",\n  \"1) 👨\\u200d👩\\u200d👧 Parent\",\n  \"2) 🏫 School\",\n  \"3) 💬 Other\",\n  \"\",\n  \"Tap a button or reply with the number. Type *menu* anytime to come back here.\"\n].join('\\n');\n\nconst payload = {\n  session: wahaSession,\n  chatId,\n  text: body,\n  footer: 'koderkids.pk',\n  buttons: [\n    { id: 'role_parent', title: 'Parent' },\n    { id: 'role_school', title: 'School' },\n    { id: 'role_other',  title: 'Other'  }\n  ]\n};\n\nconst newSession = {\n  step: 'awaiting_role',\n  role: null,\n  data: {},\n  history: session.history || [],\n  updatedAt: new Date().toISOString()\n};\n\nreturn [{ json: {\n  chatId,\n  phoneNumber: d.phoneNumber,\n  senderName: d.senderName,\n  wahaSession,\n  wahaBaseUrl: d.wahaBaseUrl || cfg.wahaBaseUrl,\n  wahaApiKey: d.wahaApiKey || cfg.wahaApiKey,\n  _newSession: newSession,\n  _waPayload: payload,\n  _waEndpoint: 'sendButtons',\n  _leadReady: false,\n  _leadData: null,\n  _branch: 'menu'\n} }];\n"
+      }
+    },
+    {
+      "id": "handler_role",
+      "name": "Parse Role Selection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 280],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// User just clicked a role button (or typed 1/2/3 / parent/school/other).\n// Maps to next step:\n//   parent -> awaiting_parent_age (start parent FSM, ask age)\n//   school -> awaiting_school_name (start school FSM, ask school name)\n//   other / unknown -> in_other (hand off to LangChain agent)\n// ------------------------------------------------------------------\nconst d = $input.first().json;\nconst chatId = d.chatId;\nconst session = d.session;\nconst body = (d.msgLower || '').trim();\nconst btnId = d.interactiveId || '';\n\nlet role = null;\nif (btnId === 'role_parent' || ['1', 'parent', 'parents', 'p', 'mom', 'dad', 'mother', 'father'].includes(body)) role = 'parent';\nelse if (btnId === 'role_school' || ['2', 'school', 's', 'teacher', 'principal', 'institute', 'institution'].includes(body)) role = 'school';\nelse if (btnId === 'role_other' || ['3', 'other', 'others', 'o'].includes(body)) role = 'other';\nelse role = 'other'; // unknown text -> Other (the helpful agent)\n\nlet payload, endpoint, newStep;\nconst cfg = $('Inject Env Config').first().json;\nconst wahaSession = cfg.wahaSession || 'default';\n\nif (role === 'parent') {\n  newStep = 'awaiting_parent_age';\n  endpoint = 'sendButtons';\n  payload = {\n    session: wahaSession,\n    chatId,\n    text: [\n      'Wonderful! 😊 We teach coding, AI & Robotics to kids 5-16 via home tuition.',\n      '',\n      'How old is your child?',\n      '',\n      '1) 5-8 years',\n      '2) 9-13 years',\n      '3) 14-17 years',\n      '',\n      'Tap a button or reply with a number.'\n    ].join('\\n'),\n    footer: 'koderkids.pk',\n    buttons: [\n      { id: 'age_5_8',   title: '5-8 yrs'   },\n      { id: 'age_9_13',  title: '9-13 yrs'  },\n      { id: 'age_14_17', title: '14-17 yrs' }\n    ]\n  };\n} else if (role === 'school') {\n  newStep = 'awaiting_school_name';\n  endpoint = 'sendText';\n  payload = {\n    session: wahaSession,\n    chatId,\n    text: 'Thanks for your interest in Koder Kids 🏫\\n\\nWe offer School Collaboration and our Education AI ERP.\\n\\nTo get started, *please type your school name.*'\n  };\n} else { // other\n  newStep = 'in_other';\n  endpoint = 'sendText';\n  payload = {\n    session: wahaSession,\n    chatId,\n    text: 'No problem! 💬 Tell me what you need and I will help. You can ask anything about our coding classes, ERP, pricing, or anything else.'\n  };\n}\n\nconst newSession = {\n  step: newStep,\n  role,\n  data: {},\n  history: session.history || [],\n  updatedAt: new Date().toISOString()\n};\n\nreturn [{ json: {\n  chatId,\n  phoneNumber: d.phoneNumber,\n  senderName: d.senderName,\n  wahaSession,\n  wahaBaseUrl: d.wahaBaseUrl || cfg.wahaBaseUrl,\n  wahaApiKey: d.wahaApiKey || cfg.wahaApiKey,\n  _newSession: newSession,\n  _waPayload: payload,\n  _waEndpoint: endpoint,\n  _leadReady: false,\n  _leadData: null,\n  _branch: 'role'\n} }];\n"
+      }
+    },
+    {
+      "id": "handler_parent",
+      "name": "Parent FSM Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 460],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// PARENT FSM (strict button-only flow except for `name` which is text).\n// Steps: age -> city -> laptop -> interest -> name -> lead_done\n// ------------------------------------------------------------------\nconst d = $input.first().json;\nconst chatId = d.chatId;\nconst session = d.session;\nconst data = session.data || {};\nconst step = session.step;\nconst body = (d.msgLower || '').trim();\nconst btnId = d.interactiveId || '';\nconst cfg = $('Inject Env Config').first().json;\nconst wahaSession = cfg.wahaSession || 'default';\n\n// ---------- helper: build a buttons payload ----------\nfunction btn(textLines, buttons) {\n  return { endpoint: 'sendButtons', payload: { session: wahaSession, chatId, text: textLines.join('\\n'), footer: 'koderkids.pk', buttons } };\n}\nfunction txt(text) {\n  return { endpoint: 'sendText', payload: { session: wahaSession, chatId, text } };\n}\n\n// ---------- the 4 button-only ask steps ----------\nconst ASK_AGE = btn([\n  'How old is your child?',\n  '',\n  '1) 5-8 years',\n  '2) 9-13 years',\n  '3) 14-17 years',\n  '',\n  'Tap a button or reply with a number.'\n], [\n  { id: 'age_5_8',   title: '5-8 yrs'   },\n  { id: 'age_9_13',  title: '9-13 yrs'  },\n  { id: 'age_14_17', title: '14-17 yrs' }\n]);\n\nconst ASK_CITY = btn([\n  'Which city are you in?',\n  '',\n  '1) Lahore',\n  '2) Islamabad / Rawalpindi',\n  '3) Other',\n  '',\n  'Tap a button or reply with a number.'\n], [\n  { id: 'city_lahore',    title: 'Lahore'         },\n  { id: 'city_islamabad', title: 'ISB/Rawalpindi' },\n  { id: 'city_other',     title: 'Other'          }\n]);\n\nconst ASK_LAPTOP = btn([\n  'Does your child have access to a laptop or computer?',\n  '',\n  '1) Yes',\n  '2) No',\n  '',\n  'Tap a button or reply with a number.'\n], [\n  { id: 'laptop_yes', title: 'Yes' },\n  { id: 'laptop_no',  title: 'No'  }\n]);\n\nconst ASK_INTEREST = {\n  endpoint: 'sendList',\n  payload: {\n    session: wahaSession,\n    chatId,\n    title: 'What can we help with?',\n    description: 'Pick an option below. If buttons do not show, reply with the number:\\n\\n1) Courses & Curriculum\\n2) Pricing\\n3) Free Demo Class\\n4) Book a Meeting\\n5) Talk to an Advisor',\n    buttonText: 'View Options',\n    footerText: 'koderkids.pk',\n    sections: [{\n      title: \"I'm interested in...\",\n      rows: [\n        { rowId: 'int_courses',  title: 'Courses',       description: 'Curriculum, books, levels'  },\n        { rowId: 'int_pricing',  title: 'Pricing',       description: 'Fees and packages'           },\n        { rowId: 'int_demo',     title: 'Free Demo',     description: 'Book a free trial class'     },\n        { rowId: 'int_meeting',  title: 'Book Meeting',  description: 'Schedule with our team'      },\n        { rowId: 'int_advisor',  title: 'Talk to Advisor', description: 'Personal guidance'         }\n      ]\n    }]\n  }\n};\n\nconst ASK_NAME = txt('Almost done! 😊 May I have your *name* to complete the registration?');\n\n// ---------- parsers per step ----------\nfunction parseAge() {\n  if (btnId === 'age_5_8'   || ['1', '5-8',  '5 to 8',  '5'].includes(body))  return '5-8';\n  if (btnId === 'age_9_13'  || ['2', '9-13', '9 to 13'].includes(body))        return '9-13';\n  if (btnId === 'age_14_17' || ['3', '14-17', '14 to 17'].includes(body))     return '14-17';\n  return null;\n}\nfunction parseCity() {\n  if (btnId === 'city_lahore'    || ['1', 'lahore', 'lhr'].includes(body))                                 return 'Lahore';\n  if (btnId === 'city_islamabad' || ['2', 'islamabad', 'rawalpindi', 'isb', 'isb/rawalpindi'].includes(body)) return 'Islamabad/Rawalpindi';\n  if (btnId === 'city_other'     || ['3', 'other'].includes(body))                                          return 'Other';\n  return null;\n}\nfunction parseLaptop() {\n  if (btnId === 'laptop_yes' || ['1', 'yes', 'y', 'yeah', 'yep'].includes(body)) return 'Yes';\n  if (btnId === 'laptop_no'  || ['2', 'no',  'n',  'nope'].includes(body))       return 'No';\n  return null;\n}\nfunction parseInterest() {\n  const map = {\n    int_courses: 'Courses', int_pricing: 'Pricing', int_demo: 'Free Demo',\n    int_meeting: 'Book Meeting', int_advisor: 'Talk to Advisor'\n  };\n  if (map[btnId]) return map[btnId];\n  if (['1', 'courses', 'curriculum'].includes(body))            return 'Courses';\n  if (['2', 'pricing', 'price', 'fee', 'fees'].includes(body))  return 'Pricing';\n  if (['3', 'demo', 'free demo', 'trial'].includes(body))       return 'Free Demo';\n  if (['4', 'meeting', 'book', 'appointment'].includes(body))   return 'Book Meeting';\n  if (['5', 'advisor', 'talk', 'consult'].includes(body))       return 'Talk to Advisor';\n  return null;\n}\n\n// ---------- state machine ----------\nlet nextStep = step;\nlet nextData = { ...data };\nlet send = null;\nlet leadReady = false;\nlet leadData = null;\nconst attempts = (data._attempts || 0) + 1;\n\nfunction reAsk(prompt, retryHint) {\n  // if 2 failed attempts on same step, escalate to Other agent\n  if (attempts >= 2) {\n    nextStep = 'in_other';\n    nextData = { ...data, _attempts: 0 };\n    send = txt(\"Let me hand you over to our assistant who can help in free chat. Type *menu* anytime to restart. 😊\");\n  } else {\n    nextData = { ...data, _attempts: attempts };\n    send = retryHint;\n    send.payload.text = (\"Sorry, I didn't catch that. \" + send.payload.text);\n  }\n}\n\nswitch (step) {\n  case 'awaiting_parent_age': {\n    const age = parseAge();\n    if (!age) { reAsk('age', ASK_AGE); break; }\n    nextData = { ...data, child_age: age, _attempts: 0 };\n    nextStep = 'awaiting_parent_city';\n    send = ASK_CITY;\n    break;\n  }\n  case 'awaiting_parent_city': {\n    const city = parseCity();\n    if (!city) { reAsk('city', ASK_CITY); break; }\n    nextData = { ...data, city, _attempts: 0 };\n    nextStep = 'awaiting_parent_laptop';\n    send = ASK_LAPTOP;\n    break;\n  }\n  case 'awaiting_parent_laptop': {\n    const laptop = parseLaptop();\n    if (!laptop) { reAsk('laptop', ASK_LAPTOP); break; }\n    nextData = { ...data, has_laptop: laptop, _attempts: 0 };\n    nextStep = 'awaiting_parent_interest';\n    send = ASK_INTEREST;\n    break;\n  }\n  case 'awaiting_parent_interest': {\n    const interest = parseInterest();\n    if (!interest) { reAsk('interest', ASK_INTEREST); break; }\n    nextData = { ...data, interest, _attempts: 0 };\n    nextStep = 'awaiting_parent_name';\n    send = ASK_NAME;\n    break;\n  }\n  case 'awaiting_parent_name': {\n    const name = (d.messageText || '').trim();\n    if (name.length < 2) { reAsk('name', ASK_NAME); break; }\n    nextData = { ...data, name, _attempts: 0 };\n    nextStep = 'lead_done';\n    leadReady = true;\n    leadData = {\n      type: 'parent',\n      name,\n      phone: d.phoneNumber,\n      whatsapp_from: chatId,\n      city: nextData.city,\n      child_age: nextData.child_age,\n      has_laptop: nextData.has_laptop,\n      interest: nextData.interest\n    };\n    send = txt(`Perfect ${name}! 😊 Our representative will contact you very shortly to help with: ${nextData.interest}.\\n\\nThank you for choosing Koder Kids! Type *menu* anytime to return.`);\n    break;\n  }\n  default: {\n    // step entry from awaiting_role->parent: ask first question\n    nextStep = 'awaiting_parent_age';\n    nextData = {};\n    send = ASK_AGE;\n  }\n}\n\nconst newSession = {\n  step: nextStep,\n  role: 'parent',\n  data: nextData,\n  history: session.history || [],\n  updatedAt: new Date().toISOString()\n};\n\nreturn [{ json: {\n  chatId,\n  phoneNumber: d.phoneNumber,\n  senderName: d.senderName,\n  wahaSession,\n  wahaBaseUrl: d.wahaBaseUrl || cfg.wahaBaseUrl,\n  wahaApiKey: d.wahaApiKey || cfg.wahaApiKey,\n  _newSession: newSession,\n  _waPayload: send.payload,\n  _waEndpoint: send.endpoint,\n  _leadReady: leadReady,\n  _leadData: leadData,\n  _branch: 'parent'\n} }];\n"
+      }
+    },
+    {
+      "id": "handler_school",
+      "name": "School FSM Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 640],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// SCHOOL FSM (button-only except `school_name` and `role_at_school`).\n// Steps: school_name -> city -> lab -> interest -> role_at_school -> done\n// ------------------------------------------------------------------\nconst d = $input.first().json;\nconst chatId = d.chatId;\nconst session = d.session;\nconst data = session.data || {};\nconst step = session.step;\nconst body = (d.msgLower || '').trim();\nconst btnId = d.interactiveId || '';\nconst cfg = $('Inject Env Config').first().json;\nconst wahaSession = cfg.wahaSession || 'default';\n\nfunction btn(textLines, buttons) {\n  return { endpoint: 'sendButtons', payload: { session: wahaSession, chatId, text: textLines.join('\\n'), footer: 'koderkids.pk', buttons } };\n}\nfunction txt(text) {\n  return { endpoint: 'sendText', payload: { session: wahaSession, chatId, text } };\n}\n\nconst ASK_SCHOOL_NAME = txt('To get started, *please type your school name.*');\n\nconst ASK_CITY = btn([\n  'Which city is your school in?',\n  '',\n  '1) Lahore',\n  '2) Islamabad / Rawalpindi',\n  '3) Karachi',\n  '4) Other',\n  '',\n  'Tap a button or reply with a number.'\n], [\n  { id: 'scity_lhr',   title: 'Lahore'         },\n  { id: 'scity_isb',   title: 'ISB/Rawalpindi' },\n  { id: 'scity_khi',   title: 'Karachi'        },\n  { id: 'scity_other', title: 'Other'          }\n]);\n\nconst ASK_LAB = btn([\n  'Does your school have a computer lab?',\n  '',\n  '1) Yes',\n  '2) No',\n  '3) Planning to build one',\n  '',\n  'Tap a button or reply with a number.'\n], [\n  { id: 'lab_yes', title: 'Yes'      },\n  { id: 'lab_no',  title: 'No'       },\n  { id: 'lab_pln', title: 'Planning' }\n]);\n\nconst ASK_INTEREST = {\n  endpoint: 'sendList',\n  payload: {\n    session: wahaSession,\n    chatId,\n    title: 'What can we help with?',\n    description: 'Pick an option. If list does not show, reply with the number:\\n\\n1) Coding Classes at School\\n2) AI & Robotics Program\\n3) Education AI ERP\\n4) Teacher Training\\n5) Full School Partnership',\n    buttonText: 'View Options',\n    footerText: 'koderkids.pk',\n    sections: [{\n      title: 'Interested in...',\n      rows: [\n        { rowId: 'sint_classes',     title: 'Coding Classes',  description: 'On-site coding classes'        },\n        { rowId: 'sint_robotics',    title: 'AI & Robotics',   description: 'Hands-on robotics program'     },\n        { rowId: 'sint_erp',         title: 'ERP System',      description: 'AI school management ERP'      },\n        { rowId: 'sint_training',    title: 'Teacher Training', description: 'Upskill your teachers'        },\n        { rowId: 'sint_partnership', title: 'Full Partnership', description: 'End-to-end collaboration'     }\n      ]\n    }]\n  }\n};\n\nconst ASK_ROLE = txt('Almost done! 😊 May I have your *name and role* at the school? (e.g. \"Ahmed, Principal\")');\n\nfunction parseCity() {\n  if (btnId === 'scity_lhr'   || ['1', 'lahore', 'lhr'].includes(body))                                  return 'Lahore';\n  if (btnId === 'scity_isb'   || ['2', 'islamabad', 'rawalpindi', 'isb'].includes(body))                 return 'Islamabad/Rawalpindi';\n  if (btnId === 'scity_khi'   || ['3', 'karachi', 'khi'].includes(body))                                  return 'Karachi';\n  if (btnId === 'scity_other' || ['4', 'other'].includes(body))                                           return 'Other';\n  return null;\n}\nfunction parseLab() {\n  if (btnId === 'lab_yes' || ['1', 'yes', 'y'].includes(body))                              return 'Yes';\n  if (btnId === 'lab_no'  || ['2', 'no',  'n'].includes(body))                              return 'No';\n  if (btnId === 'lab_pln' || ['3', 'planning', 'plan'].includes(body))                      return 'Planning';\n  return null;\n}\nfunction parseInterest() {\n  const map = {\n    sint_classes: 'Coding Classes', sint_robotics: 'AI & Robotics', sint_erp: 'ERP System',\n    sint_training: 'Teacher Training', sint_partnership: 'Full Partnership'\n  };\n  if (map[btnId]) return map[btnId];\n  if (['1', 'classes', 'coding'].includes(body))                  return 'Coding Classes';\n  if (['2', 'robotics', 'ai', 'ai & robotics'].includes(body))    return 'AI & Robotics';\n  if (['3', 'erp', 'kodereduai'].includes(body))                  return 'ERP System';\n  if (['4', 'training', 'teacher training'].includes(body))       return 'Teacher Training';\n  if (['5', 'partnership', 'partner'].includes(body))             return 'Full Partnership';\n  return null;\n}\n\nlet nextStep = step;\nlet nextData = { ...data };\nlet send = null;\nlet leadReady = false;\nlet leadData = null;\nconst attempts = (data._attempts || 0) + 1;\n\nfunction reAsk(prompt) {\n  if (attempts >= 2) {\n    nextStep = 'in_other';\n    nextData = { ...data, _attempts: 0 };\n    send = txt(\"Let me hand you over to our assistant for free chat. Type *menu* anytime to restart. 😊\");\n  } else {\n    nextData = { ...data, _attempts: attempts };\n    send = prompt;\n    send.payload.text = (\"Sorry, I didn't catch that. \" + send.payload.text);\n  }\n}\n\nswitch (step) {\n  case 'awaiting_school_name': {\n    const name = (d.messageText || '').trim();\n    if (name.length < 2) { reAsk(ASK_SCHOOL_NAME); break; }\n    nextData = { ...data, school_name: name, _attempts: 0 };\n    nextStep = 'awaiting_school_city';\n    send = ASK_CITY;\n    break;\n  }\n  case 'awaiting_school_city': {\n    const city = parseCity();\n    if (!city) { reAsk(ASK_CITY); break; }\n    nextData = { ...data, city, _attempts: 0 };\n    nextStep = 'awaiting_school_lab';\n    send = ASK_LAB;\n    break;\n  }\n  case 'awaiting_school_lab': {\n    const lab = parseLab();\n    if (!lab) { reAsk(ASK_LAB); break; }\n    nextData = { ...data, lab, _attempts: 0 };\n    nextStep = 'awaiting_school_interest';\n    send = ASK_INTEREST;\n    break;\n  }\n  case 'awaiting_school_interest': {\n    const interest = parseInterest();\n    if (!interest) { reAsk(ASK_INTEREST); break; }\n    nextData = { ...data, interest, _attempts: 0 };\n    nextStep = 'awaiting_school_role';\n    send = ASK_ROLE;\n    break;\n  }\n  case 'awaiting_school_role': {\n    const raw = (d.messageText || '').trim();\n    if (raw.length < 2) { reAsk(ASK_ROLE); break; }\n    // try to split \"Name, Role\" -> name + role_at_school\n    let name = raw, roleAt = '';\n    if (raw.includes(',')) {\n      const parts = raw.split(',').map(s => s.trim());\n      name = parts[0]; roleAt = parts.slice(1).join(', ');\n    } else if (raw.includes(' - ')) {\n      const parts = raw.split(' - ').map(s => s.trim());\n      name = parts[0]; roleAt = parts.slice(1).join(' - ');\n    }\n    nextData = { ...data, name, role_at_school: roleAt, _attempts: 0 };\n    nextStep = 'lead_done';\n    leadReady = true;\n    leadData = {\n      type: 'school',\n      name,\n      phone: d.phoneNumber,\n      whatsapp_from: chatId,\n      school_name: nextData.school_name,\n      city: nextData.city,\n      lab: nextData.lab,\n      interest: nextData.interest,\n      role_at_school: roleAt\n    };\n    send = txt(`Perfect! 😊 Our school partnerships team will reach out shortly regarding *${nextData.interest}* at ${nextData.school_name}.\\n\\nThank you! Type *menu* anytime to return.`);\n    break;\n  }\n  default: {\n    nextStep = 'awaiting_school_name';\n    nextData = {};\n    send = ASK_SCHOOL_NAME;\n  }\n}\n\nconst newSession = {\n  step: nextStep,\n  role: 'school',\n  data: nextData,\n  history: session.history || [],\n  updatedAt: new Date().toISOString()\n};\n\nreturn [{ json: {\n  chatId,\n  phoneNumber: d.phoneNumber,\n  senderName: d.senderName,\n  wahaSession,\n  wahaBaseUrl: d.wahaBaseUrl || cfg.wahaBaseUrl,\n  wahaApiKey: d.wahaApiKey || cfg.wahaApiKey,\n  _newSession: newSession,\n  _waPayload: send.payload,\n  _waEndpoint: send.endpoint,\n  _leadReady: leadReady,\n  _leadData: leadData,\n  _branch: 'school'\n} }];\n"
+      }
+    },
+    {
+      "id": "other_prep",
+      "name": "Other Agent Prep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 880],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Prepare context for the LangChain Other agent.\n// Also detect 'menu'-like escape phrases (handled earlier already).\n// ------------------------------------------------------------------\nconst d = $input.first().json;\nconst session = d.session;\nconst cfg = $('Inject Env Config').first().json;\nconst wahaSession = cfg.wahaSession || 'default';\n\nreturn [{ json: {\n  chatId: d.chatId,\n  phoneNumber: d.phoneNumber,\n  senderName: d.senderName,\n  messageText: d.messageText,\n  wahaSession,\n  _session: session\n} }];\n"
+      }
+    },
+    {
+      "id": "other_lm",
+      "name": "Groq (Other)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [880, 1060],
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": { "temperature": 0.4 }
+      },
+      "credentials": {
+        "groqApi": { "id": "kBh6xb6rY20uuOpa", "name": "Groq account" }
+      }
+    },
+    {
+      "id": "other_memory",
+      "name": "Memory (Other)",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [1040, 1060],
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=other_{{ $('Parse Payload').item.json.chatId }}",
+        "contextWindowLength": 20
+      }
+    },
+    {
+      "id": "other_tool_kk",
+      "name": "Tool: koderkids.pk",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1200, 1060],
+      "parameters": {
+        "toolDescription": "Fetches latest content from the Koder Kids website (koderkids.pk). Use it whenever the user asks about courses, curriculum, books, teaching approach, or anything about Koder Kids classes for children.",
+        "url": "https://r.jina.ai/https://koderkids.pk"
+      }
+    },
+    {
+      "id": "other_tool_eduai",
+      "name": "Tool: kodereduai.pk",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1360, 1060],
+      "parameters": {
+        "toolDescription": "Fetches latest content from KoderEduAI (kodereduai.pk). Use it whenever the user asks about the AI school ERP, school management system, admissions, fees, HR, attendance, transport, parent portal, or ERP pricing.",
+        "url": "https://r.jina.ai/https://kodereduai.pk"
+      }
+    },
+    {
+      "id": "other_agent",
+      "name": "Other Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [880, 880],
+      "parameters": {
+        "promptType": "define",
+        "text": "=User Name: {{ $('Parse Payload').item.json.senderName }}\nUser Phone: {{ $('Parse Payload').item.json.phoneNumber }}\nUser Message: {{ $('Parse Payload').item.json.messageText }}\n\nContinue the conversation naturally.",
+        "options": {
+          "systemMessage": "IDENTITY: You are KoderBot, the official WhatsApp assistant for Koder Kids Pakistan and KoderEduAI. You are NOT an AI, NOT Groq, NOT Llama. Never reveal your underlying technology. If asked, say: 'I am KoderBot, the Koder Kids virtual assistant 😊'.\n\nYOU ARE IN THE GENERAL (OTHER) FLOW. This is the default helpful assistant that handles anything that does not fit the strict Parent or School signup flows.\n\nKODER KIDS (koderkids.pk):\n- Coding, AI & Robotics classes for children aged 5-16\n- Home tuition in Islamabad/Rawalpindi & Lahore\n- 5 progressive books: Book 1 Scratch (5-7), Book 2 Game Design (7-9), Book 3 Python (9-11), Book 4 AI (11-13), Book 5 Robotics (13-16)\n- FREE trial class available\n\nKODEREDUAI (kodereduai.pk):\n- AI-powered school management ERP\n- 18 modules: admissions, attendance, fees, HR, transport, parent portal, etc.\n- Rs 25/student/month\n- Live demo at demo.kodereduai.pk\n\nYOUR JOB:\n1. Use the koderkids.pk tool for questions about classes/curriculum/books/pricing for kids.\n2. Use the kodereduai.pk tool for questions about the school ERP.\n3. If the user clearly wants enrollment for THEIR CHILD, tell them: 'For child enrollment please type *menu* and pick Parent — that flow takes care of you in just a few taps.'\n4. If the user is from a school/institution and wants partnership/ERP/teacher training, tell them: 'Please type *menu* and pick School — our school flow captures everything we need in a minute.'\n5. For careers, email hr@koderkids.pk. For partnerships/investments, email info@koderkids.pk.\n6. For anything else, answer warmly and helpfully, then offer to collect their name and number for follow-up.\n\nLEAD CAPTURE: When you have BOTH a name AND a clear intent (or a phone number), append on the LAST line of your reply this exact marker:\nLEAD_DATA:{\"type\":\"other\",\"name\":\"<name>\",\"phone\":\"<phone>\",\"interest\":\"<intent>\",\"notes\":\"<short summary>\"}\n\nNever output LEAD_DATA more than once per conversation. Keep replies under 130 words. Maximum 2 emojis. Plain text only — no markdown asterisks, no bullet lists. Always be warm, concise, and helpful."
+        }
+      }
+    },
+    {
+      "id": "other_process",
+      "name": "Process Other Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 880],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Take the LangChain Agent output and:\n//  - strip LEAD_DATA:{...} tail if present\n//  - build a WAHA sendText payload\n//  - emit the new session\n// ------------------------------------------------------------------\nconst agentOut = $input.first().json;\nconst prep = $('Other Agent Prep').first().json;\nconst parse = $('Parse Payload').first().json;\nconst session = prep._session || { history: [] };\nconst cfg = $('Inject Env Config').first().json;\nconst wahaSession = prep.wahaSession || cfg.wahaSession || 'default';\n\nconst rawReply = (agentOut.output || agentOut.text || 'Sorry, I could not process that. Please try again or type *menu*.').toString();\n\nconst MARKER = 'LEAD_DATA:';\nlet cleanReply = rawReply;\nlet leadData = null;\nconst idx = rawReply.indexOf(MARKER);\nif (idx !== -1) {\n  cleanReply = rawReply.substring(0, idx).trim();\n  const tail = rawReply.substring(idx + MARKER.length).trim();\n  try {\n    const m = tail.match(/\\{[\\s\\S]*\\}/);\n    if (m) {\n      const parsed = JSON.parse(m[0]);\n      leadData = {\n        type: 'other',\n        name: parsed.name || prep.senderName || '',\n        phone: parsed.phone || prep.phoneNumber || '',\n        whatsapp_from: parse.chatId,\n        interest: parsed.interest || '',\n        notes: parsed.notes || ''\n      };\n    }\n  } catch (_) { leadData = null; }\n}\nif (!cleanReply) cleanReply = 'How else can I help you today? 😊';\n\nconst leadReady = !!leadData && !!(leadData.phone || leadData.name);\n\nconst payload = {\n  session: wahaSession,\n  chatId: parse.chatId,\n  text: cleanReply\n};\n\nconst newSession = {\n  step: leadReady ? 'lead_done' : 'in_other',\n  role: 'other',\n  data: session.data || {},\n  history: session.history || [],\n  updatedAt: new Date().toISOString()\n};\n\nreturn [{ json: {\n  chatId: parse.chatId,\n  phoneNumber: parse.phoneNumber,\n  senderName: parse.senderName,\n  wahaSession,\n  wahaBaseUrl: cfg.wahaBaseUrl,\n  wahaApiKey: cfg.wahaApiKey,\n  _newSession: newSession,\n  _waPayload: payload,\n  _waEndpoint: 'sendText',\n  _leadReady: leadReady,\n  _leadData: leadData,\n  _branch: 'other'\n} }];\n"
+      }
+    },
+    {
+      "id": "if_has_lead",
+      "name": "Has Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1320, 520],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-has-lead",
+              "leftValue": "={{ $json._leadReady }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "crm_post",
+      "name": "POST Lead to CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ String($json.backendUrl || $('Inject Env Config').first().json.backendUrl || '').replace(/\\/+$/, '') + '/api/crm/leads/whatsapp/' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Bot-Key",    "value": "={{ String($json.backendWaBotKey || $('Inject Env Config').first().json.backendWaBotKey || '') }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json._leadData) }}",
+        "options": {
+          "timeout": 10000,
+          "response": { "response": { "neverError": true } }
+        }
+      }
+    },
+    {
+      "id": "build_notify",
+      "name": "Build Sales Notifications",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 380],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Fan out one sales-notification payload per configured rep.\n// Reads SALES_REP_1, SALES_REP_2, SALES_REP_3 from env.\n// Each item carries the WAHA sendText payload AND the original lead data.\n// ------------------------------------------------------------------\nconst src = $('Has Lead?').first().json;\nconst crmResp = $input.first().json;\nconst lead = src._leadData || {};\nconst cfg = $('Inject Env Config').first().json;\nconst wahaSession = src.wahaSession || cfg.wahaSession || 'default';\nconst leadId = crmResp.id || crmResp.body?.id || null;\nconst frontend = cfg.frontendUrl || '';\n\nconst reps = [\n  cfg.salesRep1,\n  cfg.salesRep2,\n  cfg.salesRep3\n].filter(Boolean);\n\nconst summary = [\n  `🔔 NEW ${(lead.type || 'other').toUpperCase()} LEAD`,\n  '',\n  `Name: ${lead.name || '-'}`,\n  `Phone: ${lead.phone || '-'}`,\n  lead.school_name ? `School: ${lead.school_name}` : null,\n  lead.city ? `City: ${lead.city}` : null,\n  lead.child_age ? `Child Age: ${lead.child_age}` : null,\n  lead.has_laptop ? `Has Laptop: ${lead.has_laptop}` : null,\n  lead.lab ? `Computer Lab: ${lead.lab}` : null,\n  lead.role_at_school ? `Role: ${lead.role_at_school}` : null,\n  lead.interest ? `Interest: ${lead.interest}` : null,\n  leadId ? `Lead ID: ${leadId}` : null,\n  frontend && leadId ? `Open: ${frontend}/crm/leads` : null,\n  '',\n  'Please follow up shortly! 📞'\n].filter(Boolean).join('\\n');\n\nreturn reps.map((to) => ({ json: {\n  wahaBaseUrl: src.wahaBaseUrl || cfg.wahaBaseUrl,\n  wahaApiKey: src.wahaApiKey || cfg.wahaApiKey,\n  _wahaSession: wahaSession,\n  _to: to.endsWith('@c.us') ? to : `${to}@c.us`,\n  _text: summary,\n  _leadId: leadId\n} }));\n"
+      }
+    },
+    {
+      "id": "notify_send",
+      "name": "Notify Sales Rep",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1940, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ String($json.wahaBaseUrl || $('Inject Env Config').first().json.wahaBaseUrl || '').replace(/\\/+$/, '') + '/api/sendText' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Api-Key",    "value": "={{ String($json.wahaApiKey || $('Inject Env Config').first().json.wahaApiKey || '') }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"{{ $json._wahaSession }}\",\n  \"chatId\": \"{{ $json._to }}\",\n  \"text\": {{ JSON.stringify($json._text) }}\n}",
+        "options": {
+          "timeout": 10000,
+          "response": { "response": { "neverError": true } }
+        }
+      }
+    },
+    {
+      "id": "aggregate_notify",
+      "name": "Aggregate Notifications",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [2140, 380],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      }
+    },
+    {
+      "id": "start_typing",
+      "name": "Start Typing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2540, 520],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ String($json.wahaBaseUrl || $('Inject Env Config').first().json.wahaBaseUrl || '').replace(/\\/+$/, '') + '/api/startTyping' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Api-Key",    "value": "={{ String($json.wahaApiKey || $('Inject Env Config').first().json.wahaApiKey || '') }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"{{ $('Has Lead?').item.json.wahaSession }}\",\n  \"chatId\": \"{{ $('Has Lead?').item.json.chatId }}\"\n}",
+        "options": {
+          "timeout": 5000,
+          "response": { "response": { "neverError": true } }
+        }
+      }
+    },
+    {
+      "id": "typing_wait",
+      "name": "Wait (Typing)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2720, 520],
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 3) + 3 }}",
+        "unit": "seconds"
+      },
+      "webhookId": "wabot-v3-typing-wait"
+    },
+    {
+      "id": "stop_typing",
+      "name": "Stop Typing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2900, 520],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ String($json.wahaBaseUrl || $('Inject Env Config').first().json.wahaBaseUrl || '').replace(/\\/+$/, '') + '/api/stopTyping' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Api-Key",    "value": "={{ String($json.wahaApiKey || $('Inject Env Config').first().json.wahaApiKey || '') }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"{{ $('Has Lead?').item.json.wahaSession }}\",\n  \"chatId\": \"{{ $('Has Lead?').item.json.chatId }}\"\n}",
+        "options": {
+          "timeout": 5000,
+          "response": { "response": { "neverError": true } }
+        }
+      }
+    },
+    {
+      "id": "send_waha",
+      "name": "Send WAHA Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3100, 520],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ String($json.wahaBaseUrl || $('Inject Env Config').first().json.wahaBaseUrl || '').replace(/\\/+$/, '') + '/api/' + ($('Has Lead?').item.json._waEndpoint || 'sendText') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Api-Key",    "value": "={{ String($json.wahaApiKey || $('Inject Env Config').first().json.wahaApiKey || '') }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Has Lead?').item.json._waPayload) }}",
+        "options": {
+          "timeout": 10000,
+          "response": { "response": { "neverError": true } }
+        }
+      }
+    },
+    {
+      "id": "save_session",
+      "name": "Save Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3300, 520],
+      "parameters": {
+        "jsCode": "// ------------------------------------------------------------------\n// Persist the new session back into staticData.\n// ------------------------------------------------------------------\nconst src = $('Has Lead?').first().json;\nconst chatId = src.chatId;\nconst newSession = src._newSession;\nconst staticData = $getWorkflowStaticData('global');\nstaticData.sessions = staticData.sessions || {};\nstaticData.sessions[chatId] = newSession;\nreturn [{ json: { _saved: true, chatId, step: newSession.step, role: newSession.role } }];\n"
+      }
+    }
+  ],
+  "connections": {
+    "WAHA Webhook": {
+      "main": [[{ "node": "Parse Payload", "type": "main", "index": 0 }]]
+    },
+    "Parse Payload": {
+      "main": [[{ "node": "Ack 200 OK (Early)", "type": "main", "index": 0 }]]
+    },
+    "Ack 200 OK (Early)": {
+      "main": [[{ "node": "Skip? (Group / Self / Non-message)", "type": "main", "index": 0 }]]
+    },
+    "Skip? (Group / Self / Non-message)": {
+      "main": [
+        [{ "node": "Drop Silently", "type": "main", "index": 0 }],
+        [{ "node": "Inject Env Config", "type": "main", "index": 0 }]
+      ]
+    },
+    "Inject Env Config": {
+      "main": [[{ "node": "Load Session", "type": "main", "index": 0 }]]
+    },
+    "Load Session": {
+      "main": [[{ "node": "Normalize Step", "type": "main", "index": 0 }]]
+    },
+    "Normalize Step": {
+      "main": [[{ "node": "Route by Step", "type": "main", "index": 0 }]]
+    },
+    "Route by Step": {
+      "main": [
+        [{ "node": "Build Main Menu",     "type": "main", "index": 0 }],
+        [{ "node": "Parse Role Selection", "type": "main", "index": 0 }],
+        [{ "node": "Parent FSM Handler",   "type": "main", "index": 0 }],
+        [{ "node": "School FSM Handler",   "type": "main", "index": 0 }],
+        [{ "node": "Other Agent Prep",     "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Main Menu": {
+      "main": [[{ "node": "Has Lead?", "type": "main", "index": 0 }]]
+    },
+    "Parse Role Selection": {
+      "main": [[{ "node": "Has Lead?", "type": "main", "index": 0 }]]
+    },
+    "Parent FSM Handler": {
+      "main": [[{ "node": "Has Lead?", "type": "main", "index": 0 }]]
+    },
+    "School FSM Handler": {
+      "main": [[{ "node": "Has Lead?", "type": "main", "index": 0 }]]
+    },
+    "Other Agent Prep": {
+      "main": [[{ "node": "Other Agent", "type": "main", "index": 0 }]]
+    },
+    "Groq (Other)": {
+      "ai_languageModel": [[{ "node": "Other Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Memory (Other)": {
+      "ai_memory": [[{ "node": "Other Agent", "type": "ai_memory", "index": 0 }]]
+    },
+    "Tool: koderkids.pk": {
+      "ai_tool": [[{ "node": "Other Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "Tool: kodereduai.pk": {
+      "ai_tool": [[{ "node": "Other Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "Other Agent": {
+      "main": [[{ "node": "Process Other Reply", "type": "main", "index": 0 }]]
+    },
+    "Process Other Reply": {
+      "main": [[{ "node": "Has Lead?", "type": "main", "index": 0 }]]
+    },
+    "Has Lead?": {
+      "main": [
+        [{ "node": "POST Lead to CRM", "type": "main", "index": 0 }],
+        [{ "node": "Start Typing", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST Lead to CRM": {
+      "main": [[{ "node": "Build Sales Notifications", "type": "main", "index": 0 }]]
+    },
+    "Build Sales Notifications": {
+      "main": [[{ "node": "Notify Sales Rep", "type": "main", "index": 0 }]]
+    },
+    "Notify Sales Rep": {
+      "main": [[{ "node": "Aggregate Notifications", "type": "main", "index": 0 }]]
+    },
+    "Aggregate Notifications": {
+      "main": [[{ "node": "Start Typing", "type": "main", "index": 0 }]]
+    },
+    "Start Typing": {
+      "main": [[{ "node": "Wait (Typing)", "type": "main", "index": 0 }]]
+    },
+    "Wait (Typing)": {
+      "main": [[{ "node": "Stop Typing", "type": "main", "index": 0 }]]
+    },
+    "Stop Typing": {
+      "main": [[{ "node": "Send WAHA Reply", "type": "main", "index": 0 }]]
+    },
+    "Send WAHA Reply": {
+      "main": [[{ "node": "Save Session", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "active": false,
+  "tags": ["whatsapp", "waha", "koderkids", "sales", "v3"],
+  "meta": {
+    "instanceId": "koderkids-wabot-v3"
+  }
+}

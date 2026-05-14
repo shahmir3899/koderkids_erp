@@ -1,0 +1,717 @@
+{
+  "name": "KoderKids WhatsApp Sales Bot v2",
+  "nodes": [
+    {
+      "id": "n001",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "notes": "Receives all inbound WhatsApp messages from Meta Cloud API. Configure the Webhook URL in Meta Developer Console."
+    },
+    {
+      "id": "n002",
+      "name": "Parse Incoming Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400],
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// FIX (1): Group detection — WhatsApp group JIDs end with @g.us\n// FIX (2): Normalise all interactive reply types into a single shape\n// ---------------------------------------------------------------------------\nconst body = $input.first().json.body || $input.first().json;\n\nconst entry   = body.entry?.[0];\nconst change  = entry?.changes?.[0];\nconst value   = change?.value;\nconst msgs    = value?.messages;\n\n// Handle Meta verification GETs and status-only POSTs silently\nif (!msgs || msgs.length === 0) {\n  return [{ json: { _skip: true, isGroup: false, from: '' } }];\n}\n\nconst msg           = msgs[0];\nconst from          = msg.from;                              // e.g. '923001234567'\nconst phoneNumberId = value.metadata?.phone_number_id ?? '';\n\n// FIX (1): Group JIDs contain '-' (legacy) or end with '@g.us'\nconst isGroup = from.includes('@g.us') || /^\\d+-\\d+/.test(from);\n\nlet msgBody    = '';\nlet msgType    = msg.type;   // 'text' | 'interactive' | 'image' | …\nlet buttonId   = '';\nlet buttonTitle = '';\nlet listId     = '';\nlet listTitle  = '';\n\nif (msg.type === 'text') {\n  msgBody = msg.text?.body?.trim() ?? '';\n} else if (msg.type === 'interactive') {\n  const inter = msg.interactive;\n  if (inter.type === 'button_reply') {\n    buttonId    = inter.button_reply.id;\n    buttonTitle = inter.button_reply.title;\n    msgBody     = buttonTitle;\n    msgType     = 'button_reply';\n  } else if (inter.type === 'list_reply') {\n    listId    = inter.list_reply.id;\n    listTitle = inter.list_reply.title;\n    msgBody   = listTitle;\n    msgType   = 'list_reply';\n  }\n}\n\nreturn [{ json: {\n  _skip:         false,\n  from,\n  phoneNumberId,\n  body:          msgBody,\n  messageType:   msgType,\n  buttonId,\n  buttonTitle,\n  listId,\n  listTitle,\n  isGroup\n} }];\n"
+      }
+    },
+    {
+      "id": "n003",
+      "name": "Is Group or Skip?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "c-group",
+              "leftValue": "={{ $json.isGroup }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            },
+            {
+              "id": "c-skip",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "notes": "FIX (1): Groups and empty status-update payloads both get a silent 200 OK and no further processing."
+    },
+    {
+      "id": "n004",
+      "name": "Ack – Group / Empty (no processing)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 240],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": { "responseCode": 200 }
+      },
+      "notes": "FIX (1): Silently acknowledge group messages without processing."
+    },
+    {
+      "id": "n005",
+      "name": "Load Session State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 520],
+      "parameters": {
+        "jsCode": "// Session is stored in workflow static data keyed by WhatsApp number.\n// Shape: { step, role, interest, agent, history: [{role, content}] }\nconst staticData = $getWorkflowStaticData('global');\nconst from       = $input.first().json.from;\nconst sessions   = staticData.sessions ?? {};\nconst session    = sessions[from] ?? {\n  step:     'new',\n  role:     null,\n  interest: null,\n  agent:    'koder',\n  history:  []\n};\nreturn [{ json: { ...$input.first().json, session } }];\n"
+      }
+    },
+    {
+      "id": "n006",
+      "name": "Normalize Session Step",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 520],
+      "parameters": {
+        "jsCode": "// FIX (2): Typing 'menu' (or similar) at any point re-triggers the interactive menu.\n// FIX (3): New users always get the menu first — prevents double-agent-invocation.\nconst data = $input.first().json;\nconst body = (data.body ?? '').toLowerCase().trim();\nconst step = data.session?.step ?? 'new';\n\nconst MENU_TRIGGERS = new Set([\n  'menu', 'hi', 'hello', 'start', 'hey', 'restart',\n  'help', '0', 'main menu', 'home', 'back'\n]);\n\nlet effectiveStep = step;\nif (step === 'new' || MENU_TRIGGERS.has(body)) {\n  effectiveStep = 'menu';\n}\n\nreturn [{ json: { ...data, effectiveStep } }];\n"
+      }
+    },
+    {
+      "id": "n007",
+      "name": "Route by Session Step",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1440, 520],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "combinator": "and",
+                "conditions": [{ "id": "s1", "leftValue": "={{ $json.effectiveStep }}", "rightValue": "menu", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "Menu"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "combinator": "and",
+                "conditions": [{ "id": "s2", "leftValue": "={{ $json.effectiveStep }}", "rightValue": "awaiting_role", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting Role"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "combinator": "and",
+                "conditions": [{ "id": "s3", "leftValue": "={{ $json.effectiveStep }}", "rightValue": "awaiting_interest", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting Interest"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "combinator": "and",
+                "conditions": [{ "id": "s4", "leftValue": "={{ $json.effectiveStep }}", "rightValue": "in_conversation", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "In Conversation"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      },
+      "notes": "FIX (3 & 4): Proper state machine — each step only does ONE thing. The fallback routes unknown steps to the agent flow (Koder Agent will handle them)."
+    },
+    {
+      "id": "n008",
+      "name": "Build Main Menu Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 300],
+      "parameters": {
+        "jsCode": "// FIX (2): Send a real WhatsApp interactive button message — no typing required.\nconst d   = $input.first().json;\nconst to  = d.from;\nconst pid = d.phoneNumberId;\n\nconst payload = {\n  messaging_product: 'whatsapp',\n  recipient_type:    'individual',\n  to,\n  type: 'interactive',\n  interactive: {\n    type: 'button',\n    header: { type: 'text', text: '\\uD83C\\uDF93 Koder Kids & KoderEduAI' },\n    body: {\n      text: \"Welcome! Pakistan's leading coding school for kids.\\n\\nKoderKids.pk | KoderEduAI.pk\\n\\nPlease tell us who you are:\"\n    },\n    footer: { text: \"Reply 'menu' any time to restart\" },\n    action: {\n      buttons: [\n        { type: 'reply', reply: { id: 'role_parent', title: '\\uD83D\\uDC68\\u200D\\uD83D\\uDC69\\u200D\\uD83D\\uDC67 Parent' } },\n        { type: 'reply', reply: { id: 'role_school', title: '\\uD83C\\uDFEB School' } },\n        { type: 'reply', reply: { id: 'role_other',  title: '\\uD83D\\uDCAC Other'  } }\n      ]\n    }\n  }\n};\n\nreturn [{ json: { ...d, _waPayload: payload, phoneNumberId: pid } }];\n"
+      }
+    },
+    {
+      "id": "n009",
+      "name": "Send Main Menu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1960, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.phoneNumberId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=****** $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody":    true,
+        "contentType": "rawJson",
+        "rawBody":     "={{ JSON.stringify($json._waPayload) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "n010",
+      "name": "Save Session – Awaiting Role",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 300],
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst from       = $('Build Main Menu Payload').first().json.from;\nconst sessions   = staticData.sessions ?? {};\nsessions[from]   = {\n  step:     'awaiting_role',\n  role:     null,\n  interest: null,\n  agent:    'koder',\n  history:  []\n};\nstaticData.sessions = sessions;\nreturn [{ json: { _saved: true, from } }];\n"
+      }
+    },
+    {
+      "id": "n011",
+      "name": "Ack – Main Menu Sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2480, 300],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": { "responseCode": 200 }
+      }
+    },
+    {
+      "id": "n012",
+      "name": "Parse Role Selection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 540],
+      "parameters": {
+        "jsCode": "// FIX (2): Prefer button IDs (interactive reply); fall back to text keywords.\n// FIX (4): Any unrecognised input defaults to 'koder' (Koder Agent), NOT parent.\nconst d       = $input.first().json;\nconst body    = (d.body ?? '').toLowerCase().trim();\nconst btnId   = d.buttonId ?? '';\nconst msgType = d.messageType;\n\nlet role = null;\n\nif (msgType === 'button_reply') {\n  if (btnId === 'role_parent')      role = 'parent';\n  else if (btnId === 'role_school') role = 'school';\n  else if (btnId === 'role_other')  role = 'other';\n} else {\n  // Text fallback\n  const PARENT_KW = new Set(['parent', 'parents', 'mom', 'dad', 'mother', 'father', '1', 'p']);\n  const SCHOOL_KW = new Set(['school', 'teacher', 'principal', 'institute', '2', 's']);\n  if (PARENT_KW.has(body))      role = 'parent';\n  else if (SCHOOL_KW.has(body)) role = 'school';\n  else                           role = 'other';\n}\n\n// FIX (4): 'other' uses Koder Agent; anything completely unrecognised also uses Koder Agent.\nconst agent = role === 'parent' ? 'parent'\n            : role === 'school' ? 'school'\n            : 'koder';\n\nreturn [{ json: { ...d, detectedRole: role, detectedAgent: agent } }];\n"
+      }
+    },
+    {
+      "id": "n013",
+      "name": "Route by Role",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1960, 540],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "combinator": "and",
+                "conditions": [{ "id": "rr1", "leftValue": "={{ $json.detectedRole }}", "rightValue": "parent", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "Parent"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "combinator": "and",
+                "conditions": [{ "id": "rr2", "leftValue": "={{ $json.detectedRole }}", "rightValue": "school", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "School"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      },
+      "notes": "FIX (3): Parent/School → show interest menu ONLY (no agent call). FIX (4): Everything else (Other / unrecognised) → goes straight to Koder Agent via the fallback."
+    },
+    {
+      "id": "n014",
+      "name": "Build Parent Interest Menu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 440],
+      "parameters": {
+        "jsCode": "// FIX (2): Clickable list of interests — no typing needed.\n// FIX (3): We do NOT call any agent here. We just show the menu.\nconst d   = $input.first().json;\nconst to  = d.from;\nconst pid = d.phoneNumberId;\n\nconst payload = {\n  messaging_product: 'whatsapp',\n  recipient_type:    'individual',\n  to,\n  type: 'interactive',\n  interactive: {\n    type: 'list',\n    header: { type: 'text', text: '\\uD83D\\uDC68\\u200D\\uD83D\\uDC69\\u200D\\uD83D\\uDC67 For Parents' },\n    body:   { text: 'What brings you here today? Tap an option:' },\n    footer: { text: 'KoderKids.pk' },\n    action: {\n      button: 'View Options',\n      sections: [{\n        title: \"I'm interested in…\",\n        rows: [\n          { id: 'interest_courses',  title: '\\uD83D\\uDCDA Courses',         description: 'Our coding curriculum for kids'   },\n          { id: 'interest_pricing',  title: '\\uD83D\\uDCB0 Pricing',         description: 'Fees and packages'                },\n          { id: 'interest_demo',     title: '\\uD83C\\uDFAE Demo Class',      description: 'Book a free trial class'          },\n          { id: 'interest_meeting',  title: '\\uD83D\\uDCC5 Meeting',         description: 'Schedule a meeting with our team' },\n          { id: 'interest_advisor',  title: '\\uD83D\\uDC64 Speak to Advisor',description: 'Get personalised guidance'        }\n        ]\n      }]\n    }\n  }\n};\n\nreturn [{ json: { ...d, _waPayload: payload, phoneNumberId: pid, detectedRole: 'parent', detectedAgent: 'parent' } }];\n"
+      }
+    },
+    {
+      "id": "n015",
+      "name": "Send Parent Interest Menu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2480, 440],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.phoneNumberId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=****** $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody":    true,
+        "contentType": "rawJson",
+        "rawBody":     "={{ JSON.stringify($json._waPayload) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "n016",
+      "name": "Save Session – Parent Awaiting Interest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2740, 440],
+      "parameters": {
+        "jsCode": "// FIX (3): Only save state. Do NOT invoke any agent in this execution.\nconst staticData = $getWorkflowStaticData('global');\nconst from       = $('Build Parent Interest Menu').first().json.from;\nconst sessions   = staticData.sessions ?? {};\nsessions[from]   = {\n  ...(sessions[from] ?? {}),\n  step:     'awaiting_interest',\n  role:     'parent',\n  agent:    'parent',\n  interest: null\n};\nstaticData.sessions = sessions;\nreturn [{ json: { _saved: true, from } }];\n"
+      }
+    },
+    {
+      "id": "n017",
+      "name": "Build School Interest Menu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 640],
+      "parameters": {
+        "jsCode": "// FIX (2): Clickable school-specific list.\n// FIX (3): No agent call — only show menu.\nconst d   = $input.first().json;\nconst to  = d.from;\nconst pid = d.phoneNumberId;\n\nconst payload = {\n  messaging_product: 'whatsapp',\n  recipient_type:    'individual',\n  to,\n  type: 'interactive',\n  interactive: {\n    type: 'list',\n    header: { type: 'text', text: '\\uD83C\\uDFEB For Schools' },\n    body:   { text: 'What can we help your school with? Tap an option:' },\n    footer: { text: 'KoderKids.pk' },\n    action: {\n      button: 'View Options',\n      sections: [{\n        title: \"I'm interested in…\",\n        rows: [\n          { id: 'interest_courses',     title: '\\uD83D\\uDCDA Curriculum',   description: 'Coding curriculum for schools'       },\n          { id: 'interest_pricing',     title: '\\uD83D\\uDCB0 Pricing',      description: 'School partnership packages'          },\n          { id: 'interest_demo',        title: '\\uD83C\\uDFAE Demo Session', description: 'Request a demo for your school'      },\n          { id: 'interest_meeting',     title: '\\uD83D\\uDCC5 Meeting',      description: 'Meet our education team'              },\n          { id: 'interest_partnership', title: '\\uD83E\\uDD1D Partnership',  description: 'Explore long-term partnership models' }\n        ]\n      }]\n    }\n  }\n};\n\nreturn [{ json: { ...d, _waPayload: payload, phoneNumberId: pid, detectedRole: 'school', detectedAgent: 'school' } }];\n"
+      }
+    },
+    {
+      "id": "n018",
+      "name": "Send School Interest Menu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2480, 640],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.phoneNumberId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=****** $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody":    true,
+        "contentType": "rawJson",
+        "rawBody":     "={{ JSON.stringify($json._waPayload) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "n019",
+      "name": "Save Session – School Awaiting Interest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2740, 640],
+      "parameters": {
+        "jsCode": "// FIX (3): Only save state. Do NOT invoke any agent in this execution.\nconst staticData = $getWorkflowStaticData('global');\nconst from       = $('Build School Interest Menu').first().json.from;\nconst sessions   = staticData.sessions ?? {};\nsessions[from]   = {\n  ...(sessions[from] ?? {}),\n  step:     'awaiting_interest',\n  role:     'school',\n  agent:    'school',\n  interest: null\n};\nstaticData.sessions = sessions;\nreturn [{ json: { _saved: true, from } }];\n"
+      }
+    },
+    {
+      "id": "n020",
+      "name": "Ack – Interest Menu Sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3000, 540],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": { "responseCode": 200 }
+      },
+      "notes": "FIX (3): This execution ends here. The agent is NOT called when the role is selected — only when interest is selected (next message)."
+    },
+    {
+      "id": "n021",
+      "name": "Resolve Interest and Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 800],
+      "parameters": {
+        "jsCode": "// FIX (5): Parse interest deterministically from the list/button ID.\n// Text-keyword fallback is included but interactive IDs take priority.\nconst d       = $input.first().json;\nconst session = d.session ?? {};\nconst body    = (d.body ?? '').toLowerCase().trim();\nconst listId  = d.listId  ?? '';\nconst btnId   = d.buttonId ?? '';\n\nconst selId = listId || btnId; // interactive selection takes priority\n\n// FIX (5): Exact-match on known IDs (set by our own interest menus)\nconst INTEREST_MAP = {\n  interest_courses:     'courses',\n  interest_pricing:     'pricing',\n  interest_demo:        'demo',\n  interest_meeting:     'meeting',\n  interest_advisor:     'advisor',\n  interest_partnership: 'partnership'\n};\n\nlet interest = INTEREST_MAP[selId] ?? null;\n\nif (!interest) {\n  // Text keyword fallback\n  if      (/course|curriculum|class|learn/.test(body))        interest = 'courses';\n  else if (/pric|fee|cost|package|how much/.test(body))       interest = 'pricing';\n  else if (/demo|trial|free|try/.test(body))                  interest = 'demo';\n  else if (/meet|appointment|visit|call/.test(body))          interest = 'meeting';\n  else if (/advis|speak|talk|consult/.test(body))             interest = 'advisor';\n  else if (/partner|collaboration|tie.?up/.test(body))        interest = 'partnership';\n  else                                                         interest = 'general';\n}\n\n// Use agent stored in session (set when role was chosen)\nconst agentType = session.agent ?? 'koder';\n\nreturn [{ json: { ...d, resolvedInterest: interest, resolvedAgent: agentType } }];\n"
+      }
+    },
+    {
+      "id": "n022",
+      "name": "Save Session – Interest + In Conversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 800],
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst d          = $input.first().json;\nconst from       = d.from;\nconst sessions   = staticData.sessions ?? {};\nsessions[from]   = {\n  ...(sessions[from] ?? {}),\n  step:     'in_conversation',\n  interest: d.resolvedInterest,\n  agent:    d.resolvedAgent\n};\nstaticData.sessions = sessions;\nreturn [{ json: { ...d } }];\n"
+      }
+    },
+    {
+      "id": "n023",
+      "name": "Resolve Agent for Ongoing Chat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 1020],
+      "parameters": {
+        "jsCode": "// in_conversation: just read agent from existing session\nconst d       = $input.first().json;\nconst session = d.session ?? {};\nreturn [{ json: {\n  ...d,\n  resolvedInterest: session.interest ?? 'general',\n  resolvedAgent:    session.agent    ?? 'koder'\n} }];\n"
+      }
+    },
+    {
+      "id": "n024",
+      "name": "Resolve Agent for Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 1240],
+      "parameters": {
+        "jsCode": "// FIX (4): Unknown / unmatched step → Koder Agent (not Parent Agent).\nconst d       = $input.first().json;\nconst session = d.session ?? {};\nconst agentFromRole = d.detectedAgent ?? session.agent ?? 'koder'; // comes from Parse Role (other branch)\nreturn [{ json: {\n  ...d,\n  resolvedInterest: 'general',\n  resolvedAgent:    agentFromRole === 'koder' ? 'koder' : agentFromRole\n} }];\n"
+      }
+    },
+    {
+      "id": "n025",
+      "name": "Build LLM Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 1000],
+      "parameters": {
+        "jsCode": "// FIX (4 & 5): Each agent has a tailored system prompt.\n// FIX (4): Koder Agent covers BOTH koderkids.pk AND kodereduai.pk.\n// FIX (6): Agents embed structured LEAD_DATA when they have enough info.\nconst d        = $input.first().json;\nconst session  = d.session ?? {};\nconst agentType = d.resolvedAgent ?? 'koder';\nconst interest  = d.resolvedInterest ?? 'general';\nconst body      = d.body ?? '';\nconst isFirst   = session.step !== 'in_conversation'; // first agent invocation for this interest\n\n// ------------------------------------------------------------------ PROMPTS\nconst PARENT_PROMPT = `You are a friendly sales advisor for Koder Kids (koderkids.pk),\nPakistan's premier coding school for children aged 5-17.\n\nAbout Koder Kids:\n- Age groups: 5-8 Beginners, 9-13 Intermediate, 14-17 Advanced\n- Courses: Scratch, Python, Web Dev, App Dev, AI/ML basics\n- Formats: In-person (Lahore), Online (nationwide)\n- Duration: 3-month terms, 2 classes/week, 1.5 h each\n- Free demo class available on request\n\nUser's current interest: ${interest}\n\nYour job:\n1. Greet warmly and ask about the child if you don't know yet.\n2. Understand their needs (age, interest, goals).\n3. Recommend suitable courses.\n4. Address concerns (pricing, timing, quality).\n5. Convert interest to an enrollment or demo booking.\n\nLEAD CAPTURE — append this exact block at the END of your reply the moment\nyou have the parent's name AND at least one of: child name, child age,\nor a phone number. Fill every field you know; leave unknown fields as \"\":\nLEAD_DATA:{"type":"parent","parent_name":"","child_name":"","child_age":"","interest":"${interest}","phone":"","notes":""}\n\nRules: Never output LEAD_DATA more than once per conversation. Keep replies\nunder 140 words. Be warm, encouraging, and concise.`;\n\nconst SCHOOL_PROMPT = `You are a partnership specialist for Koder Kids (koderkids.pk),\nPakistan's leading school-integrated coding programme.\n\nAbout our School Programme:\n- Coding curriculum aligned with school timetable\n- Trained instructors provided to the school\n- Options: Full curriculum integration, After-school clubs, Holiday camps\n- 50+ partner schools across Pakistan\n\nUser's current interest: ${interest}\n\nYour job:\n1. Understand the school's needs and demographics.\n2. Explain partnership models and their benefits.\n3. Discuss curriculum fit and logistics.\n4. Address pricing.\n5. Book a meeting with our education team.\n\nLEAD CAPTURE — append this exact block at the END of your reply the moment\nyou have the school name AND a contact person:\nLEAD_DATA:{"type":"school","school_name":"","contact_person":"","designation":"","students_count":"","grade_levels":"","interest":"${interest}","phone":"","notes":""}\n\nRules: Never output LEAD_DATA more than once. Keep replies under 140 words.`;\n\nconst KODER_PROMPT = `You are Koder Agent — the helpful assistant for both\nKoder Kids (koderkids.pk) and KoderEduAI (kodereduai.pk).\n\nKoder Kids: Coding school for children 5-17 across Pakistan.\nKoderEduAI: AI-powered educational technology platform for schools and\n            institutions; offers AI tools for teachers, learning analytics,\n            and school digitisation.\n\nYour job:\n1. Greet the visitor and understand their need.\n2. Route them to the right product (KoderKids or KoderEduAI).\n3. Answer questions about coding education and EdTech.\n4. Capture contact info to book a follow-up.\n\nLEAD CAPTURE — append this exact block at the END of your reply when you\nhave a name AND a phone number or clear intent:\nLEAD_DATA:{"type":"general","name":"","role":"","interest":"","phone":"","notes":""}\n\nRules: Never output LEAD_DATA more than once. Keep replies under 140 words.\nBe friendly, professional, and concise.`;\n\nconst prompts = { parent: PARENT_PROMPT, school: SCHOOL_PROMPT, koder: KODER_PROMPT };\nconst systemPrompt = prompts[agentType] ?? KODER_PROMPT;\n\n// Build conversation history (cap at last 10 messages to stay within token limits)\nconst history = (session.history ?? []).slice(-10);\nconst messages = [\n  { role: 'system', content: systemPrompt },\n  ...history\n];\n\n// On the very first call for this interest, inject context so the agent knows\n// what the user selected — without sending a blank message.\nlet userContent = body;\nif (isFirst && interest && interest !== 'general' && !body) {\n  userContent = `[User just selected interest: ${interest}. Please greet them accordingly.]`;\n} else if (isFirst && interest && interest !== 'general') {\n  userContent = `[Interest context: ${interest}] ${body}`;\n}\n\nmessages.push({ role: 'user', content: userContent });\n\nreturn [{ json: {\n  ...d,\n  agentType,\n  interest,\n  systemPrompt,\n  messages,\n  userContent\n} }];\n"
+      }
+    },
+    {
+      "id": "n026",
+      "name": "Call LLM (Groq)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2480, 1000],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=****** $env.GROQ_API_KEY }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody":    true,
+        "contentType": "rawJson",
+        "rawBody": "={{ JSON.stringify({ model: 'llama-3.1-8b-instant', messages: $json.messages, temperature: 0.7, max_tokens: 500 }) }}",
+        "options": { "timeout": 30000 }
+      },
+      "notes": "Swap the model or URL to use OpenAI, Anthropic, or a local Ollama endpoint."
+    },
+    {
+      "id": "n027",
+      "name": "Process Response + Detect Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2740, 1000],
+      "parameters": {
+        "jsCode": "// FIX (6): Parse LEAD_DATA out of the agent reply.\n// The clean reply (without the marker) is sent to the user.\n// Structured lead data is passed downstream for CRM save and sales notification.\nconst httpResp   = $input.first().json;\nconst prevData   = $('Build LLM Request').first().json;\n\nconst rawReply   = httpResp.choices?.[0]?.message?.content\n                   ?? 'Sorry, I could not process your request. Please try again.';\n\nconst LEAD_MARKER = 'LEAD_DATA:';\nlet cleanReply  = rawReply;\nlet leadData    = null;\n\nconst markerIdx = rawReply.indexOf(LEAD_MARKER);\nif (markerIdx !== -1) {\n  // Everything before the marker is the actual reply to the user\n  cleanReply = rawReply.substring(0, markerIdx).trim();\n  const leadStr = rawReply.substring(markerIdx + LEAD_MARKER.length).trim();\n  try {\n    const jsonMatch = leadStr.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      leadData = JSON.parse(jsonMatch[0]);\n      // Enrich with metadata\n      leadData.whatsapp_from = prevData.from;\n      leadData.agent_type    = prevData.agentType;\n      leadData.timestamp     = new Date().toISOString();\n    }\n  } catch (_) { leadData = null; }\n}\n\n// Update conversation history in session\nconst prevHistory = prevData.session?.history ?? [];\nconst newHistory  = [\n  ...prevHistory,\n  { role: 'user',      content: prevData.userContent },\n  { role: 'assistant', content: cleanReply }\n].slice(-20); // keep last 20 turns\n\nreturn [{ json: {\n  ...prevData,\n  agentReply: cleanReply,\n  leadData,\n  hasLead:    leadData !== null,\n  newHistory\n} }];\n"
+      }
+    },
+    {
+      "id": "n028",
+      "name": "Has Lead Data?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3000, 1000],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-lead",
+              "leftValue": "={{ $json.hasLead }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n029",
+      "name": "Save Lead to CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3240, 860],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_URL }}/api/crm/leads/whatsapp/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-WhatsApp-Bot-Key", "value": "={{ $env.BACKEND_WA_BOT_KEY }}" }
+          ]
+        },
+        "sendBody":    true,
+        "contentType": "rawJson",
+        "rawBody":     "={{ JSON.stringify($json.leadData) }}",
+        "options": { "timeout": 10000 }
+      },
+      "notes": "FIX (6): Posts structured lead JSON to the backend CRM endpoint. See backend/crm/views.py — whatsapp_lead_ingest view."
+    },
+    {
+      "id": "n030",
+      "name": "Notify Sales via WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3480, 860],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.phoneNumberId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=****** $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody":    true,
+        "contentType": "rawJson",
+        "rawBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: $env.SALES_NOTIFY_NUMBER, type: 'text', text: { body: '\\uD83D\\uDEA8 NEW LEAD\\nType: ' + $json.leadData.type + '\\nFrom: ' + $json.leadData.whatsapp_from + '\\n' + JSON.stringify($json.leadData, null, 2) } }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "notes": "FIX (6): Sends a structured notification to the sales team's WhatsApp number (SALES_NOTIFY_NUMBER env var). Replace/add a Google Sheets node after this for spreadsheet logging — see README."
+    },
+    {
+      "id": "n031",
+      "name": "Build WA Reply Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3240, 1140],
+      "parameters": {
+        "jsCode": "const d   = $input.first().json;\nconst to  = d.from;\nconst pid = d.phoneNumberId;\n\n// Append a 'reply menu' footer hint every 3rd conversation turn\nconst turns    = (d.newHistory?.length ?? 0) / 2;\nconst menuHint = (turns % 3 === 0) ? \"\\n\\n_Type 'menu' to return to the main menu._\" : '';\n\nconst payload = {\n  messaging_product: 'whatsapp',\n  recipient_type:    'individual',\n  to,\n  type: 'text',\n  text: { preview_url: false, body: d.agentReply + menuHint }\n};\n\nreturn [{ json: { ...d, _waPayload: payload, phoneNumberId: pid } }];\n"
+      }
+    },
+    {
+      "id": "n032",
+      "name": "Send WA Reply to User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3480, 1140],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.phoneNumberId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=****** $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody":    true,
+        "contentType": "rawJson",
+        "rawBody":     "={{ JSON.stringify($json._waPayload) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "n033",
+      "name": "Update Session History",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3720, 1140],
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst d          = $('Process Response + Detect Lead').first().json;\nconst from       = d.from;\nconst sessions   = staticData.sessions ?? {};\nsessions[from]   = {\n  ...(sessions[from] ?? {}),\n  step:    'in_conversation',\n  history: d.newHistory\n};\nstaticData.sessions = sessions;\nreturn [{ json: { _saved: true, from } }];\n"
+      }
+    },
+    {
+      "id": "n034",
+      "name": "Ack – Conversation Response Sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3960, 1140],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": { "responseCode": 200 }
+      }
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [
+        [{ "node": "Parse Incoming Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Incoming Message": {
+      "main": [
+        [{ "node": "Is Group or Skip?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Group or Skip?": {
+      "main": [
+        [{ "node": "Ack – Group / Empty (no processing)", "type": "main", "index": 0 }],
+        [{ "node": "Load Session State",                  "type": "main", "index": 0 }]
+      ]
+    },
+    "Load Session State": {
+      "main": [
+        [{ "node": "Normalize Session Step", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize Session Step": {
+      "main": [
+        [{ "node": "Route by Session Step", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Session Step": {
+      "main": [
+        [{ "node": "Build Main Menu Payload",       "type": "main", "index": 0 }],
+        [{ "node": "Parse Role Selection",           "type": "main", "index": 0 }],
+        [{ "node": "Resolve Interest and Agent",     "type": "main", "index": 0 }],
+        [{ "node": "Resolve Agent for Ongoing Chat", "type": "main", "index": 0 }],
+        [{ "node": "Resolve Agent for Fallback",     "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Main Menu Payload": {
+      "main": [
+        [{ "node": "Send Main Menu", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Main Menu": {
+      "main": [
+        [{ "node": "Save Session – Awaiting Role", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Session – Awaiting Role": {
+      "main": [
+        [{ "node": "Ack – Main Menu Sent", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Role Selection": {
+      "main": [
+        [{ "node": "Route by Role", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Role": {
+      "main": [
+        [{ "node": "Build Parent Interest Menu", "type": "main", "index": 0 }],
+        [{ "node": "Build School Interest Menu", "type": "main", "index": 0 }],
+        [{ "node": "Resolve Agent for Fallback",  "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Parent Interest Menu": {
+      "main": [
+        [{ "node": "Send Parent Interest Menu", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Parent Interest Menu": {
+      "main": [
+        [{ "node": "Save Session – Parent Awaiting Interest", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Session – Parent Awaiting Interest": {
+      "main": [
+        [{ "node": "Ack – Interest Menu Sent", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build School Interest Menu": {
+      "main": [
+        [{ "node": "Send School Interest Menu", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send School Interest Menu": {
+      "main": [
+        [{ "node": "Save Session – School Awaiting Interest", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Session – School Awaiting Interest": {
+      "main": [
+        [{ "node": "Ack – Interest Menu Sent", "type": "main", "index": 0 }]
+      ]
+    },
+    "Resolve Interest and Agent": {
+      "main": [
+        [{ "node": "Save Session – Interest + In Conversation", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Session – Interest + In Conversation": {
+      "main": [
+        [{ "node": "Build LLM Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "Resolve Agent for Ongoing Chat": {
+      "main": [
+        [{ "node": "Build LLM Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "Resolve Agent for Fallback": {
+      "main": [
+        [{ "node": "Build LLM Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build LLM Request": {
+      "main": [
+        [{ "node": "Call LLM (Groq)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Call LLM (Groq)": {
+      "main": [
+        [{ "node": "Process Response + Detect Lead", "type": "main", "index": 0 }]
+      ]
+    },
+    "Process Response + Detect Lead": {
+      "main": [
+        [{ "node": "Has Lead Data?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Lead Data?": {
+      "main": [
+        [{ "node": "Save Lead to CRM",      "type": "main", "index": 0 }],
+        [{ "node": "Build WA Reply Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Lead to CRM": {
+      "main": [
+        [{ "node": "Notify Sales via WhatsApp", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notify Sales via WhatsApp": {
+      "main": [
+        [{ "node": "Build WA Reply Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build WA Reply Payload": {
+      "main": [
+        [{ "node": "Send WA Reply to User", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send WA Reply to User": {
+      "main": [
+        [{ "node": "Update Session History", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Session History": {
+      "main": [
+        [{ "node": "Ack – Conversation Response Sent", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "id": "koderkids-whatsapp-bot-v2",
+  "tags": ["whatsapp", "sales", "chatbot", "koderkids"]
+}

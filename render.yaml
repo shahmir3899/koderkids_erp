@@ -40,6 +40,9 @@ services:
         generateValue: true
       - key: ALLOWED_HOSTS
         value: ".onrender.com,localhost"
+      # Same value as n8n BACKEND_WA_BOT_KEY (Railway) and backend/.env WHATSAPP_BOT_KEY
+      - key: WHATSAPP_BOT_KEY
+        value: "363d09454dd9db87525b4ddbbf80aed04993f7b141518b10abb54675a4ce6f6b"
 
     # Disk for Ollama models (persistent storage)
     disk:

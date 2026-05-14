@@ -63,6 +63,7 @@ class Lead(models.Model):
             ('Cold Call', 'Cold Call'),
             ('Walk-in', 'Walk-in'),
             ('Social Media', 'Social Media'),
+            ('WhatsApp Bot', 'WhatsApp Bot'),
             ('Other', 'Other'),
         ],
         default='Other',

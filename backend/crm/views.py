@@ -24,7 +24,7 @@ from .serializers import (
     ProposalOfferCreateSerializer,
     ProposalRateSlabSerializer,
 )
-from .permissions import IsBDMOrAdmin, IsAdminOnly, IsAdminOrOwner
+from .permissions import IsBDMOrAdmin, IsAdminOnly, IsAdminOrOwner, WhatsAppBotKeyPermission
 from students.models import School, CustomUser
 from employees.email_tasks import send_lead_assignment_email_task, send_activity_scheduled_email_task
 from employees.models import Notification, NotificationSettings
@@ -777,6 +777,126 @@ class ProposalRateSlabViewSet(viewsets.ModelViewSet):
                 grouped[mode].append(slab)
 
         return Response(grouped)
+
+
+# ============================================
+# WHATSAPP BOT (WAHA n8n) LEAD INGEST
+# ============================================
+
+@api_view(['POST'])
+@permission_classes([WhatsAppBotKeyPermission])
+def whatsapp_lead_ingest(request):
+    """
+    Public ingest endpoint for the WhatsApp WAHA n8n bot.
+    Auth: X-Bot-Key header matched against WHATSAPP_BOT_KEY env var.
+
+    POST /api/crm/leads/whatsapp/
+
+    Expected body (all fields optional except `type`):
+        {
+            "type": "parent" | "school" | "other",
+            "name": "Ali",
+            "phone": "923001234567",
+            "whatsapp_from": "923001234567@c.us",
+            "school_name": "ABC School",
+            "city": "Lahore",
+            "child_age": "9-13",
+            "has_laptop": "Yes",
+            "interest": "Free Demo",
+            "role_at_school": "Principal",
+            "lab": "Yes",
+            "estimated_students": 250,
+            "notes": "..."
+        }
+
+    Response:
+        201 { "id": <lead_id>, "status": "created" }
+        400 { "error": "..." }
+    """
+    import json
+
+    data = request.data if isinstance(request.data, dict) else {}
+    lead_type = (data.get('type') or 'other').lower().strip()
+
+    if lead_type not in ('parent', 'school', 'other'):
+        return Response(
+            {'error': "type must be one of 'parent', 'school', 'other'"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    name = (data.get('name') or '').strip()
+    whatsapp_from = (data.get('whatsapp_from') or '').strip()
+    phone = (data.get('phone') or '').strip()
+    if not phone and whatsapp_from:
+        phone = whatsapp_from.split('@')[0]
+
+    school_name = (data.get('school_name') or '').strip()
+    if lead_type == 'parent' and not school_name:
+        school_name = f"Parent: {name or phone or 'WhatsApp'}"
+    elif lead_type == 'other' and not school_name:
+        school_name = f"Inquiry: {name or phone or 'WhatsApp'}"
+
+    if not school_name and not phone:
+        return Response(
+            {'error': 'Either school_name or phone must be derivable from payload'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    estimated_students = data.get('estimated_students')
+    try:
+        estimated_students = int(estimated_students) if estimated_students not in (None, '') else None
+    except (TypeError, ValueError):
+        estimated_students = None
+
+    notes_payload = {
+        'type': lead_type,
+        'name': name,
+        'phone': phone,
+        'whatsapp_from': whatsapp_from,
+        'school_name': school_name,
+        'city': data.get('city', ''),
+        'child_age': data.get('child_age', ''),
+        'has_laptop': data.get('has_laptop', ''),
+        'interest': data.get('interest', ''),
+        'role_at_school': data.get('role_at_school', ''),
+        'lab': data.get('lab', ''),
+        'estimated_students': estimated_students,
+        'extra_notes': data.get('notes', ''),
+    }
+
+    try:
+        lead = Lead.objects.create(
+            school_name=school_name or None,
+            phone=phone or None,
+            contact_person=name or None,
+            city=(data.get('city') or '').strip() or None,
+            lead_source='WhatsApp Bot',
+            status='New',
+            estimated_students=estimated_students,
+            notes=json.dumps(notes_payload, indent=2, ensure_ascii=False),
+        )
+    except Exception as exc:
+        logger.exception('whatsapp_lead_ingest failed to create Lead: %s', exc)
+        return Response(
+            {'error': 'Failed to create lead', 'detail': str(exc)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    logger.info(
+        'whatsapp_lead_ingest created Lead id=%s type=%s phone=%s school=%s',
+        lead.id, lead_type, phone, school_name,
+    )
+
+    return Response(
+        {
+            'id': lead.id,
+            'status': 'created',
+            'school_name': lead.school_name,
+            'phone': lead.phone,
+            'lead_source': lead.lead_source,
+        },
+        status=status.HTTP_201_CREATED,
+    )
 
 
 # ============================================
