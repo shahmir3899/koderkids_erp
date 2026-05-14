@@ -5,14 +5,11 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.db.models import Count, Q, Sum
-from django.conf import settings
 from datetime import datetime, timedelta
 from decimal import Decimal
-import hmac
-import os
 
 from .models import Lead, Activity, BDMTarget, ProposalOffer, ProposalRateSlab
 from .serializers import (
@@ -1168,126 +1165,3 @@ def admin_recent_activities(request):
         })
 
     return Response(activities_data)
-
-
-# ============================================
-# WHATSAPP BOT: Lead Ingestion Endpoint
-# Called by n8n workflow node "Save Lead to CRM"
-# POST /api/crm/leads/whatsapp/
-# ============================================
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def whatsapp_lead_ingest(request):
-    """
-    Receives structured LEAD_DATA posted by the n8n WhatsApp Sales Bot workflow.
-
-    Authentication: shared secret key in X-WhatsApp-Bot-Key header (compared
-    against settings.WA_BOT_KEY / env var BACKEND_WA_BOT_KEY).
-
-    Expected body shape (matches n8n LEAD_DATA output):
-    {
-        "type":          "parent" | "school" | "general",
-        "whatsapp_from": "923001234567",
-        "agent_type":    "parent" | "school" | "koder",
-        "timestamp":     "<ISO-8601>",
-
-        # parent fields
-        "parent_name":  "...",
-        "child_name":   "...",
-        "child_age":    "...",
-        "interest":     "courses|pricing|demo|meeting|advisor",
-        "phone":        "...",
-        "notes":        "...",
-
-        # school fields (overlap with parent where named the same)
-        "school_name":    "...",
-        "contact_person": "...",
-        "designation":    "...",
-        "students_count": "...",
-        "grade_levels":   "...",
-
-        # general / koder agent
-        "name": "...",
-        "role": "...",
-    }
-    """
-
-    # --- Shared-secret guard (timing-safe comparison) ---
-    expected_key = getattr(settings, 'WA_BOT_KEY', os.getenv('BACKEND_WA_BOT_KEY', ''))
-    if expected_key:
-        provided_key = request.headers.get('X-WhatsApp-Bot-Key', '')
-        if not hmac.compare_digest(provided_key, expected_key):
-            return Response({'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
-
-    data = request.data
-    if not data:
-        return Response({'error': 'No data provided'}, status=status.HTTP_400_BAD_REQUEST)
-
-    lead_type   = data.get('type', 'general')
-    wa_from     = data.get('whatsapp_from', '')
-    phone       = data.get('phone') or wa_from or None
-    notes_parts = []
-
-    # Build notes from metadata
-    notes_parts.append(f"[WhatsApp Lead | agent: {data.get('agent_type', '?')} | ts: {data.get('timestamp', '?')}]")
-    for key in ('interest', 'child_name', 'child_age', 'designation',
-                'students_count', 'grade_levels', 'role'):
-        val = data.get(key)
-        if val:
-            notes_parts.append(f"{key}: {val}")
-    if data.get('notes'):
-        notes_parts.append(data['notes'])
-
-    # Determine school_name / contact_person
-    if lead_type == 'school':
-        school_name    = data.get('school_name') or None
-        contact_person = data.get('contact_person') or data.get('name') or None
-    elif lead_type == 'parent':
-        school_name    = None
-        contact_person = data.get('parent_name') or data.get('name') or None
-    else:
-        school_name    = None
-        contact_person = data.get('name') or None
-
-    # Avoid exact duplicates: same phone OR school_name created in last 24 h.
-    # We require at least one identifying field to be present for dedup.
-    cutoff = timezone.now() - timedelta(hours=24)
-    existing_lead = None
-    if phone:
-        existing_lead = (
-            Lead.objects.filter(created_at__gte=cutoff, phone=phone).first()
-        )
-    if existing_lead is None and school_name:
-        existing_lead = (
-            Lead.objects.filter(created_at__gte=cutoff, school_name=school_name).first()
-        )
-    if existing_lead is not None:
-        logger.info(
-            "WhatsApp lead deduped: lead_id=%s wa_from=%s", existing_lead.id, wa_from
-        )
-        return Response(
-            {'status': 'duplicate', 'lead_id': existing_lead.id},
-            status=status.HTTP_200_OK
-        )
-
-    lead = Lead.objects.create(
-        school_name    = school_name,
-        contact_person = contact_person,
-        phone          = phone,
-        lead_source    = 'Social Media',
-        status         = 'New',
-        notes          = '\n'.join(notes_parts),
-        # created_by is nullable (null=True on the FK); bot-created leads have no
-        # user owner and can be assigned to a BDM via the CRM admin or dashboard.
-        created_by     = None,
-    )
-
-    logger.info(
-        "WhatsApp lead created: lead_id=%s type=%s wa_from=%s",
-        lead.id, lead_type, wa_from
-    )
-    return Response(
-        {'status': 'created', 'lead_id': lead.id},
-        status=status.HTTP_201_CREATED
-    )

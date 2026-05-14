@@ -20,9 +20,6 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
 DEBUG = True
 DJANGO_DEBUG = True
 
-# WhatsApp Sales Bot shared secret (must match n8n env var BACKEND_WA_BOT_KEY)
-WA_BOT_KEY = os.getenv("BACKEND_WA_BOT_KEY", "")
-
 # Database Configuration
 DATABASES = {
     'default': {

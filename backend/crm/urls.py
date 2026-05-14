@@ -19,7 +19,6 @@ from .views import (
     admin_dashboard_overview,
     admin_lead_distribution,
     admin_recent_activities,
-    whatsapp_lead_ingest,
 )
 
 # Create router for ViewSets
@@ -48,9 +47,6 @@ urlpatterns = [
     path('dashboard/admin/overview/', admin_dashboard_overview, name='admin_dashboard_overview'),
     path('dashboard/admin/lead-distribution/', admin_lead_distribution, name='admin_lead_distribution'),
     path('dashboard/admin/recent-activities/', admin_recent_activities, name='admin_recent_activities'),
-
-    # WhatsApp Bot: ingest structured lead data from n8n workflow
-    path('leads/whatsapp/', whatsapp_lead_ingest, name='whatsapp_lead_ingest'),
 ]
 
 """
