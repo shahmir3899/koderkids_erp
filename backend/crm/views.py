@@ -11,6 +11,7 @@ from django.db.models import Count, Q, Sum
 from django.conf import settings
 from datetime import datetime, timedelta
 from decimal import Decimal
+import hmac
 import os
 
 from .models import Lead, Activity, BDMTarget, ProposalOffer, ProposalRateSlab
@@ -1215,7 +1216,6 @@ def whatsapp_lead_ingest(request):
     # --- Shared-secret guard (timing-safe comparison) ---
     expected_key = getattr(settings, 'WA_BOT_KEY', os.getenv('BACKEND_WA_BOT_KEY', ''))
     if expected_key:
-        import hmac
         provided_key = request.headers.get('X-WhatsApp-Bot-Key', '')
         if not hmac.compare_digest(provided_key, expected_key):
             return Response({'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -1250,15 +1250,19 @@ def whatsapp_lead_ingest(request):
         school_name    = None
         contact_person = data.get('name') or None
 
-    # Avoid exact duplicates: same phone + school_name created in last 24 h
+    # Avoid exact duplicates: same phone OR school_name created in last 24 h.
+    # We require at least one identifying field to be present for dedup.
     cutoff = timezone.now() - timedelta(hours=24)
-    existing_qs = Lead.objects.filter(created_at__gte=cutoff)
+    existing_lead = None
     if phone:
-        existing_qs = existing_qs.filter(phone=phone)
-    if school_name:
-        existing_qs = existing_qs.filter(school_name=school_name)
-    if phone and existing_qs.exists():
-        existing_lead = existing_qs.first()
+        existing_lead = (
+            Lead.objects.filter(created_at__gte=cutoff, phone=phone).first()
+        )
+    if existing_lead is None and school_name:
+        existing_lead = (
+            Lead.objects.filter(created_at__gte=cutoff, school_name=school_name).first()
+        )
+    if existing_lead is not None:
         logger.info(
             "WhatsApp lead deduped: lead_id=%s wa_from=%s", existing_lead.id, wa_from
         )
@@ -1274,7 +1278,9 @@ def whatsapp_lead_ingest(request):
         lead_source    = 'Social Media',
         status         = 'New',
         notes          = '\n'.join(notes_parts),
-        created_by     = None,   # bot-created; assign via admin or BDM later
+        # created_by is nullable (null=True on the FK); bot-created leads have no
+        # user owner and can be assigned to a BDM via the CRM admin or dashboard.
+        created_by     = None,
     )
 
     logger.info(
