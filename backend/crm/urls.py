@@ -31,11 +31,13 @@ router.register(r'proposals', ProposalOfferViewSet, basename='proposal')
 router.register(r'proposal-rate-slabs', ProposalRateSlabViewSet, basename='proposal-rate-slab')
 
 urlpatterns = [
+    # WhatsApp WAHA n8n bot ingest (secured by X-Bot-Key header)
+    # MUST be before router.urls — the router registers leads/<pk>/ which would
+    # match 'whatsapp' as a pk value and shadow this route if listed after.
+    path('leads/whatsapp/', whatsapp_lead_ingest, name='whatsapp_lead_ingest'),
+
     # Router URLs (ViewSets)
     path('', include(router.urls)),
-
-    # WhatsApp WAHA n8n bot ingest (secured by X-Bot-Key header)
-    path('leads/whatsapp/', whatsapp_lead_ingest, name='whatsapp_lead_ingest'),
 
     # BDM List (for activity assignment dropdown)
     path('bdm-list/', bdm_list, name='bdm_list'),

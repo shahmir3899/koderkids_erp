@@ -565,7 +565,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json._leadData }}",
+        "jsonBody": "={{ JSON.stringify($json._leadData) }}",
         "options": {
           "timeout": 10000,
           "retry": {

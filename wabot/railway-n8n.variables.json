@@ -8,6 +8,8 @@
   "N8N_ENCRYPTION_KEY": "shahmir3899",
   "WEBHOOK_URL": "https://n8n-production-11580.up.railway.app/",
   "N8N_PROTOCOL": "https",
+  "N8N_PROXY_HOPS": "1",
+  "N8N_BLOCK_ENV_ACCESS_IN_NODE": "false",
   "WAHA_BASE_URL": "http://212.224.86.152:3000",
   "WAHA_API_KEY": "e703864150e6cc02ae8f2dee97803c7d344846bf796e17134e480d0013a30e47",
   "WAHA_SESSION": "default",
