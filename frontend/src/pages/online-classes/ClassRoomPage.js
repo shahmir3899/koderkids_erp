@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { BackgroundBlur } from '@livekit/track-processors';
 import { MdMic, MdMicOff, MdVideocam, MdVideocamOff, MdScreenShare, MdStopScreenShare, MdChat, MdPeople, MdBlurOn, MdBlurOff, MdExitToApp, MdStop, MdSend } from 'react-icons/md';
+import { ConfirmationModal } from '../../components/common/modals/ConfirmationModal';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
 import { endSession, getSession, getRoomToken, startSession } from '../../services/onlineClassService';
 
@@ -143,6 +144,8 @@ const ClassRoomPage = () => {
   const [toast, setToast] = useState('');
   const [screenReqFrom, setScreenReqFrom] = useState('');
   const [sessionInfo, setSessionInfo] = useState(null);
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const [endingClass, setEndingClass] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 768 : false));
   const [isCompactMobile, setIsCompactMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 390 : false));
   const [hoveredAction, setHoveredAction] = useState('');
@@ -150,6 +153,24 @@ const ClassRoomPage = () => {
   const roomRef = useRef(null);
   const localVideoRef = useRef(null);
   const toastTimerRef = useRef(null);
+
+  const getFriendlyErrorMessage = useCallback((rawError, fallback = 'Something went wrong. Please try again.') => {
+    const raw = String(rawError?.message || rawError || '').trim();
+    const normalized = raw.toLowerCase();
+
+    if (!raw) return fallback;
+    if (normalized.includes('request failed: 500')) {
+      return 'Server error while connecting to class. Please retry in a few seconds.';
+    }
+    if (normalized.includes('request failed: 401') || normalized.includes('request failed: 403')) {
+      return 'You do not have permission to join this class.';
+    }
+    if (normalized.includes('failed to fetch') || normalized.includes('network')) {
+      return 'Network issue while connecting. Check your internet and try again.';
+    }
+
+    return raw;
+  }, []);
 
   const syncRemote = useCallback(() => {
     if (!roomRef.current) return;
@@ -235,7 +256,7 @@ const ClassRoomPage = () => {
         setConnecting(false);
         syncRemote();
       } catch (err) {
-        setError(err.message || 'Failed to connect to class');
+        setError(getFriendlyErrorMessage(err, 'Failed to connect to class. Please try again.'));
         setConnecting(false);
       }
     };
@@ -315,13 +336,24 @@ const ClassRoomPage = () => {
     navigate(isTeacher ? '/online-classes/teacher' : '/online-classes');
   }, [isTeacher, navigate]);
 
-  // End class permanently — requires confirmation; only teachers should call this.
-  const handleEndClass = useCallback(async () => {
-    if (!window.confirm('End class for all students? This cannot be undone.')) return;
-    if (roomRef.current) roomRef.current.disconnect();
-    await endSession(sessionId).catch(() => {});
-    navigate('/online-classes/teacher');
-  }, [sessionId, navigate]);
+  // End class permanently — handled through reusable confirmation modal.
+  const handleEndClass = useCallback(() => {
+    setEndConfirmOpen(true);
+  }, []);
+
+  const confirmEndClass = useCallback(async () => {
+    setEndingClass(true);
+    try {
+      await endSession(sessionId);
+      setEndConfirmOpen(false);
+      if (roomRef.current) roomRef.current.disconnect();
+      navigate('/online-classes/teacher');
+    } catch (err) {
+      showToast(getFriendlyErrorMessage(err, 'Could not end class right now. Please try again.'));
+    } finally {
+      setEndingClass(false);
+    }
+  }, [sessionId, navigate, showToast, getFriendlyErrorMessage]);
 
   const toggleParticipants = () => {
     setParticipantsOpen(!participantsOpen);
@@ -612,6 +644,19 @@ const ClassRoomPage = () => {
           )}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={endConfirmOpen}
+        title="End Class"
+        message="This will immediately disconnect all students, stop new joins, and move this session to Completed history."
+        itemName={sessionTitle}
+        confirmText="End Class"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={endingClass}
+        onConfirm={confirmEndClass}
+        onCancel={() => setEndConfirmOpen(false)}
+      />
     </div>
   );
 };

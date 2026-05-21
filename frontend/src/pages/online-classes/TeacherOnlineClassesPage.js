@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
+import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { API_URL, getAuthHeaders } from '../../api';
 import {
   deletePastSession,
@@ -208,12 +209,7 @@ const TeacherOnlineClassesPage = () => {
       </div>
 
       {loading && <div style={styles.centered}><div style={styles.spinner} /></div>}
-      {error && (
-        <div style={styles.errorRow}>
-          <p style={styles.errorText}>{error}</p>
-          <button type="button" onClick={handleRetry} style={styles.retryBtn}>Retry</button>
-        </div>
-      )}
+      {error && <ErrorDisplay error={error} onRetry={handleRetry} isRetrying={loading} />}
 
       {/* Session table */}
       {!loading && !error && (
@@ -445,25 +441,6 @@ const getStyles = () => ({
     width: 36, height: 36, border: '3px solid rgba(255,255,255,0.2)',
     borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite',
   },
-  errorRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-  errorText: { color: '#FCA5A5', textAlign: 'center', margin: 0 },
-  retryBtn: {
-    border: '1px solid rgba(255,255,255,0.3)',
-    background: 'rgba(255,255,255,0.14)',
-    color: '#fff',
-    borderRadius: BORDER_RADIUS.md,
-    padding: `${SPACING.xs} ${SPACING.md}`,
-    fontSize: FONT_SIZES.xs,
-    fontWeight: FONT_WEIGHTS.semibold,
-    cursor: 'pointer',
-  },
-
   // Participants modal — white background so uses dark text
   modalOverlay: {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',

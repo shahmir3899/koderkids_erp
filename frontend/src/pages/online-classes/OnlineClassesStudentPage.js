@@ -4,6 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
+import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { listSessions } from '../../services/onlineClassService';
 
 const TABS = ['Upcoming', 'Past Classes', 'Recordings'];
@@ -103,7 +104,7 @@ const OnlineClassesStudentPage = () => {
 
       {/* Content */}
       {loading && <div style={styles.centered}><div style={styles.spinner} /></div>}
-      {error && <p style={styles.errorText}>{error}</p>}
+      {error && <ErrorDisplay error={error} onRetry={fetchSessions} isRetrying={loading} />}
 
       {!loading && !error && sessions.length === 0 && (
         <div style={styles.emptyState}>
@@ -346,7 +347,6 @@ const getStyles = () => ({
     borderTop: '3px solid #fff',
     borderRadius: '50%', animation: 'spin 0.8s linear infinite',
   },
-  errorText: { color: '#FCA5A5', textAlign: 'center' },
 });
 
 export default OnlineClassesStudentPage;
