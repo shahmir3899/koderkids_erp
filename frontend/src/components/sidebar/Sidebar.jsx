@@ -49,6 +49,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, mobileSidebarVisible, setMobileS
   // Get user info from localStorage
   const username = localStorage.getItem('fullName') || 'Unknown';
   const role = localStorage.getItem('role') || 'Unknown';
+  const studentSubtype = localStorage.getItem('studentSubtype') || '';
 
   // State for profile photo
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
@@ -130,6 +131,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, mobileSidebarVisible, setMobileS
             openDropdowns={openDropdowns}
             toggleDropdown={toggleDropdown}
             role={role}
+            studentSubtype={studentSubtype}
             onNavigate={handleMobileNavigate}
           />
 
@@ -161,6 +163,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, mobileSidebarVisible, setMobileS
           openDropdowns={openDropdowns}
           toggleDropdown={toggleDropdown}
           role={role}
+          studentSubtype={studentSubtype}
         />
 
         <SidebarFooter

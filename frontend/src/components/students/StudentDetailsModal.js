@@ -61,6 +61,7 @@ export const StudentDetailsModal = ({
   onDelete,
   schools = [],
   classes = [],
+  timeSlots = [],
   isSubmitting = false,
   isDeleting = false,
 }) => {
@@ -324,17 +325,17 @@ export const StudentDetailsModal = ({
                 )}
               </div>
 
-              {/* Class */}
+              {/* Class (for ONSITE/HYBRID) */}
               <div style={styles.formGroup}>
                 <label style={styles.label}>
-                  Class {isEditing && <span style={styles.required}>*</span>}
+                  Class {isEditing && formData.student_subtype !== 'ONLINE' && <span style={styles.required}>*</span>}
                 </label>
                 {isEditing ? (
                   <select
                     name="student_class"
                     value={formData.student_class || ''}
                     onChange={handleChange}
-                    required
+                    required={formData.student_subtype !== 'ONLINE'}
                     style={styles.select}
                     className="student-modal-select"
                   >
@@ -351,6 +352,33 @@ export const StudentDetailsModal = ({
                   <div style={styles.valueDisplay}>{formData.student_class || 'N/A'}</div>
                 )}
               </div>
+
+              {/* Time Slot (for ONLINE students only) */}
+              {(formData.student_subtype === 'ONLINE') && (
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Time Slot</label>
+                  {isEditing ? (
+                    <select
+                      name="time_slot"
+                      value={formData.time_slot || ''}
+                      onChange={handleChange}
+                      style={styles.select}
+                      className="student-modal-select"
+                    >
+                      <option value="">— No time slot —</option>
+                      {timeSlots.map((ts) => (
+                        <option key={ts.id} value={ts.id}>
+                          {ts.label} {ts.teacher_name ? `(${ts.teacher_name})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div style={styles.valueDisplay}>
+                      {formData.time_slot_label || (formData.time_slot ? `Slot #${formData.time_slot}` : 'Not assigned')}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Monthly Fee */}
               <div style={styles.formGroup}>

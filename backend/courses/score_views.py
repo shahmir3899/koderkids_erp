@@ -11,7 +11,7 @@ from django.db.models import Avg, Count, Q
 from django.utils import timezone
 
 from .models import SectionScore, CourseEnrollment, TopicProgress
-from students.models import Student
+from students.access_policies import is_student_lms_enabled_user, get_student_from_user
 
 
 # =============================================
@@ -20,21 +20,12 @@ from students.models import Student
 
 def is_student(user):
     """Check if user is a student."""
-    return user.role == 'Student'
+    return is_student_lms_enabled_user(user)
 
 
 def is_teacher_or_admin(user):
     """Check if user is a teacher or admin."""
     return user.role in ['Teacher', 'Admin']
-
-
-def get_student_from_user(user):
-    """Get student object from user."""
-    try:
-        return Student.objects.get(user=user)
-    except Student.DoesNotExist:
-        return None
-
 
 # =============================================
 # Student Endpoints

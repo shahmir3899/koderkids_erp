@@ -13,6 +13,7 @@ import {
   faPlay,
   faSearch,
   faSync,
+  faClipboardCheck,
 } from '@fortawesome/free-solid-svg-icons';
 import { ClipLoader } from 'react-spinners';
 
@@ -120,14 +121,24 @@ const MyCoursesPage = () => {
           </p>
         </div>
 
-        <button
-          style={styles.browseButton}
-          onClick={handleRefresh}
-          disabled={enrolling}
-        >
-          <FontAwesomeIcon icon={faSync} style={{ marginRight: '8px' }} spin={enrolling} />
-          {enrolling ? 'Loading...' : 'Refresh'}
-        </button>
+        <div style={styles.headerActions}>
+          <button
+            style={styles.guidelinesButton}
+            onClick={() => navigate('/lms/guidelines')}
+          >
+            <FontAwesomeIcon icon={faClipboardCheck} style={{ marginRight: '8px' }} />
+            Guidelines
+          </button>
+
+          <button
+            style={styles.browseButton}
+            onClick={handleRefresh}
+            disabled={enrolling}
+          >
+            <FontAwesomeIcon icon={faSync} style={{ marginRight: '8px' }} spin={enrolling} />
+            {enrolling ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Continue Learning Card */}
@@ -337,6 +348,26 @@ const styles = {
     cursor: 'pointer',
     transition: `all ${TRANSITIONS.fast}`,
     boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+  },
+
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+
+  guidelinesButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.status.info}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast}`,
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.25)',
   },
 
   // Continue Learning Card

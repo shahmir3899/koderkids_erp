@@ -30,6 +30,7 @@ import SalarySlip from "./pages/SalarySlip";
 import LessonsPage from "./pages/LessonsPage";
 import ReportsPage from "./pages/ReportsPage";
 import StudentDashboard from './pages/StudentDashboard';
+import OnlineStudentDashboard from './pages/OnlineStudentDashboard';
 import StudentProgressPage from "./pages/StudentProgressPage";
 //import StudentReport from "./pages/StudentReport";
 //import TeacherDashboard from "./pages/TeacherDashboard";
@@ -45,6 +46,7 @@ import SettingsPage from './pages/SettingsPage';
 import SettingsRouter from './pages/SettingsRouter';
 import NotificationSettingsPage from './pages/NotificationSettingsPage';
 import ERPLoader from './components/ERPLoader';
+import { setNavigating } from './utils/axiosInterceptor';
 
 // Self Service Pages
 import SelfServicesPage from './pages/SelfServicesPage';
@@ -71,9 +73,18 @@ import MyTasksPage from './pages/MyTasksPage';
 import MyCoursesPage from './pages/lms/MyCoursesPage';
 import CoursePlayerPage from './pages/lms/CoursePlayerPage';
 import BookViewerPage from './pages/lms/BookViewerPage';
+import LMSGuidelinesPage from './pages/lms/LMSGuidelinesPage';
 import QuizBuilderPage from './pages/lms/QuizBuilderPage';
 import QuizManagementPage from './pages/lms/QuizManagementPage';
 import { LMSProvider } from './contexts/LMSContext';
+import {
+  LMS_ENABLED_STUDENT_SUBTYPES,
+  PROGRESS_ENABLED_STUDENT_SUBTYPES,
+  AI_GALA_ENABLED_STUDENT_SUBTYPES,
+  ONLINE_DASHBOARD_STUDENT_SUBTYPES,
+  STANDARD_DASHBOARD_STUDENT_SUBTYPES,
+  ONLINE_CLASSES_ENABLED_STUDENT_SUBTYPES,
+} from './constants/studentSubtypePolicy';
 
 // Book Management
 import BookManagementPage from './pages/BookManagementPage';
@@ -81,6 +92,18 @@ import BookManagementPage from './pages/BookManagementPage';
 // AI Gala
 import AiGalaPage from './pages/AiGalaPage';
 import AiGalaManagePage from './pages/AiGalaManagePage';
+
+// Online Classes
+import OnlineClassesStudentPage from './pages/online-classes/OnlineClassesStudentPage';
+import DeviceCheckPage from './pages/online-classes/DeviceCheckPage';
+import ClassRoomPage from './pages/online-classes/ClassRoomPage';
+import RecordingPlaybackPage from './pages/online-classes/RecordingPlaybackPage';
+import TeacherOnlineClassesPage from './pages/online-classes/TeacherOnlineClassesPage';
+import CreateClassPage from './pages/online-classes/CreateClassPage';
+import ClassSettingsPage from './pages/online-classes/ClassSettingsPage';
+
+// Online Student Management
+import OnlineStudentManager from './pages/admin/OnlineStudentManager';
 
 import { logout } from "./api";
 import { useResponsive } from './hooks/useResponsive';
@@ -238,6 +261,7 @@ function AppContent() {
       {/* ✅ Admin Only Routes */}
       <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
       <Route path="/book-management" element={<ProtectedRoute element={<BookManagementPage />} allowedRoles={["Admin"]} />} />
+      <Route path="/online-students" element={<ProtectedRoute element={<OnlineStudentManager />} allowedRoles={["Admin"]} />} />
       <Route path="/fee" element={<ProtectedRoute element={<FeePage />} allowedRoles={["Admin", "Teacher"]} />} />
       <Route path="/settings" element={<ProtectedRoute element={<SettingsRouter />} allowedRoles={["Admin"]} />} />
       <Route path="/settings/notifications" element={<ProtectedRoute element={<NotificationSettingsPage />} allowedRoles={["Admin"]} />} />
@@ -271,14 +295,16 @@ function AppContent() {
       <Route path="/progress" element={<ProtectedRoute element={<ProgressPage />} allowedRoles={["Teacher"]} />} />
       <Route path="/reports" element={<ProtectedRoute element={<ReportsPage />} allowedRoles={["Teacher"]} />} />
 
-      {/* ✅ Student Route */}
-      <Route path="/student-dashboard" element={<ProtectedRoute element={<StudentDashboard />} allowedRoles={["Student"]} />} />
-      <Route path="/student-progress" element={<StudentProgressPage />} />
+      {/* ✅ Student Routes */}
+      <Route path="/student-dashboard" element={<ProtectedRoute element={<StudentDashboard />} allowedRoles={["Student"]} allowedStudentSubtypes={STANDARD_DASHBOARD_STUDENT_SUBTYPES} />} />
+      <Route path="/online-student-dashboard" element={<ProtectedRoute element={<OnlineStudentDashboard />} allowedRoles={["Student"]} allowedStudentSubtypes={ONLINE_DASHBOARD_STUDENT_SUBTYPES} />} />
+      <Route path="/student-progress" element={<ProtectedRoute element={<StudentProgressPage />} allowedRoles={["Student"]} allowedStudentSubtypes={PROGRESS_ENABLED_STUDENT_SUBTYPES} />} />
 
       {/* ✅ LMS Routes - Learning (Admin/Teacher can access for testing) */}
-      <Route path="/lms/my-courses" element={<ProtectedRoute element={<MyCoursesPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
-      <Route path="/lms/learn/:courseId/:topicId?" element={<ProtectedRoute element={<CoursePlayerPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
-      <Route path="/lms/book/:courseId/:topicId?" element={<ProtectedRoute element={<BookViewerPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
+      <Route path="/lms/my-courses" element={<ProtectedRoute element={<MyCoursesPage />} allowedRoles={["Student", "Admin", "Teacher"]} allowedStudentSubtypes={LMS_ENABLED_STUDENT_SUBTYPES} />} />
+      <Route path="/lms/guidelines" element={<ProtectedRoute element={<LMSGuidelinesPage />} allowedRoles={["Student", "Admin", "Teacher"]} allowedStudentSubtypes={LMS_ENABLED_STUDENT_SUBTYPES} />} />
+      <Route path="/lms/learn/:courseId/:topicId?" element={<ProtectedRoute element={<CoursePlayerPage />} allowedRoles={["Student", "Admin", "Teacher"]} allowedStudentSubtypes={LMS_ENABLED_STUDENT_SUBTYPES} />} />
+      <Route path="/lms/book/:courseId/:topicId?" element={<ProtectedRoute element={<BookViewerPage />} allowedRoles={["Student", "Admin", "Teacher"]} allowedStudentSubtypes={LMS_ENABLED_STUDENT_SUBTYPES} />} />
 
       {/* ✅ LMS Routes - Quiz Builder (Admin/Teacher) */}
       <Route path="/lms/quiz-manage" element={<ProtectedRoute element={<QuizManagementPage />} allowedRoles={["Admin", "Teacher"]} />} />
@@ -286,8 +312,18 @@ function AppContent() {
       <Route path="/lms/quiz-builder/:quizId" element={<ProtectedRoute element={<QuizBuilderPage />} allowedRoles={["Admin", "Teacher"]} />} />
 
       {/* ✅ AI Gala Routes */}
-      <Route path="/ai-gala" element={<ProtectedRoute element={<AiGalaPage />} allowedRoles={["Student", "Admin", "Teacher"]} />} />
+      <Route path="/ai-gala" element={<ProtectedRoute element={<AiGalaPage />} allowedRoles={["Student", "Admin", "Teacher"]} allowedStudentSubtypes={AI_GALA_ENABLED_STUDENT_SUBTYPES} />} />
       <Route path="/ai-gala/manage" element={<ProtectedRoute element={<AiGalaManagePage />} allowedRoles={["Admin", "Teacher"]} />} />
+
+      {/* ✅ Online Classes Routes */}
+      <Route path="/online-classes" element={<ProtectedRoute element={<OnlineClassesStudentPage />} allowedRoles={["Student"]} allowedStudentSubtypes={ONLINE_CLASSES_ENABLED_STUDENT_SUBTYPES} />} />
+      <Route path="/online-classes/check/:sessionId" element={<ProtectedRoute element={<DeviceCheckPage />} allowedRoles={["Student", "Teacher", "Admin"]} />} />
+      <Route path="/online-classes/room/:sessionId" element={<ProtectedRoute element={<ClassRoomPage />} allowedRoles={["Student", "Teacher", "Admin"]} />} />
+      <Route path="/online-classes/recordings/:recordingId" element={<ProtectedRoute element={<RecordingPlaybackPage />} allowedRoles={["Student", "Teacher", "Admin"]} />} />
+      <Route path="/online-classes/teacher" element={<ProtectedRoute element={<TeacherOnlineClassesPage />} allowedRoles={["Teacher", "Admin"]} />} />
+      <Route path="/online-classes/teacher/create" element={<ProtectedRoute element={<CreateClassPage />} allowedRoles={["Teacher", "Admin"]} />} />
+      <Route path="/online-classes/teacher/edit/:sessionId" element={<ProtectedRoute element={<CreateClassPage />} allowedRoles={["Teacher", "Admin"]} />} />
+      <Route path="/online-classes/teacher/settings" element={<ProtectedRoute element={<ClassSettingsPage />} allowedRoles={["Teacher", "Admin"]} />} />
 
         {/* NEW ROUTES: Add these two – protected */}
       <Route path="/books-tree" element={<ProtectedRoute element={<BookSelectPage/>} allowedRoles={["Admin", "Teacher"]} />} />
@@ -317,21 +353,26 @@ function AppContent() {
 }
 
 function AppWithLoader() {
-  const { isLoading, loadingMessage } = useLoading();
+  const { isLoading, loadingMessage, setLoading } = useLoading();
   const location = useLocation();
-  const [showInitialLoader, setShowInitialLoader] = React.useState(true);
+  const isFirstLoad = React.useRef(true);
   const isLoaderExcludedPage = location.pathname.startsWith('/ai-gala/manage');
-  const shouldShowGlobalLoader = !isLoaderExcludedPage && (showInitialLoader || isLoading);
-  const shouldRenderContent = !showInitialLoader || isLoaderExcludedPage;
+  const shouldShowGlobalLoader = !isLoaderExcludedPage && isLoading;
 
   React.useEffect(() => {
-    // Show initial loader for 2 seconds
-    const timer = setTimeout(() => {
-      setShowInitialLoader(false);
-    }, 2000);
+    // Skip excluded pages
+    if (location.pathname.startsWith('/ai-gala/manage')) return;
 
-    return () => clearTimeout(timer);
-  }, []);
+    // Arm the interceptor and show ERP loader on every route change
+    // (including the very first load)
+    setNavigating(true);
+    setLoading(true, 'LOADING ERP');
+
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   return (
     <>
@@ -341,7 +382,7 @@ function AppWithLoader() {
           loadingMessage={loadingMessage}
         />
       )}
-      {shouldRenderContent && <AppContent />}
+      <AppContent />
     </>
   );
 }

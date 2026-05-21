@@ -129,8 +129,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             try:
                 student = user.student_profile
                 data['fullName'] = student.name or "Unknown"
+                data['studentSubtype'] = student.student_subtype
             except Exception:
                 data['fullName'] = f"{user.first_name} {user.last_name}".strip() or "Unknown"
+                data['studentSubtype'] = None
         else:
             data['fullName'] = f"{user.first_name} {user.last_name}".strip() or "Unknown"
 

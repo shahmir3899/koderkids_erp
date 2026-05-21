@@ -5,6 +5,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from books.models import Topic  # NEW: Import Topic at the top (add this line)
+from .subtypes import StudentSubtype, DEFAULT_STUDENT_SUBTYPE
 
 
 
@@ -186,6 +187,59 @@ class CustomUser(AbstractUser):
         return f"{self.username} ({self.role})"
 
 
+class TimeSlot(models.Model):
+    """
+    Scheduling unit for ONLINE students.
+    Equivalent of 'student_class' for ONSITE students.
+    A teacher creates and owns time slots. Students are assigned to a slot.
+    """
+    DAY_CHOICES = [
+        ('Mon', 'Monday'),
+        ('Tue', 'Tuesday'),
+        ('Wed', 'Wednesday'),
+        ('Thu', 'Thursday'),
+        ('Fri', 'Friday'),
+        ('Sat', 'Saturday'),
+        ('Sun', 'Sunday'),
+    ]
+
+    label = models.CharField(
+        max_length=100,
+        help_text='Human-readable label, e.g. "Mon/Wed 4-5pm"'
+    )
+    school = models.ForeignKey(
+        'students.School',
+        on_delete=models.CASCADE,
+        related_name='time_slots'
+    )
+    teacher = models.ForeignKey(
+        'employees.TeacherProfile',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='time_slots',
+        help_text='Teacher who owns and teaches this slot'
+    )
+    days = models.CharField(
+        max_length=50,
+        help_text='Comma-separated day codes, e.g. "Mon,Wed" or "Sat"'
+    )
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Time Slot'
+        verbose_name_plural = 'Time Slots'
+        ordering = ['school', 'start_time']
+
+    def __str__(self):
+        teacher_name = self.teacher.user.get_full_name() if self.teacher and self.teacher.user else 'Unassigned'
+        return f"{self.label} — {self.school.name} ({teacher_name})"
+
+
 class Student(models.Model):
     STATUS_CHOICES = [
         ('Active', 'Active'),
@@ -211,9 +265,24 @@ class Student(models.Model):
     monthly_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0)])
     date_of_birth = models.DateField(blank=True, null=True)
     student_class = models.CharField(max_length=10, default="PlayGroup")
+    student_subtype = models.CharField(
+        max_length=20,
+        choices=StudentSubtype.choices,
+        default=DEFAULT_STUDENT_SUBTYPE,
+        db_index=True,
+        help_text='Delivery subtype used for LMS access policy (e.g. ONLINE/ONSITE/HYBRID).'
+    )
     phone = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
+    time_slot = models.ForeignKey(
+        'students.TimeSlot',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='students',
+        help_text='Scheduling group for ONLINE students (analogous to student_class for ONSITE)'
+    )
     user = models.OneToOneField('students.CustomUser', on_delete=models.CASCADE, null=True, blank=True, related_name='student_profile')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

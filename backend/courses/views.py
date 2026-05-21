@@ -25,6 +25,11 @@ from .serializers import (
 )
 from books.models import Book, Topic
 from students.models import Student, LessonPlan
+from students.access_policies import (
+    is_student_user,
+    is_student_lms_enabled_user,
+    is_student_lms_eligible,
+)
 
 
 # =============================================
@@ -41,7 +46,7 @@ class IsStudent(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return request.user.role == 'Student'
+        return is_student_lms_enabled_user(request.user)
 
 
 class IsAdminOrTeacher(permissions.BasePermission):
@@ -83,8 +88,14 @@ class IsEnrolledOrAdmin(permissions.BasePermission):
 
 def get_student_from_user(user):
     """Get student object from user."""
+    if not is_student_user(user):
+        return None
+
     try:
-        return Student.objects.get(user=user)
+        student = Student.objects.get(user=user)
+        if not is_student_lms_eligible(student):
+            return None
+        return student
     except Student.DoesNotExist:
         return None
 
@@ -649,9 +660,17 @@ def course_progress(request, course_id):
         enrollment=enrollment
     ).select_related('topic')
 
-    total_topics = enrollment.course.topics.filter(is_required=True).count()
-    completed_topics = progress_records.filter(status='completed').count()
-    in_progress_topics = progress_records.filter(status='in_progress').count()
+    # Count only content types (lessons / activities) — chapters are structural containers
+    CONTENT_TYPES = ['lesson', 'activity']
+    total_topics = enrollment.course.topics.filter(
+        is_required=True, type__in=CONTENT_TYPES
+    ).count()
+    completed_topics = progress_records.filter(
+        status='completed', topic__type__in=CONTENT_TYPES
+    ).count()
+    in_progress_topics = progress_records.filter(
+        status='in_progress', topic__type__in=CONTENT_TYPES
+    ).count()
     total_time = progress_records.aggregate(
         total=Sum('time_spent_seconds')
     )['total'] or 0
@@ -772,19 +791,61 @@ def topic_complete(request, topic_id):
 
     progress.mark_completed()
 
+    # Content types that count toward completion (chapters are structural containers)
+    CONTENT_TYPES = ['lesson', 'activity']
+
+    # Auto-complete parent chapter when all its required children are done
+    chapter_completed_id = None
+    parent = topic.parent
+    if parent and parent.type == 'chapter':
+        required_child_ids = list(
+            parent.get_children().filter(is_required=True).values_list('id', flat=True)
+        )
+        if required_child_ids:
+            completed_child_count = TopicProgress.objects.filter(
+                enrollment=enrollment,
+                topic_id__in=required_child_ids,
+                status='completed'
+            ).count()
+            if completed_child_count >= len(required_child_ids):
+                chapter_progress, _ = TopicProgress.objects.get_or_create(
+                    enrollment=enrollment,
+                    topic=parent
+                )
+                if chapter_progress.status != 'completed':
+                    chapter_progress.status = 'completed'
+                    chapter_progress.completed_at = timezone.now()
+                    chapter_progress.save()
+                    chapter_completed_id = parent.id
+
+    # Find the next sibling that just became unlocked so the frontend can update immediately
+    next_unlocked_topic_id = None
+    next_sibling = topic.get_next_sibling()
+    if next_sibling:
+        next_unlocked_topic_id = next_sibling.id
+
     # Check if course is complete (for LessonPlan, check accessible topics only)
     if has_lp_access:
         accessible_topic_ids = get_accessible_topics_for_student(student, topic.book)
-        total_required = len(accessible_topic_ids)
+        # Only count content topics (exclude structural chapters)
+        accessible_content_ids = list(
+            Topic.objects.filter(
+                id__in=accessible_topic_ids, type__in=CONTENT_TYPES
+            ).values_list('id', flat=True)
+        )
+        total_required = len(accessible_content_ids)
         completed = TopicProgress.objects.filter(
             enrollment=enrollment,
-            topic_id__in=accessible_topic_ids,
+            topic_id__in=accessible_content_ids,
             status='completed'
         ).count()
     else:
-        total_required = enrollment.course.topics.filter(is_required=True).count()
+        total_required = enrollment.course.topics.filter(
+            is_required=True, type__in=CONTENT_TYPES
+        ).count()
         completed = TopicProgress.objects.filter(
             enrollment=enrollment,
+            topic__type__in=CONTENT_TYPES,
             status='completed'
         ).count()
 
@@ -795,7 +856,9 @@ def topic_complete(request, topic_id):
 
     return Response({
         'progress': TopicProgressSerializer(progress).data,
-        'course_completed': course_completed
+        'course_completed': course_completed,
+        'next_unlocked_topic_id': next_unlocked_topic_id,
+        'chapter_completed_id': chapter_completed_id,
     })
 
 
@@ -871,10 +934,10 @@ def topic_content(request, topic_id):
     topic = get_object_or_404(Topic, id=topic_id)
 
     # Check access (if student)
-    if request.user.role == 'Student':
+    if is_student_user(request.user):
         student = get_student_from_user(request.user)
         if not student:
-            return Response({'error': 'Student not found'}, status=400)
+            return Response({'error': 'Student not found or not eligible for LMS'}, status=400)
 
         # Check LessonPlan-based access first (automatic)
         has_lp_access = has_lessonplan_access(student, topic)
@@ -1029,10 +1092,10 @@ def quiz_detail(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id, is_active=True)
 
     # Check enrollment
-    if request.user.role == 'Student':
+    if is_student_user(request.user):
         student = get_student_from_user(request.user)
         if not student:
-            return Response({'error': 'Student not found'}, status=400)
+            return Response({'error': 'Student not found or not eligible for LMS'}, status=400)
 
         enrollment = CourseEnrollment.objects.filter(
             student=student,
@@ -1158,9 +1221,9 @@ def quiz_attempt_detail(request, attempt_id):
     """
     student = get_student_from_user(request.user)
 
-    if request.user.role == 'Student':
+    if is_student_user(request.user):
         if not student:
-            return Response({'error': 'Student not found'}, status=400)
+            return Response({'error': 'Student not found or not eligible for LMS'}, status=400)
 
         attempt = get_object_or_404(
             QuizAttempt,

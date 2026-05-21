@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, School, Student, Fee, Attendance, LessonPlan, Badge, StudentBadge
+from .models import CustomUser, School, Student, Fee, Attendance, LessonPlan, Badge, StudentBadge, TimeSlot
 
 
 class CustomUserAdmin(UserAdmin):
@@ -58,6 +58,14 @@ admin.site.register(Student)
 admin.site.register(Fee)
 admin.site.register(Attendance)
 admin.site.register(LessonPlan)
+
+
+@admin.register(TimeSlot)
+class TimeSlotAdmin(admin.ModelAdmin):
+    list_display = ('label', 'school', 'teacher', 'days', 'start_time', 'end_time', 'is_active')
+    list_filter = ('school', 'is_active')
+    search_fields = ('label', 'school__name', 'teacher__user__username')
+    ordering = ('school', 'start_time')
 
 
 @admin.register(Badge)

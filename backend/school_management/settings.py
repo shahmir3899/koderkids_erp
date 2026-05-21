@@ -104,6 +104,7 @@ INSTALLED_APPS = [
     'ai',
     'courses',
     'aigala',
+    'onlineclasses',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'django_celery_beat',
@@ -129,6 +130,11 @@ USE_I18N = True
 USE_L10N = True
 
 # Celery Configuration
+# LiveKit configuration
+LIVEKIT_URL = os.getenv('LIVEKIT_URL', '')
+LIVEKIT_API_KEY = os.getenv('LIVEKIT_API_KEY', '')
+LIVEKIT_API_SECRET = os.getenv('LIVEKIT_API_SECRET', '')
+
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']

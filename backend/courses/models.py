@@ -53,10 +53,16 @@ class CourseEnrollment(models.Model):
 
     def get_progress_percentage(self):
         """Calculate overall course progress percentage."""
-        total_topics = self.course.topics.filter(is_required=True).count()
+        # Only count content topics (lessons / activities); chapters are structural containers
+        CONTENT_TYPES = ['lesson', 'activity']
+        total_topics = self.course.topics.filter(
+            is_required=True, type__in=CONTENT_TYPES
+        ).count()
         if total_topics == 0:
             return 0
-        completed = self.topic_progress.filter(status='completed').count()
+        completed = self.topic_progress.filter(
+            status='completed', topic__type__in=CONTENT_TYPES
+        ).count()
         return round((completed / total_topics) * 100, 1)
 
     def mark_completed(self):

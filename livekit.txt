@@ -1,0 +1,3 @@
+LIVEKIT_URL=wss://liveclasses-om4fq796.livekit.cloud
+LIVEKIT_API_KEY=API9zkmQt7p3TBo
+LIVEKIT_API_SECRET=3BnvLecXC2PrAwV053ozfOVFy5I4tkFsPEapaN8Dhtj

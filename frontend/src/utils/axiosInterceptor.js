@@ -1,20 +1,24 @@
 // ============================================
-// AXIOS INTERCEPTOR - Hybrid Loading Approach
+// AXIOS INTERCEPTOR - Page-Navigation Loading Approach
 // ============================================
-// Prevents ERPLoader from flashing multiple times when pages make multiple API calls.
-// Uses Request Counter + Debounce for smooth loading experience.
+// ERP loader only shows on page navigation (route changes).
+// In-page API calls (filters, refresh) do NOT trigger ERP loader.
+// Component-level spinners handle in-page loading states.
 //
 // How it works:
-// 1. Track number of active requests
-// 2. Show loader only when first request starts (counter 0→1)
-// 3. Hide loader with debounce when last request finishes (counter 1→0)
-// 4. If new request comes during debounce, cancel hide and keep loader visible
+// 1. App.js sets isNavigating=true on route change → ERP loader shows
+// 2. Track number of active requests
+// 3. ERP loader only shown when isNavigating === true AND first request starts
+// 4. Hide loader with debounce when last request finishes (counter 1→0)
+//    also resets isNavigating to false
+// 5. Subsequent in-page requests: counter tracked but ERP loader NOT triggered
 //
 // Benefits:
-// ✅ No flashing - loader shows once per page load
+// ✅ ERP loader only on page changes — not on every API call
+// ✅ In-page fetches use component spinners only
 // ✅ Handles parallel requests (Promise.all)
 // ✅ Handles sequential requests (one after another)
-// ✅ Zero changes needed to page components
+// ✅ Zero changes needed to page-level components
 
 import axios from 'axios';
 
@@ -27,6 +31,22 @@ let interceptorsSet = false;
 // Request tracking
 let activeRequests = 0;
 let debounceTimeout = null;
+
+// ============================================
+// PAGE NAVIGATION MODE
+// ============================================
+// When true: ERP loader will show/hide with requests (page is loading for the first time)
+// When false: requests run silently — component spinners handle in-page loading
+let isNavigating = false;
+
+/**
+ * Called by App.js when the route changes.
+ * Arms the interceptor so the next batch of API requests will show the ERP loader.
+ */
+export const setNavigating = (val) => {
+  isNavigating = val;
+  logDebug(val ? '🚀 Page navigation started — ERP loader armed' : '🏁 Navigation mode cleared');
+};
 
 // ============================================
 // REQUEST DEDUPLICATION - Prevents duplicate API calls
@@ -151,12 +171,16 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
         logDebug('⏸️ Cancelled pending hide timeout');
       }
 
-      // Show loader only for the FIRST request
+      // Show ERP loader only for the FIRST request AND only during page navigation
       if (activeRequests === 1) {
-        setLoading(true, 'Loading...');
-        logDebug('🔵 Loader SHOWN (first request)');
+        if (isNavigating) {
+          setLoading(true, 'LOADING ERP');
+          logDebug('🔵 Loader SHOWN (first request, page navigation mode)');
+        } else {
+          logDebug('⏭️ In-page request — ERP loader suppressed (not navigating)');
+        }
       } else {
-        logDebug('⏭️ Loader already visible, keeping it on');
+        logDebug('⏭️ Loader already visible or in-page request, keeping state');
       }
 
       return config;
@@ -220,7 +244,8 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
         // Debounce the hide - if new request comes within delay, it will cancel this
         debounceTimeout = setTimeout(() => {
           setLoading(false);
-          logDebug('⚪ Loader HIDDEN (debounced - all requests complete)');
+          isNavigating = false; // Page load complete — disarm navigation mode
+          logDebug('⚪ Loader HIDDEN (debounced - all requests complete, navigation cleared)');
         }, debounceDelay);
 
         logDebug('⏱️ Scheduled loader hide', {
@@ -276,7 +301,8 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
       if (activeRequests === 0) {
         debounceTimeout = setTimeout(() => {
           setLoading(false);
-          logDebug('⚪ Loader HIDDEN (debounced - error, all requests complete)');
+          isNavigating = false; // Page load complete — disarm navigation mode
+          logDebug('⚪ Loader HIDDEN (debounced - error, all requests complete, navigation cleared)');
         }, debounceDelay);
 
         logDebug('⏱️ Scheduled loader hide after error', {

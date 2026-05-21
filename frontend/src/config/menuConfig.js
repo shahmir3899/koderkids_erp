@@ -27,7 +27,9 @@ import {
   faStar,
   faImages,
   faClipboardList,
+  faVideo,
 } from "@fortawesome/free-solid-svg-icons";
+import { isStudentFeatureEnabled } from '../constants/studentSubtypePolicy';
 
 /**
  * Menu sections organized by functionality
@@ -133,6 +135,13 @@ export const MENU_SECTIONS = {
         label: 'Book Management',
         icon: faBook,
         path: '/book-management',
+        roles: ['Admin'],
+      },
+      {
+        id: 'online-students',
+        label: 'Online Students',
+        icon: faGraduationCap,
+        path: '/online-students',
         roles: ['Admin'],
       },
     ],
@@ -360,6 +369,7 @@ export const MENU_SECTIONS = {
         icon: faChartLine,
         path: '/student-progress',
         roles: ['Student'],
+        studentFeature: 'progressEnabled',
       },
     ],
   },
@@ -376,6 +386,15 @@ export const MENU_SECTIONS = {
         icon: faBook,
         path: '/lms/my-courses',
         roles: ['Student', 'Admin', 'Teacher'],
+        studentFeature: 'lmsEnabled',
+      },
+      {
+        id: 'lms-guidelines',
+        label: 'Guidelines',
+        icon: faClipboardList,
+        path: '/lms/guidelines',
+        roles: ['Student', 'Admin', 'Teacher'],
+        studentFeature: 'lmsEnabled',
       },
       {
         id: 'quiz-management',
@@ -406,6 +425,7 @@ export const MENU_SECTIONS = {
         icon: faStar,
         path: '/ai-gala',
         roles: ['Student', 'Admin', 'Teacher'],
+        studentFeature: 'aiGalaEnabled',
       },
       {
         id: 'ai-gala-manage',
@@ -416,6 +436,30 @@ export const MENU_SECTIONS = {
       },
     ],
   },
+
+  // Online Classes - Live video sessions for online/hybrid students
+  ONLINE_CLASSES: {
+    id: 'online-classes',
+    label: 'Online Classes',
+    roles: ['Student', 'Teacher', 'Admin'],
+    items: [
+      {
+        id: 'online-classes-student',
+        label: 'My Classes',
+        icon: faVideo,
+        path: '/online-classes',
+        roles: ['Student'],
+        studentFeature: 'onlineClassesEnabled',
+      },
+      {
+        id: 'online-classes-teacher',
+        label: 'Online Classes',
+        icon: faVideo,
+        path: '/online-classes/teacher',
+        roles: ['Teacher', 'Admin'],
+      },
+    ],
+  },
 };
 
 /**
@@ -423,7 +467,7 @@ export const MENU_SECTIONS = {
  * @param {string} role - User role (Admin, Teacher, Student, BDM)
  * @returns {object} Filtered menu sections
  */
-export const getMenuForRole = (role) => {
+export const getMenuForRole = (role, studentSubtype = '') => {
   const sections = {};
 
   Object.entries(MENU_SECTIONS).forEach(([key, section]) => {
@@ -437,10 +481,30 @@ export const getMenuForRole = (role) => {
             return null;
           }
 
+          if (
+            role === 'Student' &&
+            item.studentFeature &&
+            !isStudentFeatureEnabled(studentSubtype, item.studentFeature)
+          ) {
+            return null;
+          }
+
           // If item has dropdown with subItems, filter subItems immutably.
           if (item.dropdown && item.subItems) {
             const filteredSubItems = item.subItems.filter((subItem) => {
-              return !subItem.roles || subItem.roles.includes(role);
+              if (subItem.roles && !subItem.roles.includes(role)) {
+                return false;
+              }
+
+              if (
+                role === 'Student' &&
+                subItem.studentFeature &&
+                !isStudentFeatureEnabled(studentSubtype, subItem.studentFeature)
+              ) {
+                return false;
+              }
+
+              return true;
             });
 
             // Only include dropdown if it has visible subItems.

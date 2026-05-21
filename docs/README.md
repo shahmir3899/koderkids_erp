@@ -14,6 +14,40 @@ This documentation suite provides comprehensive guidance for understanding, buil
 
 ## Documentation Structure
 
+### 0. [Online Students Access Guide](./ONLINE_STUDENTS_ACCESS_GUIDE.md) 🎓
+**Role/subtype behavior and admin management flow**
+
+Reference guide for Online Students implementation:
+- Role vs subtype architecture (`Student` role + `ONLINE` subtype)
+- Login payload and `studentSubtype` propagation
+- Frontend route/menu gating by subtype policy
+- Backend LMS eligibility checks
+- Admin-only online student course management endpoints
+- Known policy mismatches and maintenance recommendations
+
+**Best for:**
+- Understanding how "Online Students" actually works in code
+- Troubleshooting route access issues for student subtypes
+- Extending subtype-based feature controls safely
+
+---
+
+### 0.1 [Online Students Feature Enhancement Plan](./ONLINE_STUDENTS_FEATURE_ENHANCEMENT_PLAN.md) 🧩
+**Implementation plan for profile editing and books assignment**
+
+Execution-ready plan covering:
+- Admin profile edit capabilities for ONLINE subtype students
+- Course/Book assignment UX and API enhancement scope
+- Backend, frontend, and integration test strategy
+- Phased rollout, acceptance criteria, and risk mitigation
+
+**Best for:**
+- Planning and estimating Online Students improvements
+- Coordinating backend/frontend implementation tasks
+- Defining test coverage before development starts
+
+---
+
 ### 1. [AI Agent Architecture](./AI_AGENT_ARCHITECTURE.md) 📐
 **Read this first to understand the system**
 

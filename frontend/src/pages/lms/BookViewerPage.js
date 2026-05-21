@@ -214,6 +214,8 @@ const BookViewerPage = () => {
 
   const handleComplete = useCallback(async () => {
     if (!currentTopic || isCompleting) return;
+    // Chapters are structural containers — students never manually complete them
+    if (currentTopic.type === 'chapter') return;
     setIsCompleting(true);
     try {
       const result = await markTopicComplete(currentTopic.id);
@@ -471,17 +473,35 @@ const BookViewerPage = () => {
                 Previous
               </button>
 
-              <SmartCompleteButton
-                validationData={validationSteps}
-                readingTime={readingTime}
-                requiredReadingTime={requiredReadingTime}
-                isCompleted={isCompleted}
-                isCompleting={isCompleting}
-                hasHomeActivity={hasHomeActivity}
-                onComplete={handleComplete}
-                onNavigateNext={handleNext}
-                onScrollToUpload={handleScrollToUpload}
-              />
+              {currentTopic?.type === 'chapter' ? (
+                // Chapter intro page — navigate into its first lesson
+                <button
+                  style={{
+                    ...styles.navBtn,
+                    background: BOOK_COLORS.heading,
+                    color: '#FFFFFF',
+                    border: 'none',
+                    padding: '0.5rem 1.5rem',
+                  }}
+                  onClick={handleNext}
+                  disabled={!hasNext}
+                >
+                  Start First Lesson
+                  <FontAwesomeIcon icon={faChevronRight} style={{ marginLeft: '8px' }} />
+                </button>
+              ) : (
+                <SmartCompleteButton
+                  validationData={validationSteps}
+                  readingTime={readingTime}
+                  requiredReadingTime={requiredReadingTime}
+                  isCompleted={isCompleted}
+                  isCompleting={isCompleting}
+                  hasHomeActivity={hasHomeActivity}
+                  onComplete={handleComplete}
+                  onNavigateNext={handleNext}
+                  onScrollToUpload={handleScrollToUpload}
+                />
+              )}
 
               <button
                 style={{ ...styles.navBtn, opacity: hasNext ? 1 : 0.4 }}

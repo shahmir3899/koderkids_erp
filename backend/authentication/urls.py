@@ -37,6 +37,7 @@ urlpatterns = [
     
     # Current user info
     path('user/', get_logged_in_user, name='get_logged_in_user'),
+    path('assigned-schools/', get_my_assigned_schools, name='assigned-schools'),
 
     # Self-Service Password Reset
     path('password-reset/request/', password_reset_request, name='password-reset-request'),

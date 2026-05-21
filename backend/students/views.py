@@ -11,8 +11,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from supabase import create_client
 from django.contrib.auth import get_user_model
-from .models import Student, Fee, School, Attendance, CustomUser, LessonPlan, Badge, StudentBadge
-from .serializers import StudentSerializer, SchoolSerializer,  FeeSummarySerializer, StudentProfileSerializer, StudentProfileDetailSerializer
+from .models import Student, Fee, School, Attendance, CustomUser, LessonPlan, Badge, StudentBadge, TimeSlot
+from .subtypes import StudentSubtype, DEFAULT_STUDENT_SUBTYPE
+from .serializers import StudentSerializer, SchoolSerializer,  FeeSummarySerializer, StudentProfileSerializer, StudentProfileDetailSerializer, TimeSlotSerializer
 from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -693,6 +694,10 @@ def get_students(request):
 
                 # ─────── Atomic: Create User + Student together ───────
                 with transaction.atomic():
+                    requested_subtype = str(data.get("student_subtype") or '').strip().upper()
+                    valid_subtypes = {choice[0] for choice in StudentSubtype.choices}
+                    student_subtype = requested_subtype if requested_subtype in valid_subtypes else DEFAULT_STUDENT_SUBTYPE
+
                     # 1. Create CustomUser with username = reg_num
                     User = get_user_model()
                     user = User.objects.create_user(
@@ -708,6 +713,7 @@ def get_students(request):
                         reg_num=reg_num,                   # same as username
                         school=school,
                         student_class=data.get("student_class"),
+                        student_subtype=student_subtype,
                         monthly_fee=data.get("monthly_fee"),
                         phone=data.get("phone"),
                         gender=data.get("gender", "Male"),
@@ -874,18 +880,35 @@ def add_student(request):
     try:
         school_id = data.get("school")  # ✅ Get school as an ID
         school = School.objects.get(id=school_id)  # ✅ Retrieve school object
+        requested_subtype = str(data.get("student_subtype") or '').strip().upper()
+        valid_subtypes = {choice[0] for choice in StudentSubtype.choices}
+        student_subtype = requested_subtype if requested_subtype in valid_subtypes else DEFAULT_STUDENT_SUBTYPE
 
         student = Student.objects.create(
             name=data.get("name"),
             reg_num=data.get("reg_num"),
             school=school,  # ✅ Assign school object
-            student_class=data.get("student_class"),
-            monthly_fee=data.get("monthly_fee"),
-            phone=data.get("phone"),
+            student_class=data.get("student_class") or "N/A",
+            student_subtype=student_subtype,
+            monthly_fee=data.get("monthly_fee") or 0,
+            phone=data.get("phone") or "",
+            gender=data.get("gender") or "Male",
+            date_of_birth=data.get("date_of_birth") or None,
+            address=data.get("address") or "",
             date_of_registration=data.get("date_of_registration"),  # ✅ Save registration date
         )
 
-        return Response({"message": "Student added successfully", "id": student.id})
+        # Assign time_slot if provided (ONLINE students)
+        time_slot_id = data.get("time_slot")
+        if time_slot_id:
+            try:
+                ts = TimeSlot.objects.get(id=time_slot_id)
+                student.time_slot = ts
+                student.save(update_fields=['time_slot'])
+            except TimeSlot.DoesNotExist:
+                pass
+
+        return Response({"message": "Student added successfully", "id": student.id}, status=201)
 
     except School.DoesNotExist:
         return Response({"error": "Invalid school ID"}, status=400)
@@ -1004,12 +1027,26 @@ def update_fees(request):
             # Fetch the fee record from the database
             fee = Fee.objects.get(id=fee_data["id"])
 
-            # Check school access for teachers
-            if fee.school_id and not check_school_access(request.user, fee.school_id):
-                print(f"❌ Access denied for fee ID {fee.id} - user doesn't have access to school {fee.school_id}")
-                return Response({
-                    "error": f"You don't have permission to update fees for this school."
-                }, status=status.HTTP_403_FORBIDDEN)
+            # Check school access for teachers (ONSITE) or time-slot access (ONLINE)
+            from .permissions import check_timeslot_access
+            try:
+                fee_student = Student.objects.select_related('time_slot__teacher').get(id=fee.student_id)
+                is_online = fee_student.student_subtype == 'ONLINE'
+            except Student.DoesNotExist:
+                fee_student = None
+                is_online = False
+
+            if is_online:
+                if not check_timeslot_access(request.user, fee_student):
+                    return Response({
+                        "error": "You don't have permission to update fees for this online student."
+                    }, status=status.HTTP_403_FORBIDDEN)
+            else:
+                if fee.school_id and not check_school_access(request.user, fee.school_id):
+                    print(f"❌ Access denied for fee ID {fee.id} - user doesn't have access to school {fee.school_id}")
+                    return Response({
+                        "error": f"You don't have permission to update fees for this school."
+                    }, status=status.HTTP_403_FORBIDDEN)
 
             # Update total_fee if present
             if "total_fee" in fee_data:
@@ -1078,6 +1115,7 @@ def get_fees(request):
     school_id = request.GET.get("school_id")
     student_class = request.GET.get("class")
     month = request.GET.get("month")
+    time_slot_id = request.GET.get("time_slot")
 
     if school_id:
         fees = fees.filter(school_id=school_id)
@@ -1085,6 +1123,13 @@ def get_fees(request):
         fees = fees.filter(student_class=student_class)
     if month:
         fees = fees.filter(month=month)
+
+    # Filter by time_slot: look up which student IDs belong to that time slot
+    if time_slot_id:
+        student_ids = list(
+            Student.objects.filter(time_slot_id=time_slot_id).values_list('id', flat=True)
+        )
+        fees = fees.filter(student_id__in=student_ids)
 
     fee_list = [{
         "id": fee.id,
@@ -2384,12 +2429,19 @@ def create_single_fee(request):
                 'error': 'Student not found'
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # Check school access for teachers
-        from .permissions import check_school_access
-        if student.school_id and not check_school_access(request.user, student.school_id):
-            return Response({
-                "error": "You don't have permission to create fees for this student's school."
-            }, status=status.HTTP_403_FORBIDDEN)
+        # Check school access for ONSITE students; check time_slot access for ONLINE students
+        from .permissions import check_school_access, check_timeslot_access
+        if student.student_subtype == 'ONLINE':
+            if not check_timeslot_access(request.user, student):
+                return Response({
+                    "error": "You don't have permission to create fees for this online student. "
+                             "They must be in one of your time slots."
+                }, status=status.HTTP_403_FORBIDDEN)
+        else:
+            if student.school_id and not check_school_access(request.user, student.school_id):
+                return Response({
+                    "error": "You don't have permission to create fees for this student's school."
+                }, status=status.HTTP_403_FORBIDDEN)
 
         # Check for existing fee record for this student/month
         existing_fee = Fee.objects.filter(
@@ -2734,6 +2786,234 @@ def my_progress(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def online_student_dashboard(request):
+    """
+    Consolidated dashboard data for ONLINE subtype students.
+
+    Returns all dashboard data in a single response:
+    - student profile
+    - enrolled books with per-book progress
+    - continue_learning (most recently accessed book + topic)
+    - learning streak (days with topic completions)
+    - recent_activity (last 5 completed topics)
+    - recent_quizzes (last 3 quiz attempts)
+    - fees (same shape as my-data)
+    - badges
+
+    Access: Student role + ONLINE subtype only → 403 otherwise.
+    """
+    try:
+        # 1. Role check
+        if request.user.role != 'Student':
+            return Response({"error": "Only students can access this endpoint"}, status=403)
+
+        # 2. Student profile
+        try:
+            student = request.user.student_profile
+        except AttributeError:
+            return Response({"error": "Student profile not found"}, status=404)
+
+        # 3. Subtype check
+        if student.student_subtype != 'ONLINE':
+            return Response({"error": "This endpoint is only available for Online students"}, status=403)
+
+        # 4. Imports
+        from datetime import datetime, timedelta
+        from courses.models import CourseEnrollment, TopicProgress, QuizAttempt
+
+        today = timezone.now().date()
+
+        # 5. Student info
+        profile_photo_url = None
+        try:
+            from supabase import create_client as _sc
+            from django.conf import settings as _s
+            _supa = _sc(_s.SUPABASE_URL, _s.SUPABASE_KEY)
+            filename = f"student_{student.id}.jpg"
+            profile_photo_url = _supa.storage.from_("profile-photos").get_public_url(filename)
+        except Exception:
+            pass
+
+        student_info = {
+            "id": student.id,
+            "name": student.name,
+            "reg_num": student.reg_num,
+            "school": student.school.name,
+            "school_id": student.school.id,
+            "student_class": student.student_class,
+            "status": student.status,
+            "photo_url": profile_photo_url,
+        }
+
+        # 6. Enrolled books (active enrollments)
+        enrollments = (
+            CourseEnrollment.objects
+            .filter(student=student, status='active')
+            .select_related('course', 'last_topic')
+            .order_by('-last_accessed_at')
+        )
+
+        enrolled_books = []
+        for enrollment in enrollments:
+            book = enrollment.course
+            total_topics = book.topics.filter(is_required=True).count()
+            completed_topics = enrollment.topic_progress.filter(status='completed').count()
+            progress_pct = enrollment.get_progress_percentage()
+
+            last_topic_data = None
+            if enrollment.last_topic:
+                last_topic_data = {
+                    "id": enrollment.last_topic.id,
+                    "title": enrollment.last_topic.title,
+                }
+
+            enrolled_books.append({
+                "enrollment_id": enrollment.id,
+                "book_id": book.id,
+                "title": book.title,
+                "cover_url": book.cover.url if book.cover else None,
+                "status": enrollment.status,
+                "progress_percent": progress_pct,
+                "total_topics": total_topics,
+                "completed_topics": completed_topics,
+                "last_topic": last_topic_data,
+                "last_accessed_at": enrollment.last_accessed_at.isoformat() if enrollment.last_accessed_at else None,
+            })
+
+        # 7. Continue learning — most recently accessed enrollment
+        continue_learning = None
+        if enrolled_books:
+            most_recent = enrolled_books[0]
+            continue_learning = {
+                "enrollment_id": most_recent["enrollment_id"],
+                "book_id": most_recent["book_id"],
+                "book_title": most_recent["title"],
+                "topic_id": most_recent["last_topic"]["id"] if most_recent["last_topic"] else None,
+                "topic_title": most_recent["last_topic"]["title"] if most_recent["last_topic"] else None,
+            }
+
+        # 8. Learning streak — count distinct days in last 30 with at least one topic completion
+        thirty_days_ago = today - timedelta(days=30)
+        completion_dates = (
+            TopicProgress.objects
+            .filter(
+                enrollment__student=student,
+                status='completed',
+                completed_at__date__gte=thirty_days_ago,
+                completed_at__isnull=False,
+            )
+            .values_list('completed_at__date', flat=True)
+            .distinct()
+            .order_by('-completed_at__date')
+        )
+
+        # Current streak: count consecutive days ending today/yesterday
+        streak_dates = sorted(set(completion_dates), reverse=True)
+        current_streak = 0
+        if streak_dates:
+            expected = today
+            for d in streak_dates:
+                if d == expected:
+                    current_streak += 1
+                    expected = expected - timedelta(days=1)
+                elif d == expected - timedelta(days=1):
+                    # Allow yesterday as start
+                    current_streak += 1
+                    expected = d - timedelta(days=1)
+                else:
+                    break
+
+        learning_streak = {
+            "current_days": current_streak,
+            "active_days_last_30": len(streak_dates),
+        }
+
+        # 9. Recent activity — last 5 completed topics
+        recent_topic_progress = (
+            TopicProgress.objects
+            .filter(
+                enrollment__student=student,
+                status='completed',
+                completed_at__isnull=False,
+            )
+            .select_related('topic', 'enrollment__course')
+            .order_by('-completed_at')[:5]
+        )
+
+        recent_activity = [
+            {
+                "topic_id": tp.topic.id,
+                "topic_title": tp.topic.title,
+                "book_title": tp.enrollment.course.title,
+                "completed_at": tp.completed_at.isoformat(),
+                "time_spent_minutes": round(tp.time_spent_seconds / 60, 1) if tp.time_spent_seconds else 0,
+            }
+            for tp in recent_topic_progress
+        ]
+
+        # 10. Recent quizzes — last 3 completed quiz attempts
+        recent_quiz_attempts = (
+            QuizAttempt.objects
+            .filter(
+                enrollment__student=student,
+                completed_at__isnull=False,
+            )
+            .select_related('quiz__topic', 'enrollment__course')
+            .order_by('-completed_at')[:3]
+        )
+
+        recent_quizzes = [
+            {
+                "quiz_id": qa.quiz.id,
+                "topic_title": qa.quiz.topic.title if qa.quiz.topic else None,
+                "book_title": qa.enrollment.course.title,
+                "score": float(qa.score) if qa.score is not None else None,
+                "passed": qa.passed,
+                "completed_at": qa.completed_at.isoformat(),
+            }
+            for qa in recent_quiz_attempts
+        ]
+
+        # 11. Fees — last 10 fee records for this student
+        fee_records = Fee.objects.filter(
+            student_id=student.id
+        ).order_by('-month')[:10]
+
+        fees = [
+            {
+                "month": f.month,
+                "total_fee": float(f.total_fee),
+                "paid_amount": float(f.paid_amount),
+                "balance_due": float(f.balance_due),
+                "status": f.status,
+                "payment_date": f.payment_date.isoformat() if f.payment_date else None,
+            }
+            for f in fee_records
+        ]
+
+        # 12. Badges
+        badges = get_student_badges(student)
+
+        return Response({
+            "student": student_info,
+            "enrolled_books": enrolled_books,
+            "continue_learning": continue_learning,
+            "learning_streak": learning_streak,
+            "recent_activity": recent_activity,
+            "recent_quizzes": recent_quizzes,
+            "fees": fees,
+            "badges": badges,
+        })
+
+    except Exception as e:
+        logger.error(f"Error in online_student_dashboard: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return Response({"error": f"Server error: {str(e)}"}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_fee_defaulters(request):
     """Get students with unpaid fees for N consecutive months."""
     from django.db.models import Count, Sum
@@ -2820,3 +3100,117 @@ def compare_fee_months(request):
         "month2": stats2,
         "comparison": diff
     })
+
+
+# ============================================
+# TIME SLOT MANAGEMENT
+# ============================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def time_slot_list(request):
+    """
+    GET  /api/time-slots/           — list time slots (Admin: all; Teacher: their own)
+    POST /api/time-slots/           — create a time slot
+        Admin: can specify any teacher
+        Teacher: auto-assigned as teacher (must be assigned to the school)
+    """
+    user = request.user
+
+    if request.method == 'GET':
+        school_id = request.GET.get('school_id')
+        qs = TimeSlot.objects.select_related('school', 'teacher__user')
+
+        if user.role == 'Admin':
+            if school_id:
+                qs = qs.filter(school_id=school_id)
+        elif user.role == 'Teacher':
+            try:
+                teacher_profile = user.teacher_profile
+            except Exception:
+                return Response({"error": "Teacher profile not found"}, status=400)
+            qs = qs.filter(teacher=teacher_profile)
+            if school_id:
+                qs = qs.filter(school_id=school_id)
+        else:
+            return Response({"error": "Permission denied"}, status=403)
+
+        serializer = TimeSlotSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        if user.role not in ['Admin', 'Teacher']:
+            return Response({"error": "Permission denied"}, status=403)
+
+        data = request.data.copy()
+
+        if user.role == 'Teacher':
+            try:
+                teacher_profile = user.teacher_profile
+            except Exception:
+                return Response({"error": "Teacher profile not found"}, status=400)
+            # Teachers are auto-assigned as the teacher of the slot
+            data['teacher'] = teacher_profile.id
+            # Verify teacher is assigned to the school
+            school_id = data.get('school')
+            if school_id and not user.assigned_schools.filter(id=school_id).exists():
+                return Response(
+                    {"error": "You are not assigned to this school."},
+                    status=403
+                )
+
+        serializer = TimeSlotSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def time_slot_detail(request, pk):
+    """
+    GET    /api/time-slots/<pk>/   — retrieve a single time slot
+    PUT    /api/time-slots/<pk>/   — full update
+    PATCH  /api/time-slots/<pk>/   — partial update
+    DELETE /api/time-slots/<pk>/   — delete (Admin only)
+    """
+    user = request.user
+
+    try:
+        time_slot = TimeSlot.objects.select_related('school', 'teacher__user').get(pk=pk)
+    except TimeSlot.DoesNotExist:
+        return Response({"error": "Time slot not found"}, status=404)
+
+    # Permission check: Teacher can only manage their own slots
+    if user.role == 'Teacher':
+        try:
+            teacher_profile = user.teacher_profile
+        except Exception:
+            return Response({"error": "Teacher profile not found"}, status=400)
+        if time_slot.teacher != teacher_profile:
+            return Response({"error": "You can only manage your own time slots."}, status=403)
+    elif user.role != 'Admin':
+        return Response({"error": "Permission denied"}, status=403)
+
+    if request.method == 'GET':
+        serializer = TimeSlotSerializer(time_slot)
+        return Response(serializer.data)
+
+    elif request.method in ['PUT', 'PATCH']:
+        partial = request.method == 'PATCH'
+        data = request.data.copy()
+        # Teachers cannot reassign the teacher field
+        if user.role == 'Teacher':
+            data.pop('teacher', None)
+        serializer = TimeSlotSerializer(time_slot, data=data, partial=partial)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    elif request.method == 'DELETE':
+        if user.role != 'Admin':
+            return Response({"error": "Only admins can delete time slots."}, status=403)
+        time_slot.delete()
+        return Response(status=204)

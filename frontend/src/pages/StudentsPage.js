@@ -42,6 +42,7 @@ import { ResetPasswordModal } from '../components/settings/ResetPasswordModal';
 
 // Services
 import { resetPassword } from '../services/userService';
+import { getTimeSlots } from '../services/timeSlotService';
 
 function StudentsPage() {
   // ============================================
@@ -93,6 +94,9 @@ function StudentsPage() {
   const [passwordResetStudent, setPasswordResetStudent] = useState(null);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
+  // Time Slots State (for ONLINE student assignment)
+  const [timeSlots, setTimeSlots] = useState([]);
+
   // Derived loading states from React Query
   const loading = {
     students: isLoadingStudents,
@@ -118,6 +122,21 @@ function StudentsPage() {
   // ============================================
   // EFFECTS
   // ============================================
+
+  // Load time slots when selected student changes (for ONLINE students)
+  useEffect(() => {
+    if (selectedStudent && selectedStudent.student_subtype === 'ONLINE') {
+      // Find the school ID for this student
+      const schoolId = typeof selectedStudent.school === 'number'
+        ? selectedStudent.school
+        : schools.find(s => s.name === selectedStudent.school)?.id;
+      if (schoolId) {
+        getTimeSlots({ school_id: schoolId })
+          .then(setTimeSlots)
+          .catch(() => setTimeSlots([]));
+      }
+    }
+  }, [selectedStudent?.id, schools]);
 
   // Extract classes when students load OR when school filter changes
   useEffect(() => {
@@ -216,6 +235,7 @@ function StudentsPage() {
       student_class: String(updatedStudent.student_class),
       monthly_fee: updatedStudent.monthly_fee ? Number(updatedStudent.monthly_fee) : null,
       phone: updatedStudent.phone || '',
+      time_slot: updatedStudent.time_slot ? Number(updatedStudent.time_slot) : null,
     };
 
     console.log('📡 Sending update request with:', studentData);
@@ -587,6 +607,7 @@ function StudentsPage() {
           onDelete={() => openDeleteConfirm(selectedStudent)}
           schools={schools}
           classes={classes}
+          timeSlots={timeSlots}
           isSubmitting={loading.submit}
           isDeleting={loading.delete}
         />

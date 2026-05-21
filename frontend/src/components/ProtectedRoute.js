@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { getDefaultDashboardPath } from "../constants/studentSubtypePolicy";
 
-function ProtectedRoute({ element, allowedRoles }) {
+function ProtectedRoute({ element, allowedRoles, allowedStudentSubtypes }) {
     const location = useLocation();
     const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("access"));
     const role = localStorage.getItem("role");  // ✅ Get user role from storage
+    const studentSubtype = localStorage.getItem("studentSubtype") || "";
 
     useEffect(() => {
         const checkAuth = () => {
@@ -31,6 +33,16 @@ function ProtectedRoute({ element, allowedRoles }) {
     if (allowedRoles && !allowedRoles.includes(role)) {
         alert("Unauthorized access. Redirecting to home.");
         return <Navigate to="/" replace />;
+    }
+
+    if (
+        role === "Student" &&
+        Array.isArray(allowedStudentSubtypes) &&
+        allowedStudentSubtypes.length > 0 &&
+        !allowedStudentSubtypes.includes(studentSubtype)
+    ) {
+        const dashboardPath = getDefaultDashboardPath(role, studentSubtype);
+        return <Navigate to={dashboardPath} replace />;
     }
 
     return element;

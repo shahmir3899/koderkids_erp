@@ -95,6 +95,7 @@ function LoginPage() {
         localStorage.setItem("refresh", data.refresh);
         localStorage.setItem("role", data.role);
         localStorage.setItem("username", data.username);
+        localStorage.setItem("studentSubtype", data.studentSubtype || "");
 
         // Store attendance info if present (for teachers)
         // The dashboard will show a confirmation modal with this data

@@ -3,6 +3,11 @@ import os
 import sys
 from dotenv import load_dotenv
 
+# Force protobuf pure-Python implementation before any imports.
+# The C extension (google._upb._message) is incompatible with Python 3.14
+# and raises TypeError: Metaclasses with custom tp_new are not supported.
+os.environ.setdefault('PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION', 'python')
+
 # Load .env manually before Django starts
 load_dotenv()
 

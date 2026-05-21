@@ -10,12 +10,13 @@ import { API_URL, getAuthHeaders } from '../api';
  * Fetch all fees with optional filters
  */
 export const fetchFees = async (filters = {}) => {
-  const { schoolId, studentClass, month } = filters;
+  const { schoolId, studentClass, month, timeSlotId } = filters;
   
   const params = {
     school_id: schoolId || undefined,
     class: studentClass || undefined,
     month: month || undefined,
+    time_slot: timeSlotId || undefined,
     sort: 'student_class',
   };
 

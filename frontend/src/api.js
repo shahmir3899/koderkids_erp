@@ -73,9 +73,11 @@ export const logout = () => {
     sessionStorage.clear();  
 
     // Clear browser cache
-    caches.keys().then((names) => {
-        names.forEach((name) => caches.delete(name));
-    });
+    if (typeof window !== "undefined" && "caches" in window) {
+        window.caches.keys().then((names) => {
+            names.forEach((name) => window.caches.delete(name));
+        });
+    }
 
     // Redirect to login page
     window.location.href = "/login";
@@ -101,7 +103,8 @@ export const redirectUser = () => {
             window.location.href = "/teacherdashboard";
             break;
         case "Student":
-            window.location.href = "/student-dashboard";
+            const studentSubtype = localStorage.getItem("studentSubtype") || "";
+            window.location.href = studentSubtype === "ONLINE" ? "/online-student-dashboard" : "/student-dashboard";
             break;
         case "BDM":
             window.location.href = "/crm/dashboard";

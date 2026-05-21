@@ -1,9 +1,34 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Student, Fee, School, Attendance, LessonPlan
+from .models import Student, Fee, School, Attendance, LessonPlan, TimeSlot
 
 from .models import LessonPlan, StudentImage
 from books.models import Topic
+
+
+class TimeSlotSerializer(serializers.ModelSerializer):
+    school_name = serializers.CharField(source='school.name', read_only=True)
+    teacher_name = serializers.SerializerMethodField()
+    student_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TimeSlot
+        fields = [
+            'id', 'label', 'school', 'school_name',
+            'teacher', 'teacher_name',
+            'days', 'start_time', 'end_time', 'is_active',
+            'student_count', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_teacher_name(self, obj):
+        if obj.teacher and obj.teacher.user:
+            name = obj.teacher.user.get_full_name()
+            return name if name.strip() else obj.teacher.user.username
+        return None
+
+    def get_student_count(self, obj):
+        return obj.students.count()
 
 class StudentSerializer(serializers.ModelSerializer):
     # ✅ FIX: Use 'school' as the source for school_id field
@@ -23,15 +48,17 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = '__all__'
     
     def validate(self, attrs):
-        """Debug logging for validation"""
-        print(f"🔍 StudentSerializer.validate() called with attrs: {attrs}")
+        """Enforce time_slot business rule: only valid for ONLINE students"""
+        # time_slot is only allowed for ONLINE students
+        time_slot = attrs.get('time_slot')
+        student_subtype = attrs.get('student_subtype')
+        if time_slot is not None and student_subtype and student_subtype != 'ONLINE':
+            raise serializers.ValidationError(
+                {'time_slot': 'time_slot can only be assigned to ONLINE students.'}
+            )
         return super().validate(attrs)
     
     def update(self, instance, validated_data):
-        """Debug logging for update"""
-        print(f"🔍 StudentSerializer.update() called")
-        print(f"🔍 Instance: {instance}")
-        print(f"🔍 Validated data: {validated_data}")
         return super().update(instance, validated_data)
     
     def to_representation(self, instance):
@@ -40,6 +67,8 @@ class StudentSerializer(serializers.ModelSerializer):
         # Replace school ID with school name for display
         if instance.school:
             representation['school'] = instance.school.name
+        # Add time_slot label for convenience
+        representation['time_slot_label'] = instance.time_slot.label if instance.time_slot else None
         return representation
 
 class StudentProfileSerializer(serializers.ModelSerializer):
@@ -86,6 +115,15 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     school_name = serializers.CharField(source='school.name', read_only=True)
     school_id = serializers.IntegerField(source='school.id', read_only=True)
 
+    time_slot_label = serializers.CharField(source='time_slot.label', read_only=True, allow_null=True)
+    time_slot_teacher_name = serializers.SerializerMethodField()
+
+    def get_time_slot_teacher_name(self, obj):
+        if obj.time_slot and obj.time_slot.teacher and obj.time_slot.teacher.user:
+            name = obj.time_slot.teacher.user.get_full_name()
+            return name if name.strip() else obj.time_slot.teacher.user.username
+        return None
+
     class Meta:
         model = Student
         fields = [
@@ -104,6 +142,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'school_id',
             'school_name',
             'student_class',
+            'student_subtype',
             'monthly_fee',
             'date_of_birth',
             'status',
@@ -112,6 +151,11 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             # Student fields (editable contact info)
             'phone',
             'address',
+
+            # Time slot (ONLINE students)
+            'time_slot',
+            'time_slot_label',
+            'time_slot_teacher_name',
 
             # Timestamps
             'created_at',
@@ -130,6 +174,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'school_id',
             'school_name',
             'student_class',
+            'student_subtype',
             'monthly_fee',
             'status',
             'date_of_registration',

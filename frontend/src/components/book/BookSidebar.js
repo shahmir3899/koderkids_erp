@@ -77,12 +77,22 @@ const BookSidebar = ({
     }));
   };
 
-  const getTopicStatus = useCallback((topicId) => {
+  const getTopicStatus = useCallback((topicId, childTopics = []) => {
     const progress = topicProgress[topicId];
-    if (!progress) return { status: 'not_started', is_unlocked: false };
+    let status = progress?.status || 'not_started';
+
+    // Belt-and-suspenders: if the backend hasn't confirmed chapter completion yet
+    // (e.g. mid-course load), derive it from children so the sidebar is always accurate
+    if (status !== 'completed' && childTopics.length > 0) {
+      const allChildrenDone = childTopics.every(
+        (child) => topicProgress[child.id]?.status === 'completed'
+      );
+      if (allChildrenDone) status = 'completed';
+    }
+
     return {
-      status: progress.status || 'not_started',
-      is_unlocked: progress.is_unlocked !== false,
+      status,
+      is_unlocked: progress?.is_unlocked !== false,
     };
   }, [topicProgress]);
 
@@ -105,7 +115,11 @@ const BookSidebar = ({
     const hasChildren = topic.children?.length > 0;
     const isExpanded = expandedChapters[topic.id];
     const isCurrent = topic.id === currentTopicId;
-    const { status, is_unlocked } = getTopicStatus(topic.id);
+    // Pass children to getTopicStatus so chapter completion can be derived if needed
+    const { status, is_unlocked } = getTopicStatus(
+      topic.id,
+      isChapter ? (topic.children || []) : []
+    );
     const statusCfg = getStatusConfig(status, is_unlocked, isCurrent);
     const isClickable = is_unlocked || status === 'completed' || isChapter;
 

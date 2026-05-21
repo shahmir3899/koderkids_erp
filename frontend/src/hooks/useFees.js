@@ -26,6 +26,7 @@ export const useFees = (initialFilters = {}) => {
     studentClass: '',
     month: new Date(),
     searchTerm: '',
+    timeSlotId: '',
     ...initialFilters,
   });
 
@@ -79,7 +80,7 @@ export const useFees = (initialFilters = {}) => {
    * Fetch fees with current filters
    */
   const fetchFees = useCallback(async () => {
-    if (!filters.schoolId && !filters.studentClass) return;
+    if (!filters.schoolId && !filters.studentClass && !filters.timeSlotId) return;
     if (!isMounted.current) return; // Don't fetch if unmounted
     
     setLoading(prev => ({ ...prev, fees: true }));
@@ -91,6 +92,7 @@ export const useFees = (initialFilters = {}) => {
         schoolId: filters.schoolId,
         studentClass: filters.studentClass,
         month: monthStr,
+        timeSlotId: filters.timeSlotId,
       });
 
       if (!isMounted.current) return; // Component unmounted during fetch
@@ -110,7 +112,7 @@ export const useFees = (initialFilters = {}) => {
         setLoading(prev => ({ ...prev, fees: false }));
       }
     }
-  }, [filters.schoolId, filters.studentClass, filters.month]);
+  }, [filters.schoolId, filters.studentClass, filters.month, filters.timeSlotId]);
 
   /**
    * Fetch students for single fee creation

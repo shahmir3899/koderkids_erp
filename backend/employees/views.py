@@ -167,6 +167,7 @@ class TeacherListView(APIView):
 
             employee_list.append({
                 'id': employee.id,
+                'profile_id': profile.id if profile else None,
                 'username': employee.username,
                 'email': employee.email,
                 'name': employee.get_full_name() or employee.username,
@@ -1230,3 +1231,150 @@ class NotificationSettingsView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============================================
+# MY ONLINE STUDENTS — Teacher view of their online students
+# ============================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_online_students(request):
+    """
+    GET /employees/my-online-students/
+
+    Returns all ONLINE students assigned to the requesting teacher's time slots.
+    Admin can pass ?teacher_id=<id> to see a specific teacher's students.
+
+    Response shape per student:
+    {
+      "id", "name", "reg_num", "school_name",
+      "time_slot_id", "time_slot_label",
+      "status",
+      "enrolled_books": [...],
+      "streak": <int>,
+      "recent_quizzes": [...],
+      "fee_status": "Paid" | "Pending" | "Overdue" | "No fee record"
+    }
+    """
+    from students.models import Student, Fee
+    from courses.models import CourseEnrollment, TopicProgress, QuizAttempt
+    from django.utils import timezone
+    from datetime import timedelta
+
+    user = request.user
+
+    if user.role == 'Admin':
+        teacher_id = request.GET.get('teacher_id')
+        if teacher_id:
+            from .models import TeacherProfile
+            try:
+                teacher_profile = TeacherProfile.objects.get(pk=teacher_id)
+            except TeacherProfile.DoesNotExist:
+                return Response({"error": "Teacher not found"}, status=404)
+            students_qs = Student.objects.filter(
+                time_slot__teacher=teacher_profile,
+                student_subtype='ONLINE',
+            ).select_related('school', 'time_slot', 'time_slot__teacher__user')
+        else:
+            students_qs = Student.objects.filter(
+                student_subtype='ONLINE',
+                time_slot__isnull=False,
+            ).select_related('school', 'time_slot', 'time_slot__teacher__user')
+    elif user.role == 'Teacher':
+        try:
+            teacher_profile = user.teacher_profile
+        except Exception:
+            return Response({"error": "Teacher profile not found"}, status=400)
+        students_qs = Student.objects.filter(
+            time_slot__teacher=teacher_profile,
+            student_subtype='ONLINE',
+        ).select_related('school', 'time_slot')
+    else:
+        return Response({"error": "Permission denied"}, status=403)
+
+    today = timezone.localdate()
+    thirty_days_ago = today - timedelta(days=30)
+    current_month = today.strftime('%b-%Y')  # e.g. "May-2026"
+
+    result = []
+    for student in students_qs:
+        # Enrolled books with progress
+        enrollments = CourseEnrollment.objects.filter(
+            student=student
+        ).select_related('course').prefetch_related('topic_progress')
+
+        enrolled_books = []
+        for enr in enrollments:
+            total_topics = enr.course.topics.count()
+            completed_topics = enr.topic_progress.filter(status='completed').count()
+            progress_pct = round((completed_topics / total_topics * 100), 1) if total_topics > 0 else 0
+            enrolled_books.append({
+                "enrollment_id": enr.id,
+                "book_id": enr.course_id,
+                "book_title": enr.course.title if hasattr(enr.course, 'title') else str(enr.course),
+                "progress_percentage": progress_pct,
+                "status": enr.status,
+            })
+
+        # Learning streak (consecutive days with topic completions in last 30 days)
+        completion_dates = (
+            TopicProgress.objects
+            .filter(
+                enrollment__student=student,
+                status='completed',
+                completed_at__date__gte=thirty_days_ago,
+            )
+            .values_list('completed_at__date', flat=True)
+            .distinct()
+            .order_by('-completed_at__date')
+        )
+        streak = 0
+        check_date = today
+        for d in completion_dates:
+            if d == check_date or d == check_date - timedelta(days=1):
+                streak += 1
+                check_date = d
+            else:
+                break
+
+        # Recent quizzes (last 5)
+        recent_quizzes = (
+            QuizAttempt.objects
+            .filter(enrollment__student=student)
+            .select_related('quiz')
+            .order_by('-completed_at')[:5]
+        )
+        quiz_data = [
+            {
+                "quiz_id": qa.quiz_id,
+                "quiz_title": str(qa.quiz),
+                "score": qa.score,
+                "passed": qa.passed,
+                "completed_at": qa.completed_at,
+            }
+            for qa in recent_quizzes
+        ]
+
+        # Fee status for current month
+        fee_record = Fee.objects.filter(
+            student_id=student.id,
+            month=current_month,
+        ).first()
+        fee_status = fee_record.status if fee_record else "No fee record"
+
+        result.append({
+            "id": student.id,
+            "name": student.name,
+            "reg_num": student.reg_num,
+            "school_name": student.school.name if student.school else None,
+            "time_slot_id": student.time_slot_id,
+            "time_slot_label": student.time_slot.label if student.time_slot else None,
+            "status": student.status,
+            "enrolled_books": enrolled_books,
+            "streak": streak,
+            "recent_quizzes": quiz_data,
+            "fee_status": fee_status,
+        })
+
+    return Response(result)

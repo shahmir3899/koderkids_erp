@@ -213,14 +213,32 @@ export const LMSProvider = ({ children }) => {
     try {
       const result = await courseService.completeTopic(topicId);
 
-      // Update local progress
-      setTopicProgress((prev) => ({
-        ...prev,
-        [topicId]: {
-          ...prev[topicId],
-          status: 'completed',
-        },
-      }));
+      // Update local progress for the completed topic, plus any unlocks the backend reported
+      setTopicProgress((prev) => {
+        const updated = {
+          ...prev,
+          [topicId]: { ...prev[topicId], status: 'completed' },
+        };
+
+        // Immediately unlock the next sibling so findNextTopic navigates correctly
+        // without waiting for a page reload
+        if (result.next_unlocked_topic_id) {
+          const nid = result.next_unlocked_topic_id;
+          updated[nid] = {
+            ...prev[nid],
+            status: prev[nid]?.status || 'not_started',
+            is_unlocked: true,
+          };
+        }
+
+        // Reflect chapter auto-completion in the sidebar instantly
+        if (result.chapter_completed_id) {
+          const cid = result.chapter_completed_id;
+          updated[cid] = { ...prev[cid], status: 'completed', is_unlocked: true };
+        }
+
+        return updated;
+      });
 
       if (result.course_completed) {
         toast.success('Congratulations! Course completed!');
@@ -364,27 +382,32 @@ export const LMSProvider = ({ children }) => {
   }, [topicProgress]);
 
   const findFirstUnlockedTopic = useCallback((topics) => {
-    // Recursively find first unlocked, incomplete topic
+    // Chapters are structural containers — always descend into their children first.
+    // Only return leaf nodes (lessons / activities) so the student lands on real content.
     for (const topic of topics) {
-      const status = getTopicStatus(topic.id);
-      if (status.is_unlocked && status.status !== 'completed') {
-        return topic;
-      }
       if (topic.children?.length) {
         const found = findFirstUnlockedTopic(topic.children);
         if (found) return found;
+      } else {
+        // Leaf topic (lesson / activity)
+        const status = getTopicStatus(topic.id);
+        if (status.is_unlocked && status.status !== 'completed') {
+          return topic;
+        }
       }
     }
-    return topics[0]; // Fallback to first topic
+    return null; // All complete, or no accessible content
   }, [getTopicStatus]);
 
   const findNextTopic = useCallback((topics, currentTopicId, found = { value: false }) => {
     for (const topic of topics) {
       if (found.value) {
-        // Return first topic after current
-        const status = getTopicStatus(topic.id);
-        if (status.is_unlocked) {
-          return topic;
+        // Skip chapter nodes — they are structural containers, not navigable destinations
+        if (topic.type !== 'chapter') {
+          const status = getTopicStatus(topic.id);
+          if (status.is_unlocked) {
+            return topic;
+          }
         }
       }
       if (topic.id === currentTopicId) {
@@ -403,9 +426,12 @@ export const LMSProvider = ({ children }) => {
       if (topic.id === currentTopicId) {
         return prev.value;
       }
-      const status = getTopicStatus(topic.id);
-      if (status.is_unlocked || status.status === 'completed') {
-        prev.value = topic;
+      // Skip chapter nodes — only track leaf topics (lessons / activities) as valid destinations
+      if (topic.type !== 'chapter') {
+        const status = getTopicStatus(topic.id);
+        if (status.is_unlocked || status.status === 'completed') {
+          prev.value = topic;
+        }
       }
       if (topic.children?.length) {
         const found = findPreviousTopic(topic.children, currentTopicId, prev);

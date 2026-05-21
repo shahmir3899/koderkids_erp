@@ -6,6 +6,7 @@ from . import proof_views
 from . import guardian_views
 from . import score_views
 from . import unlock_views
+from . import admin_online_views
 
 # Router for ViewSets
 router = DefaultRouter()
@@ -85,4 +86,13 @@ urlpatterns = [
     path('topics/<int:topic_id>/unlock-status/', unlock_views.topic_unlock_status, name='topic-unlock-status'),
     path('topics/<int:topic_id>/validation-steps/', unlock_views.topic_validation_steps, name='topic-validation-steps'),
     path('topics/<int:topic_id>/can-access/', unlock_views.topic_access_check, name='topic-access-check'),
+
+    # Admin Online Student Management (NEW)
+    path('admin/online-students/', admin_online_views.list_online_students, name='admin-online-students-list'),
+    path('admin/online-students/<int:student_id>/', admin_online_views.get_online_student_detail, name='admin-online-student-detail'),
+    path('admin/online-students/<int:student_id>/profile/', admin_online_views.online_student_profile, name='admin-online-student-profile'),
+    path('admin/online-students/<int:student_id>/assign-courses/', admin_online_views.assign_courses_to_student, name='admin-assign-courses'),
+    path('admin/online-students/<int:student_id>/enrollments/<int:enrollment_id>/', admin_online_views.remove_course_from_student, name='admin-remove-enrollment'),
+    path('admin/online-students/available-courses/', admin_online_views.get_available_courses, name='admin-available-courses'),
+    path('admin/online-students/bulk-assign-courses/', admin_online_views.bulk_assign_courses, name='admin-bulk-assign-courses'),
 ]

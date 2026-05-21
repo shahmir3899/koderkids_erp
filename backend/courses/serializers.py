@@ -1,11 +1,13 @@
 # courses/serializers.py
 import re
+from django.db import transaction
 from rest_framework import serializers
 from .models import (
     CourseEnrollment, TopicProgress,
     Quiz, QuizQuestion, QuizChoice, QuizAttempt
 )
 from books.models import Book, Topic
+from students.models import Student, CustomUser, TimeSlot
 
 
 def natural_sort_key(obj):
@@ -252,6 +254,103 @@ class CourseEnrollmentCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['student'] = self.context['student']
         return super().create(validated_data)
+
+
+class AdminOnlineStudentProfileSerializer(serializers.ModelSerializer):
+    """Admin-facing serializer for ONLINE student profile details and updates."""
+
+    email = serializers.EmailField(
+        source='user.email',
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+    username = serializers.CharField(source='user.username', read_only=True)
+    school_name = serializers.CharField(source='school.name', read_only=True)
+    school_id = serializers.IntegerField(source='school.id', read_only=True)
+
+    time_slot = serializers.PrimaryKeyRelatedField(
+        queryset=TimeSlot.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    time_slot_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Student
+        fields = [
+            'id',
+            'reg_num',
+            'name',
+            'username',
+            'email',
+            'phone',
+            'address',
+            'date_of_birth',
+            'gender',
+            'status',
+            'student_class',
+            'student_subtype',
+            'school_id',
+            'school_name',
+            'time_slot',
+            'time_slot_label',
+            'monthly_fee',
+        ]
+        read_only_fields = [
+            'id',
+            'reg_num',
+            'username',
+            'student_class',
+            'student_subtype',
+            'school_id',
+            'school_name',
+            'time_slot_label',
+        ]
+
+    def get_time_slot_label(self, obj):
+        if obj.time_slot:
+            return obj.time_slot.label
+        return None
+
+    def validate(self, attrs):
+        user_data = attrs.get('user') or {}
+        email = user_data.get('email', serializers.empty)
+
+        # Treat empty email as None to match CustomUser.save behavior.
+        if email == '':
+            email = None
+            user_data['email'] = None
+            attrs['user'] = user_data
+
+        if email is not serializers.empty and email is not None:
+            current_user_id = getattr(getattr(self.instance, 'user', None), 'id', None)
+            if CustomUser.objects.filter(email=email).exclude(id=current_user_id).exists():
+                raise serializers.ValidationError({'email': 'A user with this email already exists.'})
+
+        return attrs
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+
+        if user_data and instance.user:
+            for attr, value in user_data.items():
+                setattr(instance.user, attr, value)
+            instance.user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Keep auth name shadow fields aligned with Student.name.
+        if 'name' in validated_data and instance.user:
+            parts = (instance.name or '').strip().split(' ', 1)
+            instance.user.first_name = parts[0] if parts and parts[0] else ''
+            instance.user.last_name = parts[1] if len(parts) > 1 else ''
+            instance.user.save(update_fields=['first_name', 'last_name'])
+
+        return instance
 
 
 # =============================================

@@ -45,6 +45,9 @@ from .views import (
 
     # Notification Settings
     NotificationSettingsView,
+
+    # Online Students
+    my_online_students,
 )
 
 from .evaluation_views import (
@@ -195,4 +198,10 @@ urlpatterns = [
 
     # GET - Get own evaluations (Teacher self-service)
     path('my-evaluation/', my_evaluation, name='my-evaluation'),
+
+    # ============================================
+    # Online Students (Teacher view via Time Slots)
+    # URL: /employees/my-online-students/
+    # ============================================
+    path('my-online-students/', my_online_students, name='my-online-students'),
 ]

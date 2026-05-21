@@ -101,3 +101,34 @@ def check_school_access(user, school_id):
         return user.assigned_schools.filter(id=school_id).exists()
 
     return False
+
+
+def check_timeslot_access(user, student):
+    """
+    Check if a Teacher has access to a specific ONLINE student via time slot ownership.
+
+    Rules:
+    - Admin: always True
+    - Teacher: True only if student.time_slot.teacher == user.teacher_profile
+    - Others: False
+
+    Usage: called when a Teacher attempts to create/update fees for an ONLINE student.
+    """
+    if not user or not user.is_authenticated:
+        return False
+
+    if user.role == 'Admin':
+        return True
+
+    if user.role == 'Teacher':
+        if student is None:
+            return False
+        ts = student.time_slot
+        if ts is None:
+            return False
+        try:
+            return ts.teacher == user.teacher_profile
+        except Exception:
+            return False
+
+    return False

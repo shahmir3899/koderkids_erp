@@ -18,9 +18,9 @@ import SidebarSection from './SidebarSection';
  * @param {string} role - User's role
  * @param {function} onNavigate - Callback when a nav item is clicked (for mobile close)
  */
-const SidebarNav = ({ isOpen, openDropdowns, toggleDropdown, role, onNavigate }) => {
+const SidebarNav = ({ isOpen, openDropdowns, toggleDropdown, role, studentSubtype, onNavigate }) => {
   // Get filtered menu sections for the current role
-  const menuSections = getMenuForRole(role);
+  const menuSections = getMenuForRole(role, studentSubtype);
 
   return (
     <nav style={styles.nav}>

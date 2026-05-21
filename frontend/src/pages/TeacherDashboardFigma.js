@@ -22,6 +22,7 @@ import { TeacherInventoryWidget } from '../components/teacher/TeacherInventoryWi
 import TeacherAttendanceWidget from '../components/dashboard/TeacherAttendanceWidget';
 import AttendanceConfirmationModal from '../components/AttendanceConfirmationModal';
 import { StaffCommandInput, CommandHistory, QuickActionsPanel } from '../components/staff';
+import { OnlineStudentsTab } from '../components/teacher/OnlineStudentsTab';
 
 // Hooks
 import { useSchools } from '../hooks/useSchools';
@@ -482,6 +483,11 @@ useEffect(() => {
             </HoverCard>
             
           )}
+        </CollapsibleSection>
+
+        {/* Online Students Section */}
+        <CollapsibleSection title="🌐 My Online Students" defaultOpen={false}>
+          <OnlineStudentsTab />
         </CollapsibleSection>
       </div>
 

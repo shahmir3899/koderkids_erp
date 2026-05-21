@@ -29,7 +29,10 @@ from students.views import (
 
 
     my_student_data, create_single_fee, delete_fees, my_progress,
-    get_fee_defaulters, compare_fee_months,
+    get_fee_defaulters, compare_fee_months, online_student_dashboard,
+
+    # Time Slot endpoints
+    time_slot_list, time_slot_detail,
 
     StudentProfilePhotoUploadView,      # ← ADD
     StudentProfilePhotoDeleteView,      # ← ADD
@@ -54,6 +57,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('finance.urls')),  # Include finance URLs
     path('employees/', include('employees.urls')),
+    path('api/employees/', include('employees.urls')),
 
     # ✅ NEW: Authentication endpoints
     path('api/auth/', include('authentication.urls')),
@@ -69,6 +73,7 @@ urlpatterns = [
     path('api/ai/', include('ai.urls')),
     path('api/courses/', include('courses.urls')),
     path('api/aigala/', include('aigala.urls')),
+    path('api/onlineclasses/', include('onlineclasses.urls')),
 
 
 
@@ -82,6 +87,7 @@ urlpatterns = [
     path('api/new-registrations/', new_registrations, name='new_registrations'),
     path('api/students/my-data/', my_student_data, name='my_student_data'),  # ← NEW
     path('api/students/my-progress/', my_progress, name='my_progress'),  # Student progress dashboard data
+    path('api/students/online-dashboard/', online_student_dashboard, name='online_student_dashboard'),  # Online student dedicated dashboard
     path('api/schools-with-classes/', get_schools_with_classes, name='schools_with_classes'),
 
     # Fees Management
@@ -93,6 +99,10 @@ urlpatterns = [
     path('api/fees/delete/', delete_fees, name='delete-fees'),
     path('api/fees/defaulters/', get_fee_defaulters, name='fee-defaulters'),
     path('api/fees/compare/', compare_fee_months, name='compare-fee-months'),
+
+    # Time Slots
+    path('api/time-slots/', time_slot_list, name='time-slot-list'),
+    path('api/time-slots/<int:pk>/', time_slot_detail, name='time-slot-detail'),
 
     
     path('api/school-details/', get_school_details, name="get_school_details"),

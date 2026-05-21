@@ -14,20 +14,12 @@ from .unlock_service import (
     can_access_topic
 )
 from books.models import Topic
-from students.models import Student
+from students.access_policies import is_student_lms_enabled_user, get_student_from_user
 
 
 def is_student(user):
     """Check if user is a student."""
-    return user.role == 'Student'
-
-
-def get_student_from_user(user):
-    """Get student object from user."""
-    try:
-        return Student.objects.get(user=user)
-    except Student.DoesNotExist:
-        return None
+    return is_student_lms_enabled_user(user)
 
 
 @api_view(['GET'])
