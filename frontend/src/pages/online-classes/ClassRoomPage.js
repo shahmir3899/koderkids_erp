@@ -6,11 +6,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { BackgroundBlur } from '@livekit/track-processors';
 import { MdMic, MdMicOff, MdVideocam, MdVideocamOff, MdScreenShare, MdStopScreenShare, MdChat, MdPeople, MdBlurOn, MdBlurOff, MdExitToApp, MdStop, MdSend } from 'react-icons/md';
-import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../utils/designConstants';
+import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
 import { endSession, getSession, getRoomToken, startSession } from '../../services/onlineClassService';
 
 // ── Remote participant tile (camera + audio) ──────────────────────────────────
-const RemoteTile = ({ participant }) => {
+const RemoteTile = ({ participant, useContain = false }) => {
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -38,13 +38,22 @@ const RemoteTile = ({ participant }) => {
 
   return (
     <div style={{
-      position: 'relative', background: '#111', borderRadius: 12,
-      overflow: 'hidden', aspectRatio: '16/9', flex: '1 1 300px', minHeight: 180,
+      position: 'relative',
+      background: 'rgba(255,255,255,0.12)',
+      border: '1px solid rgba(255,255,255,0.18)',
+      borderRadius: 16,
+      overflow: 'hidden',
+      aspectRatio: '16/9',
+      minHeight: 220,
+      width: '100%',
+      boxShadow: '0 12px 28px rgba(63, 46, 132, 0.14)',
+      backdropFilter: 'blur(14px)',
     }}>
-      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: useContain ? 'contain' : 'cover' }} />
       <span style={{
         position: 'absolute', bottom: 8, left: 10, color: '#fff', fontSize: 12,
-        background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: 4,
+        background: 'rgba(255,255,255,0.16)', padding: '2px 8px', borderRadius: 999,
+        border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(10px)',
       }}>
         {participant.name || participant.identity}
       </span>
@@ -81,18 +90,26 @@ const ScreenShareTile = ({ participant }) => {
 
   return (
     <div style={{
-      position: 'relative', background: '#000', borderRadius: 12,
-      overflow: 'hidden', width: '100%', marginBottom: 8,
+      position: 'relative',
+      background: 'rgba(255,255,255,0.08)',
+      borderRadius: 16,
+      overflow: 'hidden',
+      width: '100%',
+      marginBottom: 10,
+      border: '1px solid rgba(255,255,255,0.18)',
+      boxShadow: '0 14px 32px rgba(63, 46, 132, 0.16)',
+      backdropFilter: 'blur(14px)',
     }}>
       <video
         ref={screenRef}
         autoPlay
         playsInline
-        style={{ width: '100%', maxHeight: '62vh', objectFit: 'contain', display: 'block' }}
+        style={{ width: '100%', maxHeight: '64vh', objectFit: 'contain', display: 'block' }}
       />
       <span style={{
         position: 'absolute', top: 8, left: 10, color: '#fff', fontSize: 12, fontWeight: 600,
-        background: 'rgba(176,97,206,0.85)', padding: '3px 10px', borderRadius: 6,
+        background: 'rgba(255,255,255,0.16)', padding: '3px 10px', borderRadius: 999,
+        border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(10px)',
       }}>
         🖥 {participant.name || participant.identity} · Screen
       </span>
@@ -126,6 +143,9 @@ const ClassRoomPage = () => {
   const [toast, setToast] = useState('');
   const [screenReqFrom, setScreenReqFrom] = useState('');
   const [sessionInfo, setSessionInfo] = useState(null);
+  const [isMobileLayout, setIsMobileLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 768 : false));
+  const [isCompactMobile, setIsCompactMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 390 : false));
+  const [hoveredAction, setHoveredAction] = useState('');
 
   const roomRef = useRef(null);
   const localVideoRef = useRef(null);
@@ -146,6 +166,15 @@ const ClassRoomPage = () => {
   useEffect(() => {
     getSession(sessionId).then(setSessionInfo).catch(() => {});
   }, [sessionId]);
+
+  useEffect(() => {
+    const onResize = () => {
+      setIsMobileLayout(window.innerWidth <= 768);
+      setIsCompactMobile(window.innerWidth <= 390);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     let room;
@@ -315,7 +344,19 @@ const ClassRoomPage = () => {
     setChatInput('');
   };
 
-  const styles = getStyles();
+  const getInitials = (name = '') => {
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('');
+  };
+
+  const styles = getStyles(isCompactMobile);
+  const sessionTitle = sessionInfo
+    ? [sessionInfo.subject, sessionInfo.class_name].filter(Boolean).join(' · ') || 'Live Class'
+    : 'Live Class';
+  const controlsActionSlotWidth = isTeacher
+    ? (isCompactMobile ? 'clamp(192px, 52vw, 238px)' : 'clamp(264px, 32vw, 340px)')
+    : 'clamp(112px, 14vw, 132px)';
 
   if (connecting) {
     return (
@@ -344,48 +385,55 @@ const ClassRoomPage = () => {
     <div style={styles.room}>
       {/* ── Top header bar ── */}
       <div style={styles.header}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={styles.headerTitle}>
-            {sessionInfo
-              ? [sessionInfo.subject, sessionInfo.class_name].filter(Boolean).join(' · ') || 'Live Class'
-              : 'Live Class'}
-          </span>
+        <div style={{ ...styles.headerMain, minWidth: 0 }}>
+          <span style={styles.headerTitle}>{sessionTitle}</span>
+          <span style={styles.headerMeta}>Session #{sessionId}</span>
         </div>
-        <span style={styles.liveBadge}>●&nbsp;Live</span>
+        <span style={styles.liveBadge}>
+          <span style={styles.liveDot} />
+          Live
+        </span>
         <div style={styles.participantBadge}>
           <MdPeople size={14} style={{ flexShrink: 0 }} />
-          <span>{remoteParticipants.length + 1}</span>
+          <span>{remoteParticipants.length + 1} Participants</span>
         </div>
       </div>
 
       {/* ── Main video area ── */}
       <div style={styles.main}>
-        {/* Screen share — shown full-width when any participant is sharing */}
-        {remoteParticipants
-          .filter((p) => p.getTrackPublication(Track.Source.ScreenShare)?.track)
-          .map((p) => <ScreenShareTile key={`screen-${p.sid}`} participant={p} />)}
+        <div style={styles.videoStage}>
+          {/* Screen share — shown full-width when any participant is sharing */}
+          {remoteParticipants
+            .filter((p) => p.getTrackPublication(Track.Source.ScreenShare)?.track)
+            .map((p) => <ScreenShareTile key={`screen-${p.sid}`} participant={p} />)}
 
-        {remoteParticipants.length === 0 ? (
-          <div style={styles.remotePlaceholder}>
-            <span style={{ fontSize: 56 }}>📡</span>
-            <p style={styles.remoteHint}>Waiting for others to join…</p>
-            <p style={styles.remoteHintSmall}>You are connected · share the class link to invite students</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACING[3], flex: 1, alignContent: 'flex-start', overflowY: 'auto' }}>
-            {remoteParticipants.map((p) => <RemoteTile key={p.sid} participant={p} />)}
-          </div>
-        )}
+          {remoteParticipants.length === 0 ? (
+            <div style={styles.remotePlaceholder}>
+              <span style={styles.remotePlaceholderIcon}>📡</span>
+              <p style={styles.remoteHint}>Waiting for others to join…</p>
+              <p style={styles.remoteHintSmall}>You are connected · share the class link to invite students</p>
+            </div>
+          ) : (
+            <div style={styles.participantGrid}>
+              {remoteParticipants.map((p) => <RemoteTile key={p.sid} participant={p} useContain={isMobileLayout} />)}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Local camera picture-in-picture ── */}
-      <div style={styles.localVideoWrapper}>
+      <div
+        style={{
+          ...styles.localVideoWrapper,
+          left: (chatOpen || participantsOpen) ? styles.localVideoLeftCompact : styles.localVideoLeft,
+        }}
+      >
         <video
           ref={localVideoRef}
           autoPlay
           muted
           playsInline
-          style={{ ...styles.localVideo, opacity: camOn ? 1 : 0.2 }}
+          style={{ ...styles.localVideo, objectFit: isMobileLayout ? 'contain' : styles.localVideo.objectFit, opacity: camOn ? 1 : 0.2 }}
         />
         <div style={styles.localLabel}>You {camOn ? '' : '(cam off)'}</div>
       </div>
@@ -401,17 +449,25 @@ const ClassRoomPage = () => {
             <>
               <div style={styles.messages}>
                 {messages.length === 0 && <p style={styles.noMessages}>No messages yet</p>}
-                {messages.map((m) => (
-                  <div key={m.id} style={styles.message}>
-                    <span style={styles.msgAuthor}>{m.author}</span>
-                    <span style={styles.msgTime}>{m.time}</span>
-                    <p style={styles.msgText}>{m.text}</p>
-                  </div>
-                ))}
+                {messages.map((m) => {
+                  const isMine = m.author === 'You' || m.author === displayName;
+                  return (
+                    <div key={m.id} style={{ ...styles.messageRow, justifyContent: isMine ? 'flex-end' : 'flex-start' }}>
+                      {!isMine && <span style={styles.msgAvatar}>{getInitials(m.author)}</span>}
+                      <div style={{ ...styles.msgBubble, ...(isMine ? styles.msgBubbleMine : styles.msgBubbleOther) }}>
+                        <div style={styles.msgMeta}>
+                          <span style={styles.msgAuthor}>{isMine ? 'You' : m.author}</span>
+                          <span style={styles.msgTime}>{m.time}</span>
+                        </div>
+                        <p style={styles.msgText}>{m.text}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               <form onSubmit={sendChat} style={styles.chatForm}>
                 <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message…" style={styles.chatInput} />
-                <button type="submit" style={styles.sendBtn}>Send</button>
+                <button type="submit" aria-label="Send message" style={styles.sendIconBtn}><MdSend size={18} /></button>
               </form>
             </>
           )}
@@ -494,26 +550,65 @@ const ClassRoomPage = () => {
 
       {/* ── Controls bar ── */}
       <div style={styles.controls}>
+        <div style={{ ...styles.controlsSideSlot, width: controlsActionSlotWidth }} />
         {/* Centred pill grouping the main control buttons */}
-        <div style={styles.controlsPill}>
-          <ControlBtn onClick={toggleMic} active={micOn} icon={micOn ? <MdMic size={22} /> : <MdMicOff size={22} />} label={micOn ? 'Mute' : 'Unmute'} />
-          <ControlBtn onClick={toggleCam} active={camOn} icon={camOn ? <MdVideocam size={22} /> : <MdVideocamOff size={22} />} label={camOn ? 'Cam Off' : 'Cam On'} />
-          <ControlBtn onClick={toggleScreenShare} active={sharing} icon={sharing ? <MdStopScreenShare size={22} /> : <MdScreenShare size={22} />} label={sharing ? 'Stop Share' : 'Share Screen'} />
-          <ControlBtn onClick={toggleBlur} active={blurEnabled} icon={blurEnabled ? <MdBlurOff size={22} /> : <MdBlurOn size={22} />} label={blurEnabled ? 'Blur Off' : 'Blur BG'} />
-          <ControlBtn onClick={() => { setChatOpen(!chatOpen); setParticipantsOpen(false); }} active={chatOpen} icon={<MdChat size={22} />} label="Chat" />
-          {isTeacher && (
-            <ControlBtn onClick={toggleParticipants} active={participantsOpen} icon={<MdPeople size={22} />} label="Students" />
-          )}
+        <div style={styles.controlsCenter}>
+          <div style={styles.controlsPill}>
+            <ControlBtn compact={isCompactMobile} onClick={toggleMic} active={micOn} icon={micOn ? <MdMic size={18} /> : <MdMicOff size={18} />} label={micOn ? 'Mute' : 'Unmute'} />
+            <ControlBtn compact={isCompactMobile} onClick={toggleCam} active={camOn} icon={camOn ? <MdVideocam size={18} /> : <MdVideocamOff size={18} />} label={camOn ? 'Cam Off' : 'Cam On'} />
+            <ControlBtn compact={isCompactMobile} onClick={toggleScreenShare} active={sharing} icon={sharing ? <MdStopScreenShare size={18} /> : <MdScreenShare size={18} />} label={sharing ? 'Stop Share' : 'Share Screen'} />
+            <ControlBtn compact={isCompactMobile} onClick={toggleBlur} active={blurEnabled} icon={blurEnabled ? <MdBlurOff size={18} /> : <MdBlurOn size={18} />} label={blurEnabled ? 'Blur Off' : 'Blur BG'} />
+            <ControlBtn compact={isCompactMobile} onClick={() => { setChatOpen(!chatOpen); setParticipantsOpen(false); }} active={chatOpen} icon={<MdChat size={18} />} label="Chat" />
+            {isTeacher && (
+              <ControlBtn compact={isCompactMobile} onClick={toggleParticipants} active={participantsOpen} icon={<MdPeople size={18} />} label="Students" />
+            )}
+          </div>
         </div>
         {/* Leave / End buttons — right-aligned */}
-        <div style={{ position: 'absolute', right: SPACING[4], display: 'flex', gap: SPACING[2] }}>
+        <div
+          style={{
+            ...styles.controlsActions,
+            width: controlsActionSlotWidth,
+            marginRight: isCompactMobile ? 12 : 20,
+          }}
+        >
           {isTeacher ? (
             <>
-              <button onClick={handleLeave} style={styles.leaveBtn}><MdExitToApp size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />Leave</button>
-              <button onClick={handleEndClass} style={styles.endBtn}><MdStop size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />End Class</button>
+              <button
+                onClick={handleLeave}
+                onMouseEnter={() => setHoveredAction('leave')}
+                onMouseLeave={() => setHoveredAction('')}
+                style={{
+                  ...styles.leaveBtn,
+                  ...(hoveredAction === 'leave' ? styles.actionBtnHover : {}),
+                }}
+              >
+                <MdExitToApp size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />Leave
+              </button>
+              <button
+                onClick={handleEndClass}
+                onMouseEnter={() => setHoveredAction('end')}
+                onMouseLeave={() => setHoveredAction('')}
+                style={{
+                  ...styles.endBtn,
+                  ...(hoveredAction === 'end' ? styles.actionBtnHover : {}),
+                }}
+              >
+                <MdStop size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />End Class
+              </button>
             </>
           ) : (
-            <button onClick={handleLeave} style={styles.leaveBtn}><MdExitToApp size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />Leave</button>
+            <button
+              onClick={handleLeave}
+              onMouseEnter={() => setHoveredAction('leave')}
+              onMouseLeave={() => setHoveredAction('')}
+              style={{
+                ...styles.leaveBtn,
+                ...(hoveredAction === 'leave' ? styles.actionBtnHover : {}),
+              }}
+            >
+              <MdExitToApp size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />Leave
+            </button>
           )}
         </div>
       </div>
@@ -521,36 +616,49 @@ const ClassRoomPage = () => {
   );
 };
 
-const ControlBtn = ({ onClick, active, icon, label }) => (
-  <button
-    onClick={onClick}
-    style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 3,
-      padding: `${SPACING[2]} ${SPACING[3]}`,
-      background: active ? 'rgba(176,97,206,0.35)' : 'rgba(255,255,255,0.08)',
-      border: `1px solid ${active ? 'rgba(176,97,206,0.6)' : 'rgba(255,255,255,0.12)'}`,
-      borderRadius: BORDER_RADIUS.lg,
-      color: active ? '#D8AAEE' : 'rgba(255,255,255,0.88)',
-      cursor: 'pointer',
-      fontSize: FONT_SIZES.xs,
-      minWidth: 60,
-      fontWeight: active ? FONT_WEIGHTS.semibold : FONT_WEIGHTS.medium,
-    }}
-  >
-    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24 }}>{icon}</span>
-    <span>{label}</span>
-  </button>
-);
+const ControlBtn = ({ onClick, active, icon, label, compact = false }) => {
+  const [hovered, setHovered] = useState(false);
 
-const getStyles = () => ({
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: compact ? 6 : 8,
+        padding: compact ? `0 ${SPACING[2]}` : `0 ${SPACING[3]}`,
+        background: active ? 'rgba(58,78,130,0.6)' : 'rgba(25,31,55,0.82)',
+        border: `1px solid ${active ? 'rgba(160,188,255,0.6)' : 'rgba(255,255,255,0.18)'}`,
+        borderRadius: 14,
+        color: active ? '#ffffff' : 'rgba(245,248,255,0.95)',
+        cursor: 'pointer',
+        fontSize: FONT_SIZES.xs,
+        minWidth: compact ? 82 : 98,
+        height: compact ? 38 : 42,
+        fontWeight: active ? FONT_WEIGHTS.semibold : FONT_WEIGHTS.medium,
+        whiteSpace: 'nowrap',
+        transition: 'all 140ms ease',
+        boxShadow: active ? '0 6px 14px rgba(18,24,46,0.3)' : '0 4px 10px rgba(7,10,24,0.2)',
+        transform: hovered ? 'translateY(-1px)' : 'translateY(0)',
+        filter: hovered ? 'brightness(1.06)' : 'none',
+      }}
+    >
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 18, width: 18 }}>{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+};
+
+const getStyles = (compact = false) => ({
   room: {
     display: 'flex',
     flexDirection: 'row',
     height: '100vh',
-    background: '#1a1a2e',
+    background: COLORS.background.gradient,
     color: '#fff',
     position: 'relative',
     overflow: 'hidden',
@@ -561,25 +669,41 @@ const getStyles = () => ({
     top: 0,
     left: 0,
     right: 0,
-    height: 56,
-    background: 'rgba(8,8,20,0.92)',
+    height: 62,
+    background: 'rgba(255,255,255,0.12)',
     backdropFilter: 'blur(14px)',
-    borderBottom: '1px solid rgba(255,255,255,0.1)',
+    borderBottom: '1px solid rgba(255,255,255,0.18)',
+    boxShadow: '0 10px 24px rgba(63, 46, 132, 0.14)',
     display: 'flex',
     alignItems: 'center',
-    gap: SPACING[3],
+    gap: SPACING[2],
     padding: `0 ${SPACING[5]}`,
     zIndex: 25,
   },
+  headerMain: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 2,
+    flex: 1,
+  },
   headerTitle: {
-    fontSize: FONT_SIZES.base,
+    fontSize: 'clamp(14px, 1.2vw, 17px)',
     fontWeight: FONT_WEIGHTS.semibold,
     color: '#fff',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
+  headerMeta: {
+    fontSize: 'clamp(10px, 0.8vw, 12px)',
+    color: 'rgba(255,255,255,0.72)',
+    whiteSpace: 'nowrap',
+  },
   liveBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
     background: 'rgba(34,197,94,0.18)',
     border: '1px solid rgba(34,197,94,0.45)',
     borderRadius: 999,
@@ -589,40 +713,79 @@ const getStyles = () => ({
     padding: '3px 10px',
     flexShrink: 0,
   },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    background: '#4ade80',
+    boxShadow: '0 0 0 5px rgba(74,222,128,0.12)',
+  },
   participantBadge: {
     display: 'flex',
     alignItems: 'center',
     gap: 4,
-    background: 'rgba(255,255,255,0.1)',
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.16)',
     borderRadius: 999,
     padding: '3px 10px',
-    fontSize: FONT_SIZES.xs,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 'clamp(10px, 0.8vw, 12px)',
+    color: 'rgba(255,255,255,0.9)',
     flexShrink: 0,
   },
   main: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    padding: SPACING[4],
-    gap: SPACING[4],
-    paddingTop: 68, // header (56) + gap (12)
-    paddingBottom: 90, // controls bar height
+    padding: compact ? SPACING[2] : SPACING[4],
+    gap: SPACING[3],
+    paddingTop: 74, // header + gap
+    paddingBottom: compact ? 84 : 90, // controls bar height
     overflow: 'hidden',
+  },
+  videoStage: {
+    width: '100%',
+    maxWidth: 'min(1220px, 100%)',
+    margin: '0 auto',
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING[3],
+    padding: compact ? '8px' : 'clamp(8px, 1.3vw, 16px)',
+    borderRadius: BORDER_RADIUS['2xl'],
+    background: 'rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    boxShadow: '0 18px 42px rgba(63, 46, 132, 0.16)',
+    backdropFilter: 'blur(18px)',
+    overflow: 'hidden',
+  },
+  participantGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))',
+    gap: SPACING[3],
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    paddingRight: SPACING[2],
+    alignContent: 'start',
   },
   // ── PIP — moved to bottom-LEFT above controls ──
   localVideoWrapper: {
     position: 'fixed',
-    bottom: 96,
+    bottom: compact ? 86 : 92,
     left: SPACING[4],
-    width: 180,
+    width: compact ? 'clamp(108px, 30vw, 142px)' : 'clamp(132px, 18vw, 208px)',
     aspectRatio: '16/9',
     borderRadius: BORDER_RADIUS.xl,
     overflow: 'hidden',
-    background: '#111',
-    boxShadow: '0 0 0 2px rgba(176,97,206,0.7), 0 4px 20px rgba(0,0,0,0.6)',
-    zIndex: 10,
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.22)',
+    boxShadow: '0 0 0 2px rgba(255,255,255,0.16), 0 10px 28px rgba(63, 46, 132, 0.18)',
+    backdropFilter: 'blur(16px)',
+    zIndex: 15,
   },
+  localVideoLeft: compact ? SPACING[2] : SPACING[4],
+  localVideoLeftCompact: compact ? SPACING[1] : SPACING[3],
   localVideo: {
     width: '100%',
     height: '100%',
@@ -645,21 +808,28 @@ const getStyles = () => ({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(176,97,206,0.06)',
+    background: 'radial-gradient(circle at 50% 35%, rgba(176,97,206,0.16), rgba(176,97,206,0.04) 55%, rgba(255,255,255,0.01) 100%)',
     borderRadius: BORDER_RADIUS['2xl'],
-    border: '1px dashed rgba(176,97,206,0.35)',
+    border: '1px dashed rgba(176,97,206,0.42)',
     gap: SPACING[3],
     padding: SPACING[8],
     textAlign: 'center',
   },
-  remoteHint: { color: 'rgba(255,255,255,0.8)', fontSize: FONT_SIZES.base, margin: 0, fontWeight: FONT_WEIGHTS.medium },
-  remoteHintSmall: { color: 'rgba(255,255,255,0.45)', fontSize: FONT_SIZES.xs, margin: 0 },
+  remotePlaceholderIcon: {
+    fontSize: 'clamp(42px, 5vw, 62px)',
+    lineHeight: 1,
+    filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.35))',
+  },
+  remoteHint: { color: 'rgba(255,255,255,0.9)', fontSize: 'clamp(16px, 2vw, 22px)', margin: 0, fontWeight: FONT_WEIGHTS.semibold },
+  remoteHintSmall: { color: 'rgba(255,255,255,0.78)', fontSize: 'clamp(12px, 1.2vw, 14px)', margin: 0, maxWidth: 460 },
   sidebar: {
     width: 300,
-    background: '#16213e',
+    background: 'rgba(255,255,255,0.1)',
     display: 'flex',
     flexDirection: 'column',
-    borderLeft: '1px solid rgba(255,255,255,0.1)',
+    borderLeft: '1px solid rgba(255,255,255,0.18)',
+    boxShadow: '-14px 0 30px rgba(63, 46, 132, 0.12)',
+    backdropFilter: 'blur(18px)',
     paddingBottom: 90,
   },
   sidebarHeader: {
@@ -667,9 +837,9 @@ const getStyles = () => ({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: SPACING[4],
-    borderBottom: '1px solid rgba(255,255,255,0.1)',
+    borderBottom: '1px solid rgba(255,255,255,0.12)',
   },
-  sidebarTitle: { fontWeight: FONT_WEIGHTS.semibold, fontSize: FONT_SIZES.base },
+  sidebarTitle: { fontWeight: FONT_WEIGHTS.semibold, fontSize: 'clamp(14px, 1vw, 16px)' },
   closeBtn: {
     background: 'none',
     border: 'none',
@@ -677,8 +847,22 @@ const getStyles = () => ({
     cursor: 'pointer',
     fontSize: 18,
   },
-  messages: { flex: 1, overflowY: 'auto', padding: SPACING[3], display: 'flex', flexDirection: 'column', gap: SPACING[3] },
-  noMessages: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm, textAlign: 'center', marginTop: SPACING[4] },
+  messages: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: SPACING[3],
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING[3],
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.005))',
+  },
+  messageRow: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: 8,
+    width: '100%',
+  },
+  noMessages: { color: 'rgba(255,255,255,0.62)', fontSize: FONT_SIZES.sm, textAlign: 'center', marginTop: SPACING[4] },
   // ── Chat bubble styles ──
   msgAvatar: {
     width: 30, height: 30, borderRadius: '50%',
@@ -686,8 +870,15 @@ const getStyles = () => ({
     fontSize: 11, fontWeight: FONT_WEIGHTS.bold, color: '#fff', flexShrink: 0,
   },
   msgAuthor: { fontWeight: FONT_WEIGHTS.semibold, fontSize: 11 },
-  msgTime: { fontSize: 10, color: 'rgba(255,255,255,0.4)' },
-  msgBubble: { borderRadius: 16, padding: '8px 12px', fontSize: FONT_SIZES.sm, wordBreak: 'break-word', lineHeight: 1.45 },
+  msgTime: { fontSize: 10, color: 'rgba(255,255,255,0.62)' },
+  msgMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 4,
+  },
+  msgBubble: { borderRadius: 16, padding: '8px 12px', fontSize: FONT_SIZES.sm, wordBreak: 'break-word', lineHeight: 1.45, maxWidth: '80%' },
   msgBubbleMine: {
     background: 'rgba(176,97,206,0.4)', border: '1px solid rgba(176,97,206,0.5)',
     borderRadius: '16px 16px 4px 16px',
@@ -696,19 +887,32 @@ const getStyles = () => ({
     background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '16px 16px 16px 4px',
   },
-  chatForm: { display: 'flex', alignItems: 'center', padding: SPACING[3], gap: SPACING[2], borderTop: '1px solid rgba(255,255,255,0.1)' },
+  msgText: { margin: 0, color: 'rgba(255,255,255,0.95)', fontSize: FONT_SIZES.sm, lineHeight: 1.45, wordBreak: 'break-word' },
+  chatForm: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: SPACING[3],
+    gap: SPACING[2],
+    borderTop: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.08)',
+  },
   emojiBtn: {
     background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '0 4px', flexShrink: 0,
   },
   chatInput: {
-    flex: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+    flex: 1,
+    background: 'rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.22)',
     borderRadius: BORDER_RADIUS.lg, padding: `${SPACING[2]} ${SPACING[3]}`,
-    color: '#fff', fontSize: FONT_SIZES.sm, outline: 'none',
+    color: '#fff',
+    fontSize: FONT_SIZES.sm,
+    outline: 'none',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
   },
   sendIconBtn: {
-    background: COLORS.primary, border: 'none', borderRadius: '50%',
+    background: 'linear-gradient(135deg, #bb74ea, #9a58cb)', border: '1px solid rgba(176,97,206,0.5)', borderRadius: '50%',
     color: '#fff', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', flexShrink: 0,
+    cursor: 'pointer', flexShrink: 0, boxShadow: '0 8px 16px rgba(156,97,214,0.28)',
   },
   // kept for modal
   sendBtn: {
@@ -718,65 +922,111 @@ const getStyles = () => ({
   participantList: { flex: 1, overflowY: 'auto', padding: SPACING[3], display: 'flex', flexDirection: 'column', gap: SPACING[2] },
   participantRow: {
     display: 'flex', justifyContent: 'space-between', padding: SPACING[3],
-    background: 'rgba(255,255,255,0.06)', borderRadius: BORDER_RADIUS.lg,
+    background: 'rgba(255,255,255,0.1)', borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(255,255,255,0.14)',
+    boxShadow: '0 8px 18px rgba(63, 46, 132, 0.08)',
   },
   participantName: { fontSize: FONT_SIZES.sm },
-  participantDur: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.5)' },
+  participantDur: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.72)' },
   controls: {
     position: 'fixed',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
-    background: 'rgba(8,8,20,0.96)',
+    height: compact ? 74 : 80,
+    background: 'rgba(255,255,255,0.12)',
     backdropFilter: 'blur(16px)',
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto 1fr',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: `0 ${SPACING[4]}`,
+    padding: compact ? `0 ${SPACING[2]}` : `0 ${SPACING[4]}`,
     zIndex: 20,
-    borderTop: '1px solid rgba(176,97,206,0.2)',
+    borderTop: '1px solid rgba(255,255,255,0.18)',
+    boxShadow: '0 -10px 28px rgba(63, 46, 132, 0.14)',
+  },
+  controlsSideSlot: {
+    justifySelf: 'start',
+    height: 1,
+  },
+  controlsCenter: {
+    justifySelf: 'center',
   },
   // Glassmorphism pill wrapping the main control buttons
   controlsPill: {
     display: 'flex',
-    gap: SPACING[1],
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.14)',
+    gap: compact ? 8 : 12,
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))',
+    border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: 999,
-    padding: `${SPACING[1]} ${SPACING[2]}`,
+    padding: compact ? '6px 8px' : '8px 14px',
     backdropFilter: 'blur(8px)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.24)',
+  },
+  controlsActions: {
+    justifySelf: 'end',
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: compact ? 8 : 10,
+  },
+  actionBtnHover: {
+    transform: 'translateY(-1px)',
+    filter: 'brightness(1.06)',
   },
   endBtn: {
-    background: COLORS.status.error,
-    border: 'none',
-    borderRadius: BORDER_RADIUS.lg,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(135deg, #ff4f7c, #ff2f5f)',
+    border: '1px solid rgba(255,120,150,0.55)',
+    borderRadius: 14,
     color: '#fff',
-    padding: `${SPACING[2]} ${SPACING[5]}`,
+    padding: `0 ${SPACING[4]}`,
+    height: 42,
+    minWidth: compact ? 104 : 118,
     fontWeight: FONT_WEIGHTS.semibold,
     fontSize: FONT_SIZES.sm,
     cursor: 'pointer',
-    marginLeft: SPACING[4],
+    transition: 'all 140ms ease',
+    boxShadow: '0 8px 20px rgba(255,47,95,0.26)',
   },
   leaveBtn: {
-    background: 'rgba(255,255,255,0.1)',
-    border: '1px solid rgba(255,255,255,0.2)',
-    borderRadius: BORDER_RADIUS.lg,
-    color: '#fff',
-    padding: `${SPACING[2]} ${SPACING[5]}`,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    borderRadius: 14,
+    color: 'rgba(245,248,255,0.94)',
+    padding: `0 ${SPACING[4]}`,
+    height: 42,
+    minWidth: compact ? 92 : 104,
     fontSize: FONT_SIZES.sm,
     cursor: 'pointer',
-    marginLeft: SPACING[4],
+    transition: 'all 140ms ease',
+    boxShadow: '0 5px 14px rgba(7,10,24,0.22)',
   },
   fullscreen: {
     minHeight: '100vh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: '#1a1a2e',
+    background: COLORS.background.gradient,
     color: '#fff',
+    padding: SPACING[4],
   },
-  loadingBox: { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SPACING[4] },
+  loadingBox: {
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: SPACING[4],
+    padding: 0,
+    background: 'transparent',
+    border: 'none',
+    boxShadow: 'none',
+    backdropFilter: 'none',
+    minWidth: 0,
+  },
   spinner: {
     width: 40, height: 40,
     border: '3px solid rgba(255,255,255,0.2)',
@@ -784,10 +1034,18 @@ const getStyles = () => ({
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
   },
-  loadingText: { color: 'rgba(255,255,255,0.7)', fontSize: FONT_SIZES.base },
-  errorBox: { textAlign: 'center', maxWidth: 400, padding: SPACING[8] },
+  loadingText: { color: 'rgba(255,255,255,0.86)', fontSize: FONT_SIZES.base },
+  errorBox: {
+    ...MIXINS.glassmorphicCard,
+    textAlign: 'center',
+    maxWidth: 420,
+    width: '100%',
+    padding: SPACING[8],
+    borderRadius: BORDER_RADIUS['2xl'],
+    boxShadow: '0 20px 48px rgba(63, 46, 132, 0.16)',
+  },
   errorTitle: { fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.status.error },
-  errorMsg: { color: 'rgba(255,255,255,0.7)', fontSize: FONT_SIZES.sm },
+  errorMsg: { color: 'rgba(255,255,255,0.86)', fontSize: FONT_SIZES.sm },
   backBtn: {
     background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
     borderRadius: BORDER_RADIUS.lg, color: '#fff', padding: `${SPACING[3]} ${SPACING[6]}`,
@@ -798,15 +1056,15 @@ const getStyles = () => ({
     top: 20,
     left: '50%',
     transform: 'translateX(-50%)',
-    background: 'rgba(22,33,62,0.96)',
-    border: '1px solid rgba(176,97,206,0.5)',
+    background: 'rgba(255,255,255,0.14)',
+    border: '1px solid rgba(255,255,255,0.2)',
     borderRadius: BORDER_RADIUS.lg,
     color: '#fff',
     padding: `${SPACING[3]} ${SPACING[5]}`,
     fontSize: FONT_SIZES.sm,
     zIndex: 100,
-    backdropFilter: 'blur(8px)',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+    backdropFilter: 'blur(12px)',
+    boxShadow: '0 8px 24px rgba(63, 46, 132, 0.14)',
     whiteSpace: 'nowrap',
     pointerEvents: 'none',
   },
@@ -821,18 +1079,19 @@ const getStyles = () => ({
     backdropFilter: 'blur(4px)',
   },
   modal: {
-    background: '#16213e',
-    border: '1px solid rgba(176,97,206,0.4)',
+    background: 'rgba(255,255,255,0.14)',
+    border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING[6],
     maxWidth: 360,
     width: '90%',
     color: '#fff',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    boxShadow: '0 20px 42px rgba(63, 46, 132, 0.18)',
+    backdropFilter: 'blur(16px)',
   },
   studentCtrlBtn: {
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.2)',
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: BORDER_RADIUS.md,
     color: 'rgba(255,255,255,0.85)',
     padding: `${SPACING[1]} ${SPACING[2]}`,

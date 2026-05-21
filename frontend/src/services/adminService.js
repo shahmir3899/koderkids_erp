@@ -77,6 +77,7 @@ export const getAdminProfile = async (bypassCache = false) => {
       `${API_URL}/employees/admin/profile/`,
       {
         headers: getAuthHeaders(),
+        timeout: 8000,
       }
     );
 

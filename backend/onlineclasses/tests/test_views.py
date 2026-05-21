@@ -144,6 +144,102 @@ class SessionListCreateTest(TestCase):
         self.assertEqual(len(resp.data), 1)
         self.assertEqual(resp.data[0]['school'], self.other_school.id)
 
+    def test_admin_can_create_session_for_selected_teacher(self):
+        _auth(self.client, self.admin)
+        data = {
+            'title': 'Admin Planned Class',
+            'teacher': self.teacher.id,
+            'school': self.school.id,
+            'scheduled_at': timezone.now().isoformat(),
+            'duration_mins': 45,
+            'recording_enabled': False,
+            'chat_enabled': True,
+        }
+        with patch('onlineclasses.views.send_class_reminder') as mock_task:
+            mock_task.apply_async = MagicMock()
+            resp = self.client.post(self.url, data, format='json')
+
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['teacher'], self.teacher.id)
+
+
+class SessionBulkCreateTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.school = _make_school()
+        self.teacher = _make_teacher('bulk-teacher', self.school)
+        self.admin = _make_admin('bulk-admin')
+        self.url = '/api/onlineclasses/sessions/bulk/'
+
+    def test_teacher_bulk_dry_run_returns_generated_dates(self):
+        _auth(self.client, self.teacher)
+        data = {
+            'title': 'Bulk Plan',
+            'school': self.school.id,
+            'duration_mins': 60,
+            'bulk_classes_count': 8,
+            'bulk_weekdays': ['Mon', 'Wed'],
+            'bulk_start_date': timezone.localdate().isoformat(),
+            'bulk_time': '10:00',
+            'dry_run': True,
+        }
+
+        resp = self.client.post(self.url, data, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['dry_run'], True)
+        self.assertEqual(resp.data['count'], 8)
+        self.assertEqual(len(resp.data['generated_dates']), 8)
+
+    def test_teacher_bulk_create_persists_sessions(self):
+        _auth(self.client, self.teacher)
+        data = {
+            'title': 'Bulk Live Plan',
+            'school': self.school.id,
+            'duration_mins': 45,
+            'bulk_classes_count': 4,
+            'bulk_weekdays': ['Tue', 'Thu'],
+            'bulk_start_date': timezone.localdate().isoformat(),
+            'bulk_time': '09:30',
+            'dry_run': False,
+        }
+
+        with patch('onlineclasses.views.send_class_reminder') as reminder_task, patch(
+            'onlineclasses.views.auto_start_session'
+        ) as start_task, patch('onlineclasses.views.auto_end_session') as end_task:
+            reminder_task.apply_async = MagicMock()
+            start_task.apply_async = MagicMock()
+            end_task.apply_async = MagicMock()
+            resp = self.client.post(self.url, data, format='json')
+
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['count'], 4)
+        self.assertEqual(len(resp.data['sessions']), 4)
+        self.assertEqual(OnlineClassSession.objects.filter(teacher=self.teacher).count(), 4)
+
+    def test_admin_bulk_create_for_selected_teacher(self):
+        _auth(self.client, self.admin)
+        data = {
+            'title': 'Admin Bulk Plan',
+            'teacher': self.teacher.id,
+            'school': self.school.id,
+            'duration_mins': 45,
+            'bulk_classes_count': 2,
+            'bulk_weekdays': ['Fri'],
+            'bulk_start_date': timezone.localdate().isoformat(),
+            'bulk_time': '11:00',
+        }
+
+        with patch('onlineclasses.views.send_class_reminder') as reminder_task, patch(
+            'onlineclasses.views.auto_start_session'
+        ) as start_task, patch('onlineclasses.views.auto_end_session') as end_task:
+            reminder_task.apply_async = MagicMock()
+            start_task.apply_async = MagicMock()
+            end_task.apply_async = MagicMock()
+            resp = self.client.post(self.url, data, format='json')
+
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(all(s['teacher'] == self.teacher.id for s in resp.data['sessions']))
+
 
 # ---------------------------------------------------------------------------
 # Session detail
@@ -180,6 +276,89 @@ class SessionDetailTest(TestCase):
         resp = self.client.delete(self.url)
         self.assertEqual(resp.status_code, 204)
         self.assertEqual(OnlineClassSession.objects.count(), 0)
+
+    def test_delete_non_scheduled_session_is_blocked(self):
+        self.session.status = OnlineClassSession.STATUS_ENDED
+        self.session.save(update_fields=['status'])
+        _auth(self.client, self.teacher)
+        resp = self.client.delete(self.url)
+        self.assertEqual(resp.status_code, 400)
+
+
+class SessionDeletePastTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.school = _make_school()
+        self.teacher = _make_teacher('past-teacher', self.school)
+        self.other_teacher = _make_teacher('past-other-teacher', self.school)
+        self.admin = _make_admin('past-admin')
+        self.ended_session = _make_session(
+            self.teacher,
+            self.school,
+            title='Ended Session',
+            status=OnlineClassSession.STATUS_ENDED,
+        )
+        self.cancelled_session = _make_session(
+            self.teacher,
+            self.school,
+            title='Cancelled Session',
+            status=OnlineClassSession.STATUS_CANCELLED,
+        )
+        self.scheduled_session = _make_session(
+            self.teacher,
+            self.school,
+            title='Scheduled Session',
+            status=OnlineClassSession.STATUS_SCHEDULED,
+        )
+        self.live_session = _make_session(
+            self.teacher,
+            self.school,
+            title='Live Session',
+            status=OnlineClassSession.STATUS_LIVE,
+        )
+
+    def _url(self, session_id):
+        return f'/api/onlineclasses/sessions/{session_id}/delete-past/'
+
+    def test_admin_can_delete_ended_session(self):
+        _auth(self.client, self.admin)
+        resp = self.client.post(self._url(self.ended_session.id))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['deleted_session_id'], self.ended_session.id)
+        self.assertFalse(OnlineClassSession.objects.filter(id=self.ended_session.id).exists())
+
+    def test_admin_can_delete_cancelled_session(self):
+        _auth(self.client, self.admin)
+        resp = self.client.post(self._url(self.cancelled_session.id))
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(OnlineClassSession.objects.filter(id=self.cancelled_session.id).exists())
+
+    def test_teacher_can_delete_own_ended_session(self):
+        _auth(self.client, self.teacher)
+        resp = self.client.post(self._url(self.ended_session.id))
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(OnlineClassSession.objects.filter(id=self.ended_session.id).exists())
+
+    def test_teacher_cannot_delete_other_teachers_ended_session(self):
+        session = _make_session(
+            self.other_teacher,
+            self.school,
+            title='Other Ended',
+            status=OnlineClassSession.STATUS_ENDED,
+        )
+        _auth(self.client, self.teacher)
+        resp = self.client.post(self._url(session.id))
+        self.assertEqual(resp.status_code, 403)
+
+    def test_delete_past_denied_for_scheduled(self):
+        _auth(self.client, self.admin)
+        resp = self.client.post(self._url(self.scheduled_session.id))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_delete_past_denied_for_live(self):
+        _auth(self.client, self.admin)
+        resp = self.client.post(self._url(self.live_session.id))
+        self.assertEqual(resp.status_code, 400)
 
 
 # ---------------------------------------------------------------------------

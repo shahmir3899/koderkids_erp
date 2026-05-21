@@ -16,6 +16,7 @@ export const getBDMProfile = async () => {
 
     const response = await axios.get(`${API_URL}/employees/bdm/profile/`, {
       headers: getAuthHeaders(),
+      timeout: 8000,
     });
 
     console.log('✅ BDM profile loaded:', response.data);

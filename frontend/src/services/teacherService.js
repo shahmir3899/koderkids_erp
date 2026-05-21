@@ -98,6 +98,7 @@ export const getTeacherProfile = async (bypassCache = false) => {
     console.log('🌐 Fetching teacher profile from API...');
     const response = await axios.get(`${EMPLOYEES_URL}/teacher/profile/`, {
       headers: getAuthHeaders(),
+      timeout: 8000,
     });
     console.log('✅ Teacher profile fetched:', response.data);
 

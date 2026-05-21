@@ -11,6 +11,44 @@ This document explains how the online classes system is structured in the codeba
 
 ---
 
+## Recent Implementation Update (This Chat)
+
+The online classes scheduling and reliability flow was updated and validated in this session.
+
+### Implemented scheduling and reliability updates
+
+- Added loader reliability hardening for route changes and slow mobile networks:
+  - route navigation now arms request lifecycle instead of forcing loader visible state
+  - global loader watchdog auto-clears stuck state after a hard timeout
+  - online class service calls now include fetch timeout/abort handling
+  - teacher page session loading uses partial-tolerant `Promise.allSettled`
+- Added bulk session creation support:
+  - new backend endpoint: `POST /api/onlineclasses/sessions/bulk/`
+  - dry-run support for generated schedule preview
+  - frontend `CreateClassPage` now supports a bulk mode for monthly plans
+- Added teacher ownership refinement for admin scheduling:
+  - admin can create sessions under a selected teacher
+  - selected teacher must be assigned to the chosen school
+  - frontend `CreateClassPage` includes admin-only teacher selector
+
+### Existing classroom features kept
+
+- Background blur processing (`@livekit/track-processors`)
+- Teacher to student remote-control actions over LiveKit data channel
+- Screen-share request modal workflow
+- Toast feedback for incoming teacher actions
+
+### Validation outcome
+
+- Backend targeted online classes view tests passed:
+  - `SessionListCreateTest` and `SessionDetailTest`: all passing
+  - new `SessionBulkCreateTest`: passing
+- Frontend targeted online classes tests passed after test mock updates:
+  - `onlineClassService.test.js`: passing
+  - `CreateClassPage.test.js`: passing
+
+---
+
 ## High-Level Finding
 
 The online classes feature is not a completely isolated module. It is a connected system made of **6 parts**:
@@ -174,6 +212,7 @@ This is the core class creation module. It schedules the online session itself.
 ### API endpoints
 
 - `GET/POST /api/onlineclasses/sessions/`
+- `POST /api/onlineclasses/sessions/bulk/`
 - `GET/PATCH/DELETE /api/onlineclasses/sessions/{id}/`
 - `POST /api/onlineclasses/sessions/{id}/start/`
 - `POST /api/onlineclasses/sessions/{id}/end/`
@@ -186,17 +225,25 @@ This is the core class creation module. It schedules the online session itself.
 
 ### Current implementation detail
 
-The model supports both:
+The model supports:
 
 - `time_slot`
 - `selected_students`
+- recurrence metadata fields
 
-But the current create/edit frontend only sends school, schedule, recurrence, and session options. It does **not** currently expose time slot selection or selected-student selection in the class creation UI.
+The current `CreateClassPage` exposes:
+
+- school selection
+- optional time slot selection
+- optional selected-student invitation list
+- single-session scheduling
+- bulk monthly scheduling mode (date/time/weekdays/count)
+- admin-only optional teacher assignment for ownership
 
 That means:
 
-- the data model supports more targeted class assignment
-- the active scheduling UI is currently school-based
+- targeted class assignment is supported in both backend and active UI
+- monthly class planning no longer requires one-by-one manual creation
 
 ### Important connection
 
@@ -204,6 +251,7 @@ Teacher assignment to school is enforced here:
 
 - teachers can only create sessions for schools in `assigned_schools`
 - admins can create across schools
+- admins can assign ownership to a selected teacher (who must be assigned to that school)
 
 So the ownership chain is:
 
@@ -396,9 +444,11 @@ This part converts the live session into durable outputs:
 ### B. Class creation flow
 
 1. Teacher/admin calls `POST /api/onlineclasses/sessions/`
-2. Backend validates school access
-3. Backend saves `OnlineClassSession`
-4. Backend schedules reminder task
+2. Optional bulk flow uses `POST /api/onlineclasses/sessions/bulk/`
+3. Backend validates school access
+4. For admin ownership override, backend validates selected teacher assignment to school
+5. Backend saves one or multiple `OnlineClassSession` rows
+6. Backend schedules reminder and auto start/end tasks
 
 ### C. Live class flow
 
@@ -422,9 +472,107 @@ If you describe this system simply, the most accurate summary is:
 
 - **Student administration is split** between general student management and dedicated ONLINE student management.
 - **Teacher ownership of ONLINE students is mainly done through time slots.**
-- **Online class scheduling is currently school-based in the active UI**, even though the backend model supports more specific targeting through `time_slot` and `selected_students`.
+- **Online class scheduling now supports targeted assignment in active UI** via `time_slot` and `selected_students`, plus bulk monthly scheduling.
+- **Admin scheduling ownership can now be delegated to a teacher**, with school-assignment validation.
 - **Live class execution is centralized in the `onlineclasses` app** with stdlib JWT token generation, real LiveKit WebRTC connection on the frontend, participant tracking, reminders, recordings, and attendance automation.
 - **Session status flow is currently `scheduled -> live -> ended`, with `ended` intended to happen only from an explicit end action, not from browser close or `room_finished`.**
+
+---
+
+## Implementation Checklist: Delete Past Sessions (Admin/Teacher)
+
+Use this checklist to implement and validate safe deletion of past sessions.
+
+### 1) Product Rules
+
+- [ ] Finalize scope: "past session" means `ended` and `cancelled` only.
+- [ ] Keep existing scheduled-session cancel flow separate from past delete flow.
+- [ ] Confirm teacher rule: teacher can delete only own past sessions.
+- [ ] Confirm admin rule: admin can delete any past session.
+- [ ] Confirm guardrail rule: deletion blocked for `scheduled` and `live` sessions.
+- [ ] Confirm confirmation UX: stronger warning when recordings/participants exist.
+
+### 2) Backend API
+
+- [ ] Add endpoint in `backend/onlineclasses/urls.py`:
+  - [ ] `POST /api/onlineclasses/sessions/{id}/delete-past/` (or approved equivalent).
+- [ ] Implement view in `backend/onlineclasses/views.py`:
+  - [ ] fetch session by id
+  - [ ] reject non-past statuses (`scheduled`, `live`)
+  - [ ] allow admin
+  - [ ] allow teacher only if `session.teacher_id == request.user.id`
+  - [ ] return 403 for unauthorized role/ownership
+- [ ] Decide deletion model:
+  - [ ] hard delete now, or
+  - [ ] soft delete (`is_deleted`, `deleted_at`, `deleted_by`) if audit retention is required.
+- [ ] Ensure related data handling is explicit:
+  - [ ] `ClassParticipant`
+  - [ ] `ClassRecording`
+  - [ ] reminder/task side-effects (if applicable)
+- [ ] Return structured response:
+  - [ ] `deleted_session_id`
+  - [ ] `deleted_at`
+  - [ ] `deleted_by`
+  - [ ] optional related-row counts.
+
+### 3) Frontend Service + UI
+
+- [ ] Add service method in `frontend/src/services/onlineClassService.js` for past delete endpoint.
+- [ ] Update actions in `frontend/src/pages/online-classes/TeacherOnlineClassesPage.js`:
+  - [ ] show "Delete" only in Past tab for `ended`/`cancelled`
+  - [ ] keep "Cancel" on scheduled sessions only
+  - [ ] hide/disable delete for unauthorized state
+- [ ] Add two-step confirm dialog/modal:
+  - [ ] confirm delete intent
+  - [ ] show impact warning if recording/participants exist
+- [ ] On success:
+  - [ ] remove deleted row from list
+  - [ ] show success toast
+- [ ] On failure:
+  - [ ] show backend error message in toast/inline alert.
+
+### 4) Security + Audit
+
+- [ ] Enforce authorization server-side regardless of UI state.
+- [ ] Add server log/audit entry for every past delete action.
+- [ ] Verify no student-accessible endpoint allows deletion.
+
+### 5) Test Coverage
+
+#### Backend tests (`backend/onlineclasses/tests/test_views.py`)
+
+- [ ] admin can delete ended session
+- [ ] admin can delete cancelled session
+- [ ] teacher can delete own ended session
+- [ ] teacher cannot delete another teacher's ended session
+- [ ] deletion denied for scheduled session
+- [ ] deletion denied for live session
+- [ ] response payload includes required metadata
+
+#### Frontend tests
+
+- [ ] delete button appears only in valid statuses
+- [ ] delete confirmation flow works
+- [ ] successful delete removes row
+- [ ] error path shows message
+- [ ] scheduled cancel flow still works (no regression)
+
+### 6) Rollout + QA
+
+- [ ] Implement backend + tests first.
+- [ ] Implement frontend + tests second.
+- [ ] Run targeted regression on online classes pages.
+- [ ] Validate role behavior with real Teacher/Admin accounts.
+- [ ] Validate desktop + mobile flows.
+- [ ] Ship behind a feature flag if required by release policy.
+
+### 7) Acceptance Criteria
+
+- [ ] Teacher can delete only own `ended`/`cancelled` sessions.
+- [ ] Admin can delete any `ended`/`cancelled` session.
+- [ ] `scheduled` and `live` cannot be deleted via past-delete endpoint.
+- [ ] UI updates immediately after successful deletion.
+- [ ] New backend and frontend tests pass.
 
 ---
 
@@ -442,10 +590,14 @@ If you describe this system simply, the most accurate summary is:
 - `frontend/src/pages/online-classes/OnlineClassesStudentPage.js`
 - `frontend/src/pages/online-classes/DeviceCheckPage.js`
 - `frontend/src/pages/online-classes/ClassRoomPage.js`
+- `frontend/src/pages/online-classes/ClassRoomPage.test.js`
 - `frontend/src/pages/online-classes/RecordingPlaybackPage.js`
 - `frontend/src/services/onlineClassService.js`
+- `frontend/src/contexts/LoadingContext.js`
+- `frontend/src/utils/axiosInterceptor.js`
 - `frontend/src/services/onlineStudentAdminService.js`
 - `frontend/src/services/teacherOnlineStudentsService.js`
+- `frontend/package.json` (Jest moduleNameMapper compatibility for react-router v7 in CRA/Jest 27)
 
 ### Backend
 

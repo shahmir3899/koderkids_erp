@@ -161,6 +161,7 @@ export const getStudentProfile = async (bypassCache = false) => {
       `${API_URL}/api/students/profile/`,
       {
         headers: getAuthHeaders(),
+        timeout: 8000,
       }
     );
 

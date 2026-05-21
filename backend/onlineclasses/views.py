@@ -4,15 +4,16 @@ import json
 import logging
 import os
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_time
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
-from students.models import School, Student
+from students.models import CustomUser, School, Student
 from .models import ClassParticipant, ClassRecording, OnlineClassSession
 from .permissions import IsTeacherOrAdmin, IsSessionTeacherOrAdmin
 from .serializers import (
@@ -23,6 +24,30 @@ from .serializers import (
 from .tasks import auto_mark_attendance, auto_end_session, auto_start_session, send_class_reminder
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_target_teacher(user, request_data, school):
+    """
+    Resolve the teacher owner for a session create request.
+    - Teacher users always create for themselves.
+    - Admins may optionally pass teacher=<teacher_user_id>.
+    """
+    if user.role != 'Admin':
+        return user, None
+
+    teacher_id = request_data.get('teacher')
+    if not teacher_id:
+        return user, None
+
+    try:
+        teacher_user = CustomUser.objects.get(id=teacher_id, role='Teacher', is_active=True)
+    except CustomUser.DoesNotExist:
+        return None, Response({'error': 'Invalid teacher selected'}, status=400)
+
+    if not teacher_user.assigned_schools.filter(id=school.id).exists():
+        return None, Response({'error': 'Selected teacher is not assigned to this school'}, status=400)
+
+    return teacher_user, None
 
 # ---------------------------------------------------------------------------
 # Helper: generate LiveKit token
@@ -144,18 +169,22 @@ def session_list_create(request):
     if user.role == 'Teacher' and not user.assigned_schools.filter(id=school.id).exists():
         return Response({'error': 'You are not assigned to this school'}, status=403)
 
+    target_teacher, teacher_error = _resolve_target_teacher(user, request.data, school)
+    if teacher_error:
+        return teacher_error
+
     payload = request.data.copy()
-    payload['teacher'] = user.id
+    payload['teacher'] = target_teacher.id
     serializer = OnlineClassSessionSerializer(data=payload)
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
 
-    session = serializer.save(teacher=user)
+    session = serializer.save(teacher=target_teacher)
 
     # Validate teacher owns the time_slot they picked
-    if session.time_slot and user.role == 'Teacher':
+    if session.time_slot and target_teacher.role == 'Teacher':
         try:
-            teacher_profile = user.teacher_profile
+            teacher_profile = target_teacher.teacher_profile
             if session.time_slot.teacher and session.time_slot.teacher != teacher_profile:
                 session.delete()
                 return Response(
@@ -183,6 +212,188 @@ def session_list_create(request):
         logger.warning('Could not schedule auto tasks for session %s: %s', session.id, exc)
 
     return Response(OnlineClassSessionSerializer(session).data, status=201)
+
+
+# ---------------------------------------------------------------------------
+# 1b. Bulk session create
+# ---------------------------------------------------------------------------
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def session_bulk_create(request):
+    """
+    POST /api/onlineclasses/sessions/bulk/
+
+    Required fields:
+    - school: int
+    - title: string
+    - bulk_classes_count: int (default 8)
+    - bulk_weekdays: list[str] (Mon..Sun)
+    - bulk_start_date: YYYY-MM-DD (default today)
+    - bulk_time: HH:MM
+
+    Optional fields mirror single-create fields:
+    - description, time_slot, selected_student_ids, duration_mins,
+      recording_enabled, chat_enabled, screenshare_student_allowed,
+      is_recurring, recurrence_rule
+    - dry_run: bool (if true, only preview generated schedule)
+    """
+    user = request.user
+    if user.role not in ('Teacher', 'Admin'):
+        return Response({'error': 'Only teachers or admins can create sessions'}, status=403)
+
+    school_id = request.data.get('school')
+    if not school_id:
+        return Response({'error': 'School is required'}, status=400)
+
+    try:
+        school = School.objects.get(id=school_id)
+    except School.DoesNotExist:
+        return Response({'error': 'Invalid school'}, status=400)
+
+    if user.role == 'Teacher' and not user.assigned_schools.filter(id=school.id).exists():
+        return Response({'error': 'You are not assigned to this school'}, status=403)
+
+    target_teacher, teacher_error = _resolve_target_teacher(user, request.data, school)
+    if teacher_error:
+        return teacher_error
+
+    title = (request.data.get('title') or '').strip()
+    if not title:
+        return Response({'error': 'Title is required'}, status=400)
+
+    bulk_classes_count = request.data.get('bulk_classes_count', 8)
+    try:
+        bulk_classes_count = int(bulk_classes_count)
+    except (TypeError, ValueError):
+        return Response({'error': 'bulk_classes_count must be an integer'}, status=400)
+    if bulk_classes_count < 1 or bulk_classes_count > 60:
+        return Response({'error': 'bulk_classes_count must be between 1 and 60'}, status=400)
+
+    weekday_tokens = request.data.get('bulk_weekdays') or []
+    if not isinstance(weekday_tokens, list) or len(weekday_tokens) == 0:
+        return Response({'error': 'bulk_weekdays must be a non-empty list'}, status=400)
+
+    weekday_map = {
+        'mon': 0, 'monday': 0,
+        'tue': 1, 'tues': 1, 'tuesday': 1,
+        'wed': 2, 'wednesday': 2,
+        'thu': 3, 'thur': 3, 'thurs': 3, 'thursday': 3,
+        'fri': 4, 'friday': 4,
+        'sat': 5, 'saturday': 5,
+        'sun': 6, 'sunday': 6,
+    }
+    selected_weekdays = set()
+    for token in weekday_tokens:
+        norm = str(token).strip().lower()
+        if norm not in weekday_map:
+            return Response({'error': f'Invalid weekday: {token}'}, status=400)
+        selected_weekdays.add(weekday_map[norm])
+
+    start_date_str = request.data.get('bulk_start_date')
+    if start_date_str:
+        start_date = parse_date(str(start_date_str))
+        if not start_date:
+            return Response({'error': 'bulk_start_date must be YYYY-MM-DD'}, status=400)
+    else:
+        start_date = timezone.localdate()
+
+    time_str = request.data.get('bulk_time')
+    if not time_str:
+        return Response({'error': 'bulk_time is required (HH:MM)'}, status=400)
+    bulk_time = parse_time(str(time_str))
+    if not bulk_time:
+        return Response({'error': 'bulk_time must be HH:MM'}, status=400)
+
+    dry_run_raw = request.data.get('dry_run', False)
+    if isinstance(dry_run_raw, bool):
+        dry_run = dry_run_raw
+    else:
+        dry_run = str(dry_run_raw).strip().lower() in ('1', 'true', 'yes', 'y')
+
+    generated = []
+    cursor = start_date
+    max_scan_days = 730
+    scanned_days = 0
+    while len(generated) < bulk_classes_count and scanned_days < max_scan_days:
+        if cursor.weekday() in selected_weekdays:
+            naive_dt = datetime.combine(cursor, bulk_time)
+            aware_dt = timezone.make_aware(naive_dt, timezone.get_current_timezone())
+            generated.append(aware_dt)
+        cursor = cursor + timedelta(days=1)
+        scanned_days += 1
+
+    if len(generated) < bulk_classes_count:
+        return Response(
+            {'error': 'Could not generate enough dates with given bulk settings'},
+            status=400,
+        )
+
+    preview = [d.isoformat() for d in generated]
+    if dry_run:
+        return Response({
+            'dry_run': True,
+            'count': len(preview),
+            'generated_dates': preview,
+        })
+
+    from django.db import transaction
+    created_sessions = []
+    with transaction.atomic():
+        for scheduled_at in generated:
+            payload = request.data.copy()
+            payload['teacher'] = target_teacher.id
+            payload['scheduled_at'] = scheduled_at.isoformat()
+            serializer = OnlineClassSessionSerializer(data=payload)
+            if not serializer.is_valid():
+                return Response(
+                    {
+                        'error': 'Validation failed during bulk creation',
+                        'scheduled_at': scheduled_at.isoformat(),
+                        'details': serializer.errors,
+                    },
+                    status=400,
+                )
+
+            session = serializer.save(teacher=target_teacher)
+
+            if session.time_slot and target_teacher.role == 'Teacher':
+                try:
+                    teacher_profile = target_teacher.teacher_profile
+                    if session.time_slot.teacher and session.time_slot.teacher != teacher_profile:
+                        return Response(
+                            {'error': 'You do not own the selected time slot.'},
+                            status=403,
+                        )
+                except Exception:
+                    pass
+
+            for student in session.selected_students.all():
+                ClassParticipant.objects.get_or_create(session=session, student=student)
+
+            try:
+                eta_reminder = session.scheduled_at - timedelta(hours=1)
+                if eta_reminder > timezone.now():
+                    send_class_reminder.apply_async(args=[session.id], eta=eta_reminder)
+                auto_start_session.apply_async(args=[session.id], eta=session.scheduled_at)
+                auto_end_session.apply_async(
+                    args=[session.id],
+                    eta=session.scheduled_at + timedelta(minutes=session.duration_mins),
+                )
+            except Exception as exc:
+                logger.warning('Could not schedule auto tasks for session %s: %s', session.id, exc)
+
+            created_sessions.append(session)
+
+    return Response(
+        {
+            'dry_run': False,
+            'count': len(created_sessions),
+            'generated_dates': preview,
+            'sessions': OnlineClassSessionSerializer(created_sessions, many=True).data,
+        },
+        status=201,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -231,9 +442,69 @@ def session_detail(request, session_id):
             logger.warning('Could not reschedule auto tasks for session %s: %s', session.id, exc)
         return Response(serializer.data)
 
-    # DELETE
+    # DELETE (scheduled cancel path)
+    if session.status != OnlineClassSession.STATUS_SCHEDULED:
+        return Response(
+            {
+                'error': 'Only scheduled sessions can be deleted here. Use delete-past for ended/cancelled sessions.'
+            },
+            status=400,
+        )
+
     session.delete()
     return Response(status=204)
+
+
+# ---------------------------------------------------------------------------
+# 2b. Delete past session (ENDED/CANCELLED)
+# ---------------------------------------------------------------------------
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def session_delete_past(request, session_id):
+    try:
+        session = OnlineClassSession.objects.select_related('teacher', 'school').get(id=session_id)
+    except OnlineClassSession.DoesNotExist:
+        return Response({'error': 'Session not found'}, status=404)
+
+    user = request.user
+    if user.role not in ('Teacher', 'Admin'):
+        return Response({'error': 'Permission denied'}, status=403)
+    if user.role == 'Teacher' and session.teacher_id != user.id:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if session.status not in (OnlineClassSession.STATUS_ENDED, OnlineClassSession.STATUS_CANCELLED):
+        return Response(
+            {'error': 'Only ended or cancelled sessions can be deleted from past sessions.'},
+            status=400,
+        )
+
+    participants_count = session.participants.count()
+    recordings_count = session.recordings.count()
+    deleted_session_id = session.id
+
+    logger.info(
+        'Past session deletion: session=%s status=%s by user=%s role=%s participants=%s recordings=%s',
+        deleted_session_id,
+        session.status,
+        user.id,
+        user.role,
+        participants_count,
+        recordings_count,
+    )
+
+    session.delete()
+    return Response(
+        {
+            'deleted_session_id': deleted_session_id,
+            'deleted_at': timezone.now(),
+            'deleted_by': user.id,
+            'deleted_by_role': user.role,
+            'participants_deleted': participants_count,
+            'recordings_deleted': recordings_count,
+        },
+        status=200,
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../utils/designConstants';
+import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
 import { listRecordings } from '../../services/onlineClassService';
 
 const RecordingPlaybackPage = () => {
@@ -102,10 +102,10 @@ const getStyles = () => ({
     alignSelf: 'flex-start',
   },
   playerCard: {
-    background: '#fff',
+    ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.xl,
     overflow: 'hidden',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    boxShadow: '0 14px 36px rgba(63, 46, 132, 0.14)',
   },
   video: {
     width: '100%',
@@ -119,7 +119,7 @@ const getStyles = () => ({
   title: {
     fontSize: FONT_SIZES['2xl'],
     fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.text.primary,
+    color: COLORS.text.white,
     margin: 0,
     marginBottom: SPACING[3],
   },
@@ -129,9 +129,9 @@ const getStyles = () => ({
   },
   metaItem: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.secondary,
+    color: COLORS.text.whiteSubtle,
   },
-  centered: { display: 'flex', justifyContent: 'center', padding: SPACING[16] },
+  centered: { display: 'flex', justifyContent: 'center', padding: SPACING['3xl'] },
   spinner: {
     width: 36, height: 36,
     border: `3px solid ${COLORS.border.light}`,
@@ -141,13 +141,13 @@ const getStyles = () => ({
   },
   errorText: { color: COLORS.status.error, textAlign: 'center' },
   backBtn: {
-    background: 'none',
-    border: `1px solid ${COLORS.border.default}`,
+    background: 'rgba(255,255,255,0.08)',
+    border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: BORDER_RADIUS.lg,
     padding: `${SPACING[2]} ${SPACING[4]}`,
     cursor: 'pointer',
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text.secondary,
+    color: COLORS.text.white,
     alignSelf: 'center',
   },
 });

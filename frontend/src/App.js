@@ -353,7 +353,7 @@ function AppContent() {
 }
 
 function AppWithLoader() {
-  const { isLoading, loadingMessage, setLoading } = useLoading();
+  const { isLoading, loadingMessage } = useLoading();
   const location = useLocation();
   const isLoaderExcludedPage = location.pathname.startsWith('/ai-gala/manage');
   const shouldShowGlobalLoader = !isLoaderExcludedPage && isLoading;
@@ -371,10 +371,9 @@ function AppWithLoader() {
     );
     if (isExcluded) return;
 
-    // Arm the interceptor and show ERP loader on route change.
-    // The interceptor's fallback timer will auto-hide if no API calls start within 600ms.
+    // Arm the interceptor on route change.
+    // Loader visibility is controlled by request lifecycle in the interceptor.
     setNavigating(true);
-    setLoading(true, 'LOADING ERP');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 

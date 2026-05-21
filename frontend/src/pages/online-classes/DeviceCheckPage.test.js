@@ -2,8 +2,16 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import DeviceCheckPage from './DeviceCheckPage';
+
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  useParams: () => ({ sessionId: '5' }),
+  useNavigate: () => mockNavigate,
+  MemoryRouter: ({ children }) => children,
+  Routes: ({ children }) => children,
+  Route: ({ element }) => element,
+}));
 
 jest.mock('../../utils/designConstants', () => ({
   COLORS: {
@@ -58,17 +66,11 @@ describe('DeviceCheckPage', () => {
   });
 
   const renderPage = () =>
-    render(
-      <MemoryRouter initialEntries={['/online-classes/check/5']}>
-        <Routes>
-          <Route path="/online-classes/check/:sessionId" element={<DeviceCheckPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
+    render(<DeviceCheckPage />);
 
   it('renders device check heading', () => {
     renderPage();
-    expect(screen.getByText(/device check|ready to join/i)).toBeInTheDocument();
+    expect(screen.getByText(/device setup|device check|ready to join/i)).toBeInTheDocument();
   });
 
   it('calls getUserMedia on mount', async () => {

@@ -15,6 +15,17 @@ export const LoadingProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('LOADING ERP');
 
+  // Safety watchdog: auto-clear loader if it remains active too long.
+  useEffect(() => {
+    if (!isLoading) return undefined;
+
+    const hardStop = setTimeout(() => {
+      setIsLoading(false);
+    }, 10000);
+
+    return () => clearTimeout(hardStop);
+  }, [isLoading]);
+
   const setLoading = useCallback((loading, message = 'LOADING ERP') => {
     setIsLoading(loading);
     setLoadingMessage(message);

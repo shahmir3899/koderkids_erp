@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
 import { API_URL, getAuthHeaders } from '../../api';
 import {
+  deletePastSession,
   deleteSession,
   getParticipants,
   listSessions,
@@ -58,24 +59,37 @@ const TeacherOnlineClassesPage = () => {
     loadSchools();
   }, [role]);
 
-  const fetchSessions = React.useCallback(() => {
+  const fetchSessions = React.useCallback(async () => {
     const buildParams = (status) => {
       const params = { status };
       if (selectedSchool) params.school = selectedSchool;
       return params;
     };
 
-    Promise.all([
+    const results = await Promise.allSettled([
       listSessions(buildParams('scheduled')),
       listSessions(buildParams('live')),
       listSessions(buildParams('ended')),
-    ])
-      .then(([scheduled, live, ended]) => {
-        setUpcoming([...live, ...scheduled]);
-        setPast(ended);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      listSessions(buildParams('cancelled')),
+    ]);
+
+    const [scheduledRes, liveRes, endedRes, cancelledRes] = results;
+    const scheduled = scheduledRes.status === 'fulfilled' ? scheduledRes.value : [];
+    const live = liveRes.status === 'fulfilled' ? liveRes.value : [];
+    const ended = endedRes.status === 'fulfilled' ? endedRes.value : [];
+    const cancelled = cancelledRes.status === 'fulfilled' ? cancelledRes.value : [];
+
+    const rejected = results.filter((r) => r.status === 'rejected');
+    if (rejected.length > 0) {
+      const firstError = rejected[0].reason;
+      setError(firstError?.message || 'Some class data could not be loaded.');
+    } else {
+      setError('');
+    }
+
+    setUpcoming([...live, ...scheduled]);
+    setPast([...ended, ...cancelled]);
+    setLoading(false);
   }, [selectedSchool]);
 
   // Initial load + refresh when school filter changes
@@ -102,6 +116,21 @@ const TeacherOnlineClassesPage = () => {
     setUpcoming((prev) => prev.filter((s) => s.id !== session.id));
   };
 
+  const handleDeletePast = async (session) => {
+    if (!window.confirm(`Delete past session "${session.title}"? This cannot be undone.`)) return;
+
+    const needsImpactWarning = session.recording_enabled || Number(session.participants_count || 0) > 0;
+    if (needsImpactWarning) {
+      const second = window.confirm(
+        'This session has recordings or participant history. Deleting it may remove associated past data. Continue?'
+      );
+      if (!second) return;
+    }
+
+    await deletePastSession(session.id);
+    setPast((prev) => prev.filter((s) => s.id !== session.id));
+  };
+
   const handleViewParticipants = async (session) => {
     const list = await getParticipants(session.id).catch(() => []);
     setParticipantsModal({ session, list });
@@ -114,6 +143,12 @@ const TeacherOnlineClassesPage = () => {
   const attendancePercent = (session) => {
     if (!session.participants_count || !session.participants_count) return '—';
     return '—'; // actual % needs participant data
+  };
+
+  const handleRetry = async () => {
+    setLoading(true);
+    setError('');
+    await fetchSessions();
   };
 
   const styles = getStyles();
@@ -173,7 +208,12 @@ const TeacherOnlineClassesPage = () => {
       </div>
 
       {loading && <div style={styles.centered}><div style={styles.spinner} /></div>}
-      {error && <p style={styles.errorText}>{error}</p>}
+      {error && (
+        <div style={styles.errorRow}>
+          <p style={styles.errorText}>{error}</p>
+          <button type="button" onClick={handleRetry} style={styles.retryBtn}>Retry</button>
+        </div>
+      )}
 
       {/* Session table */}
       {!loading && !error && (
@@ -220,7 +260,11 @@ const TeacherOnlineClassesPage = () => {
                           {session.recording_enabled && (
                             <ActionBtn onClick={() => navigate(`/online-classes/recordings/${session.id}`)} color={COLORS.status.warning} label="▶ Recording" />
                           )}
+                          <ActionBtn onClick={() => handleDeletePast(session)} color={COLORS.status.error} label="Delete" />
                         </>
+                      )}
+                      {session.status === 'cancelled' && (
+                        <ActionBtn onClick={() => handleDeletePast(session)} color={COLORS.status.error} label="Delete" />
                       )}
                     </div>
                   </td>
@@ -401,7 +445,24 @@ const getStyles = () => ({
     width: 36, height: 36, border: '3px solid rgba(255,255,255,0.2)',
     borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite',
   },
-  errorText: { color: '#FCA5A5', textAlign: 'center' },
+  errorRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  errorText: { color: '#FCA5A5', textAlign: 'center', margin: 0 },
+  retryBtn: {
+    border: '1px solid rgba(255,255,255,0.3)',
+    background: 'rgba(255,255,255,0.14)',
+    color: '#fff',
+    borderRadius: BORDER_RADIUS.md,
+    padding: `${SPACING.xs} ${SPACING.md}`,
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.semibold,
+    cursor: 'pointer',
+  },
 
   // Participants modal — white background so uses dark text
   modalOverlay: {
@@ -409,23 +470,24 @@ const getStyles = () => ({
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
   },
   modal: {
-    background: '#fff', borderRadius: BORDER_RADIUS.xl, padding: SPACING['2xl'],
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl, padding: SPACING['2xl'],
     width: '90%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto',
-    boxShadow: '0 8px 40px rgba(0,0,0,0.3)',
+    boxShadow: '0 14px 36px rgba(63, 46, 132, 0.16)',
   },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
-  modalTitle: { fontSize: FONT_SIZES.lg, fontWeight: FONT_WEIGHTS.bold, color: COLORS.text.primary, margin: 0 },
-  modalClose: { background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: COLORS.text.secondary },
-  noParticipants: { textAlign: 'center', color: COLORS.text.tertiary, padding: SPACING.xl },
+  modalTitle: { fontSize: FONT_SIZES.lg, fontWeight: FONT_WEIGHTS.bold, color: COLORS.text.white, margin: 0 },
+  modalClose: { background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: COLORS.text.whiteSubtle },
+  noParticipants: { textAlign: 'center', color: COLORS.text.whiteSubtle, padding: SPACING.xl },
   // Modal-specific table (light background)
-  modalTableHead: { background: COLORS.background.gray },
+  modalTableHead: { background: 'rgba(255,255,255,0.08)' },
   modalTh: {
     padding: `${SPACING.md} ${SPACING.lg}`, textAlign: 'left',
     fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em',
+    color: COLORS.text.whiteSubtle, textTransform: 'uppercase', letterSpacing: '0.04em',
   },
-  modalTableRow: { borderTop: `1px solid ${COLORS.border.light}` },
-  modalTd: { padding: `${SPACING.md} ${SPACING.lg}`, fontSize: FONT_SIZES.sm, color: COLORS.text.primary },
+  modalTableRow: { borderTop: '1px solid rgba(255,255,255,0.1)' },
+  modalTd: { padding: `${SPACING.md} ${SPACING.lg}`, fontSize: FONT_SIZES.sm, color: COLORS.text.white },
 });
 
 export default TeacherOnlineClassesPage;
