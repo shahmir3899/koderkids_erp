@@ -1,0 +1,35 @@
+RewriteEngine On
+
+# ─── Force HTTPS ───────────────────────────────────────────
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
+
+# ─── SPA Routing ───────────────────────────────────────────
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# ─── Never Cache HTML (always fetch fresh on deploy) ───────
+<FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+</FilesMatch>
+
+# ─── Cache Hashed Assets Forever (JS, CSS, images, fonts) ──
+<FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# ─── Never Cache Service Worker (if you have one) ──────────
+<FilesMatch "service-worker\.js$">
+    Header set Cache-Control "no-store"
+</FilesMatch>
+
+# ─── Security Headers ──────────────────────────────────────
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-XSS-Protection "1; mode=block"
+
+# ─── Hide Directory Listings ───────────────────────────────
+Options -Indexes

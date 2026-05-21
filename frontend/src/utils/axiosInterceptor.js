@@ -38,13 +38,36 @@ let debounceTimeout = null;
 // When true: ERP loader will show/hide with requests (page is loading for the first time)
 // When false: requests run silently — component spinners handle in-page loading
 let isNavigating = false;
+let navigationFallbackTimeout = null;
+let _setLoading = null; // stored ref so setNavigating can call it for the fallback
 
 /**
  * Called by App.js when the route changes.
  * Arms the interceptor so the next batch of API requests will show the ERP loader.
+ * Starts a 600ms fallback timer: if no API requests start within that window
+ * (e.g. login page, cached page), ERP loader auto-hides instead of hanging forever.
  */
 export const setNavigating = (val) => {
   isNavigating = val;
+
+  // Clear any existing fallback
+  if (navigationFallbackTimeout) {
+    clearTimeout(navigationFallbackTimeout);
+    navigationFallbackTimeout = null;
+  }
+
+  if (val && _setLoading) {
+    // Auto-hide if no API call fires within 600ms after navigation
+    navigationFallbackTimeout = setTimeout(() => {
+      if (isNavigating) {
+        _setLoading(false);
+        isNavigating = false;
+        navigationFallbackTimeout = null;
+        logDebug('⏰ Fallback: no requests started after navigation — ERP loader auto-hidden');
+      }
+    }, 600);
+  }
+
   logDebug(val ? '🚀 Page navigation started — ERP loader armed' : '🏁 Navigation mode cleared');
 };
 
@@ -98,6 +121,7 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
     return;
   }
   interceptorsSet = true;
+  _setLoading = setLoading; // store ref for fallback timer in setNavigating
 
   logDebug('✅ Setting up axios interceptors', { debounceDelay });
 
@@ -169,6 +193,13 @@ export const setupAxiosInterceptors = ({ setLoading, debounceDelay = DEBOUNCE_DE
         clearTimeout(debounceTimeout);
         debounceTimeout = null;
         logDebug('⏸️ Cancelled pending hide timeout');
+      }
+
+      // Cancel the navigation fallback timer — a real request has started
+      if (navigationFallbackTimeout) {
+        clearTimeout(navigationFallbackTimeout);
+        navigationFallbackTimeout = null;
+        logDebug('✅ Navigation fallback cancelled — request started in time');
       }
 
       // Show ERP loader only for the FIRST request AND only during page navigation

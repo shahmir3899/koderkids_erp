@@ -52,10 +52,12 @@ const OnlineClassesStudentPage = () => {
   };
 
   const canJoin = (session) => {
-    const start = new Date(session.scheduled_at);
+    if (session.status === 'ended' || session.status === 'cancelled') return false;
     const now = new Date();
-    const diffMs = start - now;
-    return diffMs <= 10 * 60 * 1000 && session.status !== 'ended' && session.status !== 'cancelled';
+    const start = new Date(session.scheduled_at);
+    const end = new Date(start.getTime() + (session.duration_mins || 60) * 60 * 1000);
+    const earlyBuffer = 30 * 60 * 1000; // allow joining 30 min before start
+    return now >= new Date(start.getTime() - earlyBuffer) && now <= end;
   };
 
   const formatDate = (iso) => {

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+from datetime import timedelta
 
 from django.utils import timezone
 from rest_framework import status
@@ -19,7 +20,7 @@ from .serializers import (
     ClassRecordingSerializer,
     OnlineClassSessionSerializer,
 )
-from .tasks import auto_mark_attendance, send_class_reminder
+from .tasks import auto_mark_attendance, auto_end_session, auto_start_session, send_class_reminder
 
 logger = logging.getLogger(__name__)
 
@@ -168,14 +169,18 @@ def session_list_create(request):
     for student in session.selected_students.all():
         ClassParticipant.objects.get_or_create(session=session, student=student)
 
-    # Schedule 1-hour reminder via Celery (non-blocking; ignore if broker unavailable)
+    # Schedule reminder, auto-start, and auto-end via Celery
     try:
-        from datetime import timedelta
-        eta = session.scheduled_at - timedelta(hours=1)
-        if eta > timezone.now():
-            send_class_reminder.apply_async(args=[session.id], eta=eta)
+        eta_reminder = session.scheduled_at - timedelta(hours=1)
+        if eta_reminder > timezone.now():
+            send_class_reminder.apply_async(args=[session.id], eta=eta_reminder)
+        auto_start_session.apply_async(args=[session.id], eta=session.scheduled_at)
+        auto_end_session.apply_async(
+            args=[session.id],
+            eta=session.scheduled_at + timedelta(minutes=session.duration_mins),
+        )
     except Exception as exc:
-        logger.warning('Could not schedule reminder for session %s: %s', session.id, exc)
+        logger.warning('Could not schedule auto tasks for session %s: %s', session.id, exc)
 
     return Response(OnlineClassSessionSerializer(session).data, status=201)
 
@@ -215,6 +220,15 @@ def session_detail(request, session_id):
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
         serializer.save()
+        # Re-schedule auto tasks with updated times (old tasks are idempotent no-ops)
+        try:
+            auto_start_session.apply_async(args=[session.id], eta=session.scheduled_at)
+            auto_end_session.apply_async(
+                args=[session.id],
+                eta=session.scheduled_at + timedelta(minutes=session.duration_mins),
+            )
+        except Exception as exc:
+            logger.warning('Could not reschedule auto tasks for session %s: %s', session.id, exc)
         return Response(serializer.data)
 
     # DELETE
@@ -233,6 +247,9 @@ def session_token(request, session_id):
         session = OnlineClassSession.objects.select_related('teacher', 'school').get(id=session_id)
     except OnlineClassSession.DoesNotExist:
         return Response({'error': 'Session not found'}, status=404)
+
+    if session.status in (OnlineClassSession.STATUS_ENDED, OnlineClassSession.STATUS_CANCELLED):
+        return Response({'error': 'This session has ended'}, status=403)
 
     user = request.user
     is_teacher = user.role in ('Teacher', 'Admin')

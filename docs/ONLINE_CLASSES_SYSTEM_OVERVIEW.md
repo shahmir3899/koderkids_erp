@@ -1,7 +1,7 @@
 # Online Classes System Overview
 
 School Management System
-Last Updated: May 20, 2026
+Last Updated: May 21, 2026
 
 ---
 
@@ -224,7 +224,7 @@ This is the real-time join flow for students and teachers.
 Student side:
 
 1. Student opens `OnlineClassesStudentPage`
-2. Student sees sessions by status
+2. Student sees Upcoming sessions from both `scheduled` and `live` statuses
 3. Student clicks join
 4. Student goes to `DeviceCheckPage`
 5. Student goes to `ClassRoomPage`
@@ -232,8 +232,9 @@ Student side:
 Teacher side:
 
 1. Teacher opens `TeacherOnlineClassesPage`
-2. Teacher starts or joins a scheduled session
-3. Teacher goes directly to `ClassRoomPage`
+2. Teacher sees Upcoming as a combined `live + scheduled` list that auto-refreshes
+3. Teacher starts or joins a scheduled session
+4. Teacher goes directly to `ClassRoomPage`
 
 Key pages:
 
@@ -245,7 +246,7 @@ Key pages:
 
 1. Frontend requests session list from `/api/onlineclasses/sessions/`
 2. User requests room token from `/api/onlineclasses/sessions/{id}/token/`
-3. Backend generates LiveKit token
+3. Backend generates a LiveKit-compatible HS256 JWT using Python stdlib only
 4. Teacher may call `/start/`
 5. LiveKit webhook later reports participant join/leave events
 
@@ -298,8 +299,13 @@ Backend task: `auto_mark_attendance` in `backend/onlineclasses/tasks.py`
 
 Triggered when:
 
-- teacher ends session manually, or
-- LiveKit room finishes webhook arrives
+- teacher ends session manually
+
+Important current behavior:
+
+- the LiveKit `room_finished` webhook is intentionally ignored for ending sessions
+- closing the teacher browser/tab or a transient disconnect should not end the class
+- only the explicit teacher/admin end action should move a session from `live` to `ended`
 
 Attendance rule:
 
@@ -404,7 +410,7 @@ This part converts the live session into durable outputs:
 
 ### D. Post-class flow
 
-1. Session is ended manually or by room-finished event
+1. Session is ended manually through `POST /api/onlineclasses/sessions/{id}/end/`
 2. Attendance auto-marking task runs
 3. Recording list endpoint exposes saved recordings
 
@@ -417,7 +423,8 @@ If you describe this system simply, the most accurate summary is:
 - **Student administration is split** between general student management and dedicated ONLINE student management.
 - **Teacher ownership of ONLINE students is mainly done through time slots.**
 - **Online class scheduling is currently school-based in the active UI**, even though the backend model supports more specific targeting through `time_slot` and `selected_students`.
-- **Live class execution is centralized in the `onlineclasses` app** with LiveKit token generation, participant tracking, reminders, recordings, and attendance automation.
+- **Live class execution is centralized in the `onlineclasses` app** with stdlib JWT token generation, real LiveKit WebRTC connection on the frontend, participant tracking, reminders, recordings, and attendance automation.
+- **Session status flow is currently `scheduled -> live -> ended`, with `ended` intended to happen only from an explicit end action, not from browser close or `room_finished`.**
 
 ---
 

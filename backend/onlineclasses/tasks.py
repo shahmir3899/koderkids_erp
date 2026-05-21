@@ -134,3 +134,55 @@ def send_class_reminder(self, session_id):
                 logger.warning('WhatsApp reminder failed for student %s: %s', student.id, exc)
 
     logger.info('send_class_reminder: sent reminders for session %s to %d students', session_id, students.count())
+
+
+@shared_task(bind=True, max_retries=1, default_retry_delay=60)
+def auto_start_session(self, session_id):
+    """
+    Mark a session as LIVE at its scheduled_at time.
+    Idempotent — skips if the session is already live, ended, or cancelled.
+    """
+    from .models import OnlineClassSession
+
+    try:
+        session = OnlineClassSession.objects.get(id=session_id)
+    except OnlineClassSession.DoesNotExist:
+        logger.warning('auto_start_session: session %s not found', session_id)
+        return
+
+    if session.status != OnlineClassSession.STATUS_SCHEDULED:
+        return  # already transitioned — skip
+
+    session.status = OnlineClassSession.STATUS_LIVE
+    session.started_at = timezone.now()
+    session.save(update_fields=['status', 'started_at'])
+    logger.info('auto_start_session: session %s marked live', session_id)
+
+
+@shared_task(bind=True, max_retries=1, default_retry_delay=60)
+def auto_end_session(self, session_id):
+    """
+    Mark a session as ENDED when its scheduled duration expires.
+    Idempotent — skips if already ended or cancelled.
+    Triggers auto_mark_attendance after ending.
+    """
+    from .models import OnlineClassSession
+
+    try:
+        session = OnlineClassSession.objects.get(id=session_id)
+    except OnlineClassSession.DoesNotExist:
+        logger.warning('auto_end_session: session %s not found', session_id)
+        return
+
+    if session.status in (OnlineClassSession.STATUS_ENDED, OnlineClassSession.STATUS_CANCELLED):
+        return  # already handled — skip
+
+    session.status = OnlineClassSession.STATUS_ENDED
+    session.ended_at = timezone.now()
+    session.save(update_fields=['status', 'ended_at'])
+    logger.info('auto_end_session: session %s marked ended', session_id)
+
+    try:
+        auto_mark_attendance.delay(session_id)
+    except Exception as exc:
+        logger.warning('auto_end_session: could not enqueue attendance for %s: %s', session_id, exc)

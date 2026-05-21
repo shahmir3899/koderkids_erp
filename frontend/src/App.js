@@ -355,22 +355,26 @@ function AppContent() {
 function AppWithLoader() {
   const { isLoading, loadingMessage, setLoading } = useLoading();
   const location = useLocation();
-  const isFirstLoad = React.useRef(true);
   const isLoaderExcludedPage = location.pathname.startsWith('/ai-gala/manage');
   const shouldShowGlobalLoader = !isLoaderExcludedPage && isLoading;
 
   React.useEffect(() => {
-    // Skip excluded pages
-    if (location.pathname.startsWith('/ai-gala/manage')) return;
+    const path = location.pathname;
 
-    // Arm the interceptor and show ERP loader on every route change
-    // (including the very first load)
+    // Skip public/auth pages and excluded pages — they don't need ERP loader
+    const isExcluded = (
+      path.startsWith('/ai-gala/manage') ||
+      path === '/login' ||
+      path === '/register' ||
+      path.startsWith('/reset-password') ||
+      path.startsWith('/password-reset')
+    );
+    if (isExcluded) return;
+
+    // Arm the interceptor and show ERP loader on route change.
+    // The interceptor's fallback timer will auto-hide if no API calls start within 600ms.
     setNavigating(true);
     setLoading(true, 'LOADING ERP');
-
-    if (isFirstLoad.current) {
-      isFirstLoad.current = false;
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
