@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
 import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { API_URL, getAuthHeaders } from '../../api';
+import { useResponsive } from '../../hooks/useResponsive';
 import {
   deletePastSession,
   deleteSession,
@@ -14,8 +15,12 @@ import {
   startSession,
 } from '../../services/onlineClassService';
 
+const ACTIVE_LIVE_CLASS_SESSION_KEY = 'activeOnlineClassSessionId';
+
 const TeacherOnlineClassesPage = () => {
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useResponsive();
+  const isCompact = isMobile || isTablet;
   const [upcoming, setUpcoming] = useState([]);
   const [past, setPast] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +29,14 @@ const TeacherOnlineClassesPage = () => {
   const [participantsModal, setParticipantsModal] = useState(null); // { session, list }
   const [schools, setSchools] = useState([]);
   const [selectedSchool, setSelectedSchool] = useState('');
+  const [activeLiveSessionId, setActiveLiveSessionId] = useState(() => sessionStorage.getItem(ACTIVE_LIVE_CLASS_SESSION_KEY) || '');
   const role = localStorage.getItem('role') || '';
+
+  useEffect(() => {
+    const onFocus = () => setActiveLiveSessionId(sessionStorage.getItem(ACTIVE_LIVE_CLASS_SESSION_KEY) || '');
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   const normalizeSchoolList = (data) => {
     if (Array.isArray(data)) return data;
@@ -141,6 +153,24 @@ const TeacherOnlineClassesPage = () => {
     weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
   });
 
+  const formatDateParts = (iso) => {
+    const d = new Date(iso);
+    return {
+      date: d.toLocaleDateString('en-PK', { weekday: 'short', day: 'numeric', month: 'short' }),
+      time: d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' }),
+    };
+  };
+
+  const getMobileStatusConfig = (status) => {
+    const map = {
+      scheduled: { accent: '#60A5FA', glow: 'rgba(96,165,250,0.25)', emphasis: 'Scheduled' },
+      live: { accent: '#EF4444', glow: 'rgba(239,68,68,0.28)', emphasis: 'Live now' },
+      ended: { accent: '#34D399', glow: 'rgba(52,211,153,0.2)', emphasis: 'Completed' },
+      cancelled: { accent: '#9CA3AF', glow: 'rgba(156,163,175,0.2)', emphasis: 'Cancelled' },
+    };
+    return map[status] || map.cancelled;
+  };
+
   const attendancePercent = (session) => {
     if (!session.participants_count || !session.participants_count) return '—';
     return '—'; // actual % needs participant data
@@ -152,7 +182,175 @@ const TeacherOnlineClassesPage = () => {
     await fetchSessions();
   };
 
-  const styles = getStyles();
+  const styles = getStyles({ isMobile, isCompact });
+  const sessionsToShow = activeTab === 'upcoming' ? upcoming : past;
+
+  const renderSessionActions = (session, compact = false) => {
+    const sharedProps = compact
+      ? { minHeight: 40, fullWidth: true }
+      : { minHeight: 34, fullWidth: false };
+
+    if (compact) {
+      if (session.status === 'live') {
+        return (
+          <div style={styles.mobilePrimaryAction}>
+            <ActionBtn
+              onClick={() => handleJoinLive(session)}
+              color={COLORS.status.error}
+              label="🔴 Join Live Class"
+              emphasis
+              minHeight={44}
+              fullWidth
+            />
+          </div>
+        );
+      }
+
+      if (session.status === 'scheduled') {
+        return (
+          <>
+            <div style={styles.mobilePrimaryAction}>
+              <ActionBtn
+                onClick={() => handleStartSession(session)}
+                color={COLORS.status.success}
+                label="▶ Start Class"
+                emphasis
+                minHeight={44}
+                fullWidth
+              />
+            </div>
+            <div style={styles.mobileSecondaryActions}>
+              <ActionBtn
+                onClick={() => navigate(`/online-classes/teacher/edit/${session.id}`)}
+                color={COLORS.status.info}
+                label="Edit"
+                {...sharedProps}
+              />
+              <ActionBtn
+                onClick={() => handleDelete(session)}
+                color={COLORS.status.error}
+                label="Cancel"
+                {...sharedProps}
+              />
+            </div>
+          </>
+        );
+      }
+
+      if (session.status === 'ended') {
+        return (
+          <>
+            <div style={styles.mobilePrimaryAction}>
+              <ActionBtn
+                onClick={() => handleViewParticipants(session)}
+                color={COLORS.primary}
+                label="Students"
+                emphasis
+                minHeight={44}
+                fullWidth
+              />
+            </div>
+            <div style={styles.mobileSecondaryActions}>
+              {session.recording_enabled && (
+                <ActionBtn
+                  onClick={() => navigate(`/online-classes/recordings/${session.id}`)}
+                  color={COLORS.status.warning}
+                  label="▶ Recording"
+                  {...sharedProps}
+                />
+              )}
+              <ActionBtn
+                onClick={() => handleDeletePast(session)}
+                color={COLORS.status.error}
+                label="Delete"
+                {...sharedProps}
+              />
+            </div>
+          </>
+        );
+      }
+
+      return (
+        <div style={styles.mobilePrimaryAction}>
+          <ActionBtn
+            onClick={() => handleDeletePast(session)}
+            color={COLORS.status.error}
+            label="Delete"
+            emphasis
+            minHeight={44}
+            fullWidth
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div style={styles.actionBtns}>
+        {session.status === 'live' && (
+          <ActionBtn
+            onClick={() => handleJoinLive(session)}
+            color={COLORS.status.error}
+            label="🔴 Join"
+            {...sharedProps}
+          />
+        )}
+        {session.status === 'scheduled' && (
+          <>
+            <ActionBtn
+              onClick={() => handleStartSession(session)}
+              color={COLORS.status.success}
+              label="▶ Start"
+              {...sharedProps}
+            />
+            <ActionBtn
+              onClick={() => navigate(`/online-classes/teacher/edit/${session.id}`)}
+              color={COLORS.status.info}
+              label="Edit"
+              {...sharedProps}
+            />
+            <ActionBtn
+              onClick={() => handleDelete(session)}
+              color={COLORS.status.error}
+              label="Cancel"
+              {...sharedProps}
+            />
+          </>
+        )}
+        {session.status === 'ended' && (
+          <>
+            <ActionBtn
+              onClick={() => handleViewParticipants(session)}
+              color={COLORS.primary}
+              label="Students"
+              {...sharedProps}
+            />
+            {session.recording_enabled && (
+              <ActionBtn
+                onClick={() => navigate(`/online-classes/recordings/${session.id}`)}
+                color={COLORS.status.warning}
+                label="▶ Recording"
+                {...sharedProps}
+              />
+            )}
+            <ActionBtn
+              onClick={() => handleDeletePast(session)}
+              color={COLORS.status.error}
+              label="Delete"
+              {...sharedProps}
+            />
+          </>
+        )}
+        {session.status === 'cancelled' && (
+          <ActionBtn
+            onClick={() => handleDeletePast(session)}
+            color={COLORS.status.error}
+            label="Delete"
+            {...sharedProps}
+          />
+        )}
+      </div>
+    );
+  };
 
   // Stats
   const totalThisMonth = [...upcoming, ...past].filter((s) => {
@@ -173,6 +371,18 @@ const TeacherOnlineClassesPage = () => {
           + Schedule Class
         </button>
       </div>
+
+      {activeLiveSessionId && (
+        <div style={styles.returnBanner}>
+          <span style={styles.returnText}>You have an active live class session.</span>
+          <button
+            onClick={() => navigate(`/online-classes/room/${activeLiveSessionId}`)}
+            style={styles.returnBtn}
+          >
+            Return to Live Class
+          </button>
+        </div>
+      )}
 
       <div style={styles.filterRow}>
         <label style={styles.filterLabel}>School</label>
@@ -213,65 +423,89 @@ const TeacherOnlineClassesPage = () => {
 
       {/* Session table */}
       {!loading && !error && (
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHead}>
-                <th style={styles.th}>Title</th>
-                <th style={styles.th}>Date & Time</th>
-                <th style={styles.th}>Duration</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Students</th>
-                <th style={styles.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(activeTab === 'upcoming' ? upcoming : past).map((session) => (
-                <tr key={session.id} style={{ ...styles.tableRow, ...(session.status === 'live' ? { background: 'rgba(239,68,68,0.04)' } : {}) }}>
-                  <td style={styles.td}>
-                    <span style={styles.sessionTitle}>{session.title}</span>
-                    {session.is_recurring && <span style={styles.recurringBadge}>↻</span>}
-                  </td>
-                  <td style={styles.td}>{formatDate(session.scheduled_at)}</td>
-                  <td style={styles.td}>{session.duration_mins} min</td>
-                  <td style={styles.td}>
-                    <StatusBadge status={session.status} />
-                  </td>
-                  <td style={styles.td}>{session.participants_count}</td>
-                  <td style={styles.td}>
-                    <div style={styles.actionBtns}>
-                      {session.status === 'scheduled' && (
-                        <>
-                          <ActionBtn onClick={() => handleStartSession(session)} color={COLORS.status.success} label="▶ Start" />
-                          <ActionBtn onClick={() => navigate(`/online-classes/teacher/edit/${session.id}`)} color={COLORS.status.info} label="Edit" />
-                          <ActionBtn onClick={() => handleDelete(session)} color={COLORS.status.error} label="Cancel" />
-                        </>
-                      )}
-                      {session.status === 'live' && (
-                        <ActionBtn onClick={() => handleJoinLive(session)} color={COLORS.status.error} label="🔴 Join" />
-                      )}
-                      {session.status === 'ended' && (
-                        <>
-                          <ActionBtn onClick={() => handleViewParticipants(session)} color={COLORS.primary} label="Students" />
-                          {session.recording_enabled && (
-                            <ActionBtn onClick={() => navigate(`/online-classes/recordings/${session.id}`)} color={COLORS.status.warning} label="▶ Recording" />
-                          )}
-                          <ActionBtn onClick={() => handleDeletePast(session)} color={COLORS.status.error} label="Delete" />
-                        </>
-                      )}
-                      {session.status === 'cancelled' && (
-                        <ActionBtn onClick={() => handleDeletePast(session)} color={COLORS.status.error} label="Delete" />
-                      )}
+        <>
+          {isCompact ? (
+            <div style={styles.mobileList}>
+              {sessionsToShow.map((session) => (
+                (() => {
+                  const mobileStatus = getMobileStatusConfig(session.status);
+                  const dateParts = formatDateParts(session.scheduled_at);
+                  return (
+                <div
+                  key={session.id}
+                  style={{
+                    ...styles.mobileCard,
+                    borderLeft: `4px solid ${mobileStatus.accent}`,
+                    boxShadow: `0 8px 20px ${mobileStatus.glow}`,
+                    ...(session.status === 'live' ? styles.mobileCardLive : {}),
+                  }}
+                >
+                  {session.status === 'live' && (
+                    <div style={styles.mobileLiveBanner}>● LIVE NOW</div>
+                  )}
+
+                  <div style={styles.mobileCardTop}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={styles.mobileCardTitle}>{session.title}</p>
+                      <p style={styles.mobileCardMeta}>{mobileStatus.emphasis}</p>
                     </div>
-                  </td>
-                </tr>
+                    <StatusBadge status={session.status} />
+                  </div>
+
+                  <div style={styles.mobileMetaChips}>
+                    <span style={styles.mobileMetaChip}>📅 {dateParts.date}</span>
+                    <span style={styles.mobileMetaChip}>🕒 {dateParts.time}</span>
+                    <span style={styles.mobileMetaChip}>⏱ {session.duration_mins} min</span>
+                    <span style={styles.mobileMetaChip}>👥 {session.participants_count ?? 0}</span>
+                  </div>
+
+                  {renderSessionActions(session, true)}
+                </div>
+                  );
+                })()
               ))}
-              {(activeTab === 'upcoming' ? upcoming : past).length === 0 && (
-                <tr><td colSpan={6} style={styles.emptyCell}>No {activeTab} sessions</td></tr>
+
+              {sessionsToShow.length === 0 && (
+                <div style={styles.emptyMobileCard}>No {activeTab} sessions</div>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          ) : (
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.tableHead}>
+                    <th style={styles.th}>Title</th>
+                    <th style={styles.th}>Date & Time</th>
+                    <th style={styles.th}>Duration</th>
+                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>Students</th>
+                    <th style={styles.th}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessionsToShow.map((session) => (
+                    <tr key={session.id} style={{ ...styles.tableRow, ...(session.status === 'live' ? { background: 'rgba(239,68,68,0.04)' } : {}) }}>
+                      <td style={styles.td}>
+                        <span style={styles.sessionTitle}>{session.title}</span>
+                        {session.is_recurring && <span style={styles.recurringBadge}>↻</span>}
+                      </td>
+                      <td style={styles.td}>{formatDate(session.scheduled_at)}</td>
+                      <td style={styles.td}>{session.duration_mins} min</td>
+                      <td style={styles.td}>
+                        <StatusBadge status={session.status} />
+                      </td>
+                      <td style={styles.td}>{session.participants_count}</td>
+                      <td style={styles.td}>{renderSessionActions(session, false)}</td>
+                    </tr>
+                  ))}
+                  {sessionsToShow.length === 0 && (
+                    <tr><td colSpan={6} style={styles.emptyCell}>No {activeTab} sessions</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
       {/* Participants Modal */}
@@ -285,34 +519,51 @@ const TeacherOnlineClassesPage = () => {
             {participantsModal.list.length === 0 ? (
               <p style={styles.noParticipants}>No participants recorded</p>
             ) : (
-              <table style={styles.table}>
-                <thead>
-                  <tr style={styles.modalTableHead}>
-                    <th style={styles.modalTh}>Student</th>
-                    <th style={styles.modalTh}>Duration</th>
-                    <th style={styles.modalTh}>Attendance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {participantsModal.list.map((p) => (
-                    <tr key={p.id} style={styles.modalTableRow}>
-                      <td style={styles.modalTd}>{p.student_name}</td>
-                      <td style={styles.modalTd}>{p.duration_mins} min</td>
-                      <td style={styles.modalTd}>
-                        {p.attendance_auto_marked ? (
-                          <span style={{ color: COLORS.status.success }}>✅ Marked</span>
-                        ) : (
-                          <span style={{ color: COLORS.text.tertiary }}>—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                {isCompact ? (
+                  <div style={styles.modalMobileList}>
+                    {participantsModal.list.map((p) => (
+                      <div key={p.id} style={styles.modalMobileItem}>
+                        <p style={styles.modalMobileName}>{p.student_name}</p>
+                        <p style={styles.modalMobileMeta}>Duration: {p.duration_mins} min</p>
+                        <p style={styles.modalMobileMeta}>
+                          Attendance: {p.attendance_auto_marked ? '✅ Marked' : '—'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <table style={styles.table}>
+                    <thead>
+                      <tr style={styles.modalTableHead}>
+                        <th style={styles.modalTh}>Student</th>
+                        <th style={styles.modalTh}>Duration</th>
+                        <th style={styles.modalTh}>Attendance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {participantsModal.list.map((p) => (
+                        <tr key={p.id} style={styles.modalTableRow}>
+                          <td style={styles.modalTd}>{p.student_name}</td>
+                          <td style={styles.modalTd}>{p.duration_mins} min</td>
+                          <td style={styles.modalTd}>
+                            {p.attendance_auto_marked ? (
+                              <span style={{ color: COLORS.status.success }}>✅ Marked</span>
+                            ) : (
+                              <span style={{ color: COLORS.text.tertiary }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </>
             )}
           </div>
         </div>
       )}
+
     </div>
   );
 };
@@ -348,36 +599,87 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const ActionBtn = ({ onClick, color, label }) => (
+const ActionBtn = ({ onClick, color, label, fullWidth = false, minHeight = 34, emphasis = false }) => (
   <button onClick={onClick} style={{
     background: color, border: 'none', borderRadius: BORDER_RADIUS.lg,
-    color: '#fff', padding: `6px 14px`, fontSize: FONT_SIZES.xs,
+    color: '#fff', padding: emphasis ? `8px 14px` : `6px 14px`,
+    fontSize: emphasis ? FONT_SIZES.sm : FONT_SIZES.xs,
     cursor: 'pointer', fontWeight: FONT_WEIGHTS.semibold, whiteSpace: 'nowrap',
-    boxShadow: `0 2px 8px ${color}55`,
+    boxShadow: emphasis ? `0 4px 14px ${color}70` : `0 2px 8px ${color}55`,
+    minHeight,
+    width: fullWidth ? '100%' : 'auto',
   }}>
     {label}
   </button>
 );
 
-const getStyles = () => ({
-  page: { padding: SPACING.xl, maxWidth: 1100, margin: '0 auto' },
+const getStyles = ({ isMobile = false, isCompact = false } = {}) => ({
+  page: {
+    padding: isCompact ? SPACING.md : SPACING.xl,
+    paddingTop: isCompact ? SPACING['3xl'] : SPACING.xl,
+    maxWidth: 1100,
+    margin: '0 auto',
+  },
 
   // Header
-  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.xl },
-  pageTitle: { fontSize: FONT_SIZES['2xl'], fontWeight: FONT_WEIGHTS.bold, color: COLORS.text.white, margin: 0, display: 'flex', alignItems: 'center', gap: SPACING.sm },
-  pageSubtitle: { fontSize: FONT_SIZES.sm, color: COLORS.text.whiteSubtle, margin: 0, marginTop: SPACING.xs },
+  topBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: isCompact ? 'stretch' : 'flex-start',
+    flexDirection: isCompact ? 'column' : 'row',
+    gap: isCompact ? SPACING.md : SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+  pageTitle: { fontSize: isCompact ? FONT_SIZES.xl : FONT_SIZES['2xl'], fontWeight: FONT_WEIGHTS.bold, color: COLORS.text.white, margin: 0, display: 'flex', alignItems: 'center', gap: SPACING.sm },
+  pageSubtitle: { fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm, color: COLORS.text.whiteSubtle, margin: 0, marginTop: SPACING.xs },
   createBtn: {
     background: 'rgba(255,255,255,0.92)', border: 'none', borderRadius: BORDER_RADIUS.lg,
     color: COLORS.primary, padding: `${SPACING.md} ${SPACING.xl}`,
     fontWeight: FONT_WEIGHTS.semibold, fontSize: FONT_SIZES.sm, cursor: 'pointer',
     boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+    width: isCompact ? '100%' : 'auto',
+    minHeight: 44,
+  },
+  returnBanner: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    marginBottom: SPACING.lg,
+    padding: isCompact ? SPACING.md : SPACING.lg,
+    display: 'flex',
+    alignItems: isCompact ? 'stretch' : 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    flexDirection: isCompact ? 'column' : 'row',
+  },
+  returnText: {
+    color: COLORS.text.white,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  returnBtn: {
+    background: COLORS.status.success,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.lg,
+    color: '#fff',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    cursor: 'pointer',
+    minHeight: 40,
+    whiteSpace: 'nowrap',
   },
 
   // School filter
-  filterRow: { display: 'flex', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.lg },
+  filterRow: {
+    display: 'flex',
+    alignItems: isCompact ? 'stretch' : 'center',
+    flexDirection: isCompact ? 'column' : 'row',
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
   filterLabel: { color: COLORS.text.whiteMedium, fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.medium },
   filterSelect: {
-    minWidth: 220,
+    minWidth: isCompact ? '100%' : 220,
     background: 'rgba(255,255,255,0.12)',
     backdropFilter: 'blur(10px)',
     border: '1px solid rgba(255,255,255,0.25)',
@@ -386,40 +688,130 @@ const getStyles = () => ({
     fontSize: FONT_SIZES.sm,
     color: '#fff',
     outline: 'none',
+    width: isCompact ? '100%' : 'auto',
+    minHeight: 44,
   },
 
   // Stats
-  statsRow: { display: 'flex', gap: SPACING.lg, marginBottom: SPACING.xl },
+  statsRow: {
+    display: 'grid',
+    gridTemplateColumns: isCompact ? '1fr 1fr' : 'repeat(3, minmax(0, 1fr))',
+    gap: isCompact ? SPACING.md : SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
   statCard: {
-    flex: 1,
     ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.xl,
+    padding: isCompact ? SPACING.md : SPACING.xl,
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SPACING.xs,
     textAlign: 'center',
   },
-  statIcon: { fontSize: 28, display: 'block', marginBottom: SPACING.xs },
-  statValue: { fontSize: FONT_SIZES['2xl'], fontWeight: FONT_WEIGHTS.bold, lineHeight: 1 },
+  statIcon: { fontSize: isCompact ? 20 : 28, display: 'block', marginBottom: SPACING.xs },
+  statValue: { fontSize: isCompact ? FONT_SIZES.lg : FONT_SIZES['2xl'], fontWeight: FONT_WEIGHTS.bold, lineHeight: 1 },
   statLabel: { fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: FONT_WEIGHTS.medium },
 
   // Tabs
   tabBar: {
     display: 'flex', gap: SPACING.sm, marginBottom: SPACING.lg,
     borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: SPACING.sm,
+    overflowX: 'auto', WebkitOverflowScrolling: 'touch',
   },
   tab: {
-    padding: `${SPACING.sm} ${SPACING.lg}`, border: '1px solid transparent',
+    padding: `${SPACING.sm} ${isCompact ? SPACING.md : SPACING.lg}`, border: '1px solid transparent',
     background: 'transparent', cursor: 'pointer', fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium, color: COLORS.text.whiteSubtle, borderRadius: BORDER_RADIUS.md,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+    minHeight: 40,
   },
   tabActive: {
-    padding: `${SPACING.sm} ${SPACING.lg}`, border: '1px solid rgba(255,255,255,0.35)',
+    padding: `${SPACING.sm} ${isCompact ? SPACING.md : SPACING.lg}`, border: '1px solid rgba(255,255,255,0.35)',
     background: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.semibold, color: '#fff', borderRadius: BORDER_RADIUS.md,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+    minHeight: 40,
+  },
+
+  mobileList: { display: 'grid', gap: SPACING.md },
+  mobileCard: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.lg,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.md,
+  },
+  mobileCardLive: {
+    border: '1px solid rgba(239,68,68,0.5)',
+    boxShadow: '0 8px 20px rgba(239,68,68,0.18)',
+  },
+  mobileLiveBanner: {
+    alignSelf: 'flex-start',
+    background: 'rgba(239,68,68,0.2)',
+    color: '#FEE2E2',
+    border: '1px solid rgba(239,68,68,0.45)',
+    borderRadius: BORDER_RADIUS.full,
+    fontSize: '11px',
+    fontWeight: FONT_WEIGHTS.bold,
+    padding: `3px ${SPACING.sm}`,
+    letterSpacing: '0.04em',
+  },
+  mobileCardTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+  mobileCardTitle: {
+    margin: 0,
+    fontSize: FONT_SIZES.base,
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.semibold,
+    overflowWrap: 'anywhere',
+  },
+  mobileCardMeta: {
+    margin: `${SPACING.xs} 0 0`,
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
+  mobileMetaChips: {
+    display: 'grid',
+    gap: SPACING.xs,
+    gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+  },
+  mobileMetaChip: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteMedium,
+    background: 'rgba(255,255,255,0.08)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  mobilePrimaryAction: {
+    marginTop: SPACING.xs,
+  },
+  mobileSecondaryActions: {
+    display: 'grid',
+    gap: SPACING.xs,
+    gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+  },
+  emptyMobileCard: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: `${SPACING.xl} ${SPACING.lg}`,
+    textAlign: 'center',
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.sm,
   },
 
   // Main table
-  tableWrapper: { ...MIXINS.glassmorphicCard, borderRadius: BORDER_RADIUS.xl, overflow: 'hidden' },
+  tableWrapper: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    overflowX: 'auto',
+    overflowY: 'hidden',
+  },
   table: { width: '100%', borderCollapse: 'collapse' },
   tableHead: { background: 'rgba(0,0,0,0.18)' },
   th: {
@@ -448,8 +840,8 @@ const getStyles = () => ({
   },
   modal: {
     ...MIXINS.glassmorphicCard,
-    borderRadius: BORDER_RADIUS.xl, padding: SPACING['2xl'],
-    width: '90%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto',
+    borderRadius: BORDER_RADIUS.xl, padding: isCompact ? SPACING.lg : SPACING['2xl'],
+    width: isCompact ? '94%' : '90%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto',
     boxShadow: '0 14px 36px rgba(63, 46, 132, 0.16)',
   },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
@@ -465,6 +857,24 @@ const getStyles = () => ({
   },
   modalTableRow: { borderTop: '1px solid rgba(255,255,255,0.1)' },
   modalTd: { padding: `${SPACING.md} ${SPACING.lg}`, fontSize: FONT_SIZES.sm, color: COLORS.text.white },
+  modalMobileList: { display: 'grid', gap: SPACING.sm },
+  modalMobileItem: {
+    border: '1px solid rgba(255,255,255,0.16)',
+    borderRadius: BORDER_RADIUS.md,
+    background: 'rgba(255,255,255,0.08)',
+    padding: SPACING.md,
+  },
+  modalMobileName: {
+    margin: 0,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.text.white,
+  },
+  modalMobileMeta: {
+    margin: `${SPACING.xs} 0 0`,
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
 });
 
 export default TeacherOnlineClassesPage;

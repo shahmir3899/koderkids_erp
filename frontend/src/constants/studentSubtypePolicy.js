@@ -3,7 +3,7 @@ export const STUDENT_SUBTYPE_POLICY = {
     lmsEnabled: true,
     progressEnabled: true,
     aiGalaEnabled: true,
-    onlineClassesEnabled: false,
+    onlineClassesEnabled: true,
   },
   ONLINE: {
     lmsEnabled: true,

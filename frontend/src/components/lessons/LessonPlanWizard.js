@@ -5,6 +5,8 @@ import { ClipLoader } from "react-spinners";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes } from "@fortawesome/free-solid-svg-icons";
 import { getAuthHeaders, addLesson } from "../../api";
+import { getTimeSlots } from "../../services/timeSlotService";
+import { createOnlineLessonPlansBulk } from "../../services/onlineClassService";
 import { useSchools } from "../../hooks/useSchools";
 import { useUser } from "../../hooks/useUser";
 import { useClasses } from "../../hooks/useClasses";
@@ -26,7 +28,13 @@ import {
   Z_INDEX,
 } from "../../utils/designConstants";
 
-const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
+const LessonPlanWizard = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  initialTargetMode = 'onsite',
+  allowTargetToggle = true,
+}) => {
   // Use cached schools from context
   const { schools, loading: schoolsLoading, error: schoolsError } = useSchools();
   // Use cached user from context
@@ -45,9 +53,11 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
 
   // Wizard data - persists across all steps
   const [wizardData, setWizardData] = useState({
+    targetMode: initialTargetMode,
     // Step 1
     selectedSchool: null,
     selectedClass: null,
+    selectedTimeSlot: null,
     selectedMonth: '',
     teacherId: null,
 
@@ -71,6 +81,7 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
 
   // Data for selectors
   const [classes, setClasses] = useState([]);
+  const [timeSlots, setTimeSlots] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // ============================================================
@@ -104,6 +115,25 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
     }
   }, [wizardData.selectedSchool, fetchClassesBySchool, getCachedClasses]);
 
+  const fetchTimeSlots = useCallback(async () => {
+    if (!wizardData.selectedSchool || wizardData.targetMode !== 'online') {
+      setTimeSlots([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await getTimeSlots({ school_id: wizardData.selectedSchool });
+      setTimeSlots(Array.isArray(data) ? data : (data?.results || []));
+    } catch (error) {
+      console.error('Error fetching time slots:', error);
+      toast.error('Failed to load time slots.');
+      setTimeSlots([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [wizardData.selectedSchool, wizardData.targetMode]);
+
   // Set teacher ID from cached user when available
   useEffect(() => {
     if (user && user.id) {
@@ -121,8 +151,11 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
     if (!wizardData.selectedSchool) {
       newErrors.selectedSchool = 'School is required';
     }
-    if (!wizardData.selectedClass) {
+    if (wizardData.targetMode === 'onsite' && !wizardData.selectedClass) {
       newErrors.selectedClass = 'Class is required';
+    }
+    if (wizardData.targetMode === 'online' && !wizardData.selectedTimeSlot) {
+      newErrors.selectedTimeSlot = 'Time slot is required';
     }
     if (!wizardData.selectedMonth) {
       newErrors.selectedMonth = 'Month is required';
@@ -222,6 +255,30 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
   // ============================================================
 
   const transformToAPIPayload = (data) => {
+    if (data.targetMode === 'online') {
+      return data.selectedDates.map((dateStr) => {
+        const session = data.sessionTopics[dateStr];
+
+        if (session?.mode === 'custom') {
+          return {
+            school_id: data.selectedSchool,
+            time_slot_id: data.selectedTimeSlot,
+            session_date: dateStr,
+            planned_topic_ids: [],
+            planned_topic: session.customText || '',
+          };
+        }
+
+        return {
+          school_id: data.selectedSchool,
+          time_slot_id: data.selectedTimeSlot,
+          session_date: dateStr,
+          planned_topic_ids: session?.topicIds || [],
+          planned_topic: '',
+        };
+      });
+    }
+
     return {
       school_id: data.selectedSchool,
       student_class: data.selectedClass,
@@ -254,9 +311,14 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
 
     try {
       const payload = transformToAPIPayload(wizardData);
-      await addLesson(payload);
 
-      toast.success('Lesson plan created successfully!');
+      if (wizardData.targetMode === 'online') {
+        await createOnlineLessonPlansBulk(payload);
+      } else {
+        await addLesson(payload);
+      }
+
+      toast.success(`${wizardData.targetMode === 'online' ? 'Online' : 'Onsite'} lesson plan created successfully!`);
 
       if (onSuccess) onSuccess();
 
@@ -279,8 +341,10 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
 
   const resetWizard = () => {
     setWizardData({
+      targetMode: initialTargetMode,
       selectedSchool: null,
       selectedClass: null,
+      selectedTimeSlot: null,
       selectedMonth: '',
       teacherId: null,
       selectedDates: [],
@@ -305,12 +369,17 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
   // Fetch classes only when selected school changes
   useEffect(() => {
     if (wizardData.selectedSchool) {
-      fetchClasses();
+      if (wizardData.targetMode === 'onsite') {
+        fetchClasses();
+      } else {
+        fetchTimeSlots();
+      }
     } else {
       setClasses([]);
+      setTimeSlots([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wizardData.selectedSchool]);
+  }, [wizardData.selectedSchool, wizardData.targetMode]);
 
   // ============================================================
   // RENDER
@@ -365,7 +434,37 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
           {/* Step 1: Class & Month Selection */}
           {currentStep === 1 && (
             <div style={styles.stepContainer}>
-              <h3 style={styles.stepTitle}>Select Class & Month</h3>
+              <h3 style={styles.stepTitle}>Select Target & Month</h3>
+
+              {allowTargetToggle && (
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Target Type *</label>
+                  <div style={styles.toggleWrap}>
+                    <button
+                      type="button"
+                      style={wizardData.targetMode === 'onsite' ? styles.toggleBtnActive : styles.toggleBtn}
+                      onClick={() => setWizardData({
+                        ...wizardData,
+                        targetMode: 'onsite',
+                        selectedTimeSlot: null,
+                      })}
+                    >
+                      ONSITE (Class)
+                    </button>
+                    <button
+                      type="button"
+                      style={wizardData.targetMode === 'online' ? styles.toggleBtnActive : styles.toggleBtn}
+                      onClick={() => setWizardData({
+                        ...wizardData,
+                        targetMode: 'online',
+                        selectedClass: null,
+                      })}
+                    >
+                      ONLINE (Time Slot)
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div style={styles.formGroup}>
                 <label style={styles.label}>School *</label>
@@ -376,7 +475,8 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                     setWizardData({
                       ...wizardData,
                       selectedSchool: e.target.value,
-                      selectedClass: null, // Reset class when school changes
+                      selectedClass: null,
+                      selectedTimeSlot: null,
                     });
                   }}
                   disabled={schoolsLoading}
@@ -393,7 +493,7 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                 {errors.selectedSchool && <div style={styles.error}>{errors.selectedSchool}</div>}
               </div>
 
-              {wizardData.selectedSchool && (
+              {wizardData.selectedSchool && wizardData.targetMode === 'onsite' && (
                 <div style={styles.formGroup}>
                   <label style={styles.label}>Class *</label>
                   <select
@@ -417,7 +517,31 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                 </div>
               )}
 
-              {wizardData.selectedClass && (
+              {wizardData.selectedSchool && wizardData.targetMode === 'online' && (
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Time Slot *</label>
+                  <select
+                    style={styles.select}
+                    value={wizardData.selectedTimeSlot || ''}
+                    onChange={(e) => {
+                      setWizardData({
+                        ...wizardData,
+                        selectedTimeSlot: e.target.value,
+                      });
+                    }}
+                  >
+                    <option value="" style={styles.selectOption}>-- Select Time Slot --</option>
+                    {timeSlots.map((slot) => (
+                      <option key={slot.id} value={slot.id} style={styles.selectOption}>
+                        {slot.label}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.selectedTimeSlot && <div style={styles.error}>{errors.selectedTimeSlot}</div>}
+                </div>
+              )}
+
+              {wizardData.selectedSchool && (wizardData.targetMode === 'online' ? wizardData.selectedTimeSlot : wizardData.selectedClass) && (
                 <div style={styles.formGroup}>
                   <label style={styles.label}>Month *</label>
                   <input
@@ -511,6 +635,8 @@ const LessonPlanWizard = ({ isOpen, onClose, onSuccess }) => {
                 }}
                 schools={schools}
                 classes={classes}
+                timeSlots={timeSlots}
+                targetMode={wizardData.targetMode}
                 errors={errors}
               />
             </div>
@@ -753,6 +879,33 @@ const styles = {
 
   formGroup: {
     marginBottom: SPACING.lg,
+  },
+
+  toggleWrap: {
+    display: 'flex',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+
+  toggleBtn: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+  },
+
+  toggleBtnActive: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.status.info}`,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.status.info,
+    color: COLORS.text.white,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
   },
 
   label: {

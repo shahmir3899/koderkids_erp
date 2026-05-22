@@ -4,12 +4,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
+import { useResponsive } from '../../hooks/useResponsive';
 import {
   createBulkSessions,
   createSession,
   getSession,
   updateSession,
   getEligibleStudents,
+  getLessonSuggestion,
 } from '../../services/onlineClassService';
 import { API_URL, getAuthHeaders } from '../../api';
 
@@ -21,6 +23,8 @@ const BULK_WIZARD_STEPS = ['Basics', 'Scheduling', 'Preview', 'Options'];
 const CreateClassPage = () => {
   const navigate = useNavigate();
   const { sessionId } = useParams(); // set when editing
+  const { isMobile, isTablet } = useResponsive();
+  const isCompact = isMobile || isTablet;
   const isEditing = Boolean(sessionId);
   const role = localStorage.getItem('role') || '';
   const [bulkMode, setBulkMode] = useState(false);
@@ -57,6 +61,10 @@ const CreateClassPage = () => {
   const [schoolHint, setSchoolHint] = useState('');
   const [wizardStep, setWizardStep] = useState(1);
   const [bulkPreview, setBulkPreview] = useState({ loading: false, error: '', dates: [], count: 0 });
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [descriptionTouched, setDescriptionTouched] = useState(false);
+  const [lessonSuggestion, setLessonSuggestion] = useState(null);
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
 
   const isBulkCreateMode = !isEditing && bulkMode;
   const wizardSteps = isBulkCreateMode ? BULK_WIZARD_STEPS : STANDARD_WIZARD_STEPS;
@@ -210,6 +218,76 @@ const CreateClassPage = () => {
       setBulkPreview({ loading: false, error: '', dates: [], count: 0 });
     }
   }, [isBulkCreateMode]);
+
+  const getSessionDateForSuggestion = () => {
+    if (!form.school) return '';
+    if (!bulkMode && form.scheduled_at) {
+      return form.scheduled_at.slice(0, 10);
+    }
+    if (bulkMode && form.bulk_start_date) {
+      return form.bulk_start_date;
+    }
+    return '';
+  };
+
+  const deriveSelectedStudentsClass = () => {
+    if (!form.selected_student_ids.length || !students.length) return '';
+    const selected = students.filter((s) => form.selected_student_ids.includes(s.id));
+    if (!selected.length) return '';
+    const classSet = new Set(selected.map((s) => (s.student_class || '').trim()).filter(Boolean));
+    return classSet.size === 1 ? Array.from(classSet)[0] : '';
+  };
+
+  useEffect(() => {
+    const sessionDate = getSessionDateForSuggestion();
+    if (!form.school || !sessionDate) {
+      setLessonSuggestion(null);
+      return;
+    }
+
+    const studentClass = deriveSelectedStudentsClass();
+    const params = {
+      school_id: form.school,
+      session_date: sessionDate,
+      ...(form.time_slot ? { time_slot_id: form.time_slot } : {}),
+      ...(studentClass ? { student_class: studentClass } : {}),
+    };
+
+    setLoadingSuggestion(true);
+    getLessonSuggestion(params)
+      .then((res) => {
+        const suggestion = res?.suggestion || null;
+        setLessonSuggestion(suggestion);
+
+        if (!suggestion) return;
+        setForm((prev) => ({
+          ...prev,
+          title: (!titleTouched && !prev.title.trim() && suggestion.title) ? suggestion.title : prev.title,
+          description: (!descriptionTouched && !prev.description.trim() && suggestion.description) ? suggestion.description : prev.description,
+        }));
+      })
+      .catch(() => setLessonSuggestion(null))
+      .finally(() => setLoadingSuggestion(false));
+  }, [
+    form.school,
+    form.time_slot,
+    form.scheduled_at,
+    form.bulk_start_date,
+    form.selected_student_ids,
+    students,
+    bulkMode,
+    titleTouched,
+    descriptionTouched,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const applyLessonSuggestion = () => {
+    if (!lessonSuggestion) return;
+    setForm((prev) => ({
+      ...prev,
+      title: lessonSuggestion.title || prev.title,
+      description: lessonSuggestion.description || prev.description,
+    }));
+  };
 
   const buildCommonPayload = () => ({
     title: form.title.trim(),
@@ -376,7 +454,7 @@ const CreateClassPage = () => {
     }));
   };
 
-  const styles = getStyles();
+  const styles = getStyles({ isMobile, isCompact });
 
   return (
     <div style={styles.page}>
@@ -433,7 +511,10 @@ const CreateClassPage = () => {
                     <input
                       style={errors.title ? styles.inputError : styles.input}
                       value={form.title}
-                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      onChange={(e) => {
+                        setTitleTouched(true);
+                        setForm({ ...form, title: e.target.value });
+                      }}
                       placeholder="e.g. Introduction to Python"
                       maxLength={200}
                     />
@@ -483,11 +564,25 @@ const CreateClassPage = () => {
                     <textarea
                       style={styles.textarea}
                       value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      onChange={(e) => {
+                        setDescriptionTouched(true);
+                        setForm({ ...form, description: e.target.value });
+                      }}
                       placeholder="What will students learn in this class?"
                       rows={3}
                     />
                   </Field>
+                  {loadingSuggestion && <p style={styles.schoolHint}>Checking lesson suggestion...</p>}
+                  {!loadingSuggestion && lessonSuggestion && (
+                    <div style={styles.suggestionBox}>
+                      <p style={styles.suggestionText}>
+                        Suggestion found from {lessonSuggestion.scope === 'ONLINE_TIMESLOT' ? 'online time-slot lesson plan' : 'class lesson plan'}.
+                      </p>
+                      <button type="button" style={styles.suggestionBtn} onClick={applyLessonSuggestion}>
+                        Apply Lesson Suggestion
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -583,14 +678,14 @@ const CreateClassPage = () => {
               </div>
 
               {form.school && (
-                <Field label="Invite Students (ONLINE only)">
+                <Field label="Invite Students (Eligible subtypes)">
                   {loadingStudents ? (
                     <p style={styles.schoolHint}>Loading students...</p>
                   ) : students.length === 0 ? (
                     <p style={styles.schoolHint}>
                       {form.time_slot
-                        ? 'No ONLINE students found in this time slot.'
-                        : 'No active ONLINE students found for this school.'}
+                        ? 'No eligible students found in this time slot.'
+                        : 'No active eligible students found for this school.'}
                     </p>
                   ) : (
                     <div style={styles.studentList}>
@@ -854,7 +949,7 @@ const ToggleRow = ({ label, hint, checked, onChange }) => (
   </div>
 );
 
-const getStyles = () => {
+const getStyles = ({ isMobile = false, isCompact = false } = {}) => {
   const s1 = SPACING[1] || SPACING.xs || '0.25rem';
   const s2 = SPACING[2] || SPACING.md || '0.75rem';
   const s3 = SPACING[3] || SPACING.lg || '1rem';
@@ -863,17 +958,31 @@ const getStyles = () => {
   const s8 = SPACING[8] || SPACING['3xl'] || '3rem';
 
   return {
-  page: { padding: s4, maxWidth: 1080, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: s3 },
+  page: {
+    padding: isCompact ? s2 : s4,
+    paddingTop: isCompact ? s8 : s4,
+    maxWidth: 1080,
+    margin: '0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: s3,
+  },
   backLink: {
     background: 'none', border: 'none', color: COLORS.primary, cursor: 'pointer',
     fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.medium, padding: 0, alignSelf: 'flex-start',
   },
   card: {
     ...MIXINS.glassmorphicCard,
-    borderRadius: BORDER_RADIUS.xl, padding: s4,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: isCompact ? s3 : s4,
     boxShadow: '0 14px 36px rgba(63, 46, 132, 0.14)',
   },
-  title: { fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.text.white, margin: `0 0 ${s2}` },
+  title: {
+    fontSize: isCompact ? FONT_SIZES.lg : FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    margin: `0 0 ${s2}`,
+  },
   wizardHeader: {
     display: 'flex',
     alignItems: 'center',
@@ -884,13 +993,15 @@ const getStyles = () => {
     borderRadius: BORDER_RADIUS.lg,
     background: 'rgba(255,255,255,0.06)',
     border: '1px solid rgba(255,255,255,0.14)',
+    overflowX: isCompact ? 'auto' : 'visible',
+    WebkitOverflowScrolling: 'touch',
   },
   wizardStepWrap: {
     display: 'flex',
     alignItems: 'center',
     gap: s1,
     minWidth: 0,
-    flex: 1,
+    flex: isCompact ? '0 0 auto' : 1,
   },
   wizardStepDot: {
     width: 24,
@@ -916,7 +1027,7 @@ const getStyles = () => {
     color: '#fff',
   },
   wizardStepLabel: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: isCompact ? '11px' : FONT_SIZES.xs,
     color: 'rgba(235,240,255,0.68)',
     fontWeight: FONT_WEIGHTS.medium,
     whiteSpace: 'nowrap',
@@ -934,7 +1045,7 @@ const getStyles = () => {
   },
   compactGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gridTemplateColumns: isCompact ? '1fr' : 'repeat(auto-fit, minmax(240px, 1fr))',
     gap: s2,
     alignItems: 'start',
   },
@@ -946,6 +1057,7 @@ const getStyles = () => {
     gap: s2,
     marginBottom: s3,
     flexWrap: 'wrap',
+    flexDirection: isMobile ? 'column' : 'row',
   },
   modeBtn: {
     padding: `${s1} ${s3}`,
@@ -955,6 +1067,8 @@ const getStyles = () => {
     fontSize: FONT_SIZES.sm,
     color: COLORS.text.whiteSubtle,
     cursor: 'pointer',
+    minHeight: 42,
+    width: isMobile ? '100%' : 'auto',
   },
   modeBtnActive: {
     padding: `${s1} ${s3}`,
@@ -965,16 +1079,18 @@ const getStyles = () => {
     color: '#fff',
     cursor: 'pointer',
     fontWeight: FONT_WEIGHTS.semibold,
+    minHeight: 42,
+    width: isMobile ? '100%' : 'auto',
   },
   input: {
     width: '100%', padding: `${s2} ${s3}`, border: `1px solid ${COLORS.border.default}`,
     borderRadius: BORDER_RADIUS.lg, fontSize: FONT_SIZES.sm, color: COLORS.text.white,
-    background: 'rgba(255,255,255,0.1)', boxSizing: 'border-box', outline: 'none',
+    background: 'rgba(255,255,255,0.1)', boxSizing: 'border-box', outline: 'none', minHeight: 44,
   },
   inputError: {
     width: '100%', padding: `${s2} ${s3}`, border: `1px solid ${COLORS.status.error}`,
     borderRadius: BORDER_RADIUS.lg, fontSize: FONT_SIZES.sm, color: COLORS.text.white,
-    background: 'rgba(255,255,255,0.1)', boxSizing: 'border-box', outline: 'none',
+    background: 'rgba(255,255,255,0.1)', boxSizing: 'border-box', outline: 'none', minHeight: 44,
   },
   select: {
     width: '100%',
@@ -995,6 +1111,7 @@ const getStyles = () => {
     backgroundRepeat: 'no-repeat',
     paddingRight: 38,
     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+    minHeight: 44,
   },
   selectError: {
     width: '100%',
@@ -1015,6 +1132,7 @@ const getStyles = () => {
     backgroundRepeat: 'no-repeat',
     paddingRight: 38,
     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+    minHeight: 44,
   },
   selectOption: {
     background: '#2a2152',
@@ -1025,7 +1143,7 @@ const getStyles = () => {
     borderRadius: BORDER_RADIUS.lg, fontSize: FONT_SIZES.sm, color: COLORS.text.white,
     background: 'rgba(255,255,255,0.1)', boxSizing: 'border-box', resize: 'vertical', outline: 'none',
   },
-  checkRow: { display: 'flex', alignItems: 'center', gap: s2, marginBottom: s2 },
+  checkRow: { display: 'flex', alignItems: 'center', gap: s2, marginBottom: s2, flexWrap: 'wrap' },
   checkLabel: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.medium, color: COLORS.text.white, cursor: 'pointer' },
   dayPicker: {
     display: 'flex',
@@ -1041,6 +1159,7 @@ const getStyles = () => {
     border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.08)',
     fontSize: FONT_SIZES.sm, cursor: 'pointer', color: COLORS.text.whiteSubtle,
     textAlign: 'center',
+    minHeight: 38,
   },
   dayBtnActive: {
     minWidth: 52,
@@ -1049,6 +1168,7 @@ const getStyles = () => {
     border: `1px solid ${COLORS.primary}`, background: COLORS.primary,
     fontSize: FONT_SIZES.sm, cursor: 'pointer', color: '#fff', fontWeight: FONT_WEIGHTS.semibold,
     textAlign: 'center',
+    minHeight: 38,
   },
   permissionsSection: {
     marginTop: s3,
@@ -1094,6 +1214,7 @@ const getStyles = () => {
     paddingTop: s3,
     borderTop: '1px solid rgba(255,255,255,0.16)',
     flexWrap: 'wrap',
+    flexDirection: isCompact ? 'column' : 'row',
   },
   prevBtn: {
     flex: 1,
@@ -1137,6 +1258,33 @@ const getStyles = () => {
     margin: `${s1} 0 0`,
     fontSize: FONT_SIZES.xs,
     color: COLORS.text.whiteSubtle,
+  },
+  suggestionBox: {
+    marginTop: s2,
+    border: '1px solid rgba(255,255,255,0.18)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: `${s2} ${s3}`,
+    background: 'rgba(255,255,255,0.06)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: s2,
+    flexWrap: 'wrap',
+  },
+  suggestionText: {
+    margin: 0,
+    color: COLORS.text.whiteSubtle,
+    fontSize: FONT_SIZES.xs,
+  },
+  suggestionBtn: {
+    border: `1px solid ${COLORS.primary}`,
+    borderRadius: BORDER_RADIUS.full,
+    padding: `${s1} ${s2}`,
+    background: 'transparent',
+    color: COLORS.primary,
+    fontSize: FONT_SIZES.xs,
+    cursor: 'pointer',
+    minHeight: 32,
   },
   studentList: {
     border: '1px solid rgba(255,255,255,0.18)',

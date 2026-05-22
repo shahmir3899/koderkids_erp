@@ -10,9 +10,22 @@ import { ConfirmationModal } from '../../components/common/modals/ConfirmationMo
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
 import { endSession, getSession, getRoomToken, startSession } from '../../services/onlineClassService';
 
+const ACTIVE_LIVE_CLASS_SESSION_KEY = 'activeOnlineClassSessionId';
+const ENABLE_ROOM_PERSISTENCE = process.env.NODE_ENV !== 'test';
+
+let persistentRoom = null;
+let persistentRoomSessionId = '';
+
+const clearPersistentRoomCache = () => {
+  persistentRoom = null;
+  persistentRoomSessionId = '';
+};
+
 // ── Remote participant tile (camera + audio) ──────────────────────────────────
-const RemoteTile = ({ participant, useContain = false }) => {
+const RemoteTile = ({ participant, variant = 'grid', onClick, isActive = false }) => {
   const videoRef = useRef(null);
+  const isStage = variant === 'stage';
+  const isStrip = variant === 'strip';
 
   useEffect(() => {
     const attachAll = () => {
@@ -41,23 +54,50 @@ const RemoteTile = ({ participant, useContain = false }) => {
     <div style={{
       position: 'relative',
       background: 'rgba(255,255,255,0.12)',
-      border: '1px solid rgba(255,255,255,0.18)',
+      border: isActive ? '1px solid rgba(176,97,206,0.72)' : '1px solid rgba(255,255,255,0.18)',
       borderRadius: 16,
       overflow: 'hidden',
       aspectRatio: '16/9',
-      minHeight: 220,
+      minHeight: isStage ? 260 : (isStrip ? 96 : 220),
       width: '100%',
+      minWidth: isStrip ? 'clamp(140px, 18vw, 190px)' : 0,
+      flexShrink: isStrip ? 0 : 1,
       boxShadow: '0 12px 28px rgba(63, 46, 132, 0.14)',
       backdropFilter: 'blur(14px)',
+      cursor: onClick ? 'pointer' : 'default',
+      transition: 'transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease',
+      transform: isActive ? 'translateY(-1px)' : 'translateY(0)',
+      boxSizing: 'border-box',
     }}>
-      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: useContain ? 'contain' : 'cover' }} />
+      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} onClick={onClick} />
       <span style={{
         position: 'absolute', bottom: 8, left: 10, color: '#fff', fontSize: 12,
-        background: 'rgba(255,255,255,0.16)', padding: '2px 8px', borderRadius: 999,
+        background: 'rgba(255,255,255,0.16)', padding: isStrip ? '2px 6px' : '2px 8px', borderRadius: 999,
         border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(10px)',
+        maxWidth: 'calc(100% - 20px)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
       }}>
         {participant.name || participant.identity}
       </span>
+      {isActive && !isStage && (
+        <span style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          color: '#fff',
+          fontSize: 11,
+          fontWeight: FONT_WEIGHTS.semibold,
+          background: 'rgba(176,97,206,0.52)',
+          padding: '2px 8px',
+          borderRadius: 999,
+          border: '1px solid rgba(216,170,238,0.4)',
+          backdropFilter: 'blur(10px)',
+        }}>
+          Live View
+        </span>
+      )}
     </div>
   );
 };
@@ -149,10 +189,12 @@ const ClassRoomPage = () => {
   const [isMobileLayout, setIsMobileLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 768 : false));
   const [isCompactMobile, setIsCompactMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 390 : false));
   const [hoveredAction, setHoveredAction] = useState('');
+  const [selectedParticipantIdentity, setSelectedParticipantIdentity] = useState('');
 
   const roomRef = useRef(null);
   const localVideoRef = useRef(null);
   const toastTimerRef = useRef(null);
+  const disconnectTargetPathRef = useRef('');
 
   const getFriendlyErrorMessage = useCallback((rawError, fallback = 'Something went wrong. Please try again.') => {
     const raw = String(rawError?.message || rawError || '').trim();
@@ -189,6 +231,11 @@ const ClassRoomPage = () => {
   }, [sessionId]);
 
   useEffect(() => {
+    if (!sessionId) return;
+    sessionStorage.setItem(ACTIVE_LIVE_CLASS_SESSION_KEY, String(sessionId));
+  }, [sessionId]);
+
+  useEffect(() => {
     const onResize = () => {
       setIsMobileLayout(window.innerWidth <= 768);
       setIsCompactMobile(window.innerWidth <= 390);
@@ -199,24 +246,45 @@ const ClassRoomPage = () => {
 
   useEffect(() => {
     let room;
+    let detachRoomListeners = () => {};
+    let unmounted = false;
 
     const init = async () => {
       try {
-        const tokenData = await getRoomToken(sessionId);
+        setError('');
+        setConnecting(true);
 
-        if (isTeacher) await startSession(sessionId).catch(() => {});
+        const isSameSessionRoom = Boolean(persistentRoom)
+          && ENABLE_ROOM_PERSISTENCE
+          && persistentRoomSessionId === String(sessionId)
+          && persistentRoom.state !== 'disconnected';
 
-        room = new Room({ adaptiveStream: true, dynacast: true });
-        roomRef.current = room;
+        if (ENABLE_ROOM_PERSISTENCE && persistentRoom && !isSameSessionRoom) {
+          persistentRoom.disconnect();
+          clearPersistentRoomCache();
+        }
 
-        room
-          .on(RoomEvent.ParticipantConnected, syncRemote)
-          .on(RoomEvent.ParticipantDisconnected, syncRemote)
-          .on(RoomEvent.TrackSubscribed, syncRemote)
-          .on(RoomEvent.TrackUnsubscribed, syncRemote)
-          .on(RoomEvent.TrackMuted, syncRemote)
-          .on(RoomEvent.TrackUnmuted, syncRemote)
-          .on(RoomEvent.DataReceived, (data) => {
+        if (isSameSessionRoom) {
+          room = persistentRoom;
+          roomRef.current = room;
+        } else {
+          const tokenData = await getRoomToken(sessionId);
+
+          if (isTeacher) await startSession(sessionId).catch(() => {});
+
+          room = new Room({ adaptiveStream: true, dynacast: true });
+          if (ENABLE_ROOM_PERSISTENCE) {
+            persistentRoom = room;
+            persistentRoomSessionId = String(sessionId);
+          }
+          roomRef.current = room;
+
+          await room.connect(tokenData.livekit_url, tokenData.token);
+          await room.localParticipant.setCameraEnabled(true);
+          await room.localParticipant.setMicrophoneEnabled(true);
+        }
+
+        const onDataReceived = (data) => {
             try {
               const msg = JSON.parse(new TextDecoder().decode(data));
               if (msg.type === 'teacher_control') {
@@ -244,26 +312,65 @@ const ClassRoomPage = () => {
                 setMessages((prev) => [...prev, { id: Date.now() + Math.random(), ...msg }]);
               }
             } catch { /* ignore malformed packets */ }
-          })
-          .on(RoomEvent.Disconnected, () => {
-            navigate(isTeacher ? '/online-classes/teacher' : '/online-classes');
-          });
+          };
 
-        await room.connect(tokenData.livekit_url, tokenData.token);
-        await room.localParticipant.setCameraEnabled(true);
-        await room.localParticipant.setMicrophoneEnabled(true);
+        const onDisconnected = () => {
+          clearPersistentRoomCache();
+          roomRef.current = null;
+          // Only explicit Leave/End actions should route users away from the room.
+          if (!disconnectTargetPathRef.current) return;
+          const nextPath = disconnectTargetPathRef.current;
+          disconnectTargetPathRef.current = '';
+          navigate(nextPath);
+        };
 
+        room
+          .on(RoomEvent.ParticipantConnected, syncRemote)
+          .on(RoomEvent.ParticipantDisconnected, syncRemote)
+          .on(RoomEvent.TrackSubscribed, syncRemote)
+          .on(RoomEvent.TrackUnsubscribed, syncRemote)
+          .on(RoomEvent.TrackMuted, syncRemote)
+          .on(RoomEvent.TrackUnmuted, syncRemote)
+          .on(RoomEvent.DataReceived, onDataReceived)
+          .on(RoomEvent.Disconnected, onDisconnected);
+
+        detachRoomListeners = () => {
+          const unsubscribe = room.off?.bind(room)
+            || room.removeListener?.bind(room)
+            || room.removeEventListener?.bind(room);
+          if (!unsubscribe) return;
+
+          unsubscribe(RoomEvent.ParticipantConnected, syncRemote);
+          unsubscribe(RoomEvent.ParticipantDisconnected, syncRemote);
+          unsubscribe(RoomEvent.TrackSubscribed, syncRemote);
+          unsubscribe(RoomEvent.TrackUnsubscribed, syncRemote);
+          unsubscribe(RoomEvent.TrackMuted, syncRemote);
+          unsubscribe(RoomEvent.TrackUnmuted, syncRemote);
+          unsubscribe(RoomEvent.DataReceived, onDataReceived);
+          unsubscribe(RoomEvent.Disconnected, onDisconnected);
+        };
+
+        if (unmounted) return;
         setConnecting(false);
         syncRemote();
       } catch (err) {
+        if (unmounted) return;
         setError(getFriendlyErrorMessage(err, 'Failed to connect to class. Please try again.'));
         setConnecting(false);
       }
     };
 
     init();
-    return () => { if (room) room.disconnect(); };
-  }, [sessionId, isTeacher, syncRemote, navigate]);
+    return () => {
+      unmounted = true;
+      detachRoomListeners();
+      if (!ENABLE_ROOM_PERSISTENCE && room) {
+        room.disconnect();
+        clearPersistentRoomCache();
+      }
+      if (roomRef.current === room) roomRef.current = null;
+    };
+  }, [sessionId, isTeacher, syncRemote, navigate, showToast, getFriendlyErrorMessage]);
 
   // Attach local camera once the video element is in the DOM (fixes race condition
   // where LocalTrackPublished fires while the loading spinner is still shown).
@@ -332,8 +439,16 @@ const ClassRoomPage = () => {
 
   // Leave without ending — teacher can rejoin, session stays live.
   const handleLeave = useCallback(() => {
-    if (roomRef.current) roomRef.current.disconnect();
-    navigate(isTeacher ? '/online-classes/teacher' : '/online-classes');
+    const targetPath = isTeacher ? '/online-classes/teacher' : '/online-classes';
+    sessionStorage.removeItem(ACTIVE_LIVE_CLASS_SESSION_KEY);
+    disconnectTargetPathRef.current = targetPath;
+    clearPersistentRoomCache();
+    if (roomRef.current) {
+      roomRef.current.disconnect();
+      return;
+    }
+    disconnectTargetPathRef.current = '';
+    navigate(targetPath);
   }, [isTeacher, navigate]);
 
   // End class permanently — handled through reusable confirmation modal.
@@ -346,8 +461,15 @@ const ClassRoomPage = () => {
     try {
       await endSession(sessionId);
       setEndConfirmOpen(false);
-      if (roomRef.current) roomRef.current.disconnect();
-      navigate('/online-classes/teacher');
+      sessionStorage.removeItem(ACTIVE_LIVE_CLASS_SESSION_KEY);
+      disconnectTargetPathRef.current = '/online-classes/teacher';
+      clearPersistentRoomCache();
+      if (roomRef.current) {
+        roomRef.current.disconnect();
+      } else {
+        disconnectTargetPathRef.current = '';
+        navigate('/online-classes/teacher');
+      }
     } catch (err) {
       showToast(getFriendlyErrorMessage(err, 'Could not end class right now. Please try again.'));
     } finally {
@@ -384,8 +506,46 @@ const ClassRoomPage = () => {
 
   const styles = getStyles(isCompactMobile);
   const sessionTitle = sessionInfo
-    ? [sessionInfo.subject, sessionInfo.class_name].filter(Boolean).join(' · ') || 'Live Class'
-    : 'Live Class';
+    ? [sessionInfo.title, [sessionInfo.subject, sessionInfo.class_name].filter(Boolean).join(' · ')].filter(Boolean)[0]
+    : '';
+  const mobileControlCount = isTeacher ? 8 : 6;
+  const teacherNameHint = String(sessionInfo?.teacher_name || sessionInfo?.teacher || '').toLowerCase();
+  const screenShareParticipants = remoteParticipants.filter((p) => p.getTrackPublication(Track.Source.ScreenShare)?.track);
+  const stageLayoutThreshold = isTeacher
+    ? (isMobileLayout ? 4 : 5)
+    : (isMobileLayout ? 3 : 6);
+  const useStageLayout = remoteParticipants.length >= stageLayoutThreshold;
+  const findDefaultStageParticipant = useCallback((participants) => {
+    if (!participants.length) return null;
+    if (!isTeacher) {
+      const likelyTeacher = participants.find((participant) => {
+        const text = `${participant.name || ''} ${participant.identity || ''}`.toLowerCase();
+        return (teacherNameHint && text.includes(teacherNameHint)) || /teacher|admin/.test(text);
+      });
+      if (likelyTeacher) return likelyTeacher;
+    }
+    return participants[0];
+  }, [isTeacher, teacherNameHint]);
+  const stageParticipant = remoteParticipants.find((participant) => participant.identity === selectedParticipantIdentity)
+    || findDefaultStageParticipant(remoteParticipants);
+  const secondaryParticipants = remoteParticipants.filter((participant) => participant.identity !== stageParticipant?.identity);
+  const showStageParticipant = useStageLayout && !screenShareParticipants.length && stageParticipant;
+  const stripParticipants = showStageParticipant ? secondaryParticipants : remoteParticipants;
+
+  useEffect(() => {
+    if (!remoteParticipants.length) {
+      if (selectedParticipantIdentity) setSelectedParticipantIdentity('');
+      return;
+    }
+
+    const stillSelected = remoteParticipants.some((participant) => participant.identity === selectedParticipantIdentity);
+    if (stillSelected) return;
+
+    const nextParticipant = findDefaultStageParticipant(remoteParticipants);
+    if (nextParticipant?.identity && nextParticipant.identity !== selectedParticipantIdentity) {
+      setSelectedParticipantIdentity(nextParticipant.identity);
+    }
+  }, [remoteParticipants, selectedParticipantIdentity, findDefaultStageParticipant]);
   const controlsActionSlotWidth = isTeacher
     ? (isCompactMobile ? 'clamp(192px, 52vw, 238px)' : 'clamp(264px, 32vw, 340px)')
     : 'clamp(112px, 14vw, 132px)';
@@ -416,10 +576,14 @@ const ClassRoomPage = () => {
   return (
     <div style={styles.room}>
       {/* ── Top header bar ── */}
-      <div style={styles.header}>
+      <div
+        style={{
+          ...styles.header,
+          ...(isMobileLayout ? styles.headerMobile : {}),
+        }}
+      >
         <div style={{ ...styles.headerMain, minWidth: 0 }}>
           <span style={styles.headerTitle}>{sessionTitle}</span>
-          <span style={styles.headerMeta}>Session #{sessionId}</span>
         </div>
         <span style={styles.liveBadge}>
           <span style={styles.liveDot} />
@@ -435,9 +599,7 @@ const ClassRoomPage = () => {
       <div style={styles.main}>
         <div style={styles.videoStage}>
           {/* Screen share — shown full-width when any participant is sharing */}
-          {remoteParticipants
-            .filter((p) => p.getTrackPublication(Track.Source.ScreenShare)?.track)
-            .map((p) => <ScreenShareTile key={`screen-${p.sid}`} participant={p} />)}
+          {screenShareParticipants.map((p) => <ScreenShareTile key={`screen-${p.sid}`} participant={p} />)}
 
           {remoteParticipants.length === 0 ? (
             <div style={styles.remotePlaceholder}>
@@ -445,9 +607,40 @@ const ClassRoomPage = () => {
               <p style={styles.remoteHint}>Waiting for others to join…</p>
               <p style={styles.remoteHintSmall}>You are connected · share the class link to invite students</p>
             </div>
+          ) : useStageLayout ? (
+            <div style={styles.stageLayout}>
+              {showStageParticipant && (
+                <div style={styles.stagePrimaryWrap}>
+                  <div style={styles.stageTitleRow}>
+                    <span style={styles.stageTitle}>{isTeacher ? 'Focused Student' : 'Main View'}</span>
+                    <span style={styles.stageHint}>{stageParticipant.name || stageParticipant.identity}</span>
+                  </div>
+                  <RemoteTile participant={stageParticipant} variant="stage" isActive />
+                </div>
+              )}
+
+              {stripParticipants.length > 0 && (
+                <div
+                  style={{
+                    ...styles.participantStrip,
+                    paddingLeft: isMobileLayout ? 'clamp(118px, 34vw, 156px)' : 'clamp(150px, 20vw, 228px)',
+                  }}
+                >
+                  {stripParticipants.map((p) => (
+                    <RemoteTile
+                      key={p.sid}
+                      participant={p}
+                      variant="strip"
+                      onClick={() => setSelectedParticipantIdentity(p.identity)}
+                      isActive={p.identity === selectedParticipantIdentity}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <div style={styles.participantGrid}>
-              {remoteParticipants.map((p) => <RemoteTile key={p.sid} participant={p} useContain={isMobileLayout} />)}
+              {remoteParticipants.map((p) => <RemoteTile key={p.sid} participant={p} />)}
             </div>
           )}
         </div>
@@ -465,7 +658,7 @@ const ClassRoomPage = () => {
           autoPlay
           muted
           playsInline
-          style={{ ...styles.localVideo, objectFit: isMobileLayout ? 'contain' : styles.localVideo.objectFit, opacity: camOn ? 1 : 0.2 }}
+          style={{ ...styles.localVideo, opacity: camOn ? 1 : 0.2 }}
         />
         <div style={styles.localLabel}>You {camOn ? '' : '(cam off)'}</div>
       </div>
@@ -510,7 +703,15 @@ const ClassRoomPage = () => {
                 <div key={p.sid} style={{ ...styles.participantRow, flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
-                    <span style={styles.participantName}>{p.name || p.identity}</span>
+                    <button
+                      onClick={() => setSelectedParticipantIdentity(p.identity)}
+                      style={{
+                        ...styles.participantNameBtn,
+                        ...(p.identity === selectedParticipantIdentity ? styles.participantNameBtnActive : {}),
+                      }}
+                    >
+                      {p.name || p.identity}
+                    </button>
                     <span style={{ marginLeft: 'auto', display: 'flex', gap: 4, fontSize: 14 }}>
                       {!p.isMicrophoneEnabled && <span title="Mic off">🔇</span>}
                       {!p.isCameraEnabled && <span title="Cam off">📷</span>}
@@ -581,31 +782,126 @@ const ClassRoomPage = () => {
       )}
 
       {/* ── Controls bar ── */}
-      <div style={styles.controls}>
-        <div style={{ ...styles.controlsSideSlot, width: controlsActionSlotWidth }} />
-        {/* Centred pill grouping the main control buttons */}
-        <div style={styles.controlsCenter}>
-          <div style={styles.controlsPill}>
-            <ControlBtn compact={isCompactMobile} onClick={toggleMic} active={micOn} icon={micOn ? <MdMic size={18} /> : <MdMicOff size={18} />} label={micOn ? 'Mute' : 'Unmute'} />
-            <ControlBtn compact={isCompactMobile} onClick={toggleCam} active={camOn} icon={camOn ? <MdVideocam size={18} /> : <MdVideocamOff size={18} />} label={camOn ? 'Cam Off' : 'Cam On'} />
-            <ControlBtn compact={isCompactMobile} onClick={toggleScreenShare} active={sharing} icon={sharing ? <MdStopScreenShare size={18} /> : <MdScreenShare size={18} />} label={sharing ? 'Stop Share' : 'Share Screen'} />
-            <ControlBtn compact={isCompactMobile} onClick={toggleBlur} active={blurEnabled} icon={blurEnabled ? <MdBlurOff size={18} /> : <MdBlurOn size={18} />} label={blurEnabled ? 'Blur Off' : 'Blur BG'} />
-            <ControlBtn compact={isCompactMobile} onClick={() => { setChatOpen(!chatOpen); setParticipantsOpen(false); }} active={chatOpen} icon={<MdChat size={18} />} label="Chat" />
-            {isTeacher && (
-              <ControlBtn compact={isCompactMobile} onClick={toggleParticipants} active={participantsOpen} icon={<MdPeople size={18} />} label="Students" />
-            )}
+      {isMobileLayout ? (
+        <div style={styles.controlsMobile}>
+          <div style={styles.controlsMobileTopRow}>
+            <div
+              style={{
+                ...styles.controlsPillMobile,
+                gridTemplateColumns: `repeat(${mobileControlCount}, minmax(0, 1fr))`,
+              }}
+            >
+              <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleMic} active={micOn} icon={micOn ? <MdMic size={18} /> : <MdMicOff size={18} />} label={micOn ? 'Mute' : 'Unmute'} />
+              <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleCam} active={camOn} icon={camOn ? <MdVideocam size={18} /> : <MdVideocamOff size={18} />} label={camOn ? 'Cam Off' : 'Cam On'} />
+              <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleScreenShare} active={sharing} icon={sharing ? <MdStopScreenShare size={18} /> : <MdScreenShare size={18} />} label={sharing ? 'Stop Share' : 'Share Screen'} />
+              <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleBlur} active={blurEnabled} icon={blurEnabled ? <MdBlurOff size={18} /> : <MdBlurOn size={18} />} label={blurEnabled ? 'Blur Off' : 'Blur BG'} />
+              <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={() => { setChatOpen(!chatOpen); setParticipantsOpen(false); }} active={chatOpen} icon={<MdChat size={18} />} label="Chat" />
+              {isTeacher && (
+                <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleParticipants} active={participantsOpen} icon={<MdPeople size={18} />} label="Students" />
+              )}
+              {isTeacher ? (
+                <>
+                  <button
+                    onClick={handleLeave}
+                    aria-label="Leave class"
+                    title="Leave class"
+                    onMouseEnter={() => setHoveredAction('leave')}
+                    onMouseLeave={() => setHoveredAction('')}
+                    style={{
+                      ...styles.leaveBtn,
+                      ...styles.mobileActionBtn,
+                      ...styles.leaveBtnInline,
+                      ...(hoveredAction === 'leave' ? styles.actionBtnHover : {}),
+                    }}
+                  >
+                    <MdExitToApp size={16} style={{ verticalAlign: 'middle' }} />
+                  </button>
+                  <button
+                    onClick={handleEndClass}
+                    aria-label="End class"
+                    title="End class"
+                    onMouseEnter={() => setHoveredAction('end')}
+                    onMouseLeave={() => setHoveredAction('')}
+                    style={{
+                      ...styles.endBtn,
+                      ...styles.mobileActionBtn,
+                      ...styles.endBtnInline,
+                      ...(hoveredAction === 'end' ? styles.actionBtnHover : {}),
+                    }}
+                  >
+                    <MdStop size={16} style={{ verticalAlign: 'middle' }} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleLeave}
+                  aria-label="Leave class"
+                  title="Leave class"
+                  onMouseEnter={() => setHoveredAction('leave')}
+                  onMouseLeave={() => setHoveredAction('')}
+                  style={{
+                    ...styles.leaveBtn,
+                    ...styles.mobileActionBtn,
+                    ...styles.leaveBtnInline,
+                    ...(hoveredAction === 'leave' ? styles.actionBtnHover : {}),
+                  }}
+                >
+                  <MdExitToApp size={16} style={{ verticalAlign: 'middle' }} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
-        {/* Leave / End buttons — right-aligned */}
-        <div
-          style={{
-            ...styles.controlsActions,
-            width: controlsActionSlotWidth,
-            marginRight: isCompactMobile ? 12 : 20,
-          }}
-        >
-          {isTeacher ? (
-            <>
+      ) : (
+        <div style={styles.controls}>
+          <div style={{ ...styles.controlsSideSlot, width: controlsActionSlotWidth }} />
+          {/* Centred pill grouping the main control buttons */}
+          <div style={styles.controlsCenter}>
+            <div style={styles.controlsPill}>
+              <ControlBtn compact={isCompactMobile} onClick={toggleMic} active={micOn} icon={micOn ? <MdMic size={18} /> : <MdMicOff size={18} />} label={micOn ? 'Mute' : 'Unmute'} />
+              <ControlBtn compact={isCompactMobile} onClick={toggleCam} active={camOn} icon={camOn ? <MdVideocam size={18} /> : <MdVideocamOff size={18} />} label={camOn ? 'Cam Off' : 'Cam On'} />
+              <ControlBtn compact={isCompactMobile} onClick={toggleScreenShare} active={sharing} icon={sharing ? <MdStopScreenShare size={18} /> : <MdScreenShare size={18} />} label={sharing ? 'Stop Share' : 'Share Screen'} />
+              <ControlBtn compact={isCompactMobile} onClick={toggleBlur} active={blurEnabled} icon={blurEnabled ? <MdBlurOff size={18} /> : <MdBlurOn size={18} />} label={blurEnabled ? 'Blur Off' : 'Blur BG'} />
+              <ControlBtn compact={isCompactMobile} onClick={() => { setChatOpen(!chatOpen); setParticipantsOpen(false); }} active={chatOpen} icon={<MdChat size={18} />} label="Chat" />
+              {isTeacher && (
+                <ControlBtn compact={isCompactMobile} onClick={toggleParticipants} active={participantsOpen} icon={<MdPeople size={18} />} label="Students" />
+              )}
+            </div>
+          </div>
+          {/* Leave / End buttons — right-aligned */}
+          <div
+            style={{
+              ...styles.controlsActions,
+              width: controlsActionSlotWidth,
+              marginRight: isCompactMobile ? 12 : 20,
+            }}
+          >
+            {isTeacher ? (
+              <>
+                <button
+                  onClick={handleLeave}
+                  onMouseEnter={() => setHoveredAction('leave')}
+                  onMouseLeave={() => setHoveredAction('')}
+                  style={{
+                    ...styles.leaveBtn,
+                    ...(hoveredAction === 'leave' ? styles.actionBtnHover : {}),
+                  }}
+                >
+                  <MdExitToApp size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />Leave
+                </button>
+                <button
+                  onClick={handleEndClass}
+                  onMouseEnter={() => setHoveredAction('end')}
+                  onMouseLeave={() => setHoveredAction('')}
+                  style={{
+                    ...styles.endBtn,
+                    ...(hoveredAction === 'end' ? styles.actionBtnHover : {}),
+                  }}
+                >
+                  <MdStop size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />End Class
+                </button>
+              </>
+            ) : (
               <button
                 onClick={handleLeave}
                 onMouseEnter={() => setHoveredAction('leave')}
@@ -617,33 +913,10 @@ const ClassRoomPage = () => {
               >
                 <MdExitToApp size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />Leave
               </button>
-              <button
-                onClick={handleEndClass}
-                onMouseEnter={() => setHoveredAction('end')}
-                onMouseLeave={() => setHoveredAction('')}
-                style={{
-                  ...styles.endBtn,
-                  ...(hoveredAction === 'end' ? styles.actionBtnHover : {}),
-                }}
-              >
-                <MdStop size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />End Class
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={handleLeave}
-              onMouseEnter={() => setHoveredAction('leave')}
-              onMouseLeave={() => setHoveredAction('')}
-              style={{
-                ...styles.leaveBtn,
-                ...(hoveredAction === 'leave' ? styles.actionBtnHover : {}),
-              }}
-            >
-              <MdExitToApp size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />Leave
-            </button>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <ConfirmationModal
         isOpen={endConfirmOpen}
@@ -661,12 +934,14 @@ const ClassRoomPage = () => {
   );
 };
 
-const ControlBtn = ({ onClick, active, icon, label, compact = false }) => {
+const ControlBtn = ({ onClick, active, icon, label, compact = false, showLabel = true, styleOverride = null }) => {
   const [hovered, setHovered] = useState(false);
 
   return (
     <button
       onClick={onClick}
+      title={label}
+      aria-label={label}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -682,7 +957,7 @@ const ControlBtn = ({ onClick, active, icon, label, compact = false }) => {
         color: active ? '#ffffff' : 'rgba(245,248,255,0.95)',
         cursor: 'pointer',
         fontSize: FONT_SIZES.xs,
-        minWidth: compact ? 82 : 98,
+        minWidth: compact ? (showLabel ? 82 : 44) : 98,
         height: compact ? 38 : 42,
         fontWeight: active ? FONT_WEIGHTS.semibold : FONT_WEIGHTS.medium,
         whiteSpace: 'nowrap',
@@ -690,10 +965,11 @@ const ControlBtn = ({ onClick, active, icon, label, compact = false }) => {
         boxShadow: active ? '0 6px 14px rgba(18,24,46,0.3)' : '0 4px 10px rgba(7,10,24,0.2)',
         transform: hovered ? 'translateY(-1px)' : 'translateY(0)',
         filter: hovered ? 'brightness(1.06)' : 'none',
+        ...(styleOverride || {}),
       }}
     >
       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 18, width: 18 }}>{icon}</span>
-      <span>{label}</span>
+      {showLabel && <span>{label}</span>}
     </button>
   );
 };
@@ -724,6 +1000,10 @@ const getStyles = (compact = false) => ({
     gap: SPACING[2],
     padding: `0 ${SPACING[5]}`,
     zIndex: 25,
+  },
+  headerMobile: {
+    paddingLeft: 74,
+    paddingRight: SPACING[2],
   },
   headerMain: {
     display: 'flex',
@@ -784,7 +1064,7 @@ const getStyles = (compact = false) => ({
     padding: compact ? SPACING[2] : SPACING[4],
     gap: SPACING[3],
     paddingTop: 74, // header + gap
-    paddingBottom: compact ? 84 : 90, // controls bar height
+    paddingBottom: compact ? 140 : 90, // controls bar height
     overflow: 'hidden',
   },
   videoStage: {
@@ -814,10 +1094,55 @@ const getStyles = (compact = false) => ({
     paddingRight: SPACING[2],
     alignContent: 'start',
   },
+  stageLayout: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING[3],
+    flex: 1,
+    minHeight: 0,
+  },
+  stagePrimaryWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING[2],
+    flex: 1,
+    minHeight: 0,
+  },
+  stageTitleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING[2],
+    paddingInline: 4,
+  },
+  stageTitle: {
+    fontSize: FONT_SIZES.sm,
+    color: 'rgba(255,255,255,0.78)',
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  stageHint: {
+    fontSize: FONT_SIZES.xs,
+    color: 'rgba(255,255,255,0.66)',
+    maxWidth: '55%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    textAlign: 'right',
+  },
+  participantStrip: {
+    display: 'flex',
+    gap: SPACING[2],
+    overflowX: 'auto',
+    overflowY: 'hidden',
+    paddingBottom: 4,
+    minHeight: 0,
+    scrollbarWidth: 'thin',
+    WebkitOverflowScrolling: 'touch',
+  },
   // ── PIP — moved to bottom-LEFT above controls ──
   localVideoWrapper: {
     position: 'fixed',
-    bottom: compact ? 86 : 92,
+    bottom: compact ? 142 : 92,
     left: SPACING[4],
     width: compact ? 'clamp(108px, 30vw, 142px)' : 'clamp(132px, 18vw, 208px)',
     aspectRatio: '16/9',
@@ -972,6 +1297,21 @@ const getStyles = (compact = false) => ({
     boxShadow: '0 8px 18px rgba(63, 46, 132, 0.08)',
   },
   participantName: { fontSize: FONT_SIZES.sm },
+  participantNameBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#fff',
+    padding: 0,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+    textAlign: 'left',
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  participantNameBtnActive: {
+    color: '#D8AAEE',
+    textDecoration: 'underline',
+    textUnderlineOffset: 3,
+  },
   participantDur: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.72)' },
   controls: {
     position: 'fixed',
@@ -988,6 +1328,47 @@ const getStyles = (compact = false) => ({
     zIndex: 20,
     borderTop: '1px solid rgba(255,255,255,0.18)',
     boxShadow: '0 -10px 28px rgba(63, 46, 132, 0.14)',
+  },
+  controlsMobile: {
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: 'rgba(255,255,255,0.12)',
+    backdropFilter: 'blur(16px)',
+    borderTop: '1px solid rgba(255,255,255,0.18)',
+    boxShadow: '0 -10px 28px rgba(63, 46, 132, 0.14)',
+    padding: `${SPACING[2]} ${SPACING[2]} ${SPACING[2]}`,
+    zIndex: 20,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING[2],
+  },
+  controlsMobileTopRow: {
+    display: 'block',
+    minWidth: 0,
+  },
+  controlsPillMobile: {
+    display: 'grid',
+    gap: 8,
+    alignItems: 'center',
+    width: '100%',
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))',
+    border: '1px solid rgba(255,255,255,0.18)',
+    borderRadius: 16,
+    padding: '8px',
+    backdropFilter: 'blur(8px)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.24)',
+  },
+  mobileControlBtn: {
+    width: '100%',
+    minWidth: 0,
+    padding: 0,
+  },
+  mobileActionBtn: {
+    width: '100%',
+    minWidth: 0,
+    padding: 0,
   },
   controlsSideSlot: {
     justifySelf: 'start',
@@ -1034,6 +1415,11 @@ const getStyles = (compact = false) => ({
     transition: 'all 140ms ease',
     boxShadow: '0 8px 20px rgba(255,47,95,0.26)',
   },
+  endBtnInline: {
+    height: 38,
+    fontSize: FONT_SIZES.xs,
+    borderRadius: 14,
+  },
   leaveBtn: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -1049,6 +1435,13 @@ const getStyles = (compact = false) => ({
     cursor: 'pointer',
     transition: 'all 140ms ease',
     boxShadow: '0 5px 14px rgba(7,10,24,0.22)',
+  },
+  leaveBtnInline: {
+    height: 38,
+    fontSize: FONT_SIZES.xs,
+    border: '1px solid rgba(255,120,150,0.45)',
+    background: 'rgba(255,72,118,0.24)',
+    color: '#fff',
   },
   fullscreen: {
     minHeight: '100vh',

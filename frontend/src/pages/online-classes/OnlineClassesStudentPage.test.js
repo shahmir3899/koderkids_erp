@@ -2,11 +2,24 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import OnlineClassesStudentPage from './OnlineClassesStudentPage';
 import * as svc from '../../services/onlineClassService';
 
-jest.mock('../../services/onlineClassService');
+const mockNavigate = jest.fn();
+
+jest.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+}), { virtual: true });
+
+jest.mock('../../services/onlineClassService', () => ({
+  listSessions: jest.fn(),
+}));
+jest.mock('../../hooks/useResponsive', () => ({
+  useResponsive: () => ({ isMobile: false, isTablet: false }),
+}));
+jest.mock('../../components/common/ui/ErrorDisplay', () => ({
+  ErrorDisplay: ({ error }) => <div>{error}</div>,
+}));
 jest.mock('../../utils/designConstants', () => ({
   COLORS: {
     primary: '#000', text: { primary: '#000', secondary: '#555', tertiary: '#888' },
@@ -21,12 +34,7 @@ jest.mock('../../utils/designConstants', () => ({
   MIXINS: {},
 }));
 
-const renderPage = () =>
-  render(
-    <MemoryRouter>
-      <OnlineClassesStudentPage />
-    </MemoryRouter>
-  );
+const renderPage = () => render(<OnlineClassesStudentPage />);
 
 describe('OnlineClassesStudentPage', () => {
   beforeEach(() => {
@@ -36,8 +44,9 @@ describe('OnlineClassesStudentPage', () => {
   afterEach(() => localStorage.clear());
 
   it('renders heading and tabs', async () => {
-    svc.listSessions.mockResolvedValue([]);
-    svc.listRecordings.mockResolvedValue([]);
+    svc.listSessions
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
 
     renderPage();
 
@@ -55,8 +64,9 @@ describe('OnlineClassesStudentPage', () => {
       teacher_name: 'Mr. Test',
       participants_count: 5,
     };
-    svc.listSessions.mockResolvedValue([session]);
-    svc.listRecordings.mockResolvedValue([]);
+    svc.listSessions
+      .mockResolvedValueOnce([session])
+      .mockResolvedValueOnce([]);
 
     renderPage();
 
@@ -64,8 +74,9 @@ describe('OnlineClassesStudentPage', () => {
   });
 
   it('shows empty state when no sessions', async () => {
-    svc.listSessions.mockResolvedValue([]);
-    svc.listRecordings.mockResolvedValue([]);
+    svc.listSessions
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
 
     renderPage();
 
@@ -73,8 +84,9 @@ describe('OnlineClassesStudentPage', () => {
   });
 
   it('shows error message on API failure', async () => {
-    svc.listSessions.mockRejectedValue(new Error('Network error'));
-    svc.listRecordings.mockResolvedValue([]);
+    svc.listSessions
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce([]);
 
     renderPage();
 

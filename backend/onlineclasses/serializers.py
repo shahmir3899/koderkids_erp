@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from students.models import Student
 from .models import OnlineClassSession, ClassParticipant, ClassRecording
+from .constants import ONLINE_CLASS_ELIGIBLE_STUDENT_SUBTYPES
 
 
 class OnlineClassSessionSerializer(serializers.ModelSerializer):
@@ -11,7 +12,7 @@ class OnlineClassSessionSerializer(serializers.ModelSerializer):
     # Write-only list of student PKs; read back as list of ids via source
     selected_student_ids = serializers.PrimaryKeyRelatedField(
         source='selected_students',
-        queryset=Student.objects.filter(student_subtype='ONLINE'),
+        queryset=Student.objects.filter(student_subtype__in=ONLINE_CLASS_ELIGIBLE_STUDENT_SUBTYPES),
         many=True,
         required=False,
     )
@@ -55,9 +56,13 @@ class OnlineClassSessionSerializer(serializers.ModelSerializer):
             )
 
         for student in selected_students:
-            if student.student_subtype != 'ONLINE':
+            if student.student_subtype not in ONLINE_CLASS_ELIGIBLE_STUDENT_SUBTYPES:
                 raise serializers.ValidationError(
-                    {'selected_student_ids': f'Student "{student.name}" is not an ONLINE student.'}
+                    {
+                        'selected_student_ids': (
+                            f'Student "{student.name}" is not eligible for online classes.'
+                        )
+                    }
                 )
             if school and student.school_id != school.id:
                 raise serializers.ValidationError(

@@ -170,3 +170,84 @@ export const getEligibleStudents = async (params = {}) => {
   const response = await fetchWithTimeout(url, { headers: getAuthHeaders() });
   return handleResponse(response);
 };
+
+/**
+ * Get lesson-driven suggestion for class title/description.
+ * @param {Object} params e.g. { school_id, session_date, student_class } or { school_id, session_date, time_slot_id }
+ */
+export const getLessonSuggestion = async (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  const url = qs ? `${API_URL}/api/lessons/suggestions/?${qs}` : `${API_URL}/api/lessons/suggestions/`;
+  const response = await fetchWithTimeout(url, { headers: getAuthHeaders() });
+  return handleResponse(response);
+};
+
+/**
+ * Create online time-slot lesson plan.
+ */
+export const createOnlineLessonPlan = async (data) => {
+  const response = await fetchWithTimeout(`${API_URL}/api/lessons/online/create/`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return handleResponse(response);
+};
+
+/**
+ * Bulk create online time-slot lesson plans.
+ * @param {Array|Object} lessonsPayload Array of lessons OR { lessons: [...] }
+ */
+export const createOnlineLessonPlansBulk = async (lessonsPayload) => {
+  const body = Array.isArray(lessonsPayload) ? { lessons: lessonsPayload } : lessonsPayload;
+  const response = await fetchWithTimeout(`${API_URL}/api/lessons/online/bulk-create/`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(response);
+};
+
+/**
+ * Get online time-slot lesson plans by school + date + slot.
+ */
+export const getOnlineLessonPlan = async (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  const url = qs ? `${API_URL}/api/lessons/online/?${qs}` : `${API_URL}/api/lessons/online/`;
+  const response = await fetchWithTimeout(url, { headers: getAuthHeaders() });
+  return handleResponse(response);
+};
+
+/**
+ * Get online lesson plans for a date range.
+ * @param {Object} params e.g. { start_date, end_date, school_id, time_slot_id? }
+ */
+export const getOnlineLessonPlanRange = async (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  const url = qs ? `${API_URL}/api/lessons/online/range/?${qs}` : `${API_URL}/api/lessons/online/range/`;
+  const response = await fetchWithTimeout(url, { headers: getAuthHeaders() });
+  return handleResponse(response);
+};
+
+/**
+ * Update planned topic for a specific online lesson plan.
+ */
+export const updateOnlinePlannedTopic = async (lessonPlanId, planned_topic) => {
+  const response = await fetchWithTimeout(`${API_URL}/api/lessons/online/${lessonPlanId}/update-planned/`, {
+    method: 'PUT',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planned_topic }),
+  });
+  return handleResponse(response);
+};
+
+/**
+ * Delete a specific online lesson plan.
+ */
+export const deleteOnlineLessonPlan = async (lessonPlanId) => {
+  const response = await fetchWithTimeout(`${API_URL}/api/lessons/online/${lessonPlanId}/`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(response);
+};

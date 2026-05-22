@@ -458,6 +458,13 @@ export const MENU_SECTIONS = {
         path: '/online-classes/teacher',
         roles: ['Teacher', 'Admin'],
       },
+      {
+        id: 'online-lesson-plans',
+        label: 'Online Lesson Plans',
+        icon: faClipboardList,
+        path: '/online-classes/teacher/lesson-plans',
+        roles: ['Teacher', 'Admin'],
+      },
     ],
   },
 };

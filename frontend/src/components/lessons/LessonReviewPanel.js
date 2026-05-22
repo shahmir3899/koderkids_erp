@@ -29,6 +29,8 @@ const LessonReviewPanel = ({
   onEditSession,
   schools,
   classes,
+  timeSlots,
+  targetMode,
   errors,
 }) => {
   const handleQuickEdit = (field, value) => {
@@ -68,21 +70,43 @@ const LessonReviewPanel = ({
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Class</label>
-            <select
-              style={styles.select}
-              value={wizardData.selectedClass || ''}
-              onChange={(e) => handleQuickEdit('selectedClass', e.target.value)}
-            >
-              <option value="">-- Select Class --</option>
-              {classes.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            {errors.selectedClass && (
-              <div style={styles.error}>{errors.selectedClass}</div>
+            <label style={styles.label}>{targetMode === 'online' ? 'Time Slot' : 'Class'}</label>
+            {targetMode === 'online' ? (
+              <>
+                <select
+                  style={styles.select}
+                  value={wizardData.selectedTimeSlot || ''}
+                  onChange={(e) => handleQuickEdit('selectedTimeSlot', e.target.value)}
+                >
+                  <option value="">-- Select Time Slot --</option>
+                  {(timeSlots || []).map((slot) => (
+                    <option key={slot.id} value={slot.id}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.selectedTimeSlot && (
+                  <div style={styles.error}>{errors.selectedTimeSlot}</div>
+                )}
+              </>
+            ) : (
+              <>
+                <select
+                  style={styles.select}
+                  value={wizardData.selectedClass || ''}
+                  onChange={(e) => handleQuickEdit('selectedClass', e.target.value)}
+                >
+                  <option value="">-- Select Class --</option>
+                  {classes.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                {errors.selectedClass && (
+                  <div style={styles.error}>{errors.selectedClass}</div>
+                )}
+              </>
             )}
           </div>
 
@@ -110,6 +134,10 @@ const LessonReviewPanel = ({
         <div style={styles.summaryCard}>
           <div style={styles.summaryNumber}>{getTotalTopics()}</div>
           <div style={styles.summaryLabel}>Total Topics</div>
+        </div>
+        <div style={styles.summaryCard}>
+          <div style={styles.summaryNumber}>{targetMode === 'online' ? 'ONLINE' : 'ONSITE'}</div>
+          <div style={styles.summaryLabel}>Target</div>
         </div>
         <div style={styles.summaryCard}>
           <div style={styles.summaryNumber}>

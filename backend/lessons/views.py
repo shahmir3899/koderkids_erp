@@ -11,9 +11,20 @@ from rest_framework.response import Response
 from django.http import JsonResponse
 
 from students.models import LessonPlan, School, Student, Attendance
-from .serializers import LessonPlanSerializer
+from .models import OnlineTimeSlotLessonPlan
+from .serializers import LessonPlanSerializer, OnlineTimeSlotLessonPlanSerializer
 
 logger = logging.getLogger(__name__)
+
+
+def _lesson_to_suggestion(lesson, scope):
+    planned_topic = (lesson.planned_topic or '').strip()
+    return {
+        'title': planned_topic.splitlines()[0][:120] if planned_topic else '',
+        'description': planned_topic,
+        'scope': scope,
+        'lesson_plan_id': lesson.id,
+    }
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -390,4 +401,236 @@ def bulk_create_lesson_plans(request):
         return Response({"error": "Invalid school ID."}, status=400)
     except IntegrityError:
         return Response({"error": "Duplicate lesson plan detected."}, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_online_lesson_plan(request):
+    teacher = request.user
+    if teacher.role != 'Teacher':
+        return Response({"error": "Only teachers can create online lesson plans."}, status=403)
+
+    school_id = request.data.get('school') or request.data.get('school_id')
+    time_slot_id = request.data.get('time_slot') or request.data.get('time_slot_id')
+    session_date = request.data.get('session_date')
+
+    if not all([school_id, time_slot_id, session_date]):
+        return Response({"error": "school_id, time_slot_id, and session_date are required."}, status=400)
+
+    if not teacher.assigned_schools.filter(id=school_id).exists():
+        return Response({"error": "You are not assigned to this school."}, status=403)
+
+    if OnlineTimeSlotLessonPlan.objects.filter(
+        session_date=session_date,
+        teacher=teacher,
+        school_id=school_id,
+        time_slot_id=time_slot_id,
+    ).exists():
+        return Response({"error": "Duplicate online lesson plan for this date and time slot."}, status=400)
+
+    serializer = OnlineTimeSlotLessonPlanSerializer(data={
+        **request.data,
+        'school': school_id,
+        'time_slot': time_slot_id,
+        'teacher': teacher.id,
+    })
+    if serializer.is_valid():
+        instance = serializer.save()
+        return Response(OnlineTimeSlotLessonPlanSerializer(instance).data, status=201)
+    return Response(serializer.errors, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def bulk_create_online_lesson_plans(request):
+    """
+    Bulk create ONLINE lesson plans (time-slot based) in one request.
+
+    Request body can be either:
+    1) { "lessons": [ {school_id, time_slot_id, session_date, planned_topic_ids?, planned_topic?}, ... ] }
+    2) [ {school_id, time_slot_id, session_date, planned_topic_ids?, planned_topic?}, ... ]
+    """
+    teacher = request.user
+    if teacher.role != 'Teacher':
+        return Response({"error": "Only teachers can create online lesson plans."}, status=403)
+
+    payload = request.data.get('lessons') if isinstance(request.data, dict) else request.data
+    if not isinstance(payload, list) or not payload:
+        return Response({"error": "A non-empty lessons list is required."}, status=400)
+
+    created = []
+    seen = set()
+
+    for idx, lesson in enumerate(payload):
+        school_id = lesson.get('school') or lesson.get('school_id')
+        time_slot_id = lesson.get('time_slot') or lesson.get('time_slot_id')
+        session_date = lesson.get('session_date')
+
+        if not all([school_id, time_slot_id, session_date]):
+            return Response({
+                "error": f"Missing required fields at index {idx}. school_id, time_slot_id, and session_date are required."
+            }, status=400)
+
+        if not teacher.assigned_schools.filter(id=school_id).exists():
+            return Response({"error": f"You are not assigned to school {school_id}."}, status=403)
+
+        key = (str(school_id), str(time_slot_id), str(session_date))
+        if key in seen:
+            return Response({"error": f"Duplicate lesson in payload for school={school_id}, slot={time_slot_id}, date={session_date}."}, status=400)
+        seen.add(key)
+
+        if OnlineTimeSlotLessonPlan.objects.filter(
+            session_date=session_date,
+            teacher=teacher,
+            school_id=school_id,
+            time_slot_id=time_slot_id,
+        ).exists():
+            return Response({
+                "error": f"Duplicate online lesson plan for school={school_id}, slot={time_slot_id}, date={session_date}."
+            }, status=400)
+
+        serializer = OnlineTimeSlotLessonPlanSerializer(data={
+            **lesson,
+            'school': school_id,
+            'time_slot': time_slot_id,
+            'teacher': teacher.id,
+        })
+        if serializer.is_valid():
+            instance = serializer.save()
+            created.append(OnlineTimeSlotLessonPlanSerializer(instance).data)
+        else:
+            return Response({"index": idx, "errors": serializer.errors}, status=400)
+
+    return Response({
+        "message": "Online lesson plans created successfully!",
+        "count": len(created),
+        "data": created,
+    }, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_online_lesson_plan(request):
+    session_date = request.GET.get('session_date')
+    school_id = request.GET.get('school_id')
+    time_slot_id = request.GET.get('time_slot_id')
+
+    if not all([session_date, school_id, time_slot_id]):
+        return Response({"error": "session_date, school_id, and time_slot_id are required."}, status=400)
+
+    lessons = OnlineTimeSlotLessonPlan.objects.filter(
+        session_date=session_date,
+        school_id=school_id,
+        time_slot_id=time_slot_id,
+    ).order_by('-id')
+
+    return Response({'lessons': OnlineTimeSlotLessonPlanSerializer(lessons, many=True).data}, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_online_lesson_plan_range(request):
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    school_id = request.GET.get('school_id')
+    time_slot_id = request.GET.get('time_slot_id')
+
+    if not (start_date and end_date and school_id):
+        return Response({"error": "start_date, end_date, and school_id are required."}, status=400)
+
+    queryset = OnlineTimeSlotLessonPlan.objects.filter(
+        session_date__range=[start_date, end_date],
+        school_id=school_id,
+    )
+    if time_slot_id:
+        queryset = queryset.filter(time_slot_id=time_slot_id)
+
+    lessons = queryset.order_by('session_date', 'time_slot_id')
+    return Response(OnlineTimeSlotLessonPlanSerializer(lessons, many=True).data, status=200)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_online_planned_topic(request, lesson_plan_id):
+    teacher = request.user
+    if teacher.role != 'Teacher':
+        return Response({"error": "Only teachers can update online planned topics."}, status=403)
+
+    try:
+        lesson_plan = OnlineTimeSlotLessonPlan.objects.get(id=lesson_plan_id)
+    except OnlineTimeSlotLessonPlan.DoesNotExist:
+        return Response({"error": "Online lesson plan not found."}, status=404)
+
+    if lesson_plan.teacher != teacher:
+        return Response({"error": "You can only update your own online lesson plans."}, status=403)
+
+    planned_topic = request.data.get('planned_topic')
+    if planned_topic is None or not str(planned_topic).strip():
+        return Response({"error": "Planned topic cannot be empty."}, status=400)
+
+    lesson_plan.planned_topic = str(planned_topic).strip()
+    lesson_plan.save(update_fields=['planned_topic'])
+    return Response({
+        "message": "Online planned topic updated successfully!",
+        "data": OnlineTimeSlotLessonPlanSerializer(lesson_plan).data,
+    }, status=200)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_online_lesson_plan(request, lesson_plan_id):
+    teacher = request.user
+    if teacher.role != 'Teacher':
+        return Response({"error": "Only teachers can delete online lesson plans."}, status=403)
+
+    try:
+        lesson_plan = OnlineTimeSlotLessonPlan.objects.get(id=lesson_plan_id)
+    except OnlineTimeSlotLessonPlan.DoesNotExist:
+        return Response({"error": "Online lesson plan not found."}, status=404)
+
+    if lesson_plan.teacher != teacher:
+        return Response({"error": "You can only delete your own online lesson plans."}, status=403)
+
+    lesson_plan.delete()
+    return Response({"message": "Online lesson plan deleted successfully"}, status=204)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_lesson_suggestion(request):
+    """
+    Return one best-effort suggestion for class title/description.
+    ONSITE path: session_date + school_id + student_class
+    ONLINE path: session_date + school_id + time_slot_id
+    """
+    session_date = request.GET.get('session_date')
+    school_id = request.GET.get('school_id')
+    student_class = request.GET.get('student_class')
+    time_slot_id = request.GET.get('time_slot_id')
+
+    if not session_date or not school_id:
+        return Response({"error": "session_date and school_id are required."}, status=400)
+
+    if not request.user.assigned_schools.filter(id=school_id).exists():
+        return Response({"error": "You are not assigned to this school."}, status=403)
+
+    if time_slot_id:
+        online_lesson = OnlineTimeSlotLessonPlan.objects.filter(
+            session_date=session_date,
+            school_id=school_id,
+            time_slot_id=time_slot_id,
+        ).order_by('-id').first()
+        if online_lesson:
+            return Response({'suggestion': _lesson_to_suggestion(online_lesson, 'ONLINE_TIMESLOT')}, status=200)
+
+    if student_class:
+        onsite_lesson = LessonPlan.objects.filter(
+            session_date=session_date,
+            school_id=school_id,
+            student_class=student_class,
+        ).order_by('-id').first()
+        if onsite_lesson:
+            return Response({'suggestion': _lesson_to_suggestion(onsite_lesson, 'ONSITE_CLASS')}, status=200)
+
+    return Response({'suggestion': None}, status=200)
 

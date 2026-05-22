@@ -27,6 +27,19 @@ def _make_student(school, name='Bob', reg_num='T001'):
     )
 
 
+def _make_student_with_subtype(school, name='Bob', reg_num='T010', subtype='ONLINE'):
+    user = CustomUser.objects.create_user(username=reg_num, password='pass', role='Student')
+    return Student.objects.create(
+        name=name,
+        reg_num=reg_num,
+        school=school,
+        user=user,
+        student_class='1',
+        monthly_fee=0,
+        student_subtype=subtype,
+    )
+
+
 def _make_session(teacher, school, duration=60):
     return OnlineClassSession.objects.create(
         title='Task Session',
@@ -124,6 +137,27 @@ class SendClassReminderTaskTest(TestCase):
         mock_send_mail.assert_called_once()
         args = mock_send_mail.call_args
         self.assertIn('charlie@test.com', args[0][3])  # recipient list
+
+    @patch('onlineclasses.tasks.send_mail')
+    @patch('onlineclasses.tasks.requests')
+    def test_fallback_reminder_includes_onsite_students(self, mock_requests, mock_send_mail):
+        onsite = _make_student_with_subtype(
+            self.school,
+            name='Onsite Learner',
+            reg_num='T099',
+            subtype='ONSITE',
+        )
+        onsite.user.email = 'onsite@test.com'
+        onsite.user.save(update_fields=['email'])
+
+        from onlineclasses.tasks import send_class_reminder
+
+        send_class_reminder(self.session.id)
+        self.assertEqual(mock_send_mail.call_count, 2)
+
+        recipient_emails = {call.args[3][0] for call in mock_send_mail.call_args_list}
+        self.assertIn('charlie@test.com', recipient_emails)
+        self.assertIn('onsite@test.com', recipient_emails)
 
     @patch('onlineclasses.tasks.send_mail')
     @patch('onlineclasses.tasks.requests')

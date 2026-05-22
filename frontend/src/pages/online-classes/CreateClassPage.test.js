@@ -13,6 +13,9 @@ jest.mock('react-router-dom', () => ({
 }), { virtual: true });
 
 jest.mock('../../services/onlineClassService');
+jest.mock('../../hooks/useResponsive', () => ({
+  useResponsive: () => ({ isMobile: false, isTablet: false }),
+}));
 jest.mock('../../api', () => ({
   API_URL: 'http://test.api',
   getAuthHeaders: () => ({ Authorization: 'Bearer test-token' }),
@@ -42,6 +45,7 @@ describe('CreateClassPage', () => {
     mockNavigate.mockReset();
     localStorage.setItem('role', 'Teacher');
     svc.getEligibleStudents.mockResolvedValue([]);
+    svc.getLessonSuggestion.mockResolvedValue({ suggestion: null });
     svc.createBulkSessions.mockResolvedValue({ count: 0, sessions: [] });
     fetch.mockResolvedValue({
       ok: true,

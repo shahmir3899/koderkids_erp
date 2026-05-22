@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from students.models import LessonPlan
 from books.models import Topic
+from .models import OnlineTimeSlotLessonPlan
 
 
 class LessonPlanSerializer(serializers.ModelSerializer):
@@ -105,3 +106,65 @@ class LessonPlanSerializer(serializers.ModelSerializer):
         if lines and not lines[-1].strip():
             lines.pop()
         return "\n".join(lines)
+
+
+class OnlineTimeSlotLessonPlanSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source='teacher.username', read_only=True)
+    school_name = serializers.CharField(source='school.name', read_only=True)
+    time_slot_label = serializers.CharField(source='time_slot.label', read_only=True)
+    planned_topic_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        allow_empty=True,
+    )
+
+    planned_topic = serializers.CharField(allow_blank=True, required=False, default='')
+
+    class Meta:
+        model = OnlineTimeSlotLessonPlan
+        fields = [
+            'id', 'session_date', 'teacher', 'teacher_name',
+            'school', 'school_name', 'time_slot', 'time_slot_label',
+            'planned_topic', 'planned_topic_ids', 'achieved_topic',
+        ]
+        read_only_fields = ['teacher_name', 'school_name', 'time_slot_label']
+
+    def validate_planned_topic_ids(self, value):
+        if value:
+            invalid = [tid for tid in value if not Topic.objects.filter(pk=tid).exists()]
+            if invalid:
+                raise serializers.ValidationError(f"Invalid topic IDs: {invalid}")
+        return value
+
+    def create(self, validated_data):
+        planned_topic_ids = validated_data.pop('planned_topic_ids', [])
+        manual_topic = validated_data.pop('planned_topic', '').strip()
+
+        instance = super().create(validated_data)
+        if planned_topic_ids:
+            topics = Topic.objects.filter(pk__in=planned_topic_ids)
+            instance.planned_topics.set(topics)
+            computed = LessonPlanSerializer()._format_from_topics(topics)
+            instance.planned_topic = manual_topic or computed
+        else:
+            instance.planned_topic = manual_topic
+
+        instance.save(update_fields=['planned_topic'])
+        return instance
+
+    def update(self, instance, validated_data):
+        planned_topic_ids = validated_data.pop('planned_topic_ids', None)
+        manual_topic = validated_data.pop('planned_topic', None)
+
+        instance = super().update(instance, validated_data)
+        if planned_topic_ids is not None:
+            topics = Topic.objects.filter(pk__in=planned_topic_ids)
+            instance.planned_topics.set(topics)
+            computed = LessonPlanSerializer()._format_from_topics(topics)
+            instance.planned_topic = manual_topic or computed
+        elif manual_topic is not None:
+            instance.planned_topic = manual_topic.strip()
+
+        instance.save(update_fields=['planned_topic'])
+        return instance

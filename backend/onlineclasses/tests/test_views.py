@@ -63,6 +63,12 @@ class SessionListCreateTest(TestCase):
         self.other_teacher = _make_teacher('t2', self.other_school)
         self.admin = _make_admin('admin-main')
         self.student_user, self.student = _make_student_user(self.school)
+        self.onsite_user, self.onsite_student = _make_student_user(
+            self.school,
+            name='Onsite Student',
+            reg_num='S003',
+            subtype='ONSITE',
+        )
         self.url = '/api/onlineclasses/sessions/'
 
     def test_teacher_can_list_own_sessions(self):
@@ -162,6 +168,23 @@ class SessionListCreateTest(TestCase):
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data['teacher'], self.teacher.id)
 
+    def test_teacher_can_create_session_with_onsite_selected_student(self):
+        _auth(self.client, self.teacher)
+        data = {
+            'title': 'Mixed Invite Class',
+            'school': self.school.id,
+            'scheduled_at': timezone.now().isoformat(),
+            'duration_mins': 45,
+            'selected_student_ids': [self.onsite_student.id],
+        }
+        with patch('onlineclasses.views.send_class_reminder') as mock_task:
+            mock_task.apply_async = MagicMock()
+            resp = self.client.post(self.url, data, format='json')
+
+        self.assertEqual(resp.status_code, 201)
+        session = OnlineClassSession.objects.get(id=resp.data['id'])
+        self.assertTrue(session.selected_students.filter(id=self.onsite_student.id).exists())
+
 
 class SessionBulkCreateTest(TestCase):
     def setUp(self):
@@ -239,6 +262,52 @@ class SessionBulkCreateTest(TestCase):
 
         self.assertEqual(resp.status_code, 201)
         self.assertTrue(all(s['teacher'] == self.teacher.id for s in resp.data['sessions']))
+
+
+class EligibleStudentsEndpointTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.school = _make_school('Eligible School')
+        self.other_school = _make_school('Other Eligible School')
+        self.teacher = _make_teacher('eligible-teacher', self.school)
+
+        _, self.online_student = _make_student_user(
+            self.school,
+            name='Online Student',
+            reg_num='E001',
+            subtype='ONLINE',
+        )
+        _, self.hybrid_student = _make_student_user(
+            self.school,
+            name='Hybrid Student',
+            reg_num='E002',
+            subtype='HYBRID',
+        )
+        _, self.onsite_student = _make_student_user(
+            self.school,
+            name='Onsite Student',
+            reg_num='E003',
+            subtype='ONSITE',
+        )
+        _, self.other_school_student = _make_student_user(
+            self.other_school,
+            name='Other School Student',
+            reg_num='E004',
+            subtype='ONSITE',
+        )
+
+        self.url = f'/api/onlineclasses/eligible-students/?school_id={self.school.id}'
+
+    def test_eligible_students_includes_onsite_online_hybrid_for_school(self):
+        _auth(self.client, self.teacher)
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+
+        ids = {row['id'] for row in resp.data}
+        self.assertIn(self.online_student.id, ids)
+        self.assertIn(self.hybrid_student.id, ids)
+        self.assertIn(self.onsite_student.id, ids)
+        self.assertNotIn(self.other_school_student.id, ids)
 
 
 # ---------------------------------------------------------------------------

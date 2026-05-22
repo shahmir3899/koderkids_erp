@@ -21,6 +21,7 @@ from .serializers import (
     ClassRecordingSerializer,
     OnlineClassSessionSerializer,
 )
+from .constants import ONLINE_CLASS_ELIGIBLE_STUDENT_SUBTYPES
 from .tasks import auto_mark_attendance, auto_end_session, auto_start_session, send_class_reminder
 
 logger = logging.getLogger(__name__)
@@ -748,7 +749,8 @@ def eligible_students(request):
     """
     GET /api/onlineclasses/eligible-students/?school_id=X&time_slot_id=Y
 
-    Returns Active ONLINE students enrolled in the given time slot (and school).
+    Returns active students eligible for online classes in the given school,
+    optionally narrowed by time slot.
     Teacher must be assigned to the school; time_slot must belong to that school.
     """
     user = request.user
@@ -772,7 +774,7 @@ def eligible_students(request):
     qs = Student.objects.filter(
         school=school,
         status='Active',
-        student_subtype='ONLINE',
+        student_subtype__in=ONLINE_CLASS_ELIGIBLE_STUDENT_SUBTYPES,
     ).select_related('user')
 
     if time_slot_id:
@@ -789,6 +791,9 @@ def eligible_students(request):
             'name': s.name,
             'student_id': s.student_id,
             'student_subtype': s.student_subtype,
+            'student_class': s.student_class,
+            'time_slot_id': s.time_slot_id,
+            'time_slot_label': s.time_slot.label if s.time_slot else None,
         }
         for s in qs.order_by('name')
     ]

@@ -3,6 +3,7 @@ import os
 
 from celery import shared_task
 from django.utils import timezone
+from .constants import ONLINE_CLASS_ELIGIBLE_STUDENT_SUBTYPES
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ def send_class_reminder(self, session_id):
         students = Student.objects.filter(
             school=session.school,
             status='Active',
-            student_subtype__in=['ONLINE', 'HYBRID'],
+            student_subtype__in=ONLINE_CLASS_ELIGIBLE_STUDENT_SUBTYPES,
         ).select_related('user')
 
     subject = f"Reminder: Online Class '{session.title}' starts in 1 hour"

@@ -6,15 +6,26 @@ import { useNavigate } from 'react-router-dom';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, MIXINS } from '../../utils/designConstants';
 import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { listSessions } from '../../services/onlineClassService';
+import { useResponsive } from '../../hooks/useResponsive';
 
 const TABS = ['Upcoming', 'Past Classes', 'Recordings'];
+const ACTIVE_LIVE_CLASS_SESSION_KEY = 'activeOnlineClassSessionId';
 
 const OnlineClassesStudentPage = () => {
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useResponsive();
+  const isCompact = isMobile || isTablet;
   const [activeTab, setActiveTab] = useState('Upcoming');
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeLiveSessionId, setActiveLiveSessionId] = useState(() => sessionStorage.getItem(ACTIVE_LIVE_CLASS_SESSION_KEY) || '');
+
+  useEffect(() => {
+    const onFocus = () => setActiveLiveSessionId(sessionStorage.getItem(ACTIVE_LIVE_CLASS_SESSION_KEY) || '');
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -80,7 +91,7 @@ const OnlineClassesStudentPage = () => {
     return `Starts in ${m}m`;
   };
 
-  const styles = getStyles();
+  const styles = getStyles({ isMobile, isCompact });
 
   return (
     <div style={styles.page}>
@@ -88,6 +99,18 @@ const OnlineClassesStudentPage = () => {
         <h1 style={styles.title}>🎓 Online Classes</h1>
         <p style={styles.subtitle}>Join your live classes, view past recordings</p>
       </div>
+
+      {activeLiveSessionId && (
+        <div style={styles.returnBanner}>
+          <span style={styles.returnText}>You have an active live class session.</span>
+          <button
+            onClick={() => navigate(`/online-classes/room/${activeLiveSessionId}`)}
+            style={styles.returnBtn}
+          >
+            Return to Live Class
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={styles.tabBar}>
@@ -170,13 +193,18 @@ const OnlineClassesStudentPage = () => {
   );
 };
 
-const getStyles = () => ({
-  page: { padding: SPACING.xl, maxWidth: 900, margin: '0 auto' },
+const getStyles = ({ isMobile, isCompact }) => ({
+  page: {
+    padding: isCompact ? SPACING.md : SPACING.xl,
+    paddingTop: isCompact ? SPACING['3xl'] : SPACING.xl,
+    maxWidth: 900,
+    margin: '0 auto',
+  },
 
   // Header — sits on the App.js gradient, so just white text, no extra background
-  header: { marginBottom: SPACING.xl },
+  header: { marginBottom: isCompact ? SPACING.lg : SPACING.xl },
   title: {
-    fontSize: FONT_SIZES['2xl'],
+    fontSize: isCompact ? FONT_SIZES.xl : FONT_SIZES['2xl'],
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.text.white,
     margin: 0,
@@ -185,51 +213,87 @@ const getStyles = () => ({
     gap: SPACING.sm,
   },
   subtitle: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
     color: COLORS.text.whiteSubtle,
     marginTop: SPACING.xs,
     margin: 0,
+  },
+  returnBanner: {
+    ...MIXINS.glassmorphicCard,
+    borderRadius: BORDER_RADIUS.xl,
+    marginBottom: isCompact ? SPACING.md : SPACING.lg,
+    padding: isCompact ? SPACING.md : SPACING.lg,
+    display: 'flex',
+    alignItems: isCompact ? 'stretch' : 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    flexDirection: isCompact ? 'column' : 'row',
+  },
+  returnText: {
+    color: COLORS.text.white,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  returnBtn: {
+    background: COLORS.status.success,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.lg,
+    color: '#fff',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    cursor: 'pointer',
+    minHeight: 40,
+    whiteSpace: 'nowrap',
   },
 
   // Tabs
   tabBar: {
     display: 'flex',
     gap: SPACING.sm,
-    marginBottom: SPACING.xl,
+    marginBottom: isCompact ? SPACING.lg : SPACING.xl,
     borderBottom: '1px solid rgba(255,255,255,0.2)',
     paddingBottom: SPACING.sm,
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
   },
   tab: {
-    padding: `${SPACING.sm} ${SPACING.lg}`,
+    padding: `${SPACING.sm} ${isCompact ? SPACING.md : SPACING.lg}`,
     border: '1px solid transparent',
     background: 'transparent',
     cursor: 'pointer',
-    fontSize: FONT_SIZES.sm,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.medium,
     color: COLORS.text.whiteSubtle,
     borderRadius: BORDER_RADIUS.md,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+    minHeight: 40,
   },
   tabActive: {
-    padding: `${SPACING.sm} ${SPACING.lg}`,
+    padding: `${SPACING.sm} ${isCompact ? SPACING.md : SPACING.lg}`,
     border: '1px solid rgba(255,255,255,0.35)',
     background: 'rgba(255,255,255,0.2)',
     cursor: 'pointer',
-    fontSize: FONT_SIZES.sm,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.semibold,
     color: '#fff',
     borderRadius: BORDER_RADIUS.md,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+    minHeight: 40,
   },
 
   // Session cards grid
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: SPACING.lg,
+    gridTemplateColumns: isCompact ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
+    gap: isCompact ? SPACING.md : SPACING.lg,
   },
   card: {
     ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.xl,
+    padding: isCompact ? SPACING.lg : SPACING.xl,
     position: 'relative',
     display: 'flex',
     flexDirection: 'column',
@@ -239,11 +303,11 @@ const getStyles = () => ({
   // LIVE indicator
   liveBadge: {
     position: 'absolute',
-    top: SPACING.md,
-    right: SPACING.md,
+    top: isCompact ? SPACING.sm : SPACING.md,
+    right: isCompact ? SPACING.sm : SPACING.md,
     background: COLORS.status.error,
     color: '#fff',
-    fontSize: FONT_SIZES.xs,
+    fontSize: isCompact ? '11px' : FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.bold,
     padding: `3px ${SPACING.sm}`,
     borderRadius: BORDER_RADIUS.full,
@@ -256,7 +320,7 @@ const getStyles = () => ({
   // Card content
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
   sessionTitle: {
-    fontSize: FONT_SIZES.base,
+    fontSize: isCompact ? FONT_SIZES.sm : FONT_SIZES.base,
     fontWeight: FONT_WEIGHTS.semibold,
     color: '#fff',
     margin: 0,
@@ -264,7 +328,7 @@ const getStyles = () => ({
     paddingRight: SPACING.sm,
   },
   duration: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: isCompact ? '11px' : FONT_SIZES.xs,
     color: 'rgba(255,255,255,0.7)',
     background: 'rgba(255,255,255,0.12)',
     padding: `2px ${SPACING.sm}`,
@@ -272,15 +336,20 @@ const getStyles = () => ({
     whiteSpace: 'nowrap',
   },
   teacherName: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
     color: COLORS.text.whiteMedium,
     margin: 0,
   },
-  dateTimeRow: { display: 'flex', justifyContent: 'space-between' },
-  dateText: { fontSize: FONT_SIZES.sm, color: COLORS.text.whiteSubtle },
-  timeText: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semibold, color: '#93C5FD' },
-  countdown: { fontSize: FONT_SIZES.xs, color: '#FCD34D', fontWeight: FONT_WEIGHTS.medium, margin: 0 },
-  description: { fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle, margin: 0 },
+  dateTimeRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: isMobile ? SPACING.xs : 0,
+  },
+  dateText: { fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm, color: COLORS.text.whiteSubtle },
+  timeText: { fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semibold, color: '#93C5FD' },
+  countdown: { fontSize: isCompact ? '11px' : FONT_SIZES.xs, color: '#FCD34D', fontWeight: FONT_WEIGHTS.medium, margin: 0 },
+  description: { fontSize: isCompact ? '11px' : FONT_SIZES.xs, color: COLORS.text.whiteSubtle, margin: 0 },
 
   cardFooter: { marginTop: 'auto', paddingTop: SPACING.sm },
 
@@ -293,8 +362,9 @@ const getStyles = () => ({
     border: 'none',
     borderRadius: BORDER_RADIUS.lg,
     fontWeight: FONT_WEIGHTS.semibold,
-    fontSize: FONT_SIZES.sm,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
     cursor: 'pointer',
+    minHeight: 44,
   },
   joinBtnLive: {
     width: '100%',
@@ -304,9 +374,10 @@ const getStyles = () => ({
     border: 'none',
     borderRadius: BORDER_RADIUS.lg,
     fontWeight: FONT_WEIGHTS.bold,
-    fontSize: FONT_SIZES.sm,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
     cursor: 'pointer',
     animation: 'livePulse 2s ease-in-out infinite',
+    minHeight: 44,
   },
   joinBtnDisabled: {
     width: '100%',
@@ -316,8 +387,9 @@ const getStyles = () => ({
     border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: BORDER_RADIUS.lg,
     fontWeight: FONT_WEIGHTS.medium,
-    fontSize: FONT_SIZES.sm,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
     cursor: 'not-allowed',
+    minHeight: 44,
   },
   recordingBtn: {
     width: '100%',
@@ -327,19 +399,20 @@ const getStyles = () => ({
     border: 'none',
     borderRadius: BORDER_RADIUS.lg,
     fontWeight: FONT_WEIGHTS.semibold,
-    fontSize: FONT_SIZES.sm,
+    fontSize: isCompact ? FONT_SIZES.xs : FONT_SIZES.sm,
     cursor: 'pointer',
+    minHeight: 44,
   },
-  noRecording: { fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle },
+  noRecording: { fontSize: isCompact ? '11px' : FONT_SIZES.xs, color: COLORS.text.whiteSubtle },
 
   // Empty / loading states
   emptyState: {
     textAlign: 'center',
-    padding: `${SPACING['3xl']} ${SPACING['2xl']}`,
+    padding: `${isCompact ? SPACING['2xl'] : SPACING['3xl']} ${isCompact ? SPACING.md : SPACING['2xl']}`,
     color: COLORS.text.whiteSubtle,
   },
-  emptyIcon: { fontSize: 48, marginBottom: SPACING.lg },
-  emptyText: { fontSize: FONT_SIZES.base },
+  emptyIcon: { fontSize: isCompact ? 36 : 48, marginBottom: SPACING.lg },
+  emptyText: { fontSize: isCompact ? FONT_SIZES.sm : FONT_SIZES.base },
   centered: { display: 'flex', justifyContent: 'center', padding: SPACING['3xl'] },
   spinner: {
     width: 36, height: 36,

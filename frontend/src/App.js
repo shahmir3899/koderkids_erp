@@ -101,6 +101,7 @@ import RecordingPlaybackPage from './pages/online-classes/RecordingPlaybackPage'
 import TeacherOnlineClassesPage from './pages/online-classes/TeacherOnlineClassesPage';
 import CreateClassPage from './pages/online-classes/CreateClassPage';
 import ClassSettingsPage from './pages/online-classes/ClassSettingsPage';
+import OnlineLessonPlansPage from './pages/online-classes/OnlineLessonPlansPage';
 
 // Online Student Management
 import OnlineStudentManager from './pages/admin/OnlineStudentManager';
@@ -324,6 +325,7 @@ function AppContent() {
       <Route path="/online-classes/teacher/create" element={<ProtectedRoute element={<CreateClassPage />} allowedRoles={["Teacher", "Admin"]} />} />
       <Route path="/online-classes/teacher/edit/:sessionId" element={<ProtectedRoute element={<CreateClassPage />} allowedRoles={["Teacher", "Admin"]} />} />
       <Route path="/online-classes/teacher/settings" element={<ProtectedRoute element={<ClassSettingsPage />} allowedRoles={["Teacher", "Admin"]} />} />
+      <Route path="/online-classes/teacher/lesson-plans" element={<ProtectedRoute element={<OnlineLessonPlansPage />} allowedRoles={["Teacher", "Admin"]} />} />
 
         {/* NEW ROUTES: Add these two – protected */}
       <Route path="/books-tree" element={<ProtectedRoute element={<BookSelectPage/>} allowedRoles={["Admin", "Teacher"]} />} />
