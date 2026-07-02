@@ -17,6 +17,12 @@ from .serializers import LessonPlanSerializer, OnlineTimeSlotLessonPlanSerialize
 logger = logging.getLogger(__name__)
 
 
+def _has_school_access(user, school_id):
+    if user.role == 'Admin':
+        return True
+    return user.assigned_schools.filter(id=school_id).exists()
+
+
 def _lesson_to_suggestion(lesson, scope):
     planned_topic = (lesson.planned_topic or '').strip()
     return {
@@ -30,8 +36,8 @@ def _lesson_to_suggestion(lesson, scope):
 @permission_classes([IsAuthenticated])
 def create_lesson_plan(request):
     teacher = request.user
-    if teacher.role != 'Teacher':
-        return Response({"error": "Only teachers can create lesson plans."}, status=403)
+    if teacher.role not in ['Teacher', 'Admin']:
+        return Response({"error": "Only teachers and admins can create lesson plans."}, status=403)
 
     data = request.data
 
@@ -56,7 +62,7 @@ def create_lesson_plan(request):
             # School access check
             try:
                 school = School.objects.get(id=school_id)
-                if not teacher.assigned_schools.filter(id=school.id).exists():
+                if not _has_school_access(teacher, school.id):
                     return Response({"error": f"Not assigned to school {school_id}"}, status=403)
             except School.DoesNotExist:
                 return Response({"error": f"Invalid school_id: {school_id}"}, status=400)
@@ -111,7 +117,7 @@ def create_lesson_plan(request):
 
         try:
             school = School.objects.get(id=school_id)
-            if not teacher.assigned_schools.filter(id=school.id).exists():
+            if not _has_school_access(teacher, school.id):
                 return Response({"error": "You are not assigned to this school."}, status=403)
         except School.DoesNotExist:
             return Response({"error": "Invalid school ID."}, status=400)
@@ -307,15 +313,18 @@ def get_lesson_plan_range(request):
     school_id = request.GET.get("school_id")
     student_class = request.GET.get("student_class")
 
-    if not (start_date and end_date and school_id and student_class):
+    if not (start_date and end_date and school_id):
         return Response({"error": "Missing required parameters"}, status=400)
 
-    # Fetch lessons for the given date range
+    # Fetch lessons for the given date range and school.
+    # student_class is optional: if provided, filter to that class only.
     lessons = LessonPlan.objects.filter(
         session_date__range=[start_date, end_date],
         school_id=school_id,
-        student_class=student_class
     ).order_by("session_date")
+
+    if student_class:
+        lessons = lessons.filter(student_class=student_class)
 
     serialized_data = LessonPlanSerializer(lessons, many=True)
     
@@ -377,7 +386,7 @@ def bulk_create_lesson_plans(request):
 
     try:
         school = School.objects.get(id=school_id)
-        if not teacher.assigned_schools.filter(id=school.id).exists():
+        if not _has_school_access(teacher, school.id):
             return Response({"error": "You are not assigned to this school."}, status=403)
 
         created = []
@@ -407,8 +416,8 @@ def bulk_create_lesson_plans(request):
 @permission_classes([IsAuthenticated])
 def create_online_lesson_plan(request):
     teacher = request.user
-    if teacher.role != 'Teacher':
-        return Response({"error": "Only teachers can create online lesson plans."}, status=403)
+    if teacher.role not in ['Teacher', 'Admin']:
+        return Response({"error": "Only teachers and admins can create online lesson plans."}, status=403)
 
     school_id = request.data.get('school') or request.data.get('school_id')
     time_slot_id = request.data.get('time_slot') or request.data.get('time_slot_id')
@@ -417,7 +426,7 @@ def create_online_lesson_plan(request):
     if not all([school_id, time_slot_id, session_date]):
         return Response({"error": "school_id, time_slot_id, and session_date are required."}, status=400)
 
-    if not teacher.assigned_schools.filter(id=school_id).exists():
+    if not _has_school_access(teacher, school_id):
         return Response({"error": "You are not assigned to this school."}, status=403)
 
     if OnlineTimeSlotLessonPlan.objects.filter(
@@ -471,7 +480,7 @@ def bulk_create_online_lesson_plans(request):
                 "error": f"Missing required fields at index {idx}. school_id, time_slot_id, and session_date are required."
             }, status=400)
 
-        if not teacher.assigned_schools.filter(id=school_id).exists():
+        if not _has_school_access(teacher, school_id):
             return Response({"error": f"You are not assigned to school {school_id}."}, status=403)
 
         key = (str(school_id), str(time_slot_id), str(session_date))
@@ -611,7 +620,7 @@ def get_lesson_suggestion(request):
     if not session_date or not school_id:
         return Response({"error": "session_date and school_id are required."}, status=400)
 
-    if not request.user.assigned_schools.filter(id=school_id).exists():
+    if not _has_school_access(request.user, school_id):
         return Response({"error": "You are not assigned to this school."}, status=403)
 
     if time_slot_id:

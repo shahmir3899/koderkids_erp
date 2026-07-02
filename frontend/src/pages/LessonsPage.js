@@ -42,6 +42,7 @@ import { useSchools } from '../hooks/useSchools';
 import { useExportLessons } from '../hooks/useExportLessons';
 
 const API_URL = process.env.REACT_APP_API_URL;
+const LESSONS_PREFETCH_CACHE_KEY = 'lessons_prefetch_cache_v1';
 
 // Responsive Styles Generator
 const getResponsiveStyles = (isMobile, isTablet) => ({
@@ -130,6 +131,36 @@ const styles = {
     marginBottom: SPACING.lg,
     borderLeft: `4px solid ${COLORS.status.error}`,
   },
+  classChipsInlineWrap: {
+    marginTop: 0,
+  },
+  classChipsLabel: {
+    display: 'block',
+    marginBottom: SPACING.xs,
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  classChipsRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  classChip: {
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    borderRadius: BORDER_RADIUS.full,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.07)',
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.xs,
+    cursor: 'pointer',
+    transition: TRANSITIONS.normal,
+  },
+  classChipActive: {
+    background: COLORS.status.info,
+    border: `1px solid ${COLORS.status.info}`,
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.35)',
+  },
 };
 
 function LessonsPage() {
@@ -143,7 +174,7 @@ function LessonsPage() {
   // ============================================
   // STATE - Consolidated
   // ============================================
-  const [lessons, setLessons] = useState([]);
+  const [allLessons, setAllLessons] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -155,6 +186,7 @@ function LessonsPage() {
     schoolId: '',
     className: '',
   });
+  const [viewClassName, setViewClassName] = useState('');
 
   // Edit state
   const [editState, setEditState] = useState({
@@ -164,17 +196,44 @@ function LessonsPage() {
     deleteLoading: null,
   });
 
-  // Cache for preventing duplicate fetches
+  // Cache key is school + date range (class is filtered client-side)
   const [lastFetched, setLastFetched] = useState(null);
+  const lessonsCacheRef = useRef({});
 
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
+
+    try {
+      const stored = sessionStorage.getItem(LESSONS_PREFETCH_CACHE_KEY);
+      if (stored) {
+        lessonsCacheRef.current = JSON.parse(stored);
+      }
+    } catch (e) {
+      lessonsCacheRef.current = {};
+    }
+
     return () => {
       isMounted.current = false;
     };
   }, []);
+
+  const displayedLessons = useMemo(() => {
+    if (!allLessons.length) return [];
+    if (!viewClassName) return allLessons;
+    return allLessons.filter((lesson) => lesson.student_class === viewClassName);
+  }, [allLessons, viewClassName]);
+
+  const availableClasses = useMemo(() => {
+    const classes = new Set();
+    allLessons.forEach((lesson) => {
+      if (lesson?.student_class) {
+        classes.add(lesson.student_class);
+      }
+    });
+    return Array.from(classes).sort((a, b) => a.localeCompare(b));
+  }, [allLessons]);
 
   // ============================================
   // DERIVED VALUES
@@ -204,7 +263,7 @@ function LessonsPage() {
   const { handleDownloadImage, handleDownloadPdf, handlePrint } = useExportLessons({
     exportElementId: 'lessonTableExport',
     schoolName: selectedSchoolName,
-    className: filters.className,
+    className: viewClassName,
     dateRange: dateRangeFormatted,
   });
 
@@ -234,8 +293,8 @@ function LessonsPage() {
   // ============================================
   // API FUNCTIONS
   // ============================================
-  const fetchLessonsAPI = async (startDate, endDate, schoolId, studentClass) => {
-    const endpoint = `${API_URL}/api/lessons/range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}&student_class=${studentClass}`;
+  const fetchLessonsAPI = async (startDate, endDate, schoolId) => {
+    const endpoint = `${API_URL}/api/lessons/range/?start_date=${startDate}&end_date=${endDate}&school_id=${schoolId}`;
     const response = await axios.get(endpoint, { headers: getAuthHeaders() });
     return response.data;
   };
@@ -250,8 +309,16 @@ function LessonsPage() {
           return;
         }
 
-        const cacheKey = `${startDate}_${endDate}_${schoolId}_${className}`;
-        if (lastFetched === cacheKey) {
+        const fetchCacheKey = `${startDate}_${endDate}_${schoolId}`;
+        if (lastFetched === fetchCacheKey && allLessons.length > 0) {
+          return;
+        }
+
+        const cachedLessons = lessonsCacheRef.current[fetchCacheKey];
+        if (cachedLessons) {
+          setAllLessons(cachedLessons);
+          setLastFetched(fetchCacheKey);
+          setEditState((prev) => ({ ...prev, editingId: null, editedTopic: '' }));
           return;
         }
 
@@ -259,18 +326,21 @@ function LessonsPage() {
 
         setLoading(true);
         setError(null);
-        setLessons([]);
+        setAllLessons([]);
 
         try {
-          const lessonsData = await fetchLessonsAPI(startDate, endDate, schoolId, className);
+          const lessonsData = await fetchLessonsAPI(startDate, endDate, schoolId);
 
           if (!isMounted.current) return;
 
-          setLessons(lessonsData);
-          setLastFetched(cacheKey);
+          setAllLessons(lessonsData);
+          setLastFetched(fetchCacheKey);
+          lessonsCacheRef.current[fetchCacheKey] = lessonsData;
+          sessionStorage.setItem(LESSONS_PREFETCH_CACHE_KEY, JSON.stringify(lessonsCacheRef.current));
           setEditState((prev) => ({ ...prev, editingId: null, editedTopic: '' }));
 
-          toast.success(`Found ${lessonsData.length} lessons`);
+          const classScopedCount = lessonsData.filter((lesson) => lesson.student_class === className).length;
+          toast.success(`Loaded ${lessonsData.length} lessons (showing ${classScopedCount} for ${className})`);
         } catch (err) {
           if (!isMounted.current) return;
 
@@ -283,7 +353,7 @@ function LessonsPage() {
           }
         }
       }, 500),
-    [lastFetched]
+    [allLessons.length, lastFetched]
   );
 
   // ============================================
@@ -296,6 +366,7 @@ function LessonsPage() {
       schoolId: filterValues.schoolId,
       className: filterValues.className,
     });
+    setViewClassName(filterValues.className || '');
     debouncedFetch(filterValues);
   };
 
@@ -330,7 +401,7 @@ function LessonsPage() {
 
       if (!isMounted.current) return;
 
-      setLessons((prev) =>
+      setAllLessons((prev) =>
         prev.map((lesson) =>
           lesson.id === lessonId
             ? { ...lesson, planned_topic: editState.editedTopic }
@@ -371,7 +442,7 @@ function LessonsPage() {
 
       if (!isMounted.current) return;
 
-      setLessons((prev) => prev.filter((lesson) => lesson.id !== lessonId));
+      setAllLessons((prev) => prev.filter((lesson) => lesson.id !== lessonId));
 
       toast.success('Lesson deleted successfully');
     } catch (err) {
@@ -558,6 +629,36 @@ function LessonsPage() {
             submitButtonText="Fetch Lessons"
             loading={loading}
             showResetButton={true}
+            classFooter={
+              availableClasses.length > 0 ? (
+                <div style={styles.classChipsInlineWrap}>
+                  <span style={styles.classChipsLabel}>Quick Class View</span>
+                  <div style={styles.classChipsRow}>
+                    <button
+                      style={{
+                        ...styles.classChip,
+                        ...(!viewClassName ? styles.classChipActive : {}),
+                      }}
+                      onClick={() => setViewClassName('')}
+                    >
+                      All
+                    </button>
+                    {availableClasses.map((className) => (
+                      <button
+                        key={className}
+                        style={{
+                          ...styles.classChip,
+                          ...(viewClassName === className ? styles.classChipActive : {}),
+                        }}
+                        onClick={() => setViewClassName(className)}
+                      >
+                        {className}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null
+            }
           />
         </CollapsibleSection>
 
@@ -571,13 +672,13 @@ function LessonsPage() {
         {/* Lessons Table Section */}
         <CollapsibleSection
           title={
-            lessons.length > 0
-              ? `Lesson Plan - ${selectedSchoolName} - Class ${filters.className} (${lessons.length} lessons)`
+            displayedLessons.length > 0
+              ? `Lesson Plan - ${selectedSchoolName} - ${viewClassName ? `Class ${viewClassName}` : 'All Classes'} (${displayedLessons.length} lessons)`
               : 'Lessons'
           }
           defaultOpen={true}
           headerAction={
-            lessons.length > 0 && (
+            displayedLessons.length > 0 && (
               <ExportButtons
                 onDownloadImage={handleDownloadImage}
                 onDownloadPdf={handleDownloadPdf}
@@ -591,7 +692,7 @@ function LessonsPage() {
             <LoadingSpinner size="medium" message="Fetching lessons..." />
           ) : (
             <DataTable
-              data={lessons}
+              data={displayedLessons}
               columns={columns}
               loading={loading}
               emptyMessage="No lessons found. Select filters and click 'Fetch Lessons' to load data."
@@ -604,9 +705,9 @@ function LessonsPage() {
 
         {/* Hidden Export Table */}
         <ExportableLessonTable
-          lessons={lessons}
+          lessons={displayedLessons}
           schoolName={selectedSchoolName}
-          className={filters.className}
+          className={viewClassName || 'All Classes'}
           dateRange={dateRangeFormatted}
           formatDate={formatDateWithDay}
           id="lessonTableExport"

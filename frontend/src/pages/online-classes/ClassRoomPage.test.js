@@ -94,11 +94,18 @@ jest.mock('livekit-client', () => ({
     TrackUnsubscribed: 'trackUnsubscribed',
     TrackMuted: 'trackMuted',
     TrackUnmuted: 'trackUnmuted',
+    LocalTrackPublished: 'localTrackPublished',
+    LocalTrackUnpublished: 'localTrackUnpublished',
     DataReceived: 'dataReceived',
     Disconnected: 'disconnected',
   },
   Track: {
-    Source: { Camera: 'camera', Microphone: 'microphone', ScreenShare: 'screenShare' },
+    Source: {
+      Camera: 'camera',
+      Microphone: 'microphone',
+      ScreenShare: 'screenShare',
+      ScreenShareAudio: 'screenShareAudio',
+    },
   },
 }));
 
@@ -115,7 +122,7 @@ const fireDataReceived = (payload) => {
 const renderClassRoom = ({ role = 'Teacher' } = {}) => {
   jest.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => {
     if (key === 'role') return role;
-    if (key === 'full_name') return role === 'Teacher' ? 'Test Teacher' : 'Test Student';
+    if (key === 'fullName') return role === 'Teacher' ? 'Test Teacher' : 'Test Student';
     return null;
   });
   return render(<ClassRoomPage />);
@@ -182,6 +189,7 @@ describe('Control bar rendering', () => {
     expect(screen.getByText('Cam Off')).toBeInTheDocument();
     expect(screen.getByText('Share Screen')).toBeInTheDocument();
     expect(screen.getByText('Blur BG')).toBeInTheDocument();
+    expect(screen.getByText('Raise Hand')).toBeInTheDocument();
     expect(screen.getByText('Chat')).toBeInTheDocument();
   });
 
@@ -242,12 +250,12 @@ describe('Background blur', () => {
     await waitFor(() => expect(screen.getByText('Blur BG')).toBeInTheDocument());
   });
 
-  it('calls BackgroundBlur with intensity 10', async () => {
+  it('calls BackgroundBlur with stronger intensity', async () => {
     const { BackgroundBlur } = require('@livekit/track-processors');
     renderClassRoom();
     await waitForConnected();
     fireEvent.click(screen.getByText('Blur BG'));
-    await waitFor(() => expect(BackgroundBlur).toHaveBeenCalledWith(10));
+    await waitFor(() => expect(BackgroundBlur).toHaveBeenCalledWith(20));
   });
 });
 
@@ -320,6 +328,28 @@ describe('Teacher remote control — outgoing', () => {
       new TextDecoder().decode(mockLocalParticipant.publishData.mock.calls[0][0]),
     );
     expect(sentMsg).toMatchObject({ type: 'teacher_control', action: 'request_screen' });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Raise hand
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Raise hand', () => {
+  it('publishes raise_hand and lower_hand events when toggled', async () => {
+    renderClassRoom({ role: 'Student' });
+    await waitForConnected();
+
+    mockLocalParticipant.publishData.mockClear();
+
+    fireEvent.click(screen.getByText('Raise Hand'));
+    expect(screen.getByText('Lower Hand')).toBeInTheDocument();
+    const raised = JSON.parse(new TextDecoder().decode(mockLocalParticipant.publishData.mock.calls[0][0]));
+    expect(raised).toMatchObject({ type: 'hand_raise', action: 'raise_hand', raised: true, by: 'Test Student' });
+
+    fireEvent.click(screen.getByText('Lower Hand'));
+    expect(screen.getByText('Raise Hand')).toBeInTheDocument();
+    const lowered = JSON.parse(new TextDecoder().decode(mockLocalParticipant.publishData.mock.calls[1][0]));
+    expect(lowered).toMatchObject({ type: 'hand_raise', action: 'lower_hand', raised: false, by: 'Test Student' });
   });
 });
 
@@ -400,7 +430,7 @@ describe('DataReceived — student receives teacher control', () => {
     const modal = screen.getByText('📡 Screen Share Request').closest('div');
     fireEvent.click(within(modal).getByRole('button', { name: 'Share Screen' }));
     await waitFor(() =>
-      expect(mockLocalParticipant.setScreenShareEnabled).toHaveBeenCalledWith(true),
+      expect(mockLocalParticipant.setScreenShareEnabled).toHaveBeenCalledWith(true, { audio: false }),
     );
     await waitFor(() => expect(screen.queryByText('📡 Screen Share Request')).not.toBeInTheDocument());
   });

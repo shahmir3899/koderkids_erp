@@ -41,19 +41,30 @@ const formatDate = (dateString) => {
 const SessionTopicAssigner = ({
   selectedDates,
   selectedBookData,
+  topicSourceMode = 'book',
   sessionTopics,
   onTopicsUpdate,
   error,
 }) => {
+  const isBookMode = topicSourceMode === 'book';
   const [showTopicModal, setShowTopicModal] = useState(false);
   const [editingDate, setEditingDate] = useState(null);
   const [tempSelectedTopics, setTempSelectedTopics] = useState([]);
   const [tempCustomText, setTempCustomText] = useState('');
-  const [tempMode, setTempMode] = useState('book'); // 'book' or 'custom'
+  const [tempMode, setTempMode] = useState(isBookMode ? 'book' : 'custom'); // 'book' or 'custom'
 
   const openTopicSelector = (dateStr) => {
     setEditingDate(dateStr);
     const existingData = sessionTopics[dateStr];
+
+    if (!isBookMode) {
+      setTempMode('custom');
+      setTempCustomText(existingData?.customText || '');
+      setTempSelectedTopics([]);
+      setShowTopicModal(true);
+      return;
+    }
+
     // Restore previous mode and data
     if (existingData?.mode === 'custom') {
       setTempMode('custom');
@@ -81,7 +92,7 @@ const SessionTopicAssigner = ({
     setEditingDate(null);
     setTempSelectedTopics([]);
     setTempCustomText('');
-    setTempMode('book');
+    setTempMode(isBookMode ? 'book' : 'custom');
   };
 
   const cancelTopicSelection = () => {
@@ -89,7 +100,7 @@ const SessionTopicAssigner = ({
     setEditingDate(null);
     setTempSelectedTopics([]);
     setTempCustomText('');
-    setTempMode('book');
+    setTempMode(isBookMode ? 'book' : 'custom');
   };
 
   const getTopicStatus = (dateStr) => {
@@ -124,7 +135,7 @@ const SessionTopicAssigner = ({
     };
   };
 
-  if (!selectedBookData) {
+  if (isBookMode && !selectedBookData) {
     return (
       <div style={styles.loadingContainer}>
         <ClipLoader size={40} color="#3b82f6" />
@@ -135,9 +146,15 @@ const SessionTopicAssigner = ({
 
   return (
     <div style={styles.container}>
-      <div style={styles.info}>
-        <strong>Book:</strong> {selectedBookData.title}
-      </div>
+      {isBookMode ? (
+        <div style={styles.info}>
+          <strong>Book:</strong> {selectedBookData.title}
+        </div>
+      ) : (
+        <div style={styles.info}>
+          <strong>Mode:</strong> Custom text entry (book not required)
+        </div>
+      )}
 
       <div style={styles.sessionsList}>
         {selectedDates.map((dateStr) => {
@@ -189,23 +206,25 @@ const SessionTopicAssigner = ({
               Set Topic for {formatDate(editingDate)}
             </h3>
 
-            {/* Mode Toggle */}
-            <div style={styles.modeToggleContainer}>
-              <button
-                onClick={() => setTempMode('book')}
-                style={tempMode === 'book' ? styles.modeButtonActive : styles.modeButton}
-              >
-                <FontAwesomeIcon icon={faBook} style={{ marginRight: '8px' }} />
-                From Book
-              </button>
-              <button
-                onClick={() => setTempMode('custom')}
-                style={tempMode === 'custom' ? styles.modeButtonActive : styles.modeButton}
-              >
-                <FontAwesomeIcon icon={faEdit} style={{ marginRight: '8px' }} />
-                Custom Topic
-              </button>
-            </div>
+            {/* Mode Toggle (only when wizard is in book mode) */}
+            {isBookMode && (
+              <div style={styles.modeToggleContainer}>
+                <button
+                  onClick={() => setTempMode('book')}
+                  style={tempMode === 'book' ? styles.modeButtonActive : styles.modeButton}
+                >
+                  <FontAwesomeIcon icon={faBook} style={{ marginRight: '8px' }} />
+                  From Book
+                </button>
+                <button
+                  onClick={() => setTempMode('custom')}
+                  style={tempMode === 'custom' ? styles.modeButtonActive : styles.modeButton}
+                >
+                  <FontAwesomeIcon icon={faEdit} style={{ marginRight: '8px' }} />
+                  Custom Topic
+                </button>
+              </div>
+            )}
 
             {/* Book Mode: Topic Tree */}
             {tempMode === 'book' && (

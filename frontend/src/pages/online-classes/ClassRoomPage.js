@@ -12,6 +12,25 @@ import { endSession, getSession, getRoomToken, startSession } from '../../servic
 
 const ACTIVE_LIVE_CLASS_SESSION_KEY = 'activeOnlineClassSessionId';
 const ENABLE_ROOM_PERSISTENCE = process.env.NODE_ENV !== 'test';
+const SCREEN_SHARE_CAPTURE_OPTIONS = Object.freeze({ audio: false });
+const BACKGROUND_BLUR_INTENSITY = 20;
+const LIVE_CLASS_META_STORAGE_KEY = 'onlineClassLiveMeta';
+const LIVE_CLASS_META_EVENT = 'onlineClassLiveMetaUpdated';
+
+const publishLiveClassMeta = (meta) => {
+  try {
+    const payload = { ...meta, updatedAt: Date.now() };
+    localStorage.setItem(LIVE_CLASS_META_STORAGE_KEY, JSON.stringify(payload));
+    window.dispatchEvent(new CustomEvent(LIVE_CLASS_META_EVENT, { detail: payload }));
+  } catch {}
+};
+
+const clearLiveClassMeta = () => {
+  try {
+    localStorage.removeItem(LIVE_CLASS_META_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent(LIVE_CLASS_META_EVENT, { detail: null }));
+  } catch {}
+};
 
 let persistentRoom = null;
 let persistentRoomSessionId = '';
@@ -26,6 +45,7 @@ const RemoteTile = ({ participant, variant = 'grid', onClick, isActive = false }
   const videoRef = useRef(null);
   const isStage = variant === 'stage';
   const isStrip = variant === 'strip';
+  const isTeacherVariant = variant === 'teacher';
 
   useEffect(() => {
     const attachAll = () => {
@@ -57,10 +77,12 @@ const RemoteTile = ({ participant, variant = 'grid', onClick, isActive = false }
       border: isActive ? '1px solid rgba(176,97,206,0.72)' : '1px solid rgba(255,255,255,0.18)',
       borderRadius: 16,
       overflow: 'hidden',
-      aspectRatio: '16/9',
-      minHeight: isStage ? 260 : (isStrip ? 96 : 220),
-      width: '100%',
-      minWidth: isStrip ? 'clamp(140px, 18vw, 190px)' : 0,
+      aspectRatio: isTeacherVariant ? 'auto' : '16/9',
+      flex: isTeacherVariant ? 1 : 'none',
+      minHeight: isStage ? 260 : (isStrip ? 96 : (isTeacherVariant ? 0 : 220)),
+      width: isStrip ? 168 : '100%',
+      minWidth: isStrip ? 168 : 0,
+      maxWidth: isStrip ? 168 : 'none',
       flexShrink: isStrip ? 0 : 1,
       boxShadow: '0 12px 28px rgba(63, 46, 132, 0.14)',
       backdropFilter: 'blur(14px)',
@@ -69,7 +91,7 @@ const RemoteTile = ({ participant, variant = 'grid', onClick, isActive = false }
       transform: isActive ? 'translateY(-1px)' : 'translateY(0)',
       boxSizing: 'border-box',
     }}>
-      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} onClick={onClick} />
+      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: isTeacherVariant ? 'cover' : 'contain' }} onClick={onClick} />
       <span style={{
         position: 'absolute', bottom: 8, left: 10, color: '#fff', fontSize: 12,
         background: 'rgba(255,255,255,0.16)', padding: isStrip ? '2px 6px' : '2px 8px', borderRadius: 999,
@@ -136,16 +158,17 @@ const ScreenShareTile = ({ participant }) => {
       borderRadius: 16,
       overflow: 'hidden',
       width: '100%',
-      marginBottom: 10,
       border: '1px solid rgba(255,255,255,0.18)',
       boxShadow: '0 14px 32px rgba(63, 46, 132, 0.16)',
       backdropFilter: 'blur(14px)',
+      flex: 1,
+      minHeight: 0,
     }}>
       <video
         ref={screenRef}
         autoPlay
         playsInline
-        style={{ width: '100%', maxHeight: '64vh', objectFit: 'contain', display: 'block' }}
+        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
       />
       <span style={{
         position: 'absolute', top: 8, left: 10, color: '#fff', fontSize: 12, fontWeight: 600,
@@ -165,7 +188,9 @@ const ClassRoomPage = () => {
 
   const role = localStorage.getItem('role') || 'Student';
   const isTeacher = role === 'Teacher' || role === 'Admin';
-  const displayName = localStorage.getItem('full_name') || localStorage.getItem('name') || (isTeacher ? 'Teacher' : 'Student');
+  const [displayName, setDisplayName] = useState(
+    () => localStorage.getItem('fullName') || localStorage.getItem('username') || (isTeacher ? 'Teacher' : 'Student')
+  );
 
   const [connecting, setConnecting] = useState(true);
   const [error, setError] = useState('');
@@ -186,6 +211,8 @@ const ClassRoomPage = () => {
   const [sessionInfo, setSessionInfo] = useState(null);
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [endingClass, setEndingClass] = useState(false);
+  const [hasRaisedHand, setHasRaisedHand] = useState(false);
+  const [myHandRaised, setMyHandRaised] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 768 : false));
   const [isCompactMobile, setIsCompactMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 390 : false));
   const [hoveredAction, setHoveredAction] = useState('');
@@ -195,6 +222,29 @@ const ClassRoomPage = () => {
   const localVideoRef = useRef(null);
   const toastTimerRef = useRef(null);
   const disconnectTargetPathRef = useRef('');
+  const micOnRef = useRef(micOn);
+  const sharingRef = useRef(sharing);
+  const raisedHandTimerRef = useRef(null);
+
+  useEffect(() => {
+    micOnRef.current = micOn;
+  }, [micOn]);
+
+  useEffect(() => {
+    sharingRef.current = sharing;
+  }, [sharing]);
+
+  const setRaisedHandIndicator = useCallback((active) => {
+    setHasRaisedHand(active);
+    if (raisedHandTimerRef.current) clearTimeout(raisedHandTimerRef.current);
+    if (active) {
+      raisedHandTimerRef.current = setTimeout(() => setHasRaisedHand(false), 15000);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (raisedHandTimerRef.current) clearTimeout(raisedHandTimerRef.current);
+  }, []);
 
   const getFriendlyErrorMessage = useCallback((rawError, fallback = 'Something went wrong. Please try again.') => {
     const raw = String(rawError?.message || rawError || '').trim();
@@ -234,6 +284,15 @@ const ClassRoomPage = () => {
     if (!sessionId) return;
     sessionStorage.setItem(ACTIVE_LIVE_CLASS_SESSION_KEY, String(sessionId));
   }, [sessionId]);
+
+  useEffect(() => {
+    if (connecting || error || !sessionId) return;
+    publishLiveClassMeta({
+      sessionId: String(sessionId),
+      participantCount: remoteParticipants.length + 1,
+      hasRaisedHand,
+    });
+  }, [sessionId, connecting, error, remoteParticipants.length, hasRaisedHand]);
 
   useEffect(() => {
     const onResize = () => {
@@ -280,6 +339,7 @@ const ClassRoomPage = () => {
           roomRef.current = room;
 
           await room.connect(tokenData.livekit_url, tokenData.token);
+          if (!unmounted && room.localParticipant.name) setDisplayName(room.localParticipant.name);
           await room.localParticipant.setCameraEnabled(true);
           await room.localParticipant.setMicrophoneEnabled(true);
         }
@@ -308,6 +368,9 @@ const ClassRoomPage = () => {
                 } else if (msg.action === 'request_screen') {
                   setScreenReqFrom(byName);
                 }
+              } else if (msg.type === 'hand_raise' || msg.action === 'raise_hand' || msg.action === 'lower_hand') {
+                const isRaised = msg.action === 'lower_hand' ? false : msg.raised !== false;
+                setRaisedHandIndicator(isRaised);
               } else {
                 setMessages((prev) => [...prev, { id: Date.now() + Math.random(), ...msg }]);
               }
@@ -317,11 +380,34 @@ const ClassRoomPage = () => {
         const onDisconnected = () => {
           clearPersistentRoomCache();
           roomRef.current = null;
+          clearLiveClassMeta();
           // Only explicit Leave/End actions should route users away from the room.
           if (!disconnectTargetPathRef.current) return;
           const nextPath = disconnectTargetPathRef.current;
           disconnectTargetPathRef.current = '';
           navigate(nextPath);
+        };
+
+        const localTrackPublishedEvent = RoomEvent.LocalTrackPublished || 'localTrackPublished';
+        const localTrackUnpublishedEvent = RoomEvent.LocalTrackUnpublished || 'localTrackUnpublished';
+
+        const onLocalTrackPublished = (publication) => {
+          if (!publication) return;
+          if (publication.source === Track.Source.ScreenShare || publication.source === Track.Source.ScreenShareAudio) {
+            setSharing(true);
+          }
+        };
+
+        const onLocalTrackUnpublished = (publication) => {
+          if (!publication) return;
+          if (publication.source === Track.Source.ScreenShare || publication.source === Track.Source.ScreenShareAudio) {
+            setSharing(false);
+          }
+          // Some browsers can drop/recreate mic publish while switching shared tabs.
+          // If mic should be on, restore it immediately.
+          if (publication.source === Track.Source.Microphone && sharingRef.current && micOnRef.current) {
+            room.localParticipant.setMicrophoneEnabled(true).catch(() => {});
+          }
         };
 
         room
@@ -331,6 +417,8 @@ const ClassRoomPage = () => {
           .on(RoomEvent.TrackUnsubscribed, syncRemote)
           .on(RoomEvent.TrackMuted, syncRemote)
           .on(RoomEvent.TrackUnmuted, syncRemote)
+          .on(localTrackPublishedEvent, onLocalTrackPublished)
+          .on(localTrackUnpublishedEvent, onLocalTrackUnpublished)
           .on(RoomEvent.DataReceived, onDataReceived)
           .on(RoomEvent.Disconnected, onDisconnected);
 
@@ -346,6 +434,8 @@ const ClassRoomPage = () => {
           unsubscribe(RoomEvent.TrackUnsubscribed, syncRemote);
           unsubscribe(RoomEvent.TrackMuted, syncRemote);
           unsubscribe(RoomEvent.TrackUnmuted, syncRemote);
+          unsubscribe(localTrackPublishedEvent, onLocalTrackPublished);
+          unsubscribe(localTrackUnpublishedEvent, onLocalTrackUnpublished);
           unsubscribe(RoomEvent.DataReceived, onDataReceived);
           unsubscribe(RoomEvent.Disconnected, onDisconnected);
         };
@@ -370,7 +460,7 @@ const ClassRoomPage = () => {
       }
       if (roomRef.current === room) roomRef.current = null;
     };
-  }, [sessionId, isTeacher, syncRemote, navigate, showToast, getFriendlyErrorMessage]);
+  }, [sessionId, isTeacher, syncRemote, navigate, showToast, getFriendlyErrorMessage, setRaisedHandIndicator]);
 
   // Attach local camera once the video element is in the DOM (fixes race condition
   // where LocalTrackPublished fires while the loading spinner is still shown).
@@ -405,7 +495,10 @@ const ClassRoomPage = () => {
       setSharing(false);
     } else {
       try {
-        await roomRef.current.localParticipant.setScreenShareEnabled(true);
+        await roomRef.current.localParticipant.setScreenShareEnabled(true, SCREEN_SHARE_CAPTURE_OPTIONS);
+        if (micOnRef.current) {
+          await roomRef.current.localParticipant.setMicrophoneEnabled(true).catch(() => {});
+        }
         setSharing(true);
       } catch { setSharing(false); }
     }
@@ -420,7 +513,7 @@ const ClassRoomPage = () => {
         await camPub.track.stopProcessor();
         setBlurEnabled(false);
       } else {
-        await camPub.track.setProcessor(BackgroundBlur(10));
+        await camPub.track.setProcessor(BackgroundBlur(BACKGROUND_BLUR_INTENSITY));
         setBlurEnabled(true);
       }
     } catch (e) { console.warn('Background blur not supported:', e); }
@@ -441,6 +534,7 @@ const ClassRoomPage = () => {
   const handleLeave = useCallback(() => {
     const targetPath = isTeacher ? '/online-classes/teacher' : '/online-classes';
     sessionStorage.removeItem(ACTIVE_LIVE_CLASS_SESSION_KEY);
+    clearLiveClassMeta();
     disconnectTargetPathRef.current = targetPath;
     clearPersistentRoomCache();
     if (roomRef.current) {
@@ -462,6 +556,7 @@ const ClassRoomPage = () => {
       await endSession(sessionId);
       setEndConfirmOpen(false);
       sessionStorage.removeItem(ACTIVE_LIVE_CLASS_SESSION_KEY);
+      clearLiveClassMeta();
       disconnectTargetPathRef.current = '/online-classes/teacher';
       clearPersistentRoomCache();
       if (roomRef.current) {
@@ -498,6 +593,27 @@ const ClassRoomPage = () => {
     setChatInput('');
   };
 
+  const toggleRaiseHand = useCallback(() => {
+    if (!roomRef.current) return;
+    const next = !myHandRaised;
+    const msg = {
+      type: 'hand_raise',
+      action: next ? 'raise_hand' : 'lower_hand',
+      raised: next,
+      by: displayName,
+    };
+
+    setMyHandRaised(next);
+    setRaisedHandIndicator(next);
+
+    try {
+      roomRef.current.localParticipant.publishData(
+        new TextEncoder().encode(JSON.stringify(msg)),
+        { reliable: true },
+      );
+    } catch {}
+  }, [myHandRaised, displayName, setRaisedHandIndicator]);
+
   const getInitials = (name = '') => {
     const parts = String(name).trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return '?';
@@ -508,44 +624,26 @@ const ClassRoomPage = () => {
   const sessionTitle = sessionInfo
     ? [sessionInfo.title, [sessionInfo.subject, sessionInfo.class_name].filter(Boolean).join(' · ')].filter(Boolean)[0]
     : '';
-  const mobileControlCount = isTeacher ? 8 : 6;
+  const mobileControlCount = isTeacher ? 9 : 7;
   const teacherNameHint = String(sessionInfo?.teacher_name || sessionInfo?.teacher || '').toLowerCase();
   const screenShareParticipants = remoteParticipants.filter((p) => p.getTrackPublication(Track.Source.ScreenShare)?.track);
-  const stageLayoutThreshold = isTeacher
-    ? (isMobileLayout ? 4 : 5)
-    : (isMobileLayout ? 3 : 6);
-  const useStageLayout = remoteParticipants.length >= stageLayoutThreshold;
-  const findDefaultStageParticipant = useCallback((participants) => {
-    if (!participants.length) return null;
-    if (!isTeacher) {
-      const likelyTeacher = participants.find((participant) => {
-        const text = `${participant.name || ''} ${participant.identity || ''}`.toLowerCase();
-        return (teacherNameHint && text.includes(teacherNameHint)) || /teacher|admin/.test(text);
-      });
-      if (likelyTeacher) return likelyTeacher;
-    }
-    return participants[0];
-  }, [isTeacher, teacherNameHint]);
-  const stageParticipant = remoteParticipants.find((participant) => participant.identity === selectedParticipantIdentity)
-    || findDefaultStageParticipant(remoteParticipants);
-  const secondaryParticipants = remoteParticipants.filter((participant) => participant.identity !== stageParticipant?.identity);
-  const showStageParticipant = useStageLayout && !screenShareParticipants.length && stageParticipant;
-  const stripParticipants = showStageParticipant ? secondaryParticipants : remoteParticipants;
+  const hasScreenShare = screenShareParticipants.length > 0;
 
-  useEffect(() => {
-    if (!remoteParticipants.length) {
-      if (selectedParticipantIdentity) setSelectedParticipantIdentity('');
-      return;
-    }
+  // From a student's view: identify which remote participant is the teacher.
+  // From a teacher's view: no "remote teacher" — local user is the teacher.
+  const teacherParticipant = isTeacher ? null : (() => {
+    if (!remoteParticipants.length) return null;
+    const found = remoteParticipants.find((p) => {
+      const text = `${p.name || ''} ${p.identity || ''}`.toLowerCase();
+      return (teacherNameHint && text.includes(teacherNameHint)) || /teacher|admin/.test(text);
+    });
+    return found || remoteParticipants[0];
+  })();
 
-    const stillSelected = remoteParticipants.some((participant) => participant.identity === selectedParticipantIdentity);
-    if (stillSelected) return;
-
-    const nextParticipant = findDefaultStageParticipant(remoteParticipants);
-    if (nextParticipant?.identity && nextParticipant.identity !== selectedParticipantIdentity) {
-      setSelectedParticipantIdentity(nextParticipant.identity);
-    }
-  }, [remoteParticipants, selectedParticipantIdentity, findDefaultStageParticipant]);
+  // Student strip: teacher sees all remote participants; students see everyone except the teacher
+  const studentRowParticipants = isTeacher
+    ? remoteParticipants
+    : remoteParticipants.filter((p) => p !== teacherParticipant);
   const controlsActionSlotWidth = isTeacher
     ? (isCompactMobile ? 'clamp(192px, 52vw, 238px)' : 'clamp(264px, 32vw, 340px)')
     : 'clamp(112px, 14vw, 132px)';
@@ -595,72 +693,97 @@ const ClassRoomPage = () => {
         </div>
       </div>
 
-      {/* ── Main video area ── */}
+      {/* ── Main video area — 3-zone grid layout ── */}
       <div style={styles.main}>
-        <div style={styles.videoStage}>
-          {/* Screen share — shown full-width when any participant is sharing */}
-          {screenShareParticipants.map((p) => <ScreenShareTile key={`screen-${p.sid}`} participant={p} />)}
+        <div style={isMobileLayout ? styles.videoStageMobile : styles.videoStage}>
 
-          {remoteParticipants.length === 0 ? (
-            <div style={styles.remotePlaceholder}>
-              <span style={styles.remotePlaceholderIcon}>📡</span>
-              <p style={styles.remoteHint}>Waiting for others to join…</p>
-              <p style={styles.remoteHintSmall}>You are connected · share the class link to invite students</p>
-            </div>
-          ) : useStageLayout ? (
-            <div style={styles.stageLayout}>
-              {showStageParticipant && (
-                <div style={styles.stagePrimaryWrap}>
-                  <div style={styles.stageTitleRow}>
-                    <span style={styles.stageTitle}>{isTeacher ? 'Focused Student' : 'Main View'}</span>
-                    <span style={styles.stageHint}>{stageParticipant.name || stageParticipant.identity}</span>
-                  </div>
-                  <RemoteTile participant={stageParticipant} variant="stage" isActive />
-                </div>
-              )}
+          {/* ── Zone 1: Main content area (screen share or whiteboard placeholder) ── */}
+          <div style={styles.mainContentArea}>
+            {hasScreenShare ? (
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {screenShareParticipants.map((p) => (
+                  <ScreenShareTile key={`screen-${p.sid}`} participant={p} />
+                ))}
+              </div>
+            ) : (
+              <div style={styles.whiteboardPlaceholder}>
+                <span style={styles.whiteboardIcon}>📋</span>
+                <p style={styles.whiteboardHint}>Classroom Board</p>
+                <p style={styles.whiteboardHintSmall}>
+                  {isTeacher
+                    ? 'Share your screen to present content to students'
+                    : 'Waiting for teacher to share content…'}
+                </p>
+              </div>
+            )}
+          </div>
 
-              {stripParticipants.length > 0 && (
-                <div
-                  style={{
-                    ...styles.participantStrip,
-                    paddingLeft: isMobileLayout ? 'clamp(118px, 34vw, 156px)' : 'clamp(150px, 20vw, 228px)',
-                  }}
-                >
-                  {stripParticipants.map((p) => (
-                    <RemoteTile
-                      key={p.sid}
-                      participant={p}
-                      variant="strip"
-                      onClick={() => setSelectedParticipantIdentity(p.identity)}
-                      isActive={p.identity === selectedParticipantIdentity}
-                    />
-                  ))}
+          {/* ── Zone 2: Teacher camera (fixed right panel / top on mobile) ── */}
+          <div style={{
+            ...styles.teacherPanel,
+            ...(isMobileLayout ? { height: 130, width: '100%' } : {}),
+          }}>
+            {isTeacher ? (
+              <div style={styles.teacherCameraCard}>
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  style={{ ...styles.teacherCameraVideo, opacity: camOn ? 1 : 0.2 }}
+                />
+                <div style={styles.localLabel}>You {camOn ? '' : '(cam off)'}</div>
+                {sharing && <span style={styles.teacherSharingBadge}>🖥 Sharing</span>}
+              </div>
+            ) : teacherParticipant ? (
+              <RemoteTile participant={teacherParticipant} variant="teacher" />
+            ) : (
+              <div style={styles.teacherCameraCard}>
+                <div style={styles.teacherCameraPlaceholder}>
+                  <span style={{ fontSize: 32 }}>👨‍🏫</span>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8, textAlign: 'center' }}>
+                    Teacher not connected
+                  </span>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div style={styles.participantGrid}>
-              {remoteParticipants.map((p) => <RemoteTile key={p.sid} participant={p} />)}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Zone 3: Student cameras strip (bottom row) ── */}
+          <div style={{
+            ...styles.studentStrip,
+            ...(isMobileLayout ? { height: 100 } : {}),
+          }}>
+            {/* Student's own camera tile shown first in the strip */}
+            {!isTeacher && (
+              <div style={styles.studentStripLocalTile}>
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  style={{ ...styles.studentStripVideo, opacity: camOn ? 1 : 0.2 }}
+                />
+                <div style={styles.localLabel}>You {camOn ? '' : '(cam off)'}</div>
+              </div>
+            )}
+            {studentRowParticipants.map((p) => (
+              <RemoteTile
+                key={p.sid}
+                participant={p}
+                variant="strip"
+                onClick={() => setSelectedParticipantIdentity(p.identity)}
+                isActive={p.identity === selectedParticipantIdentity}
+              />
+            ))}
+            {isTeacher && studentRowParticipants.length === 0 && (
+              <div style={styles.studentStripEmpty}>
+                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>No students connected yet</span>
+              </div>
+            )}
+          </div>
+
         </div>
-      </div>
-
-      {/* ── Local camera picture-in-picture ── */}
-      <div
-        style={{
-          ...styles.localVideoWrapper,
-          left: (chatOpen || participantsOpen) ? styles.localVideoLeftCompact : styles.localVideoLeft,
-        }}
-      >
-        <video
-          ref={localVideoRef}
-          autoPlay
-          muted
-          playsInline
-          style={{ ...styles.localVideo, opacity: camOn ? 1 : 0.2 }}
-        />
-        <div style={styles.localLabel}>You {camOn ? '' : '(cam off)'}</div>
       </div>
 
       {/* ── Sidebar ── */}
@@ -763,7 +886,10 @@ const ClassRoomPage = () => {
                 onClick={async () => {
                   setScreenReqFrom('');
                   try {
-                    await roomRef.current?.localParticipant.setScreenShareEnabled(true);
+                    await roomRef.current?.localParticipant.setScreenShareEnabled(true, SCREEN_SHARE_CAPTURE_OPTIONS);
+                    if (micOnRef.current) {
+                      await roomRef.current?.localParticipant.setMicrophoneEnabled(true).catch(() => {});
+                    }
                     setSharing(true);
                   } catch {}
                 }}
@@ -795,6 +921,7 @@ const ClassRoomPage = () => {
               <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleCam} active={camOn} icon={camOn ? <MdVideocam size={18} /> : <MdVideocamOff size={18} />} label={camOn ? 'Cam Off' : 'Cam On'} />
               <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleScreenShare} active={sharing} icon={sharing ? <MdStopScreenShare size={18} /> : <MdScreenShare size={18} />} label={sharing ? 'Stop Share' : 'Share Screen'} />
               <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleBlur} active={blurEnabled} icon={blurEnabled ? <MdBlurOff size={18} /> : <MdBlurOn size={18} />} label={blurEnabled ? 'Blur Off' : 'Blur BG'} />
+              <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleRaiseHand} active={myHandRaised} icon={<span style={{ fontSize: 16, lineHeight: 1 }}>✋</span>} label={myHandRaised ? 'Lower Hand' : 'Raise Hand'} />
               <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={() => { setChatOpen(!chatOpen); setParticipantsOpen(false); }} active={chatOpen} icon={<MdChat size={18} />} label="Chat" />
               {isTeacher && (
                 <ControlBtn compact showLabel={false} styleOverride={styles.mobileControlBtn} onClick={toggleParticipants} active={participantsOpen} icon={<MdPeople size={18} />} label="Students" />
@@ -862,6 +989,7 @@ const ClassRoomPage = () => {
               <ControlBtn compact={isCompactMobile} onClick={toggleCam} active={camOn} icon={camOn ? <MdVideocam size={18} /> : <MdVideocamOff size={18} />} label={camOn ? 'Cam Off' : 'Cam On'} />
               <ControlBtn compact={isCompactMobile} onClick={toggleScreenShare} active={sharing} icon={sharing ? <MdStopScreenShare size={18} /> : <MdScreenShare size={18} />} label={sharing ? 'Stop Share' : 'Share Screen'} />
               <ControlBtn compact={isCompactMobile} onClick={toggleBlur} active={blurEnabled} icon={blurEnabled ? <MdBlurOff size={18} /> : <MdBlurOn size={18} />} label={blurEnabled ? 'Blur Off' : 'Blur BG'} />
+              <ControlBtn compact={isCompactMobile} onClick={toggleRaiseHand} active={myHandRaised} icon={<span style={{ fontSize: 16, lineHeight: 1 }}>✋</span>} label={myHandRaised ? 'Lower Hand' : 'Raise Hand'} />
               <ControlBtn compact={isCompactMobile} onClick={() => { setChatOpen(!chatOpen); setParticipantsOpen(false); }} active={chatOpen} icon={<MdChat size={18} />} label="Chat" />
               {isTeacher && (
                 <ControlBtn compact={isCompactMobile} onClick={toggleParticipants} active={participantsOpen} icon={<MdPeople size={18} />} label="Students" />
@@ -1068,14 +1196,17 @@ const getStyles = (compact = false) => ({
     overflow: 'hidden',
   },
   videoStage: {
+    // Desktop: CSS Grid — main content | teacher panel (top), student strip (bottom)
     width: '100%',
     maxWidth: 'min(1220px, 100%)',
     margin: '0 auto',
     flex: 1,
     minHeight: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: SPACING[3],
+    display: 'grid',
+    gridTemplateAreas: '"main teacher" "students students"',
+    gridTemplateColumns: '1fr 220px',
+    gridTemplateRows: '1fr 130px',
+    gap: SPACING[2],
     padding: compact ? '8px' : 'clamp(8px, 1.3vw, 16px)',
     borderRadius: BORDER_RADIUS['2xl'],
     background: 'rgba(255,255,255,0.1)',
@@ -1083,6 +1214,148 @@ const getStyles = (compact = false) => ({
     boxShadow: '0 18px 42px rgba(63, 46, 132, 0.16)',
     backdropFilter: 'blur(18px)',
     overflow: 'hidden',
+  },
+  videoStageMobile: {
+    // Mobile: vertical stack — teacher → main → students
+    width: '100%',
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING[2],
+    padding: '8px',
+    borderRadius: BORDER_RADIUS['2xl'],
+    background: 'rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    boxShadow: '0 18px 42px rgba(63, 46, 132, 0.16)',
+    backdropFilter: 'blur(18px)',
+    overflow: 'hidden',
+  },
+  // ── Zone 1: main content (screen share or whiteboard) ──
+  mainContentArea: {
+    gridArea: 'main',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+    borderRadius: BORDER_RADIUS.xl,
+    overflow: 'hidden',
+    flex: 1,
+  },
+  whiteboardPlaceholder: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'radial-gradient(circle at 50% 35%, rgba(176,97,206,0.16), rgba(176,97,206,0.04) 55%, rgba(255,255,255,0.01) 100%)',
+    borderRadius: BORDER_RADIUS.xl,
+    border: '1px dashed rgba(176,97,206,0.42)',
+    gap: SPACING[3],
+    padding: SPACING[8],
+    textAlign: 'center',
+  },
+  whiteboardIcon: {
+    fontSize: 'clamp(36px, 4vw, 52px)',
+    lineHeight: 1,
+    filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.35))',
+  },
+  whiteboardHint: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 'clamp(15px, 1.6vw, 20px)',
+    margin: 0,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
+  whiteboardHintSmall: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 'clamp(11px, 1vw, 13px)',
+    margin: 0,
+    maxWidth: 380,
+  },
+  // ── Zone 2: teacher camera panel ──
+  teacherPanel: {
+    gridArea: 'teacher',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+    borderRadius: BORDER_RADIUS.xl,
+    overflow: 'hidden',
+  },
+  teacherCameraCard: {
+    flex: 1,
+    position: 'relative',
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    borderRadius: BORDER_RADIUS.xl,
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  teacherCameraVideo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    transform: 'scaleX(-1)',
+    flex: 1,
+  },
+  teacherSharingBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    background: 'rgba(176,97,206,0.7)',
+    border: '1px solid rgba(216,170,238,0.5)',
+    borderRadius: 999,
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: FONT_WEIGHTS.semibold,
+    padding: '2px 8px',
+    backdropFilter: 'blur(8px)',
+  },
+  teacherCameraPlaceholder: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
+  },
+  // ── Zone 3: student cameras strip ──
+  studentStrip: {
+    gridArea: 'students',
+    display: 'flex',
+    flexDirection: 'row',
+    gap: SPACING[2],
+    overflowX: 'auto',
+    overflowY: 'hidden',
+    scrollbarWidth: 'thin',
+    WebkitOverflowScrolling: 'touch',
+    alignItems: 'flex-start',
+    paddingBottom: 2,
+  },
+  studentStripLocalTile: {
+    position: 'relative',
+    width: 168,
+    minWidth: 168,
+    maxWidth: 168,
+    flexShrink: 0,
+    aspectRatio: '16/9',
+    minHeight: 96,
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.22)',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  studentStripVideo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    transform: 'scaleX(-1)',
+  },
+  studentStripEmpty: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   participantGrid: {
     display: 'grid',
@@ -1132,12 +1405,24 @@ const getStyles = (compact = false) => ({
   participantStrip: {
     display: 'flex',
     gap: SPACING[2],
-    overflowX: 'auto',
+    flexWrap: 'wrap',
+    overflowX: 'hidden',
     overflowY: 'hidden',
     paddingBottom: 4,
     minHeight: 0,
+    alignContent: 'flex-start',
+  },
+  screenShareCameraStrip: {
+    display: 'flex',
+    gap: SPACING[2],
+    flexShrink: 0,
+    minHeight: 100,
+    overflowX: 'auto',
+    overflowY: 'hidden',
     scrollbarWidth: 'thin',
     WebkitOverflowScrolling: 'touch',
+    alignItems: 'flex-start',
+    paddingBottom: 2,
   },
   // ── PIP — moved to bottom-LEFT above controls ──
   localVideoWrapper: {

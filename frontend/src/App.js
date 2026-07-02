@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
 import "./styles/responsive.css";
-import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AdminDashboard from "./pages/AdminDashboard";
 import StudentsPage from "./pages/StudentsPage";
@@ -127,6 +127,22 @@ const queryClient = new QueryClient({
   },
 });
 
+const ACTIVE_LIVE_CLASS_SESSION_KEY = 'activeOnlineClassSessionId';
+const LIVE_CLASS_META_STORAGE_KEY = 'onlineClassLiveMeta';
+const LIVE_CLASS_META_EVENT = 'onlineClassLiveMetaUpdated';
+
+const readLiveClassMeta = () => {
+  try {
+    const raw = localStorage.getItem(LIVE_CLASS_META_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
 
 
 const AutoLogout = () => {
@@ -157,6 +173,7 @@ const AutoLogout = () => {
 
 function AppContent() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
   const isMobileOrTablet = isMobile || isTablet;
 
@@ -164,8 +181,42 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   // Mobile/Tablet overlay drawer visibility
   const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false);
+  const [liveStrip, setLiveStrip] = useState(() => {
+    const meta = readLiveClassMeta();
+    return {
+      sessionId: sessionStorage.getItem(ACTIVE_LIVE_CLASS_SESSION_KEY) || meta?.sessionId || '',
+      participantCount: Number(meta?.participantCount || 0),
+      hasRaisedHand: Boolean(meta?.hasRaisedHand),
+    };
+  });
 
   const isPublicRoute = location.pathname === '/login' || location.pathname === '/register';
+
+  useEffect(() => {
+    const refreshLiveStrip = (event) => {
+      const metaFromEvent = event?.detail;
+      const meta = typeof metaFromEvent === 'object' && metaFromEvent !== null
+        ? metaFromEvent
+        : readLiveClassMeta();
+      const sessionId = sessionStorage.getItem(ACTIVE_LIVE_CLASS_SESSION_KEY) || meta?.sessionId || '';
+
+      setLiveStrip({
+        sessionId,
+        participantCount: Number(meta?.participantCount || 0),
+        hasRaisedHand: Boolean(meta?.hasRaisedHand),
+      });
+    };
+
+    refreshLiveStrip();
+    window.addEventListener('focus', refreshLiveStrip);
+    window.addEventListener('storage', refreshLiveStrip);
+    window.addEventListener(LIVE_CLASS_META_EVENT, refreshLiveStrip);
+    return () => {
+      window.removeEventListener('focus', refreshLiveStrip);
+      window.removeEventListener('storage', refreshLiveStrip);
+      window.removeEventListener(LIVE_CLASS_META_EVENT, refreshLiveStrip);
+    };
+  }, []);
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -179,6 +230,7 @@ function AppContent() {
     : isMobileOrTablet
     ? 0
     : (sidebarOpen ? SIDEBAR.expandedWidth : SIDEBAR.collapsedWidth);
+  const showLiveStrip = !isPublicRoute && Boolean(liveStrip.sessionId);
 
   return (
     <div style={{
@@ -226,6 +278,54 @@ function AppContent() {
           aria-label="Open navigation menu"
         >
           <FontAwesomeIcon icon={faBars} />
+        </button>
+      )}
+
+      {showLiveStrip && (
+        <button
+          onClick={() => navigate(`/online-classes/room/${liveStrip.sessionId}`)}
+          style={{
+            position: 'fixed',
+            top: isMobileOrTablet ? 12 : 14,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: Z_INDEX.sidebar + 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: isMobileOrTablet ? '8px 12px' : '10px 14px',
+            borderRadius: 999,
+            border: '1px solid rgba(255,255,255,0.3)',
+            background: 'rgba(8, 13, 26, 0.64)',
+            color: '#fff',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            boxShadow: '0 10px 26px rgba(0,0,0,0.22)',
+            cursor: 'pointer',
+            fontSize: isMobileOrTablet ? 12 : 13,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+          }}
+          aria-label="Open live class"
+          title="Open live class"
+        >
+          <span style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: '#ef4444',
+            boxShadow: '0 0 0 5px rgba(239,68,68,0.2)',
+            flexShrink: 0,
+          }} />
+          <span>Live</span>
+          <span style={{ opacity: 0.9 }}>•</span>
+          <span>{Math.max(1, liveStrip.participantCount || 1)} participants</span>
+          {liveStrip.hasRaisedHand && (
+            <>
+              <span style={{ opacity: 0.9 }}>•</span>
+              <span style={{ color: '#FBBF24', fontWeight: 700 }}>✋ Hand Raised</span>
+            </>
+          )}
         </button>
       )}
 
@@ -337,19 +437,20 @@ function AppContent() {
       {/* ✅ Fallback */}
       <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          style={{ zIndex: 99999 }}
-        />
       </div>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        style={{ zIndex: 99999 }}
+      />
     </div>
   );
 }

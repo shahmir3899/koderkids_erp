@@ -44,6 +44,8 @@ import {
  * @param {boolean} props.showResetButton - Show reset button (default: true)
  * @param {boolean} props.preventFutureDates - Prevent selecting future dates (default: true) - NEW
  * @param {React.ReactNode} props.additionalActions - Additional action buttons/elements
+ * @param {React.ReactNode} props.classFooter - Optional content rendered directly below class filter
+ * @param {React.ReactNode} props.bottomContent - Optional full-width content rendered below the main filter row
  * @param {string} props.className - Additional CSS classes
  * @param {Object} props.initialValues - Initial filter values
  */
@@ -62,6 +64,8 @@ export const FilterBar = ({
   showResetButton = true,
   preventFutureDates = false,
   additionalActions = null,
+  classFooter = null,
+  bottomContent = null,
   className = '',
   initialValues = {},
 }) => {
@@ -152,6 +156,13 @@ export const FilterBar = ({
   };
 
   // Styles with glassmorphism
+  const wrapperStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  };
+
   const containerStyle = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -159,23 +170,30 @@ export const FilterBar = ({
     padding: SPACING.lg,
     ...MIXINS.glassmorphicCard,
     borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.lg,
-    alignItems: 'end',
+    alignItems: 'start',
+  };
+
+  const bottomContentStyle = {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    ...MIXINS.glassmorphicSubtle,
+    borderRadius: BORDER_RADIUS.md,
   };
 
   const buttonContainerStyle = {
     display: 'flex',
     gap: SPACING.md,
-    alignItems: 'flex-end',
-    flexWrap: 'nowrap',
+    alignItems: 'center',
+    flexWrap: 'wrap',
     flex: 1,
     minWidth: '200px',
   };
 
   // Match button height with filter inputs (including label space)
   const filterButtonStyle = {
-    flex: 1,
-    height: '38px',
+    flex: '0 0 160px',
+    width: '160px',
+    maxWidth: '100%',
+    height: '42px',
     padding: `0 ${SPACING.lg}`,
     display: 'flex',
     alignItems: 'center',
@@ -217,7 +235,8 @@ export const FilterBar = ({
   };
 
   return (
-    <div style={containerStyle} className={className}>
+    <div style={wrapperStyle} className={className}>
+      <div style={containerStyle}>
       {/* Search Input */}
       {showSearch && (
         <div style={inputContainerStyle}>
@@ -296,13 +315,16 @@ export const FilterBar = ({
 
       {/* Class Filter */}
       {showClass && (
-        <ClassFilter
-          schoolId={schoolId}
-          value={selectedClass}
-          onChange={setSelectedClass}
-          label="📚 Class"
-          required={showSchool}
-        />
+        <div style={inputContainerStyle}>
+          <ClassFilter
+            schoolId={schoolId}
+            value={selectedClass}
+            onChange={setSelectedClass}
+            label="📚 Class"
+            required={showSchool}
+          />
+          {classFooter}
+        </div>
       )}
 
       {/* Month Filter */}
@@ -317,24 +339,35 @@ export const FilterBar = ({
 
       {/* Buttons */}
       {!autoSubmit && (
-        <div style={buttonContainerStyle}>
-          <Button
-            onClick={handleApplyFilters}
-            variant="primary"
-            style={filterButtonStyle}
-          >
-            {submitButtonText}
-          </Button>
-          {showResetButton && (
+        <div style={inputContainerStyle}>
+          <label style={labelStyle}>Actions</label>
+          <div style={buttonContainerStyle}>
             <Button
-              onClick={handleReset}
-              variant="secondary"
+              onClick={handleApplyFilters}
+              variant="primary"
               style={filterButtonStyle}
             >
-              🔄 Reset
+              {submitButtonText}
             </Button>
-          )}
-          {additionalActions && additionalActions}
+            {showResetButton && (
+              <Button
+                onClick={handleReset}
+                variant="secondary"
+                style={filterButtonStyle}
+              >
+                🔄 Reset
+              </Button>
+            )}
+            {additionalActions && additionalActions}
+          </div>
+        </div>
+      )}
+
+      </div>
+
+      {bottomContent && (
+        <div style={bottomContentStyle}>
+          {bottomContent}
         </div>
       )}
     </div>

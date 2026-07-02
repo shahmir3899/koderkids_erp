@@ -38,10 +38,12 @@ const LessonReviewPanel = ({
   };
 
   const getTotalTopics = () => {
-    return Object.values(wizardData.sessionTopics).reduce(
-      (sum, session) => sum + (session?.topicIds?.length || 0),
-      0
-    );
+    return Object.values(wizardData.sessionTopics).reduce((sum, session) => {
+      if (session?.mode === 'custom') {
+        return sum + (session?.customText?.trim() ? 1 : 0);
+      }
+      return sum + (session?.topicIds?.length || 0);
+    }, 0);
   };
 
   return (
@@ -141,7 +143,9 @@ const LessonReviewPanel = ({
         </div>
         <div style={styles.summaryCard}>
           <div style={styles.summaryNumber}>
-            {wizardData.selectedBookData?.title || 'N/A'}
+            {wizardData.topicSourceMode === 'custom'
+              ? 'Custom'
+              : (wizardData.selectedBookData?.title || 'N/A')}
           </div>
           <div style={styles.summaryLabel}>Book</div>
         </div>
@@ -167,13 +171,16 @@ const LessonReviewPanel = ({
               {wizardData.selectedDates.map((dateStr, index) => {
                 const topics = wizardData.sessionTopics[dateStr];
                 const topicCount = topics?.topicIds?.length || 0;
+                const hasCustomText = topics?.mode === 'custom' && Boolean(topics?.customText?.trim());
 
                 return (
                   <tr key={dateStr} style={styles.tr}>
                     <td style={styles.td}>{index + 1}</td>
                     <td style={styles.td}>{formatDateShort(dateStr)}</td>
                     <td style={styles.td}>
-                      {topicCount > 0 ? (
+                      {hasCustomText ? (
+                        <span style={styles.topicCount}>Custom topic</span>
+                      ) : topicCount > 0 ? (
                         <span style={styles.topicCount}>
                           {topicCount} topic{topicCount > 1 ? 's' : ''}
                         </span>

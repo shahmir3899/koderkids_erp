@@ -65,10 +65,13 @@ const LessonPlanWizard = ({
     selectedDates: [], // ['2025-01-03', '2025-01-05', ...]
 
     // Step 3
+    topicSourceMode: 'book', // 'book' | 'custom'
+
+    // Step 4 (book mode only)
     selectedBookId: null,
     selectedBookData: null, // Full book with topics
 
-    // Step 4
+    // Step 5 (or Step 4 when custom mode)
     sessionTopics: {
       // '2025-01-03': {
       //   mode: 'book' | 'custom',
@@ -182,6 +185,17 @@ const LessonPlanWizard = ({
   const validateStep3 = () => {
     const newErrors = {};
 
+    if (!wizardData.topicSourceMode) {
+      newErrors.topicSourceMode = 'Please select how you want to add topics';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateBookStep = () => {
+    const newErrors = {};
+
     if (!wizardData.selectedBookId) {
       newErrors.selectedBookId = 'Please select a book';
     }
@@ -190,7 +204,7 @@ const LessonPlanWizard = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateStep4 = () => {
+  const validateTopicAssignmentStep = () => {
     const newErrors = {};
 
     // Check that all dates have topics assigned (either book topics or custom text)
@@ -223,6 +237,11 @@ const LessonPlanWizard = ({
   // NAVIGATION
   // ============================================================
 
+  const isBookMode = wizardData.topicSourceMode === 'book';
+  const assignStep = isBookMode ? 5 : 4;
+  const reviewStep = isBookMode ? 6 : 5;
+  const totalSteps = reviewStep;
+
   const handleNext = () => {
     let isValid = false;
 
@@ -230,7 +249,8 @@ const LessonPlanWizard = ({
       case 1: isValid = validateStep1(); break;
       case 2: isValid = validateStep2(); break;
       case 3: isValid = validateStep3(); break;
-      case 4: isValid = validateStep4(); break;
+      case 4: isValid = isBookMode ? validateBookStep() : validateTopicAssignmentStep(); break;
+      case 5: isValid = isBookMode ? validateTopicAssignmentStep() : true; break;
       default: isValid = true;
     }
 
@@ -305,7 +325,7 @@ const LessonPlanWizard = ({
   };
 
   const handleSubmit = async (closeAfter = true) => {
-    if (!validateStep4()) return;
+    if (!validateTopicAssignmentStep()) return;
 
     setIsSubmitting(true);
 
@@ -333,7 +353,12 @@ const LessonPlanWizard = ({
       }
     } catch (error) {
       console.error('Failed to create lesson plan:', error);
-      toast.error('Failed to create lesson plan');
+      const backendMessage =
+        error?.response?.data?.error ||
+        error?.response?.data?.detail ||
+        (typeof error?.response?.data === 'string' ? error.response.data : '') ||
+        'Failed to create lesson plan';
+      toast.error(backendMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -348,6 +373,7 @@ const LessonPlanWizard = ({
       selectedMonth: '',
       teacherId: null,
       selectedDates: [],
+      topicSourceMode: 'book',
       selectedBookId: null,
       selectedBookData: null,
       sessionTopics: {},
@@ -413,14 +439,14 @@ const LessonPlanWizard = ({
         {/* Step Indicator */}
         <div style={styles.stepIndicatorContainer}>
           <div style={styles.stepIndicator}>
-            {[1, 2, 3, 4, 5].map((step, index) => (
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step, index) => (
               <React.Fragment key={step}>
                 <div style={styles.stepDot(currentStep === step, step < currentStep)} />
-                {index < 4 && <div style={styles.stepLine} />}
+                {index < totalSteps - 1 && <div style={styles.stepLine} />}
               </React.Fragment>
             ))}
           </div>
-          <span style={styles.stepLabel}>Step {currentStep} of 5</span>
+          <span style={styles.stepLabel}>Step {currentStep} of {totalSteps}</span>
         </div>
 
         {/* Content */}
@@ -576,10 +602,49 @@ const LessonPlanWizard = ({
             </div>
           )}
 
-          {/* Step 3: Book Selection */}
+          {/* Step 3: Topic Source Mode */}
           {currentStep === 3 && (
             <div style={styles.stepContainer}>
-              <h3 style={styles.stepTitle}>Choose Book for Topics</h3>
+              <h3 style={styles.stepTitle}>Choose Topic Entry Method</h3>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Topic Source *</label>
+                <p style={styles.helperText}>
+                  Choose one method for this lesson plan. If you pick custom text, books will not be loaded.
+                </p>
+                <div style={styles.toggleWrap}>
+                  <button
+                    type="button"
+                    style={wizardData.topicSourceMode === 'book' ? styles.toggleBtnActive : styles.toggleBtn}
+                    onClick={() => setWizardData({
+                      ...wizardData,
+                      topicSourceMode: 'book',
+                    })}
+                  >
+                    Use Book Topics (structured)
+                  </button>
+                  <button
+                    type="button"
+                    style={wizardData.topicSourceMode === 'custom' ? styles.toggleBtnActive : styles.toggleBtn}
+                    onClick={() => setWizardData({
+                      ...wizardData,
+                      topicSourceMode: 'custom',
+                      selectedBookId: null,
+                      selectedBookData: null,
+                    })}
+                  >
+                    Use Custom Text (no book needed)
+                  </button>
+                </div>
+                {errors.topicSourceMode && <div style={styles.error}>{errors.topicSourceMode}</div>}
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Book Selection (Book Mode Only) */}
+          {currentStep === 4 && isBookMode && (
+            <div style={styles.stepContainer}>
+              <h3 style={styles.stepTitle}>Select a Book to Pick Structured Topics</h3>
               <BookGridSelector
                 selectedBookId={wizardData.selectedBookId}
                 onBookSelect={(book) => {
@@ -594,13 +659,14 @@ const LessonPlanWizard = ({
             </div>
           )}
 
-          {/* Step 4: Topic Assignment */}
-          {currentStep === 4 && (
+          {/* Topic Assignment */}
+          {currentStep === assignStep && (
             <div style={styles.stepContainer}>
               <h3 style={styles.stepTitle}>Assign Topics to Each Session</h3>
               <SessionTopicAssigner
                 selectedDates={wizardData.selectedDates}
                 selectedBookData={wizardData.selectedBookData}
+                topicSourceMode={wizardData.topicSourceMode}
                 sessionTopics={wizardData.sessionTopics}
                 onTopicsUpdate={(dateStr, topicIds, mode, customText) => {
                   setWizardData({
@@ -608,7 +674,7 @@ const LessonPlanWizard = ({
                     sessionTopics: {
                       ...wizardData.sessionTopics,
                       [dateStr]: {
-                        mode: mode || 'book',
+                        mode: mode || wizardData.topicSourceMode,
                         topicIds,
                         customText: customText || '',
                         topicDisplay: mode === 'custom'
@@ -623,15 +689,15 @@ const LessonPlanWizard = ({
             </div>
           )}
 
-          {/* Step 5: Review & Confirm */}
-          {currentStep === 5 && (
+          {/* Review & Confirm */}
+          {currentStep === reviewStep && (
             <div style={styles.stepContainer}>
               <h3 style={styles.stepTitle}>Review Lesson Plan</h3>
               <LessonReviewPanel
                 wizardData={wizardData}
                 onWizardDataChange={setWizardData}
                 onEditSession={(dateStr) => {
-                  handleStepJump(4);
+                  handleStepJump(assignStep);
                 }}
                 schools={schools}
                 classes={classes}
@@ -679,7 +745,7 @@ const LessonPlanWizard = ({
             Cancel
           </button>
 
-          {currentStep < 5 ? (
+          {currentStep < reviewStep ? (
             <button
               onClick={handleNext}
               style={styles.buttonPrimary}
@@ -961,6 +1027,13 @@ const styles = {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderRadius: BORDER_RADIUS.sm,
     border: '1px solid rgba(239, 68, 68, 0.3)',
+  },
+
+  helperText: {
+    margin: `0 0 ${SPACING.md} 0`,
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+    lineHeight: 1.5,
   },
 
   footer: {
