@@ -228,19 +228,19 @@ def update_achieved_topic(request, lesson_plan_id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_lesson_plan(request, lesson_plan_id):
-    """Allows teachers to delete their own lesson plans"""
+    """Allows Admins to delete any lesson plan, and teachers to delete lesson plans for their assigned schools"""
     teacher = request.user
 
-    if teacher.role != 'Teacher':
+    if teacher.role not in ['Teacher', 'Admin']:
         logger.warning(f"Unauthorized attempt to delete lesson plan by {teacher.username} (role: {teacher.role})")
-        return Response({"error": "Only teachers can delete lesson plans."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"error": "Only teachers or admins can delete lesson plans."}, status=status.HTTP_403_FORBIDDEN)
 
     try:
         lesson_plan = LessonPlan.objects.get(id=lesson_plan_id)
 
-        if lesson_plan.teacher != teacher:
-            logger.warning(f"Teacher {teacher.username} attempted to delete lesson plan {lesson_plan_id} not assigned to them")
-            return Response({"error": "You can only delete your own lesson plans."}, status=status.HTTP_403_FORBIDDEN)
+        if not _has_school_access(teacher, lesson_plan.school_id):
+            logger.warning(f"{teacher.username} attempted to delete lesson plan {lesson_plan_id} for a school they are not assigned to")
+            return Response({"error": "You can only delete lesson plans for your assigned schools."}, status=status.HTTP_403_FORBIDDEN)
 
         lesson_plan.delete()
         logger.info(f"Lesson plan {lesson_plan_id} deleted by {teacher.username}")
@@ -589,16 +589,16 @@ def update_online_planned_topic(request, lesson_plan_id):
 @permission_classes([IsAuthenticated])
 def delete_online_lesson_plan(request, lesson_plan_id):
     teacher = request.user
-    if teacher.role != 'Teacher':
-        return Response({"error": "Only teachers can delete online lesson plans."}, status=403)
+    if teacher.role not in ['Teacher', 'Admin']:
+        return Response({"error": "Only teachers or admins can delete online lesson plans."}, status=403)
 
     try:
         lesson_plan = OnlineTimeSlotLessonPlan.objects.get(id=lesson_plan_id)
     except OnlineTimeSlotLessonPlan.DoesNotExist:
         return Response({"error": "Online lesson plan not found."}, status=404)
 
-    if lesson_plan.teacher != teacher:
-        return Response({"error": "You can only delete your own online lesson plans."}, status=403)
+    if not _has_school_access(teacher, lesson_plan.school_id):
+        return Response({"error": "You can only delete online lesson plans for your assigned schools."}, status=403)
 
     lesson_plan.delete()
     return Response({"message": "Online lesson plan deleted successfully"}, status=204)

@@ -449,7 +449,7 @@ function LessonsPage() {
       if (!isMounted.current) return;
 
       console.error('Error deleting lesson:', err.response?.data || err.message);
-      toast.error(`Failed to delete lesson: ${err.response?.data?.detail || err.message}`);
+      toast.error(`Failed to delete lesson: ${err.response?.data?.error || err.response?.data?.detail || err.message}`);
     } finally {
       if (isMounted.current) {
         setEditState((prev) => ({ ...prev, deleteLoading: null }));
