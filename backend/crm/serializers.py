@@ -5,20 +5,26 @@
 from rest_framework import serializers
 from django.utils import timezone
 from .models import Lead, Activity, BDMTarget, ProposalOffer, ProposalRateSlab
-from students.models import CustomUser, School
+from students.models import CustomUser, School, Student
 
 
 class LeadSerializer(serializers.ModelSerializer):
     """Serializer for Lead model"""
-    
+
     # Read-only fields for related objects
     assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     converted_school_name = serializers.CharField(source='converted_to_school.name', read_only=True)
-    
+    referred_by_reg_num = serializers.CharField(source='referred_by.reg_num', read_only=True, default=None)
+    referred_by_name = serializers.CharField(source='referred_by.name', read_only=True, default=None)
+
     # Count of activities for this lead
     activities_count = serializers.SerializerMethodField()
-    
+
+    # Write-only: a student's reg_num, resolved server-side to `referred_by`.
+    # Optional — an unmatched or blank code must never block lead creation.
+    referral_code = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
     class Meta:
         model = Lead
         fields = [
@@ -40,12 +46,16 @@ class LeadSerializer(serializers.ModelSerializer):
             'conversion_date',
             'estimated_students',
             'notes',
+            'referred_by',
+            'referred_by_reg_num',
+            'referred_by_name',
+            'referral_code',
             'activities_count',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'conversion_date', 'converted_to_school']
-    
+        read_only_fields = ['id', 'created_at', 'updated_at', 'conversion_date', 'converted_to_school', 'referred_by']
+
     def get_activities_count(self, obj):
         """Return count of activities for this lead (uses prefetch cache if available)"""
         # Use annotation if available (set via .annotate(activities_count_ann=Count('activities')))
@@ -56,23 +66,59 @@ class LeadSerializer(serializers.ModelSerializer):
             return len(obj.activities.all())
         except Exception:
             return obj.activities.count()
-    
+
     def validate(self, data):
         """Ensure at least phone or school_name is provided"""
         school_name = data.get('school_name')
         phone = data.get('phone')
-        
+
         # For updates, check if we have at least one field
         if self.instance:
             school_name = school_name or self.instance.school_name
             phone = phone or self.instance.phone
-        
+
         if not school_name and not phone:
             raise serializers.ValidationError(
                 "Either 'school_name' or 'phone' must be provided"
             )
-        
+
         return data
+
+    def _resolve_referral_code(self, validated_data):
+        """
+        Pops 'referral_code' out of validated_data and resolves it to a Student,
+        setting 'referred_by' and defaulting lead_source to 'Referral' (only if
+        the caller didn't explicitly send a lead_source). Never raises — an
+        unmatched code must not block lead creation, it's just reported back
+        to the caller as a non-fatal warning.
+        """
+        referral_code = (validated_data.pop('referral_code', '') or '').strip()
+        referral_warning = None
+        if referral_code:
+            student = Student.objects.filter(reg_num__iexact=referral_code).first()
+            if student:
+                validated_data['referred_by'] = student
+                explicit_source = self.initial_data.get('lead_source')
+                if not explicit_source:
+                    validated_data['lead_source'] = 'Referral'
+            else:
+                referral_warning = (
+                    f"No student found with referral code '{referral_code}' — "
+                    "lead was created without a referral link."
+                )
+        return validated_data, referral_warning
+
+    def create(self, validated_data):
+        validated_data, referral_warning = self._resolve_referral_code(validated_data)
+        instance = super().create(validated_data)
+        instance._referral_warning = referral_warning
+        return instance
+
+    def update(self, instance, validated_data):
+        validated_data, referral_warning = self._resolve_referral_code(validated_data)
+        instance = super().update(instance, validated_data)
+        instance._referral_warning = referral_warning
+        return instance
 
 
 class LeadCardSerializer(LeadSerializer):

@@ -27,6 +27,7 @@ export const CreateLeadModal = ({ onClose, onSuccess }) => {
     lead_source: 'Other',
     estimated_students: '',
     notes: '',
+    referral_code: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -93,8 +94,11 @@ export const CreateLeadModal = ({ onClose, onSuccess }) => {
         Object.entries(formData).filter(([_, value]) => value !== '')
       );
 
-      await createLead(cleanData);
+      const result = await createLead(cleanData);
       toast.success('Lead created successfully');
+      if (result?.referral_warning) {
+        toast.warning(result.referral_warning);
+      }
       onSuccess();
     } catch (error) {
       console.error('❌ Error creating lead:', error);
@@ -284,6 +288,22 @@ export const CreateLeadModal = ({ onClose, onSuccess }) => {
                 min="0"
               />
             </div>
+          </div>
+
+          {/* Referral Code */}
+          <div style={styles.formGroupFull}>
+            <label style={styles.label}>Referral Code (optional)</label>
+            <input
+              type="text"
+              name="referral_code"
+              value={formData.referral_code}
+              onChange={handleChange}
+              style={styles.input}
+              placeholder="Student reg. number, e.g. 25-KK-MSSGC-032"
+            />
+            <p style={styles.checkingText}>
+              If a parent referred this family, enter their child's registration number here.
+            </p>
           </div>
 
           {/* Notes */}

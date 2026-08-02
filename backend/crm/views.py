@@ -104,6 +104,11 @@ class LeadViewSet(viewsets.ModelViewSet):
 
         response_data = serializer.data
 
+        # Surface an unmatched referral code as a non-fatal warning (lead is still created)
+        referral_warning = getattr(serializer.instance, '_referral_warning', None)
+        if referral_warning:
+            response_data['referral_warning'] = referral_warning
+
         # Check for duplicates and add warning
         phone = request.data.get('phone', '').strip()
         if phone:

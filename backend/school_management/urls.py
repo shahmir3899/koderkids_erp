@@ -29,6 +29,7 @@ from students.views import (
 
 
     my_student_data, create_single_fee, delete_fees, my_progress,
+    my_progress_images, weekly_check_in, my_narrative,
     get_fee_defaulters, compare_fee_months, online_student_dashboard,
 
     # Time Slot endpoints
@@ -87,6 +88,9 @@ urlpatterns = [
     path('api/new-registrations/', new_registrations, name='new_registrations'),
     path('api/students/my-data/', my_student_data, name='my_student_data'),  # ← NEW
     path('api/students/my-progress/', my_progress, name='my_progress'),  # Student progress dashboard data
+    path('api/students/my-progress-images/', my_progress_images, name='my_progress_images'),  # Student's own activity photos
+    path('api/students/check-in/', weekly_check_in, name='weekly_check_in'),  # Weekly app-open streak
+    path('api/students/my-narrative/', my_narrative, name='my_narrative'),  # Cached AI monthly narrative
     path('api/students/online-dashboard/', online_student_dashboard, name='online_student_dashboard'),  # Online student dedicated dashboard
     path('api/schools-with-classes/', get_schools_with_classes, name='schools_with_classes'),
 

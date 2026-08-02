@@ -548,3 +548,26 @@ class StudentBadge(models.Model):
 
     def __str__(self):
         return f"{self.student.name} - {self.badge.name}"
+
+
+class WeeklyCheckIn(models.Model):
+    """
+    Records that a user opened the app during a given week (Mon-Sun).
+    In-app recognition only (streak badge) — no real-world reward.
+    """
+    user = models.ForeignKey(
+        'students.CustomUser',
+        on_delete=models.CASCADE,
+        related_name='weekly_checkins'
+    )
+    week_start_date = models.DateField(help_text="Monday of the checked-in week")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'week_start_date')
+        ordering = ['-week_start_date']
+        verbose_name = "Weekly Check-In"
+        verbose_name_plural = "Weekly Check-Ins"
+
+    def __str__(self):
+        return f"{self.user.username} - week of {self.week_start_date}"

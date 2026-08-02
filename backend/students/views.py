@@ -11,7 +11,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from supabase import create_client
 from django.contrib.auth import get_user_model
-from .models import Student, Fee, School, Attendance, CustomUser, LessonPlan, Badge, StudentBadge, TimeSlot
+from .models import Student, Fee, School, Attendance, CustomUser, LessonPlan, Badge, StudentBadge, TimeSlot, WeeklyCheckIn
 from .subtypes import StudentSubtype, DEFAULT_STUDENT_SUBTYPE
 from .serializers import StudentSerializer, SchoolSerializer,  FeeSummarySerializer, StudentProfileSerializer, StudentProfileDetailSerializer, TimeSlotSerializer
 from django.shortcuts import render
@@ -2016,33 +2016,57 @@ def calculate_learning_streak(student):
     return streak
 
 
+def _attendance_percentage_for_range(student, start_date, end_date):
+    """Returns the Present-day percentage in [start_date, end_date], or None if no records exist."""
+    total_days = Attendance.objects.filter(
+        student=student,
+        session_date__gte=start_date,
+        session_date__lte=end_date
+    ).count()
+
+    if total_days == 0:
+        return None
+
+    present_days = Attendance.objects.filter(
+        student=student,
+        session_date__gte=start_date,
+        session_date__lte=end_date,
+        status='Present'
+    ).count()
+
+    return round((present_days / total_days) * 100)
+
+
 def calculate_monthly_attendance(student):
     """
     Calculate attendance percentage for the current month.
+
+    Falls back to the most recent month that actually has attendance records
+    when the current month has none yet (e.g. the first few days of a new
+    month before sessions resume) — otherwise "no data yet" was indistinguishable
+    from "the student was marked absent every day", both showing as a flat 0%.
     Returns percentage (0-100).
     """
+    from calendar import monthrange
     from django.utils import timezone
 
     today = timezone.now().date()
     first_of_month = today.replace(day=1)
 
-    total_days = Attendance.objects.filter(
-        student=student,
-        session_date__gte=first_of_month,
-        session_date__lte=today
-    ).count()
+    percentage = _attendance_percentage_for_range(student, first_of_month, today)
+    if percentage is not None:
+        return percentage
 
-    present_days = Attendance.objects.filter(
-        student=student,
-        session_date__gte=first_of_month,
-        session_date__lte=today,
-        status='Present'
-    ).count()
-
-    if total_days == 0:
+    latest = Attendance.objects.filter(student=student).order_by('-session_date').first()
+    if not latest:
         return 0
 
-    return round((present_days / total_days) * 100)
+    last_month_start = latest.session_date.replace(day=1)
+    last_month_end = latest.session_date.replace(
+        day=monthrange(latest.session_date.year, latest.session_date.month)[1]
+    )
+    fallback = _attendance_percentage_for_range(student, last_month_start, last_month_end)
+    return fallback if fallback is not None else 0
 
 
 def get_weekly_attendance(student):
@@ -2643,7 +2667,11 @@ def my_progress(request):
             "class": student.student_class,
         }
 
-        # 5. Get attendance summary for current month
+        # 5. Get attendance summary for current month — falls back to the most
+        # recent month with actual records if the target month has none yet, but
+        # only for the default "today" case (no explicit ?date=), since an
+        # explicitly requested historical month coming back empty is a
+        # legitimate answer, not something to paper over.
         first_day_of_month = target_date.replace(day=1)
         last_day_of_month = target_date.replace(day=monthrange(target_date.year, target_date.month)[1])
 
@@ -2653,16 +2681,33 @@ def my_progress(request):
             session_date__lte=last_day_of_month
         )
 
+        summary_month_date = target_date
+
+        if not target_date_str and not month_attendance.exists():
+            latest = Attendance.objects.filter(student=student).order_by('-session_date').first()
+            if latest:
+                first_day_of_month = latest.session_date.replace(day=1)
+                last_day_of_month = latest.session_date.replace(
+                    day=monthrange(latest.session_date.year, latest.session_date.month)[1]
+                )
+                month_attendance = Attendance.objects.filter(
+                    student=student,
+                    session_date__gte=first_day_of_month,
+                    session_date__lte=last_day_of_month
+                )
+                summary_month_date = latest.session_date
+
         present_days = month_attendance.filter(status='Present').count()
         absent_days = month_attendance.filter(status='Absent').count()
         total_school_days = present_days + absent_days
 
-        # Get today's attendance status
-        today_attendance = month_attendance.filter(session_date=target_date).first()
+        # Get today's attendance status — always reflects the real target_date,
+        # even when the summary above fell back to a previous month with data.
+        today_attendance = Attendance.objects.filter(student=student, session_date=target_date).first()
         today_status = today_attendance.status if today_attendance else "Not Marked"
 
         attendance_summary = {
-            "month_name": target_date.strftime('%B %Y'),
+            "month_name": summary_month_date.strftime('%B %Y'),
             "total_school_days": total_school_days,
             "present_days": present_days,
             "absent_days": absent_days,
@@ -2782,6 +2827,128 @@ def my_progress(request):
         import traceback
         logger.error(traceback.format_exc())
         return Response({"error": f"Server error: {str(e)}"}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_progress_images(request):
+    """
+    Get the logged-in student's own activity/progress images for a given month.
+
+    Self-scoped equivalent of reports.get_student_progress_images: resolves
+    student_id from the authenticated user rather than accepting it as a
+    param, so a student can only ever see their own photos.
+
+    GET /api/students/my-progress-images/?month=YYYY-MM
+    """
+    if request.user.role != 'Student':
+        return Response({"error": "Only students can access this endpoint"}, status=403)
+
+    try:
+        student = request.user.student_profile
+    except AttributeError:
+        return Response({"error": "Student profile not found"}, status=404)
+
+    month = request.GET.get('month')
+    if not month:
+        return Response({"error": "month is required (format: YYYY-MM)"}, status=400)
+
+    from .utils import fetch_progress_images_for_student
+
+    images = fetch_progress_images_for_student(student.id, month)
+    if images is None:
+        return Response({"error": "Failed to fetch images"}, status=500)
+
+    return Response({"progress_images": images})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def weekly_check_in(request):
+    """
+    POST /api/students/check-in/ - Record a check-in for the current week (Mon-Sun).
+    Idempotent: get_or_create on (user, this week's Monday) — repeat opens in the
+    same week are silent no-ops. The week boundary is always computed server-side
+    from the server clock, never trusted from the client.
+
+    GET /api/students/check-in/ - Read the current streak without recording a
+    check-in (for display-only use, e.g. re-fetching on pull-to-refresh).
+
+    Returns: {"current_streak": int, "longest_streak": int, "checked_in_this_week": bool}
+    """
+    today = timezone.now().date()
+    this_monday = today - timedelta(days=today.weekday())
+
+    if request.method == 'POST':
+        WeeklyCheckIn.objects.get_or_create(user=request.user, week_start_date=this_monday)
+
+    checkin_weeks = set(
+        WeeklyCheckIn.objects.filter(user=request.user).values_list('week_start_date', flat=True)
+    )
+
+    # Current streak counts back from this week if already checked in, otherwise
+    # from last week — so the streak doesn't appear broken before the user has
+    # had a chance to check in yet during an still-ongoing week.
+    checked_in_this_week = this_monday in checkin_weeks
+    cursor = this_monday if checked_in_this_week else this_monday - timedelta(weeks=1)
+    current_streak = 0
+    while cursor in checkin_weeks:
+        current_streak += 1
+        cursor -= timedelta(weeks=1)
+
+    # Longest streak ever: longest run of consecutive weekly entries in history.
+    sorted_weeks = sorted(checkin_weeks)
+    longest_streak = 0
+    run = 0
+    prev_week = None
+    for week in sorted_weeks:
+        run = run + 1 if prev_week is not None and week == prev_week + timedelta(weeks=1) else 1
+        longest_streak = max(longest_streak, run)
+        prev_week = week
+
+    return Response({
+        'current_streak': current_streak,
+        'longest_streak': longest_streak,
+        'checked_in_this_week': checked_in_this_week,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_narrative(request):
+    """
+    GET /api/students/my-narrative/?month=YYYY-MM
+
+    Returns the logged-in student's cached AI-generated monthly narrative, if
+    one has been generated. Never generates on demand — narratives are
+    produced by a monthly Celery job (reports.tasks.generate_monthly_narratives).
+    For the current/future month (not yet processed), this cleanly returns
+    generated=False rather than an error.
+    """
+    if request.user.role != 'Student':
+        return Response({"error": "Only students can access this endpoint"}, status=403)
+
+    try:
+        student = request.user.student_profile
+    except AttributeError:
+        return Response({"error": "Student profile not found"}, status=404)
+
+    month = request.GET.get('month')
+    if not month:
+        return Response({"error": "month is required (format: YYYY-MM)"}, status=400)
+
+    from reports.models import MonthlyNarrative
+
+    narrative = MonthlyNarrative.objects.filter(student=student, month=month).first()
+    if not narrative:
+        return Response({"generated": False, "narrative": None, "month": month})
+
+    return Response({
+        "generated": True,
+        "narrative": narrative.narrative,
+        "month": month,
+        "generated_at": narrative.generated_at,
+    })
 
 
 @api_view(['GET'])
