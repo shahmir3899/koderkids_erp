@@ -5,7 +5,7 @@
 from django.contrib import admin
 from .models import (
     TeacherProfile, TeacherEarning, TeacherDeduction, Notification,
-    BDMVisitProforma, TeacherEvaluationScore, NotificationSettings
+    BDMVisitProforma, TeacherEvaluationScore, NotificationSettings, SalaryChangeLog
 )
 
 
@@ -45,6 +45,14 @@ class TeacherProfileAdmin(admin.ModelAdmin):
         return obj.user.email
     get_email.short_description = 'Email'
     get_email.admin_order_field = 'user__email'
+
+
+@admin.register(SalaryChangeLog)
+class SalaryChangeLogAdmin(admin.ModelAdmin):
+    list_display = ['teacher_profile', 'old_salary', 'new_salary', 'changed_by', 'changed_at']
+    list_filter = ['changed_at']
+    search_fields = ['teacher_profile__employee_id', 'teacher_profile__user__username']
+    readonly_fields = ['teacher_profile', 'old_salary', 'new_salary', 'changed_by', 'changed_at']
 
 
 @admin.register(TeacherEarning)

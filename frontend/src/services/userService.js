@@ -225,6 +225,25 @@ export const updateUser = async (userId, userData) => {
 };
 
 /**
+ * Get basic salary change history for a user
+ * @param {number} userId - User ID
+ * @returns {Promise<Array>} List of salary change log entries
+ */
+export const getSalaryHistory = async (userId) => {
+  try {
+    const url = `${API_BASE_URL}/api/auth/users/${userId}/salary-history/`;
+    console.log('📡 Fetching salary history:', userId);
+
+    const response = await axios.get(url, { headers: getAuthHeaders() });
+
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching salary history:', error.response?.data || error);
+    throw error;
+  }
+};
+
+/**
  * Deactivate a user (soft delete)
  * @param {number} userId - User ID
  * @returns {Promise<Object>} Success message

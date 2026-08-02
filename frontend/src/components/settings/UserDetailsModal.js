@@ -13,6 +13,7 @@ import {
   TRANSITIONS,
   MIXINS,
 } from '../../utils/designConstants';
+import { getSalaryHistory } from '../../services/userService';
 
 // ============================================
 // FIELD CONFIGURATIONS
@@ -282,6 +283,71 @@ const FieldRenderer = ({
 };
 
 // ============================================
+// SALARY HISTORY COMPONENT
+// ============================================
+
+const SalaryHistory = ({ userId }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [logs, setLogs] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleToggle = async () => {
+    const next = !expanded;
+    setExpanded(next);
+
+    if (next && logs === null) {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getSalaryHistory(userId);
+        setLogs(data);
+      } catch (err) {
+        setError('Failed to load salary history');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div style={{ gridColumn: '1 / -1' }}>
+      <button
+        type="button"
+        onClick={handleToggle}
+        style={styles.linkButton}
+      >
+        {expanded ? '▾' : '▸'} Salary History
+      </button>
+
+      {expanded && (
+        <div style={styles.historyBox}>
+          {loading && <div style={styles.hint}>Loading...</div>}
+          {error && <div style={styles.error}>{error}</div>}
+          {!loading && !error && logs && logs.length === 0 && (
+            <div style={styles.hint}>No salary changes recorded yet.</div>
+          )}
+          {!loading && !error && logs && logs.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sm }}>
+              {logs.map((log) => (
+                <div key={log.id} style={styles.historyRow}>
+                  <span>
+                    {formatSalary(log.old_salary)} → <strong>{formatSalary(log.new_salary)}</strong>
+                  </span>
+                  <span style={styles.hint}>
+                    {formatDateTime(log.changed_at)}{log.changed_by ? ` by ${log.changed_by}` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
 // SECTION COMPONENT
 // ============================================
 
@@ -540,6 +606,7 @@ export const UserDetailsModal = ({
                     errors={errors}
                   />
                 ))}
+                {!isEditing && <SalaryHistory userId={user.id} />}
               </div>
             </Section>
 
@@ -859,6 +926,34 @@ const styles = {
     fontSize: FONT_SIZES.xs,
     color: COLORS.text.whiteSubtle,
     marginTop: SPACING.xs,
+  },
+
+  linkButton: {
+    background: 'none',
+    border: 'none',
+    color: '#60A5FA',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    padding: 0,
+  },
+
+  historyBox: {
+    marginTop: SPACING.sm,
+    padding: SPACING.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+
+  historyRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.white,
+    gap: SPACING.md,
+    flexWrap: 'wrap',
   },
 
   error: {

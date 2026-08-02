@@ -534,9 +534,35 @@ class UserViewSet(viewsets.ModelViewSet):
             logger.info(f"School assignment email queued for {user.email}")
 
         response_data['email_sent'] = bool(send_email and user.email and school_names)
-        
+
         return Response(response_data, status=status.HTTP_200_OK)
-    
+
+    @action(detail=True, methods=['get'], url_path='salary-history')
+    def salary_history(self, request, pk=None):
+        """
+        Return the basic_salary change history for a user's TeacherProfile
+        """
+        user = self.get_object()
+
+        from employees.models import TeacherProfile
+        try:
+            profile = TeacherProfile.objects.get(user=user)
+        except TeacherProfile.DoesNotExist:
+            return Response([])
+
+        logs = profile.salary_logs.select_related('changed_by').all()
+        data = [
+            {
+                'id': log.id,
+                'old_salary': str(log.old_salary),
+                'new_salary': str(log.new_salary),
+                'changed_by': log.changed_by.get_full_name() or log.changed_by.username if log.changed_by else None,
+                'changed_at': log.changed_at,
+            }
+            for log in logs
+        ]
+        return Response(data)
+
     @action(detail=True, methods=['post'], url_path='reset-password', permission_classes=[IsAuthenticated])
     def reset_password(self, request, pk=None):
         """

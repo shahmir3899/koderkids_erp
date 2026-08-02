@@ -4,7 +4,7 @@
 # ============================================
 
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.core.validators import MinValueValidator
 from students.models import CustomUser, School
@@ -140,6 +140,62 @@ class TeacherProfile(models.Model):
     @property
     def full_name(self):
         return self.user.get_full_name() or self.user.username
+
+
+class SalaryChangeLog(models.Model):
+    """
+    Records every change to a TeacherProfile's basic_salary, regardless of
+    which code path made the change (admin edit, bulk import, script, etc).
+    """
+    teacher_profile = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.CASCADE,
+        related_name='salary_logs'
+    )
+    old_salary = models.DecimalField(max_digits=10, decimal_places=2)
+    new_salary = models.DecimalField(max_digits=10, decimal_places=2)
+    changed_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='salary_changes_made'
+    )
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+        verbose_name = "Salary Change Log"
+        verbose_name_plural = "Salary Change Logs"
+
+    def __str__(self):
+        return f"{self.teacher_profile} salary: {self.old_salary} -> {self.new_salary}"
+
+
+@receiver(pre_save, sender=TeacherProfile)
+def _capture_previous_salary(sender, instance, **kwargs):
+    """Stash the DB value of basic_salary on the instance before it's overwritten."""
+    if not instance.pk:
+        instance._previous_basic_salary = None
+        return
+    try:
+        instance._previous_basic_salary = TeacherProfile.objects.get(pk=instance.pk).basic_salary
+    except TeacherProfile.DoesNotExist:
+        instance._previous_basic_salary = None
+
+
+@receiver(post_save, sender=TeacherProfile)
+def _log_salary_change(sender, instance, created, **kwargs):
+    """Write a SalaryChangeLog row whenever basic_salary actually changes."""
+    previous = getattr(instance, '_previous_basic_salary', None)
+    if created or previous is None or previous == instance.basic_salary:
+        return
+    SalaryChangeLog.objects.create(
+        teacher_profile=instance,
+        old_salary=previous,
+        new_salary=instance.basic_salary,
+        changed_by=getattr(instance, '_changed_by', None),
+    )
 
 
 class TeacherEarning(models.Model):

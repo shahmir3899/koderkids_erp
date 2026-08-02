@@ -393,6 +393,10 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 if account_number is not None:
                     profile.account_number = account_number
 
+                request = self.context.get('request')
+                if request is not None:
+                    profile._changed_by = request.user
+
                 profile.save()
             except Exception as e:
                 import logging
