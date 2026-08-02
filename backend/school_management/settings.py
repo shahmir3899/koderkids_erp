@@ -64,6 +64,8 @@ MEDIA_URL = '/media/'
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
+    '172.20.10.2',  # LAN IP — for testing from Android emulator/physical device
+    '10.0.2.2',     # Android emulator's alias for the host machine's localhost
     'frontend.koderkids.pk',
     'portal.koderkids.pk',
     'koderkids-erp.onrender.com'

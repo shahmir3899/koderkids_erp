@@ -625,3 +625,32 @@ class CustomReport(models.Model):
         if len(self.body_text) > 100:
             return self.body_text[:100] + "..."
         return self.body_text
+
+
+class MonthlyNarrative(models.Model):
+    """
+    AI-generated 2-3 sentence narrative summary of a student's month
+    (attendance, activities, AI Gala) — cached, not generated on-demand.
+    """
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='monthly_narratives'
+    )
+    month = models.CharField(max_length=7, help_text="YYYY-MM")
+    narrative = models.TextField()
+    generated_at = models.DateTimeField(auto_now_add=True)
+    provider = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Which LLM provider generated this (ollama/groq)"
+    )
+
+    class Meta:
+        unique_together = ('student', 'month')
+        ordering = ['-month']
+        verbose_name = "Monthly Narrative"
+        verbose_name_plural = "Monthly Narratives"
+
+    def __str__(self):
+        return f"{self.student.name} - {self.month}"

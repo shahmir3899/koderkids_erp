@@ -84,6 +84,16 @@ class Lead(models.Model):
         help_text="Current status of the lead"
     )
     
+    # ===== REFERRAL TRACKING =====
+    referred_by = models.ForeignKey(
+        'students.Student',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='referred_leads',
+        help_text="Enrolled student whose parent referred this lead, if any"
+    )
+
     # ===== ASSIGNMENT & OWNERSHIP =====
     assigned_to = models.ForeignKey(
         'students.CustomUser',
