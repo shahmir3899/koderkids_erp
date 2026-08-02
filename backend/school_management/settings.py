@@ -1,4 +1,5 @@
 import os
+import ssl
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
@@ -142,6 +143,13 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# rediss:// (TLS) URLs require an explicit ssl_cert_reqs, otherwise Celery raises
+# "A rediss:// URL must have parameter ssl_cert_reqs" when the backend connects.
+if CELERY_BROKER_URL.startswith('rediss://'):
+    CELERY_BROKER_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
+if CELERY_RESULT_BACKEND.startswith('rediss://'):
+    CELERY_REDIS_BACKEND_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
 
 # URL Configuration
 ROOT_URLCONF = 'school_management.urls'
