@@ -68,7 +68,8 @@ ALLOWED_HOSTS = [
     '10.0.2.2',     # Android emulator's alias for the host machine's localhost
     'frontend.koderkids.pk',
     'portal.koderkids.pk',
-    'koderkids-erp.onrender.com'
+    'koderkids-erp.onrender.com',
+    'personal-gateway.onrender.com'
 ]
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
