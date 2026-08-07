@@ -90,6 +90,7 @@ nul
 
 # Claude Code (optional - uncomment if you don't want to commit Claude settings)
 # .claude/
+.claude/worktrees/
 
 # Large PDF files (exceed GitHub 100MB limit)
 Kids Book 2 Ver-3.1.pdf.pdf
