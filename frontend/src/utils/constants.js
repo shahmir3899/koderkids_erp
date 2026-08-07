@@ -3,7 +3,7 @@
 // ============================================
 
 // API Configuration
-export const API_URL = process.env.REACT_APP_API_URL || 'https://koderkids-erp.onrender.com';
+export const API_URL = process.env.REACT_APP_API_URL || 'https://personal-gateway.onrender.com/koderkids';
 
 // User Roles
 export const ROLES = {
