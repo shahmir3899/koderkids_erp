@@ -12,6 +12,7 @@ whitenoise==6.9.0
 
 # Database
 psycopg2
+dj-database-url==2.3.0
 
 # Supabase
 supabase==2.14.0

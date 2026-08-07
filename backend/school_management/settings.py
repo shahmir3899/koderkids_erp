@@ -4,17 +4,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 
-# Load environment variables
-# Supabase Storage Configuration
-SUPABASE_URL = "https://vjulyxmuswlktvlvdhhi.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqdWx5eG11c3dsa3R2bHZkaGhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MDkyMTMyNCwiZXhwIjoyMDU2NDk3MzI0fQ.civdal8JUya2xw1jS6Tc_J_JJex2N5r2hewPAR5NPqc"
-SUPABASE_BUCKET = "profile-photos"
-
 # Get the BASE_DIR (Project Root)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env from the backend folder
 load_dotenv()
+
+# Supabase Storage Configuration
+SUPABASE_URL = os.getenv("REACT_APP_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("REACT_APP_SUPABASE_SEC_KEY")
+SUPABASE_BUCKET = "profile-photos"
 
 # Secret key & Debug mode from environment
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
@@ -22,21 +21,15 @@ DEBUG = True
 DJANGO_DEBUG = True
 
 # Database Configuration
+import dj_database_url
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.vjulyxmuswlktvlvdhhi',
-        'PASSWORD': 'No@Sorry&703##',
-        'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
-        'PORT': '6543',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-        # Connection pooling settings for Supabase
-        'CONN_MAX_AGE': 60,  # Keep connections alive for 60 seconds
-        'CONN_HEALTH_CHECKS': True,  # Check connection health before use
-    }
+    'default': dj_database_url.config(
+        default=os.getenv("DATABASE_URL"),
+        conn_max_age=60,
+        conn_health_checks=True,
+        ssl_require=True,
+    )
 }
 
 # Caching Configuration (Django's built-in database cache)

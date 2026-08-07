@@ -255,6 +255,25 @@ export default FloatingAIButton;
 
 ---
 
+## Live Integration: InventoryDashboard
+
+The chat component is wired into **`frontend/src/pages/InventoryDashboard.js`** as a collapsible "🤖 AI Assistant" section, positioned between the Analytics/Charts block and the Inventory Items table (collapsed by default so it doesn't overwhelm users).
+
+```javascript
+<CollapsibleSection title="🤖 AI Assistant" defaultOpen={false}>
+  <InventoryAgentChat
+    schools={schools}
+    categories={categories}
+    users={users}
+    currentUserId={userContext.userId}
+    onRefresh={refetchAll}   // from useInventory() — refreshes items/summary/categories after any AI action
+    height="500px"
+  />
+</CollapsibleSection>
+```
+
+All props (`schools`, `categories`, `users`, `currentUserId`) come straight from the existing `useInventory()` hook / `userContext` — no separate fetching needed. After a successful AI action, `refetchAll()` re-syncs the dashboard's stats and table automatically.
+
 ## Component API
 
 ### InventoryAgentChat Props

@@ -1,9 +1,10 @@
+require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
 const sharp = require("sharp");
 
 // Initialize Supabase client with service role key
-const SUPABASE_URL = "https://vjulyxmuswlktvlvdhhi.supabase.co"; // Derived from your HOST
-const SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqdWx5eG11c3dsa3R2bHZkaGhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MDkyMTMyNCwiZXhwIjoyMDU2NDk3MzI0fQ.civdal8JUya2xw1jS6Tc_J_JJex2N5r2hewPAR5NPqc"; // Replace with your actual service role key
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.REACT_APP_SUPABASE_SEC_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Bucket and image settings
