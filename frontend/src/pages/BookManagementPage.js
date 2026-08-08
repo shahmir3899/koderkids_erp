@@ -42,6 +42,7 @@ import {
 
 // Cache utilities
 import { getCachedData, setCachedData, clearCache } from '../utils/cacheUtils';
+import { isRetryableError } from '../utils/retryUtils';
 
 // Components
 import TopicEditor from '../components/admin/TopicEditor';
@@ -99,9 +100,9 @@ const BookManagementPage = () => {
     fetchBooks();
   }, []);
 
-  const fetchBooks = async (bypassCache = false) => {
+  const fetchBooks = async (bypassCache = false, isRetry = false) => {
     try {
-      setLoading(true);
+      if (!isRetry) setLoading(true);
 
       // Try cache first (unless bypassing)
       if (!bypassCache) {
@@ -122,10 +123,16 @@ const BookManagementPage = () => {
       setCachedData(ADMIN_BOOKS_CACHE_KEY, data);
       console.log('✅ Admin books loaded:', data.length);
 
+      setLoading(false);
       return data;
     } catch (error) {
+      if (!isRetry && isRetryableError(error)) {
+        // Transient failures (e.g. backend cold-start right after login)
+        // resolve on a single short-delay retry instead of forcing a manual refresh.
+        setTimeout(() => fetchBooks(bypassCache, true), 1500);
+        return;
+      }
       toast.error('Failed to load books: ' + error.message);
-    } finally {
       setLoading(false);
     }
   };

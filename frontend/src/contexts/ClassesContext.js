@@ -6,7 +6,7 @@
 // PURPOSE: Cache classes data per school to eliminate repeated API calls
 // BENEFIT: Classes are fetched once per school and cached
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { getClasses } from '../api';
 import { getCachedData, setCachedData, clearCache } from '../utils/cacheUtils';
 import { toast } from 'react-toastify';
@@ -153,34 +153,35 @@ export const ClassesProvider = ({ children }) => {
    * Clear cache for a specific school
    * @param {number|string} schoolId - School ID
    */
-  const clearSchoolCache = (schoolId) => {
+  const clearSchoolCache = useCallback((schoolId) => {
     if (!schoolId) return;
 
     const schoolIdStr = String(schoolId);
     console.log(`🗑️ ClassesContext: Clearing cache for school ${schoolId}`);
 
-    const newCache = { ...classesCache };
-    delete newCache[schoolIdStr];
-
-    setClassesCache(newCache);
-    setCachedData('classesCache', newCache);
-  };
+    setClassesCache(prev => {
+      const newCache = { ...prev };
+      delete newCache[schoolIdStr];
+      setCachedData('classesCache', newCache);
+      return newCache;
+    });
+  }, []);
 
   /**
    * Clear all classes cache
    */
-  const clearAllCache = () => {
+  const clearAllCache = useCallback(() => {
     console.log('🗑️ ClassesContext: Clearing all classes cache');
     setClassesCache({});
     clearCache('classesCache');
-  };
+  }, []);
 
   /**
    * Prefetch classes for multiple schools
    * Useful for preloading data
    * @param {Array} schoolIds - Array of school IDs
    */
-  const prefetchClasses = async (schoolIds) => {
+  const prefetchClasses = useCallback(async (schoolIds) => {
     if (!Array.isArray(schoolIds) || schoolIds.length === 0) return;
 
     console.log(`📦 ClassesContext: Prefetching classes for ${schoolIds.length} schools...`);
@@ -194,9 +195,9 @@ export const ClassesProvider = ({ children }) => {
 
     await Promise.all(promises);
     console.log('✅ ClassesContext: Prefetch complete');
-  };
+  }, [fetchClassesBySchool]);
 
-  const value = {
+  const value = useMemo(() => ({
     classesCache,
     loading,
     error,
@@ -205,7 +206,7 @@ export const ClassesProvider = ({ children }) => {
     clearSchoolCache,
     clearAllCache,
     prefetchClasses,
-  };
+  }), [classesCache, loading, error, fetchClassesBySchool, getCachedClasses, clearSchoolCache, clearAllCache, prefetchClasses]);
 
   return (
     <ClassesContext.Provider value={value}>

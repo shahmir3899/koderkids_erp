@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal
 import os
@@ -105,13 +106,15 @@ class SchoolViewSet(viewsets.ModelViewSet):
             # Admin can see deactivated schools if explicitly requested
             include_deactivated = self.request.query_params.get('include_deactivated', 'false').lower() == 'true'
             if include_deactivated:
-                return School.objects.all()
-            return School.objects.filter(is_active=True)
+                qs = School.objects.all()
+            else:
+                qs = School.objects.filter(is_active=True)
+            return self._annotate_counts(qs)
         elif user.role == 'Teacher':
             # Teachers only see their assigned active schools
-            return user.assigned_schools.filter(is_active=True)
+            return self._annotate_counts(user.assigned_schools.filter(is_active=True))
         else:
-            return School.objects.filter(is_active=True)
+            return self._annotate_counts(School.objects.filter(is_active=True))
     """
     ViewSet for School CRUD operations
     Admin: Full access | Teacher: Read-only
@@ -119,7 +122,64 @@ class SchoolViewSet(viewsets.ModelViewSet):
     queryset = School.objects.all()
     serializer_class = SchoolSerializer
     permission_classes = [IsAuthenticated]
-    
+
+    @staticmethod
+    def _annotate_counts(qs):
+        """Avoid N+1 in SchoolSerializer.get_total_students/get_total_classes,
+        which used to run 2 (really 3, counting the redundant one in
+        get_capacity_utilization) separate .count() queries per school.
+        distinct=True on both is required: combining two Count() annotations
+        over the same 'students' relation in one query causes a join fanout
+        that silently inflates both counts unless distinct is set.
+        """
+        return qs.annotate(
+            _total_students=Count('students', filter=Q(students__status='Active'), distinct=True),
+            _total_classes=Count('students__student_class', filter=Q(students__status='Active'), distinct=True),
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['revenue_by_school'] = self._get_revenue_by_school()
+        return context
+
+    def _get_revenue_by_school(self):
+        """Precompute monthly_revenue for every school in the current list
+        response in 2 queries total, instead of SchoolSerializer.get_monthly_revenue
+        running 2 queries per school. Only worth doing for the list action —
+        for a single-object retrieve, the serializer's per-object fallback is
+        already just 2 queries, no batching benefit.
+        """
+        if self.action != 'list':
+            return {}
+        try:
+            school_ids = list(self.filter_queryset(self.get_queryset()).values_list('id', flat=True))
+        except Exception:
+            return {}
+        if not school_ids:
+            return {}
+
+        # "Latest" fee record per school = the one with the highest id,
+        # matching the original Fee.objects.filter(...).order_by('-id').first()
+        latest_rows = (
+            Fee.objects.filter(school_id__in=school_ids)
+            .order_by('school_id', '-id')
+            .distinct('school_id')
+            .values('school_id', 'month')
+        )
+        latest_month_by_school = {row['school_id']: row['month'] for row in latest_rows}
+
+        sums = (
+            Fee.objects.filter(school_id__in=school_ids)
+            .values('school_id', 'month')
+            .annotate(total=Sum('total_fee'))
+        )
+        revenue_by_key = {(row['school_id'], row['month']): row['total'] for row in sums}
+
+        return {
+            school_id: float(revenue_by_key.get((school_id, month), 0) or 0)
+            for school_id, month in latest_month_by_school.items()
+        }
+
     def create(self, request, *args, **kwargs):
         """Only admin can create schools"""
         if request.user.role != 'Admin':
@@ -558,7 +618,7 @@ def get_class_image_count(request):
 @permission_classes([IsAuthenticated])
 def get_schools(request):
     user = request.user
-    print(f"🔍 Debug: User={user.username}, Role={user.role}")
+    logger.debug(f"Debug: User={user.username}, Role={user.role}")
 
     if user.role == "Admin":
         schools = School.objects.all()  # ✅ Admins see all schools
@@ -573,17 +633,24 @@ def get_schools(request):
     else:
         assigned_schools = schools  # ✅ Admin should see all schools
 
+    # Single query for all schools' classes instead of one query per school (N+1).
+    classes_by_school = defaultdict(list)
+    class_rows = Student.objects.filter(school__in=assigned_schools).values(
+        'school_id', 'student_class'
+    ).distinct()
+    for row in class_rows:
+        classes_by_school[row['school_id']].append(row['student_class'])
+
     schools_data = []
     for school in assigned_schools:
-        classes = Student.objects.filter(school=school).values_list('student_class', flat=True).distinct()
         schools_data.append({
             "id": school.id,
             "name": school.name,
-            "classes": list(classes),
+            "classes": classes_by_school.get(school.id, []),
             "address": school.location,
         })
 
-    print(f"✅ Schools Response: {schools_data}")  # Debugging output
+    logger.debug(f"Schools Response: {len(schools_data)} schools")
     return Response(schools_data)
 
 
@@ -661,7 +728,7 @@ logger = logging.getLogger(__name__)
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def get_students(request):
-    print(f"🔍 Backend Request: School={request.GET.get('school', '')}, Class={request.GET.get('class', '')}")
+    logger.debug(f"Backend Request: School={request.GET.get('school', '')}, Class={request.GET.get('class', '')}")
     user = request.user
 
     if request.method == 'POST':

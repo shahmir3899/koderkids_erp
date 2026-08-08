@@ -32,6 +32,7 @@ import { EditActivityModal } from '../../components/crm/EditActivityModal';
 
 // CRM Services
 import { fetchActivities, deleteActivity, completeActivity } from '../../api/services/crmService';
+import { isRetryableError } from '../../utils/retryUtils';
 
 // ============================================
 // STAT CARD COMPONENT WITH HOVER
@@ -209,19 +210,29 @@ function ActivitiesPage() {
 
   // Load activities
   const loadActivities = useCallback(async () => {
-    setLoading((prev) => ({ ...prev, fetch: true }));
-    setError(null);
+    const attemptLoad = async (isRetry) => {
+      if (!isRetry) setLoading((prev) => ({ ...prev, fetch: true }));
+      setError(null);
 
-    try {
-      const data = await fetchActivities();
-      setActivities(data);
-    } catch (err) {
-      console.error('❌ Error loading activities:', err);
-      setError('Failed to load activities');
-      toast.error('Failed to load activities');
-    } finally {
-      setLoading((prev) => ({ ...prev, fetch: false }));
-    }
+      try {
+        const data = await fetchActivities();
+        setActivities(data);
+        setLoading((prev) => ({ ...prev, fetch: false }));
+      } catch (err) {
+        console.error('❌ Error loading activities:', err);
+        if (!isRetry && isRetryableError(err)) {
+          // Transient failures (e.g. backend cold-start right after login)
+          // resolve on a single short-delay retry instead of forcing a manual refresh.
+          setTimeout(() => attemptLoad(true), 1500);
+          return;
+        }
+        setError('Failed to load activities');
+        toast.error('Failed to load activities');
+        setLoading((prev) => ({ ...prev, fetch: false }));
+      }
+    };
+
+    await attemptLoad(false);
   }, []);
 
   useEffect(() => {

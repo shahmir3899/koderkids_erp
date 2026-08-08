@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { ConfirmationModal } from "./components/common/modals/ConfirmationModal";
 import "./App.css";
 import "./styles/responsive.css";
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -145,33 +146,64 @@ const readLiveClassMeta = () => {
 
 
 
+const AUTO_LOGOUT_ACTIVITY_EVENTS = ["mousemove", "keypress", "click", "scroll"];
+
 const AutoLogout = () => {
     const timeoutRef = useRef(null);
+    // Guards against the warning re-firing: once expired, no further activity
+    // should be able to reschedule the timer, and the click that dismisses
+    // the modal itself is a "click" event that would otherwise reset it.
+    const hasExpiredRef = useRef(false);
+    const [showExpiredModal, setShowExpiredModal] = useState(false);
 
-    const resetTimer = () => {
+    const resetTimer = useCallback(() => {
+        if (hasExpiredRef.current) return;
         clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
-            alert("Session expired! Logging out.");
-            logout();
-        }, 30 * 60 * 1000); 
-    };
+            if (hasExpiredRef.current) return;
+            hasExpiredRef.current = true;
+            // Stop listening immediately so nothing already in flight can
+            // reschedule the timer while the modal is up.
+            AUTO_LOGOUT_ACTIVITY_EVENTS.forEach((event) =>
+                window.removeEventListener(event, resetTimer)
+            );
+            setShowExpiredModal(true);
+        }, 30 * 60 * 1000);
+    }, []);
 
     useEffect(() => {
-        const events = ["mousemove", "keypress", "click", "scroll"];
-        events.forEach((event) => window.addEventListener(event, resetTimer));
-        
-        resetTimer(); 
+        AUTO_LOGOUT_ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, resetTimer));
+
+        resetTimer();
 
         return () => {
             clearTimeout(timeoutRef.current);
-            events.forEach((event) => window.removeEventListener(event, resetTimer));
+            AUTO_LOGOUT_ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, resetTimer));
         };
+    }, [resetTimer]);
+
+    const handleAcknowledge = useCallback(() => {
+        logout(); // clears storage + hard-redirects to /login
     }, []);
 
-    return null;
+    return (
+        <ConfirmationModal
+            isOpen={showExpiredModal}
+            title="Session Expired"
+            message="You've been inactive for a while, so you were logged out to keep your account secure."
+            variant="warning"
+            confirmText="OK"
+            hideCancel
+            onConfirm={handleAcknowledge}
+            onCancel={handleAcknowledge}
+        />
+    );
 };
 
-function AppContent() {
+// Memoized: takes no props, so this bails out of the re-render AppWithLoader
+// triggers on every API call (via LoadingContext's isLoading toggling) — without
+// this, the entire routed tree re-rendered on every single network request.
+const AppContent = React.memo(function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
@@ -453,7 +485,7 @@ function AppContent() {
       />
     </div>
   );
-}
+});
 
 function AppWithLoader() {
   const { isLoading, loadingMessage } = useLoading();

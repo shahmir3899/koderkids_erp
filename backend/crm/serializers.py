@@ -287,21 +287,30 @@ class ActivitySerializer(serializers.ModelSerializer):
         return str(obj.lead)
     
     def get_lead_activities_count(self, obj):
-        """Return count of activities for this lead"""
+        """Return count of activities for this lead.
+
+        `obj.lead.activities.all()` reads from the `prefetch_related('lead__activities')`
+        cache set up in ActivityViewSet.get_queryset(); calling `.count()` on the
+        manager instead bypasses that cache and re-queries per row (the N+1 here).
+        """
         try:
-            return obj.lead.activities.count()
+            return len(obj.lead.activities.all())
         except:
             return 0
-    
+
     def get_lead_days_since_last_activity(self, obj):
         """Return days since last activity for the lead"""
         try:
             from django.utils import timezone
-            last_activity = obj.lead.activities.exclude(id=obj.id).order_by('-scheduled_date').first()
-            if last_activity and last_activity.scheduled_date:
-                delta = timezone.now() - last_activity.scheduled_date
-                return delta.days
-            return None
+            # Activity.Meta.ordering is ['-scheduled_date'], so the prefetched
+            # list is already sorted the same way `.order_by('-scheduled_date')`
+            # would be — no need for a fresh query (which would bypass the cache).
+            others = [a for a in obj.lead.activities.all() if a.id != obj.id]
+            if not others:
+                return None
+            last_activity = others[0]
+            delta = timezone.now() - last_activity.scheduled_date
+            return delta.days
         except:
             return None
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { setupAxiosInterceptors } from '../utils/axiosInterceptor';
 
 const LoadingContext = createContext();
@@ -48,12 +48,12 @@ export const LoadingProvider = ({ children }) => {
     setupAxiosInterceptors({ setLoading });
   }, [setLoading]);
 
-  const value = {
+  const value = useMemo(() => ({
     isLoading,
     loadingMessage,
     setLoading,
     withLoading,
-  };
+  }), [isLoading, loadingMessage, setLoading, withLoading]);
 
   return (
     <LoadingContext.Provider value={value}>

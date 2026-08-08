@@ -8,6 +8,7 @@ import * as onlineStudentAdminService from '../../services/onlineStudentAdminSer
 import TimeSlotTab from '../../components/admin/TimeSlotTab';
 import { useSchools } from '../../hooks/useSchools';
 import { API_URL, getAuthHeaders } from '../../api';
+import { isRetryableError } from '../../utils/retryUtils';
 import {
   COLORS as RAW_COLORS,
   SPACING as RAW_SPACING,
@@ -288,18 +289,28 @@ const OnlineStudentManager = () => {
   }, []);
 
   const loadOnlineStudents = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await onlineStudentAdminService.getOnlineStudents();
-      setStudents(data);
-    } catch (err) {
-      const errorMsg = `Failed to load online students: ${err.message}`;
-      setError(errorMsg);
-      toast.error('Failed to load online students');
-    } finally {
-      setLoading(false);
-    }
+    const attemptLoad = async (isRetry) => {
+      try {
+        if (!isRetry) setLoading(true);
+        setError(null);
+        const data = await onlineStudentAdminService.getOnlineStudents();
+        setStudents(data);
+        setLoading(false);
+      } catch (err) {
+        if (!isRetry && isRetryableError(err)) {
+          // Transient failures (e.g. backend cold-start right after login)
+          // resolve on a single short-delay retry instead of forcing a manual refresh.
+          setTimeout(() => attemptLoad(true), 1500);
+          return;
+        }
+        const errorMsg = `Failed to load online students: ${err.message}`;
+        setError(errorMsg);
+        toast.error('Failed to load online students');
+        setLoading(false);
+      }
+    };
+
+    await attemptLoad(false);
   };
 
   // Filter students based on search

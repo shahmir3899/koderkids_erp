@@ -24,6 +24,7 @@ import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { ConfirmationModal } from '../../components/common/modals/ConfirmationModal';
 import TemplateFormModal from '../../components/monitoring/TemplateFormModal';
 import { fetchTemplates, fetchTemplateDetail, deleteTemplate } from '../../services/monitoringService';
+import { isRetryableError } from '../../utils/retryUtils';
 
 // ============================================
 // TEMPLATE CARD
@@ -153,16 +154,26 @@ const MonitoringTemplatesPage = () => {
   const [filterActive, setFilterActive] = useState('all');
 
   const loadTemplates = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchTemplates(false);
-      setTemplates(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError('Failed to load templates.');
-    } finally {
-      setLoading(false);
-    }
+    const attemptLoad = async (isRetry) => {
+      if (!isRetry) setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchTemplates(false);
+        setTemplates(Array.isArray(data) ? data : []);
+        setLoading(false);
+      } catch (err) {
+        if (!isRetry && isRetryableError(err)) {
+          // Transient failures (e.g. backend cold-start right after login)
+          // resolve on a single short-delay retry instead of forcing a manual refresh.
+          setTimeout(() => attemptLoad(true), 1500);
+          return;
+        }
+        setError('Failed to load templates.');
+        setLoading(false);
+      }
+    };
+
+    await attemptLoad(false);
   }, []);
 
   useEffect(() => { loadTemplates(); }, [loadTemplates]);

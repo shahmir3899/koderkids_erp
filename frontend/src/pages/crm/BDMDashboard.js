@@ -55,6 +55,7 @@ import {
   fetchTargetProgress,
 } from '../../api/services/crmService';
 import { getBDMProfile } from '../../services/bdmService';
+import { isRetryableError } from '../../utils/retryUtils';
 
 // ============================================
 // CACHE MANAGER
@@ -343,19 +344,27 @@ function BDMDashboard() {
   // DATA FETCHING
   // ============================================
 
-  const loadBDMProfile = useCallback(async () => {
-    console.log('👤 Fetching BDM profile...');
-    setLoading((prev) => ({ ...prev, profile: true }));
+  const loadBDMProfile = useCallback(async (isRetry = false) => {
+    console.log(isRetry ? '🔄 Retrying BDM profile fetch...' : '👤 Fetching BDM profile...');
+    if (!isRetry) setLoading((prev) => ({ ...prev, profile: true }));
 
     try {
       const data = await getBDMProfile();
       console.log('✅ BDM profile loaded:', data);
       if (isMounted.current) {
         setProfile(data);
+        setLoading((prev) => ({ ...prev, profile: false }));
       }
     } catch (error) {
       console.error('❌ Error loading BDM profile:', error);
-    } finally {
+      if (!isRetry && isRetryableError(error)) {
+        // Transient failures (e.g. backend cold-start right after login)
+        // resolve on a single short-delay retry instead of forcing a manual refresh.
+        setTimeout(() => {
+          if (isMounted.current) loadBDMProfile(true);
+        }, 1500);
+        return;
+      }
       if (isMounted.current) {
         setLoading((prev) => ({ ...prev, profile: false }));
       }

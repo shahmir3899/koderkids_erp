@@ -28,6 +28,7 @@ import {
   getTopicsForBook,
 } from '../../services/quizService';
 import { COLORS, MIXINS, BORDER_RADIUS, SHADOWS, FONT_SIZES } from '../../utils/designConstants';
+import { isRetryableError } from '../../utils/retryUtils';
 
 const styles = {
   container: {
@@ -388,7 +389,7 @@ const QuizBuilderPage = () => {
     }
   };
 
-  const loadQuiz = async () => {
+  const loadQuiz = async (isRetry = false) => {
     try {
       const data = await getQuiz(quizId);
       setFormData({
@@ -406,6 +407,12 @@ const QuizBuilderPage = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error loading quiz:', error);
+      if (!isRetry && isRetryableError(error)) {
+        // Transient failures (e.g. backend cold-start right after login) resolve on a
+        // single short-delay retry instead of kicking the editor out of the page.
+        setTimeout(() => loadQuiz(true), 1500);
+        return;
+      }
       toast.error('Failed to load quiz');
       navigate('/lms/quiz-manage');
     }

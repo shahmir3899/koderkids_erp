@@ -3,43 +3,26 @@
 // Upload school logos to Supabase Storage
 // ============================================
 
-import { createClient } from '@supabase/supabase-js';
+// Reuse the single shared Supabase client instead of creating a second
+// GoTrueClient instance against the same auth storage key (was previously
+// calling createClient() again here, which triggers Supabase's
+// "Multiple GoTrueClient instances detected" warning and can race with
+// the other client's token refresh).
+import { supabase as sharedSupabase } from '../services/Supabaseclient';
 
-// Get environment variables
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseKey = process.env.REACT_APP_SUPABASE_SEC_KEY;
-
-// Debug: Log what we're getting
-console.log('🔍 Supabase Config Debug:');
-console.log('  - URL:', supabaseUrl);
-console.log('  - Key exists:', !!supabaseKey);
-
-// Initialize Supabase client
-let supabase;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Missing Supabase credentials!');
-  console.error('   Make sure .env file has:');
-  console.error('   - REACT_APP_SUPABASE_URL');
-  console.error('   - REACT_APP_SUPABASE_SEC_KEY');
-  
-  // Create a dummy client that will show helpful errors
-  supabase = {
-    storage: {
-      from: () => ({
-        upload: async () => {
-          throw new Error('Supabase not configured. Check .env file and restart server.');
-        },
-        getPublicUrl: () => ({ data: { publicUrl: '' } }),
-        remove: async () => ({ error: new Error('Supabase not configured') }),
-      }),
-    },
-  };
-} else {
-  // Create real client
-  supabase = createClient(supabaseUrl, supabaseKey);
-  console.log('✅ Supabase client initialized successfully');
-}
+// Fall back to a dummy client with helpful errors if config is missing,
+// matching the previous behavior of this module.
+const supabase = sharedSupabase || {
+  storage: {
+    from: () => ({
+      upload: async () => {
+        throw new Error('Supabase not configured. Check .env file and restart server.');
+      },
+      getPublicUrl: () => ({ data: { publicUrl: '' } }),
+      remove: async () => ({ error: new Error('Supabase not configured') }),
+    }),
+  },
+};
 
 // Export the client
 export { supabase };

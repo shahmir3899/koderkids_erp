@@ -314,6 +314,20 @@ def list_galleries(request):
     # Order by created_at descending (newest first)
     galleries = galleries.order_by('-created_at')
 
+    # Avoid N+1 queries in GalleryListSerializer: select_related/prefetch_related
+    # cover get_created_by_name / get_target_schools_data, and annotating
+    # _total_projects / _total_votes here replaces two per-gallery .count()
+    # queries (Gallery.total_projects / total_votes properties) with one query
+    # for the whole list. Named with a leading underscore because the model
+    # already has same-named @property attributes — a property is a data
+    # descriptor and would silently shadow a same-named annotation.
+    galleries = galleries.select_related('created_by').prefetch_related(
+        'target_schools'
+    ).annotate(
+        _total_projects=Count('projects', filter=Q(projects__is_approved=True), distinct=True),
+        _total_votes=Count('projects__votes', distinct=True),
+    )
+
     serializer = GalleryListSerializer(
         galleries, many=True, context={'request': request}
     )

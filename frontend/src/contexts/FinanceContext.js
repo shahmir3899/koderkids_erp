@@ -6,7 +6,7 @@
 // PURPOSE: Cache finance dashboard data to avoid API calls on every page load
 // PATTERN: Same as SchoolsContext - Context + localStorage caching
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { API_URL, getAuthHeaders } from '../api';
 import { toast } from 'react-toastify';
@@ -150,7 +150,7 @@ export const FinanceProvider = ({ children }) => {
   }, []);
 
   // Refetch function (bypasses cache and forces fresh data)
-  const refetch = async (bypassCache = true) => {
+  const refetch = useCallback(async (bypassCache = true) => {
     // Check auth before refetching
     const token = localStorage.getItem('access');
     if (!token) {
@@ -195,15 +195,15 @@ export const FinanceProvider = ({ children }) => {
       setLoading(false);
       toast.error(errorMessage);
     }
-  };
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     summary,
     loanSummary,
     loading,
     error,
     refetch,
-  };
+  }), [summary, loanSummary, loading, error, refetch]);
 
   return (
     <FinanceContext.Provider value={value}>

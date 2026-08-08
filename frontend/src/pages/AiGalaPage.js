@@ -31,6 +31,7 @@ import {
 import { aiGalaService } from '../services/aiGalaService';
 import ProjectCard from '../components/aigala/ProjectCard';
 import ProjectDetailModal from '../components/aigala/ProjectDetailModal';
+import { isRetryableError } from '../utils/retryUtils';
 import ProjectUploadModal from '../components/aigala/ProjectUploadModal';
 import AdminUploadModal from '../components/aigala/AdminUploadModal';
 
@@ -84,8 +85,8 @@ const AiGalaPage = () => {
         }
     }, []);
 
-    const loadGalleries = useCallback(async () => {
-        setIsLoading(true);
+    const loadGalleries = useCallback(async (isRetry = false) => {
+        if (!isRetry) setIsLoading(true);
         try {
             const data = await aiGalaService.getGalleries();
             setGalleries(data || []);
@@ -95,10 +96,16 @@ const AiGalaPage = () => {
                 const active = data.find((g) => g.status === 'voting' || g.status === 'active');
                 setSelectedGalleryId(active ? active.id : data[0].id);
             }
+            setIsLoading(false);
         } catch (error) {
             console.error('Error loading galleries:', error);
+            if (!isRetry && isRetryableError(error)) {
+                // Transient failures (e.g. backend cold-start right after login)
+                // resolve on a single short-delay retry instead of forcing a manual refresh.
+                setTimeout(() => loadGalleries(true), 1500);
+                return;
+            }
             toast.error('Failed to load galas');
-        } finally {
             setIsLoading(false);
         }
     }, []);

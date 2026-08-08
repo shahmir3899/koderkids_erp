@@ -5,7 +5,7 @@
 //
 // FIXED: Only fetch when authenticated
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchSchools, fetchSchoolsOverview } from '../api/services/schoolService';
 import { toast } from 'react-toastify';
 import { getCachedData, setCachedData, clearCache } from '../utils/cacheUtils';
@@ -111,7 +111,7 @@ export const SchoolsProvider = ({ children }) => {
   }, []);
 
   // Refetch function (bypasses cache and forces fresh data)
-  const refetch = async (bypassCache = true) => {
+  const refetch = useCallback(async (bypassCache = true) => {
     // ✅ FIX: Check auth before refetching
     const token = localStorage.getItem('access');
     if (!token) {
@@ -150,15 +150,15 @@ export const SchoolsProvider = ({ children }) => {
       setLoading(false);
       toast.error(errorMessage);
     }
-  };
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     schools,
     overview,
     loading,
     error,
     refetch,
-  };
+  }), [schools, overview, loading, error, refetch]);
 
   return (
     <SchoolsContext.Provider value={value}>

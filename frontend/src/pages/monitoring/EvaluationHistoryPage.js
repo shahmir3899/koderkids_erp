@@ -35,6 +35,7 @@ import {
   fetchMyEvaluation,
   calculateEvaluations,
 } from '../../services/employeeEvaluationService';
+import { isRetryableError } from '../../utils/retryUtils';
 
 // ============================================
 // CONSTANTS
@@ -230,10 +231,35 @@ const MyEvaluationView = ({ isMobile }) => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchMyEvaluation()
-      .then(setData)
-      .catch(() => setError('Failed to load your evaluation scores.'))
-      .finally(() => setLoading(false));
+    let isMounted = true;
+
+    const load = (isRetry = false) => {
+      fetchMyEvaluation()
+        .then((result) => {
+          if (!isMounted) return;
+          setData(result);
+          setLoading(false);
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          if (!isRetry && isRetryableError(err)) {
+            // Transient failures (e.g. backend cold-start right after login)
+            // resolve on a single short-delay retry instead of forcing a manual refresh.
+            setTimeout(() => {
+              if (isMounted) load(true);
+            }, 1500);
+            return;
+          }
+          setError('Failed to load your evaluation scores.');
+          setLoading(false);
+        });
+    };
+
+    load();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   if (loading) return <LoadingSpinner />;
@@ -372,9 +398,7 @@ const EvaluationHistoryPage = () => {
   const { isMobile } = useResponsive();
 
   // Determine role from stored auth
-  const userRole = (() => {
-    try { return JSON.parse(localStorage.getItem('user') || '{}').role; } catch { return null; }
-  })();
+  const userRole = localStorage.getItem('role');
   const isAdmin = userRole === 'Admin';
 
   const [evaluations, setEvaluations] = useState([]);
@@ -391,21 +415,32 @@ const EvaluationHistoryPage = () => {
 
   const loadEvaluations = useCallback(async () => {
     if (!isAdmin) return;
-    setLoading(true);
-    setError('');
-    try {
-      const data = await fetchAllEvaluations({
-        month: filters.month || undefined,
-        year: filters.year || undefined,
-        rating: filters.rating || undefined,
-      });
-      setEvaluations(data.evaluations || []);
-      setSummary(data.summary || null);
-    } catch {
-      setError('Failed to load evaluation data.');
-    } finally {
-      setLoading(false);
-    }
+
+    const attemptLoad = async (isRetry) => {
+      if (!isRetry) setLoading(true);
+      setError('');
+      try {
+        const data = await fetchAllEvaluations({
+          month: filters.month || undefined,
+          year: filters.year || undefined,
+          rating: filters.rating || undefined,
+        });
+        setEvaluations(data.evaluations || []);
+        setSummary(data.summary || null);
+        setLoading(false);
+      } catch (err) {
+        if (!isRetry && isRetryableError(err)) {
+          // Transient failures (e.g. backend cold-start right after login)
+          // resolve on a single short-delay retry instead of forcing a manual refresh.
+          setTimeout(() => attemptLoad(true), 1500);
+          return;
+        }
+        setError('Failed to load evaluation data.');
+        setLoading(false);
+      }
+    };
+
+    await attemptLoad(false);
   }, [isAdmin, filters]);
 
   useEffect(() => {

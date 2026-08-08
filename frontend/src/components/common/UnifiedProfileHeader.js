@@ -38,7 +38,7 @@ import { reportRequestService } from '../../services/reportRequestService';
  * UnifiedProfileHeader Component - FIXED VERSION
  * Prevents infinite loops and handles missing fields gracefully
  */
-export const UnifiedProfileHeader = ({
+const UnifiedProfileHeaderComponent = ({
   role,
   profile,
   loading = false,
@@ -710,5 +710,7 @@ if (typeof document !== 'undefined') {
     document.head.appendChild(styleSheet);
   }
 }
+
+export const UnifiedProfileHeader = React.memo(UnifiedProfileHeaderComponent);
 
 export default UnifiedProfileHeader;

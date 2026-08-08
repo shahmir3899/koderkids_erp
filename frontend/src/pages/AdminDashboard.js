@@ -14,6 +14,7 @@ import { toast } from 'react-toastify';
 import moment from 'moment';
 import { UnifiedProfileHeader } from '../components/common/UnifiedProfileHeader';
 import { getAdminProfile } from '../services/adminService';
+import { isRetryableError } from '../utils/retryUtils';
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
 import { FilterBar } from '../components/common/filters/FilterBar';
 import { DataTable } from '../components/common/tables/DataTable';
@@ -200,27 +201,43 @@ function AdminDashboard() {
   // PROFILE FETCH EFFECT
   // ============================================
   useEffect(() => {
-    const fetchProfile = async () => {
-      console.log('👤 Fetching admin profile...');
-      setIsLoadingProfile(true);
+    let isMounted = true;
+
+    const fetchProfile = async (isRetry = false) => {
+      console.log(isRetry ? '🔄 Retrying admin profile fetch...' : '👤 Fetching admin profile...');
+      if (!isRetry) setIsLoadingProfile(true);
       try {
         const data = await getAdminProfile();
+        if (!isMounted) return;
         console.log('✅ Admin profile loaded:', data);
         setProfile(data);
+        setIsLoadingProfile(false);
       } catch (error) {
+        if (!isMounted) return;
         console.error('❌ Error loading admin profile:', error);
-      } finally {
+        if (!isRetry && isRetryableError(error)) {
+          // Transient failures (e.g. backend cold-start right after login)
+          // resolve on a single short-delay retry instead of forcing a manual refresh.
+          setTimeout(() => {
+            if (isMounted) fetchProfile(true);
+          }, 1500);
+          return;
+        }
         setIsLoadingProfile(false);
       }
     };
 
     fetchProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Add update handler
-  const handleProfileUpdate = (updatedProfile) => {
+  const handleProfileUpdate = useCallback((updatedProfile) => {
     setProfile(updatedProfile);
-  };
+  }, []);
 
   // ============================================
   // COMPUTED VALUES - Derived from React Query data

@@ -6,7 +6,7 @@
 // PURPOSE: Cache current user profile data to eliminate repeated API calls
 // BENEFIT: Teacher ID, student profile, and user data fetched once and cached
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { getAuthHeaders } from '../api';
 import { getCachedData, setCachedData, clearCache } from '../utils/cacheUtils';
@@ -114,7 +114,7 @@ export const UserProvider = ({ children }) => {
   }, []);
 
   // Refetch function (bypasses cache)
-  const refetch = async (bypassCache = true) => {
+  const refetch = useCallback(async (bypassCache = true) => {
     const token = localStorage.getItem('access');
     if (!token) {
       console.log('⏸️ UserContext: No auth token, cannot refetch');
@@ -155,14 +155,14 @@ export const UserProvider = ({ children }) => {
       setLoading(false);
       toast.error(errorMessage);
     }
-  };
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     loading,
     error,
     refetch,
-  };
+  }), [user, loading, error, refetch]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 };

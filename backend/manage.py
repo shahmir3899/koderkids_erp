@@ -3,6 +3,15 @@ import os
 import sys
 from dotenv import load_dotenv
 
+# Windows' console defaults to the legacy cp1252 codepage, which can't encode
+# the emoji used throughout this codebase's print()/logging debug output —
+# any of those statements crashes the request with UnicodeEncodeError when
+# running `manage.py runserver` locally on Windows. Production (Docker/Linux)
+# already defaults to UTF-8, so this only matters for local dev.
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
 # Force protobuf pure-Python implementation before any imports.
 # The C extension (google._upb._message) is incompatible with Python 3.14
 # and raises TypeError: Metaclasses with custom tp_new are not supported.

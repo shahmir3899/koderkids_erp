@@ -6,7 +6,7 @@
 // PURPOSE: Cache inventory data globally to eliminate redundant API calls
 // BENEFIT: Instant page loads when navigating to/from inventory dashboard
 
-import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { getCachedData, setCachedData, clearCache } from '../utils/cacheUtils';
 import {
@@ -492,7 +492,7 @@ export const InventoryProvider = ({ children }) => {
   // CONTEXT VALUE
   // ============================================
 
-  const value = {
+  const value = useMemo(() => ({
     // Data
     inventoryItems,
     summary,
@@ -522,7 +522,12 @@ export const InventoryProvider = ({ children }) => {
     setInventoryItems,
     setSummary,
     setCategories,
-  };
+  }), [
+    inventoryItems, summary, categories, schools, users, userContext,
+    loading, error, isInitialized,
+    refetchItems, refetchSummary, refetchCategories, refetchAll,
+    updateItemsCache, addItemToCache, updateItemInCache, removeItemFromCache,
+  ]);
 
   return (
     <InventoryContext.Provider value={value}>

@@ -50,6 +50,7 @@ import {
   fetchAdminLeadDistribution,
   fetchAdminRecentActivities,
 } from '../../api/services/crmService';
+import { isRetryableError } from '../../utils/retryUtils';
 
 // ============================================
 // CACHE MANAGER
@@ -406,30 +407,40 @@ function AdminDashboard() {
 
   const loadDashboardOverview = useCallback(async () => {
     const cacheKey = 'admin-crm-dashboard-overview';
-    const cached = cache.get(cacheKey);
 
-    if (cached) {
-      setOverview(cached);
-      setLoading(prev => ({ ...prev, overview: false }));
-      return;
-    }
-
-    try {
-      const data = await fetchAdminDashboardOverview();
-      if (isMounted.current) {
-        setOverview(data);
-        cache.set(cacheKey, data);
-      }
-    } catch (error) {
-      console.error('❌ Error loading admin dashboard overview:', error);
-      if (isMounted.current) {
-        setError('Failed to load dashboard overview');
-      }
-    } finally {
-      if (isMounted.current) {
+    const attemptLoad = async (isRetry) => {
+      const cached = !isRetry && cache.get(cacheKey);
+      if (cached) {
+        setOverview(cached);
         setLoading(prev => ({ ...prev, overview: false }));
+        return;
       }
-    }
+
+      try {
+        const data = await fetchAdminDashboardOverview();
+        if (isMounted.current) {
+          setOverview(data);
+          cache.set(cacheKey, data);
+          setLoading(prev => ({ ...prev, overview: false }));
+        }
+      } catch (error) {
+        console.error('❌ Error loading admin dashboard overview:', error);
+        if (!isRetry && isRetryableError(error)) {
+          // Transient failures (e.g. backend cold-start right after login)
+          // resolve on a single short-delay retry instead of forcing a manual refresh.
+          setTimeout(() => {
+            if (isMounted.current) attemptLoad(true);
+          }, 1500);
+          return;
+        }
+        if (isMounted.current) {
+          setError('Failed to load dashboard overview');
+          setLoading(prev => ({ ...prev, overview: false }));
+        }
+      }
+    };
+
+    await attemptLoad(false);
   }, []);
 
   const loadLeadDistribution = useCallback(async () => {

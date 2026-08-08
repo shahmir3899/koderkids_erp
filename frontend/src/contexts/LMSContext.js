@@ -3,7 +3,7 @@
 // ============================================
 // Location: src/contexts/LMSContext.js
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import * as courseService from '../services/courseService';
 import { toast } from 'react-toastify';
 
@@ -445,7 +445,19 @@ export const LMSProvider = ({ children }) => {
   // Context Value
   // =============================================
 
-  const value = {
+  const resetPlayer = useCallback(() => {
+    setCurrentCourse(null);
+    setCurrentTopic(null);
+    setTopicContent(null);
+    setTopicProgress({});
+    setActivityProofs({});
+    setValidationSteps(null);
+    setReadingTime(0);
+    readingTimeRef.current = 0;
+    stopHeartbeat();
+  }, [stopHeartbeat]);
+
+  const value = useMemo(() => ({
     // My courses
     myCourses,
     myCoursesLoading,
@@ -499,18 +511,20 @@ export const LMSProvider = ({ children }) => {
     readingTime,
 
     // Reset
-    resetPlayer: () => {
-      setCurrentCourse(null);
-      setCurrentTopic(null);
-      setTopicContent(null);
-      setTopicProgress({});
-      setActivityProofs({});
-      setValidationSteps(null);
-      setReadingTime(0);
-      readingTimeRef.current = 0;
-      stopHeartbeat();
-    },
-  };
+    resetPlayer,
+  }), [
+    myCourses, myCoursesLoading, fetchMyCourses,
+    enrollInCourse, unenrollFromCourse, autoEnrollAll,
+    continueLearning, fetchContinueLearning,
+    currentCourse, currentTopic, courseLoading, loadCourse,
+    topicContent, topicLoading, loadTopicContent,
+    topicProgress, markTopicComplete, getTopicStatus,
+    startHeartbeat, stopHeartbeat,
+    findFirstUnlockedTopic, findNextTopic, findPreviousTopic,
+    activityProofs, proofsLoading, loadProofsForCourse, addProof,
+    validationSteps, validationLoading, loadValidationSteps, refreshValidation, readingTime,
+    resetPlayer,
+  ]);
 
   return <LMSContext.Provider value={value}>{children}</LMSContext.Provider>;
 };

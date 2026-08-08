@@ -23,6 +23,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import { getQuizzes, deleteQuiz, getAdminBooks } from '../../services/quizService';
+import { isRetryableError } from '../../utils/retryUtils';
 import { COLORS, MIXINS, BORDER_RADIUS, SHADOWS } from '../../utils/designConstants';
 
 const styles = {
@@ -266,7 +267,7 @@ const QuizManagementPage = () => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (isRetry = false) => {
     try {
       const [quizzesData, booksData] = await Promise.all([
         getQuizzes(),
@@ -274,10 +275,16 @@ const QuizManagementPage = () => {
       ]);
       setQuizzes(quizzesData);
       setBooks(booksData);
+      setLoading(false);
     } catch (error) {
       console.error('Error loading data:', error);
+      if (!isRetry && isRetryableError(error)) {
+        // Transient failures (e.g. backend cold-start right after login)
+        // resolve on a single short-delay retry instead of forcing a manual refresh.
+        setTimeout(() => loadData(true), 1500);
+        return;
+      }
       toast.error('Failed to load quizzes');
-    } finally {
       setLoading(false);
     }
   };

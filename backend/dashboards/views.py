@@ -294,8 +294,35 @@ def get_login_activity(request):
     schools = School.objects.filter(is_active=True).order_by('name')
 
     def get_logins_for_date(date):
-        """Get student and teacher login counts for a specific date, with school breakdown"""
-        # Overall counts
+        """Get student and teacher login counts for a specific date, with school breakdown.
+
+        Uses two grouped aggregate queries (one for students, one for teachers)
+        instead of looping over every school and running 2 `.count()` queries
+        per school — that N+1 pattern was the main driver of this endpoint's
+        multi-second response time.
+        """
+        # Per-school breakdown, in a single query per role instead of one per school.
+        student_counts_by_school = {
+            row['student_profile__school']: row['count']
+            for row in CustomUser.objects.filter(
+                role='Student',
+                last_login__date=date,
+                is_active=True,
+                student_profile__school__isnull=False,
+            ).values('student_profile__school').annotate(count=Count('id'))
+        }
+
+        teacher_counts_by_school = {
+            row['assigned_schools']: row['count']
+            for row in CustomUser.objects.filter(
+                role='Teacher',
+                last_login__date=date,
+                is_active=True,
+                assigned_schools__isnull=False,
+            ).values('assigned_schools').annotate(count=Count('id', distinct=True))
+        }
+
+        # Overall counts derived from the same aggregates instead of separate queries.
         student_logins = CustomUser.objects.filter(
             role='Student',
             last_login__date=date,
@@ -308,22 +335,10 @@ def get_login_activity(request):
             is_active=True
         ).count()
 
-        # School-wise breakdown
         schools_data = []
         for school in schools:
-            school_students = CustomUser.objects.filter(
-                role='Student',
-                student_profile__school=school,
-                last_login__date=date,
-                is_active=True
-            ).count()
-
-            school_teachers = CustomUser.objects.filter(
-                role='Teacher',
-                assigned_schools=school,
-                last_login__date=date,
-                is_active=True
-            ).count()
+            school_students = student_counts_by_school.get(school.id, 0)
+            school_teachers = teacher_counts_by_school.get(school.id, 0)
 
             # Only include schools with activity
             if school_students > 0 or school_teachers > 0:

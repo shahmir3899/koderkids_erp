@@ -6,7 +6,7 @@
 // PURPOSE: Cache books list AND individual book details (with topics)
 // BENEFIT: Eliminates slow book API calls, especially for full book data
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { getAuthHeaders } from '../api';
 import { getCachedData, setCachedData, clearCache } from '../utils/cacheUtils';
 import { toast } from 'react-toastify';
@@ -121,7 +121,7 @@ export const BooksProvider = ({ children }) => {
    * Fetch full book details (with topics) by ID
    * This is the SLOW operation - we cache it aggressively
    */
-  const fetchBookDetails = async (bookId) => {
+  const fetchBookDetails = useCallback(async (bookId) => {
     // Check if already in memory
     if (booksDetails[bookId]) {
       console.log(`⚡ BooksContext: Using cached book details for ${bookId}`);
@@ -165,12 +165,12 @@ export const BooksProvider = ({ children }) => {
       console.error(`❌ BooksContext: Error loading book ${bookId}:`, err);
       throw err;
     }
-  };
+  }, [booksDetails]);
 
   /**
    * Refetch books list (bypasses cache)
    */
-  const refetchBooksList = async (bypassCache = true) => {
+  const refetchBooksList = useCallback(async (bypassCache = true) => {
     const token = localStorage.getItem('access');
     if (!token) {
       console.log('⏸️ BooksContext: No auth token, cannot refetch');
@@ -209,12 +209,12 @@ export const BooksProvider = ({ children }) => {
       setLoading(false);
       toast.error(errorMessage);
     }
-  };
+  }, []);
 
   /**
    * Clear all book caches (useful when books are updated)
    */
-  const clearAllBooksCache = () => {
+  const clearAllBooksCache = useCallback(() => {
     console.log('🗑️ BooksContext: Clearing all books cache');
     clearCache('booksList');
     setBooksDetails({});
@@ -224,9 +224,9 @@ export const BooksProvider = ({ children }) => {
         localStorage.removeItem(key);
       }
     });
-  };
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     booksList,
     booksDetails,
     loading,
@@ -234,7 +234,7 @@ export const BooksProvider = ({ children }) => {
     fetchBookDetails,
     refetchBooksList,
     clearAllBooksCache,
-  };
+  }), [booksList, booksDetails, loading, error, fetchBookDetails, refetchBooksList, clearAllBooksCache]);
 
   return <BooksContext.Provider value={value}>{children}</BooksContext.Provider>;
 };

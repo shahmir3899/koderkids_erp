@@ -2,7 +2,9 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -291,3 +293,123 @@ class DeleteGalleryTests(AiGalaSeedDataMixin, TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertIn('only admins can delete', response.data.get('error', '').lower())
+
+
+class GalleryListPerformanceTests(AiGalaSeedDataMixin, TestCase):
+    """
+    Regression tests for the N+1 fix in list_galleries() / GalleryListSerializer:
+    total_projects/total_votes were per-gallery .count() properties, and
+    my_project/my_votes_remaining/my_votes_cast touched request.user.student_profile
+    (a query, even for non-Students) on every row. Verifies the query count stays
+    flat as the number of galleries grows, and that the annotated
+    total_projects/total_votes values still match reality.
+    """
+
+    def setUp(self):
+        self.setUp_seed_data()
+
+    def _seed_gallery_with_activity(self, index):
+        gallery = self.create_gallery(
+            title=f'Perf Gallery {index}',
+            status='voting',
+            target_schools=[self.school_alpha],
+        )
+        project = self.create_project(gallery, self.student_1, title=f'Perf Project {index}')
+        Vote.objects.create(project=project, voter=self.student_2)
+        return gallery
+
+    def test_query_count_does_not_scale_with_gallery_count_admin(self):
+        for i in range(2):
+            self._seed_gallery_with_activity(i)
+
+        self.authenticate(self.admin_user)
+        with CaptureQueriesContext(connection) as small_queries:
+            response_small = self.client.get('/api/aigala/galleries/')
+        self.assertEqual(response_small.status_code, 200)
+
+        for i in range(2, 10):
+            self._seed_gallery_with_activity(i)
+
+        with CaptureQueriesContext(connection) as large_queries:
+            response_large = self.client.get('/api/aigala/galleries/')
+        self.assertEqual(response_large.status_code, 200)
+
+        self.assertLessEqual(
+            len(large_queries.captured_queries),
+            len(small_queries.captured_queries) + 2,
+            msg=(
+                f"Query count grew with gallery count "
+                f"({len(small_queries.captured_queries)} -> {len(large_queries.captured_queries)}); "
+                "this looks like the N+1 in list_galleries()/GalleryListSerializer has come back."
+            ),
+        )
+
+    def test_total_projects_and_votes_correctness(self):
+        """The annotated total_projects/total_votes must match what the old
+        per-object .count() properties would have returned."""
+        gallery = self._seed_gallery_with_activity(0)
+        # Second project with no votes, to make sure counts aren't conflated
+        # by the multi-join annotation (the classic Count-fanout bug this
+        # fix has to avoid via distinct=True).
+        self.create_project(gallery, self.student_3, title='Unvoted Project')
+
+        self.authenticate(self.admin_user)
+        response = self.client.get('/api/aigala/galleries/')
+        self.assertEqual(response.status_code, 200)
+
+        row = next(item for item in response.data if item['id'] == gallery.id)
+        self.assertEqual(row['total_projects'], 2)
+        self.assertEqual(row['total_votes'], 1)
+        # Sanity-check against the (slow, per-object) model properties directly.
+        gallery.refresh_from_db()
+        self.assertEqual(row['total_projects'], gallery.total_projects)
+        self.assertEqual(row['total_votes'], gallery.total_votes)
+
+    def test_student_personalization_still_correct(self):
+        """Guarding my_project/my_votes_remaining/my_votes_cast for non-Student
+        roles must not break them for an actual Student."""
+        gallery = self.create_gallery(status='voting', max_votes_per_user=3)
+        project = self.create_project(gallery, self.student_1)
+        Vote.objects.create(project=project, voter=self.student_1)
+
+        self.authenticate(self.student_user_1)
+        response = self.client.get('/api/aigala/galleries/')
+        self.assertEqual(response.status_code, 200)
+
+        row = next(item for item in response.data if item['id'] == gallery.id)
+        self.assertIsNotNone(row['my_project'])
+        self.assertEqual(row['my_project']['id'], project.id)
+        self.assertEqual(row['my_votes_remaining'], 2)
+        self.assertEqual(row['my_votes_cast'], [project.id])
+
+    def test_admin_gets_no_personalization_and_no_extra_queries_for_it(self):
+        """Admin/Teacher must get the non-personalized defaults, not an
+        error, and must not trigger a student_profile lookup query."""
+        gallery = self.create_gallery(status='voting', max_votes_per_user=5)
+
+        self.authenticate(self.admin_user)
+        response = self.client.get('/api/aigala/galleries/')
+        self.assertEqual(response.status_code, 200)
+
+        row = next(item for item in response.data if item['id'] == gallery.id)
+        self.assertIsNone(row['my_project'])
+        self.assertEqual(row['my_votes_remaining'], 5)
+        self.assertEqual(row['my_votes_cast'], [])
+
+    def test_target_schools_and_created_by_still_correct(self):
+        """select_related/prefetch_related for created_by/target_schools must
+        not change the actual returned data."""
+        gallery = self.create_gallery(
+            status='active',
+            created_by=self.teacher_user,
+            target_schools=[self.school_alpha, self.school_beta],
+        )
+
+        self.authenticate(self.admin_user)
+        response = self.client.get('/api/aigala/galleries/')
+        self.assertEqual(response.status_code, 200)
+
+        row = next(item for item in response.data if item['id'] == gallery.id)
+        self.assertEqual(row['created_by_name'], self.teacher_user.get_full_name() or self.teacher_user.username)
+        returned_school_ids = {s['id'] for s in row['target_schools_data']}
+        self.assertEqual(returned_school_ids, {self.school_alpha.id, self.school_beta.id})

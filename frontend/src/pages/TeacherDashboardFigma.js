@@ -30,6 +30,7 @@ import { useResponsive } from '../hooks/useResponsive';
 
 // Services
 import { getTeacherProfile } from '../services/teacherService';
+import { isRetryableError } from '../utils/retryUtils';
 import { teacherDashboardService } from '../services/teacherDashboardService';
 
 // Constants
@@ -136,30 +137,37 @@ const teacherName = profile?.full_name || '';
   // Fetch teacher profile on mount
 useEffect(() => {
   let isMounted = true; // ADD THIS
-  
-  const fetchProfile = async () => {
+
+  const fetchProfile = async (isRetry = false) => {
     if (!isMounted) return; // ADD THIS
-    
-    setLoading(prev => ({ ...prev, profile: true }));
+
+    if (!isRetry) setLoading(prev => ({ ...prev, profile: true }));
     try {
       const profileData = await getTeacherProfile();
       if (isMounted) { // ADD THIS
         console.log('✅ Profile loaded:', profileData);
         setProfile(profileData);
+        setLoading(prev => ({ ...prev, profile: false }));
       }
     } catch (error) {
       if (isMounted) { // ADD THIS
         console.error('❌ Failed to fetch profile:', error);
+        if (!isRetry && isRetryableError(error)) {
+          // Transient failures (e.g. backend cold-start right after login)
+          // resolve on a single short-delay retry instead of forcing a manual refresh.
+          setTimeout(() => {
+            if (isMounted) fetchProfile(true);
+          }, 1500);
+          return;
+        }
         toast.error('Failed to load profile data');
+        setLoading(prev => ({ ...prev, profile: false }));
       }
-    }
-    if (isMounted) { // ADD THIS
-      setLoading(prev => ({ ...prev, profile: false }));
     }
   };
 
   fetchProfile();
-  
+
   return () => { isMounted = false; }; // ADD THIS CLEANUP
 }, []);
 

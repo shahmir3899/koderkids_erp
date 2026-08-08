@@ -26,6 +26,7 @@ import { useResponsive } from '../hooks/useResponsive';
 // Common Components
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { PageHeader } from '../components/common/PageHeader';
+import { isRetryableError } from '../utils/retryUtils';
 
 // ============================================
 // STAT CARD COMPONENT WITH HOVER
@@ -308,15 +309,21 @@ const MyTasksPage = () => {
         fetchMyTasks();
     }, []);
 
-    const fetchMyTasks = async () => {
+    const fetchMyTasks = async (isRetry = false) => {
         try {
-            setLoading(true);
+            if (!isRetry) setLoading(true);
             const data = await taskAPI.getMyTasks();
             setTasks(data);
+            setLoading(false);
         } catch (err) {
-            setError('Failed to fetch your tasks');
             console.error(err);
-        } finally {
+            if (!isRetry && isRetryableError(err)) {
+                // Transient failures (e.g. backend cold-start right after login)
+                // resolve on a single short-delay retry instead of forcing a manual refresh.
+                setTimeout(() => fetchMyTasks(true), 1500);
+                return;
+            }
+            setError('Failed to fetch your tasks');
             setLoading(false);
         }
     };

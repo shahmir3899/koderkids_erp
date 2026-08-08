@@ -40,6 +40,7 @@ import { EditLeadModal } from '../../components/crm/EditLeadModal';
 
 // CRM Services & Constants
 import { fetchLeads, deleteLead, fetchBDMs, bulkAssignLeads } from '../../api/services/crmService';
+import { isRetryableError } from '../../utils/retryUtils';
 import { LEAD_STATUS, LEAD_SOURCES } from '../../utils/constants';
 
 // Status sort priority: active leads first, dead leads last
@@ -265,33 +266,44 @@ function LeadsListPage() {
   // ============================================
 
   const loadLeads = useCallback(async () => {
-    setLoading((prev) => ({ ...prev, leads: true }));
-    setError(null);
+    const attemptLoad = async (isRetry) => {
+      if (!isRetry) setLoading((prev) => ({ ...prev, leads: true }));
+      setError(null);
 
-    try {
-      console.log('🔍 Fetching all leads from server...');
+      try {
+        console.log('🔍 Fetching all leads from server...');
 
-      const data = await fetchLeads();
+        const data = await fetchLeads();
 
-      if (!Array.isArray(data)) {
-        console.error('❌ Error: Expected an array but received:', data);
-        setError('Invalid data received from server');
+        if (!Array.isArray(data)) {
+          console.error('❌ Error: Expected an array but received:', data);
+          setError('Invalid data received from server');
+          setLeads([]);
+          setAllLeads([]);
+          setLoading((prev) => ({ ...prev, leads: false }));
+          return;
+        }
+
+        console.log('✅ Leads Data Loaded:', data.length, 'leads');
+        setAllLeads(data);
+        setLeads(data);
+        setLoading((prev) => ({ ...prev, leads: false }));
+      } catch (err) {
+        console.error('❌ Error fetching leads:', err);
+        if (!isRetry && isRetryableError(err)) {
+          // Transient failures (e.g. backend cold-start right after login)
+          // resolve on a single short-delay retry instead of forcing a manual refresh.
+          setTimeout(() => attemptLoad(true), 1500);
+          return;
+        }
+        setError(err.message || 'Failed to load leads');
         setLeads([]);
         setAllLeads([]);
-        return;
+        setLoading((prev) => ({ ...prev, leads: false }));
       }
+    };
 
-      console.log('✅ Leads Data Loaded:', data.length, 'leads');
-      setAllLeads(data);
-      setLeads(data);
-    } catch (err) {
-      console.error('❌ Error fetching leads:', err);
-      setError(err.message || 'Failed to load leads');
-      setLeads([]);
-      setAllLeads([]);
-    } finally {
-      setLoading((prev) => ({ ...prev, leads: false }));
-    }
+    await attemptLoad(false);
   }, []);
 
   useEffect(() => {

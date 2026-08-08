@@ -152,7 +152,9 @@ async function handleResponse(response) {
       error.email?.[0] ||
       error.name?.[0] ||
       error.phone?.[0];
-    throw new Error(validationMessage || error.detail || error.error || 'API request failed');
+    const err = new Error(validationMessage || error.detail || error.error || 'API request failed');
+    err.status = response.status;
+    throw err;
   }
   return response.json();
 }

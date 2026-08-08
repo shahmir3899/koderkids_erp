@@ -32,6 +32,7 @@ import { useResponsive } from '../hooks/useResponsive';
 // Common Components
 import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { PageHeader } from '../components/common/PageHeader';
+import { isRetryableError } from '../utils/retryUtils';
 
 // ============================================
 // STAT CARD COMPONENT WITH HOVER & CLICK
@@ -197,27 +198,37 @@ const TaskManagementPage = () => {
     });
 
     // Fetch all tasks
-    const fetchTasks = async () => {
+    const fetchTasks = async (isRetry = false) => {
         try {
-            setLoading(true);
+            if (!isRetry) setLoading(true);
             const data = await taskApiService.getTasks();
             setTasks(data);
+            setLoading(false);
         } catch (err) {
+            if (!isRetry && isRetryableError(err)) {
+                // Transient failures (e.g. backend cold-start right after login)
+                // resolve on a single short-delay retry instead of forcing a manual refresh.
+                setTimeout(() => fetchTasks(true), 1500);
+                return;
+            }
             setError('Failed to fetch tasks');
-        } finally {
             setLoading(false);
         }
     };
 
     // Fetch task statistics
-    const fetchStats = async () => {
+    const fetchStats = async (isRetry = false) => {
         try {
-            setLoading(true);
+            if (!isRetry) setLoading(true);
             const data = await taskApiService.getTaskStats();
             setStats(data);
+            setLoading(false);
         } catch (err) {
+            if (!isRetry && isRetryableError(err)) {
+                setTimeout(() => fetchStats(true), 1500);
+                return;
+            }
             setError('Failed to fetch stats');
-        } finally {
             setLoading(false);
         }
     };

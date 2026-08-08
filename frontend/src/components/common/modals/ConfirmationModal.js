@@ -32,6 +32,8 @@ import { useResponsive } from '../../../hooks/useResponsive';
  * @param {boolean} isLoading - Show loading state on confirm button
  * @param {function} onConfirm - Callback when confirmed
  * @param {function} onCancel - Callback when cancelled
+ * @param {boolean} hideCancel - Show only the confirm button (for single-action
+ *   acknowledgements like "Session expired" that have no cancel path)
  */
 export function ConfirmationModal({
   isOpen,
@@ -44,6 +46,7 @@ export function ConfirmationModal({
   isLoading = false,
   onConfirm,
   onCancel,
+  hideCancel = false,
 }) {
   // ============================================
   // HOOKS MUST BE CALLED BEFORE ANY EARLY RETURN
@@ -218,6 +221,7 @@ export function ConfirmationModal({
           }}
         >
           {/* Cancel Button */}
+          {!hideCancel && (
           <button
             onClick={onCancel}
             disabled={isLoading}
@@ -250,6 +254,7 @@ export function ConfirmationModal({
           >
             {cancelText}
           </button>
+          )}
 
           {/* Confirm Button */}
           <button

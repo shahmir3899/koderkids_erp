@@ -35,6 +35,7 @@ import {
 } from '../utils/designConstants';
 import { aiGalaService } from '../services/aiGalaService';
 import { useSchools } from '../hooks/useSchools';
+import { isRetryableError } from '../utils/retryUtils';
 import { useClasses } from '../hooks/useClasses';
 import { ConfirmationModal } from '../components/common/modals/ConfirmationModal';
 
@@ -95,16 +96,22 @@ const AiGalaManagePage = () => {
         loadGalleries();
     }, []);
 
-    const loadGalleries = async () => {
-        setIsLoading(true);
+    const loadGalleries = async (isRetry = false) => {
+        if (!isRetry) setIsLoading(true);
         try {
             // Get all galleries including drafts (admin only)
             const data = await aiGalaService.getGalleries({ includeDrafts: true });
             setGalleries(data || []);
+            setIsLoading(false);
         } catch (error) {
             console.error('Error loading galleries:', error);
+            if (!isRetry && isRetryableError(error)) {
+                // Transient failures (e.g. backend cold-start right after login)
+                // resolve on a single short-delay retry instead of forcing a manual refresh.
+                setTimeout(() => loadGalleries(true), 1500);
+                return;
+            }
             toast.error('Failed to load galas');
-        } finally {
             setIsLoading(false);
         }
     };

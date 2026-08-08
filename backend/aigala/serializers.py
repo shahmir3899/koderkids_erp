@@ -154,8 +154,8 @@ class GalleryListSerializer(serializers.ModelSerializer):
     Serializer for gallery listing.
     Shows overview info for each gallery.
     """
-    total_projects = serializers.IntegerField(read_only=True)
-    total_votes = serializers.IntegerField(read_only=True)
+    total_projects = serializers.SerializerMethodField()
+    total_votes = serializers.SerializerMethodField()
     is_voting_open = serializers.BooleanField(read_only=True)
     days_until_voting_starts = serializers.IntegerField(read_only=True)
     days_until_voting_ends = serializers.IntegerField(read_only=True)
@@ -182,10 +182,28 @@ class GalleryListSerializer(serializers.ModelSerializer):
             'created_at'
         ]
 
+    def get_total_projects(self, obj):
+        """Prefer the queryset annotation (list_galleries) to avoid an extra
+        query per gallery; fall back to the model property for single-object
+        retrieval views that don't annotate."""
+        if hasattr(obj, '_total_projects'):
+            return obj._total_projects
+        return obj.total_projects
+
+    def get_total_votes(self, obj):
+        if hasattr(obj, '_total_votes'):
+            return obj._total_votes
+        return obj.total_votes
+
     def get_my_project(self, obj):
         """Get current student's project in this gallery (if any)."""
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
+            return None
+        # Accessing request.user.student_profile issues a query even when it
+        # doesn't exist (RelatedObjectDoesNotExist) — skip it entirely for
+        # non-Students instead of paying that cost on every gallery row.
+        if request.user.role != 'Student':
             return None
         try:
             student = request.user.student_profile
@@ -208,6 +226,8 @@ class GalleryListSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return obj.max_votes_per_user
+        if request.user.role != 'Student':
+            return obj.max_votes_per_user
         try:
             student = request.user.student_profile
             votes_cast = Vote.objects.filter(
@@ -222,6 +242,8 @@ class GalleryListSerializer(serializers.ModelSerializer):
         """List of project IDs the current user has voted for."""
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
+            return []
+        if request.user.role != 'Student':
             return []
         try:
             student = request.user.student_profile

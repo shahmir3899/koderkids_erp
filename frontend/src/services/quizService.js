@@ -22,7 +22,9 @@ const getAuthHeaders = () => {
 const handleResponse = async (response) => {
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || error.detail || `HTTP ${response.status}`);
+    const err = new Error(error.error || error.detail || `HTTP ${response.status}`);
+    err.status = response.status;
+    throw err;
   }
   return response.json();
 };

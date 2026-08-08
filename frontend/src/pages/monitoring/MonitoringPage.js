@@ -49,6 +49,7 @@ import {
   fetchEvaluationDetail,
   getTemplatesCacheVersion,
 } from '../../services/monitoringService';
+import { isRetryableError } from '../../utils/retryUtils';
 
 // ============================================
 // VISIT STATUS CONSTANTS
@@ -787,8 +788,8 @@ function MonitoringPage() {
   // DATA FETCHING
   // ============================================
 
-  const loadStats = useCallback(async () => {
-    setLoading((prev) => ({ ...prev, stats: true }));
+  const loadStats = useCallback(async (isRetry = false) => {
+    if (!isRetry) setLoading((prev) => ({ ...prev, stats: true }));
     try {
       const data = await fetchMonitoringStats();
       if (data) {
@@ -801,15 +802,19 @@ function MonitoringPage() {
           evaluations_done: data.evaluations_done ?? data.evaluations ?? 0,
         });
       }
+      setLoading((prev) => ({ ...prev, stats: false }));
     } catch (err) {
       console.error('Error fetching monitoring stats:', err);
-    } finally {
+      if (!isRetry && isRetryableError(err)) {
+        setTimeout(() => loadStats(true), 1500);
+        return;
+      }
       setLoading((prev) => ({ ...prev, stats: false }));
     }
   }, []);
 
-  const loadVisits = useCallback(async () => {
-    setLoading((prev) => ({ ...prev, visits: true }));
+  const loadVisits = useCallback(async (isRetry = false) => {
+    if (!isRetry) setLoading((prev) => ({ ...prev, visits: true }));
     setError(null);
 
     try {
@@ -833,13 +838,19 @@ function MonitoringPage() {
           ? data.length
           : Number(data?.count || visitRows.length),
       }));
+      setLoading((prev) => ({ ...prev, visits: false }));
     } catch (err) {
       console.error('Error fetching visits:', err);
+      if (!isRetry && isRetryableError(err)) {
+        // Transient failures (e.g. backend cold-start right after login)
+        // resolve on a single short-delay retry instead of forcing a manual refresh.
+        setTimeout(() => loadVisits(true), 1500);
+        return;
+      }
       setError(err.message || 'Failed to load visits');
       setVisits([]);
       setAllVisits([]);
       setPagination((prev) => ({ ...prev, total: 0 }));
-    } finally {
       setLoading((prev) => ({ ...prev, visits: false }));
     }
   }, [filters.dateFrom, filters.dateTo, filters.status, pagination.limit, pagination.offset]);

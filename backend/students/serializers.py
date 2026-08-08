@@ -332,19 +332,37 @@ class SchoolSerializer(serializers.ModelSerializer):
         return obj.get_assigned_days_display()
     
     def get_total_students(self, obj):
-        """Count active students in this school"""
+        """Count active students in this school.
+
+        Prefers the queryset annotation set up in SchoolViewSet.get_queryset()
+        (one query for the whole list) over a per-object .count() query;
+        falls back to the query for callers that construct this serializer
+        directly against an un-annotated queryset/instance.
+        """
+        if hasattr(obj, '_total_students'):
+            return obj._total_students
         return obj.students.filter(status='Active').count()
-    
+
     def get_total_classes(self, obj):
         """Count unique classes in this school"""
+        if hasattr(obj, '_total_classes'):
+            return obj._total_classes
         return obj.students.filter(status='Active').values('student_class').distinct().count()
 
     def get_monthly_revenue(self, obj):
         """
         Sum of total_fee from Fee records for the latest month available.
         Finds the most recent month directly from database.
+
+        Prefers the batch-precomputed lookup from SchoolViewSet's serializer
+        context (2 queries for the whole list) over running these 2 queries
+        per school; falls back to the original per-object queries otherwise.
         """
-        from django.db.models import Sum, Max
+        revenue_by_school = self.context.get('revenue_by_school')
+        if revenue_by_school is not None:
+            return revenue_by_school.get(obj.id, 0.0)
+
+        from django.db.models import Sum
         from .models import Fee
 
         # Find the latest month that has fee records for this school
@@ -365,7 +383,7 @@ class SchoolSerializer(serializers.ModelSerializer):
         """Percentage of capacity filled"""
         if not obj.total_capacity:
             return None
-        total_students = obj.students.filter(status='Active').count()
+        total_students = self.get_total_students(obj)
         return round((total_students / obj.total_capacity) * 100, 2)
 
 
