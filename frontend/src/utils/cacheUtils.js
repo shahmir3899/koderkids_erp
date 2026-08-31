@@ -18,6 +18,14 @@ const CACHE_DURATIONS = {
   notifications: 2 * 60 * 1000,   // 2 minutes (check frequently)
   users_list: 5 * 60 * 1000,      // 5 minutes (users change occasionally)
   users_stats: 5 * 60 * 1000,     // 5 minutes (stats change with users)
+  // InventoryContext's actual cache keys (didn't match the `inventory` entry
+  // above, so they were silently falling back to the 5-minute default)
+  inventory_items: 10 * 60 * 1000,
+  inventory_summary: 10 * 60 * 1000,
+  inventory_categories: 10 * 60 * 1000,
+  inventory_schools: 10 * 60 * 1000,
+  inventory_users: 10 * 60 * 1000,
+  inventory_user_context: 10 * 60 * 1000,
 };
 
 /**

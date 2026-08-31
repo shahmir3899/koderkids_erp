@@ -7,17 +7,6 @@ import { API_URL } from '../utils/constants';
 import { getAuthHeaders, handleAuthError } from '../utils/authHelpers';
 
 const BASE = '/api/monitoring';
-const TEMPLATE_CACHE_VERSION_KEY = 'monitoring.templates.version';
-
-export const bumpTemplatesCacheVersion = () => {
-  const nextVersion = String(Date.now());
-  localStorage.setItem(TEMPLATE_CACHE_VERSION_KEY, nextVersion);
-  return nextVersion;
-};
-
-export const getTemplatesCacheVersion = () => {
-  return localStorage.getItem(TEMPLATE_CACHE_VERSION_KEY) || '0';
-};
 
 // ============================================
 // VISIT OPERATIONS
@@ -72,14 +61,14 @@ export const fetchVisitSummary = async (visitId) => {
   }
 };
 
-export const createVisit = async (data) => {
+export const startMonitoringVisit = async (data) => {
   try {
     const response = await axios.post(`${API_URL}${BASE}/visits/`, data, {
       headers: getAuthHeaders(),
     });
     return response.data;
   } catch (error) {
-    console.error('Error creating visit:', error.response?.data || error.message);
+    console.error('Error starting monitoring visit:', error.response?.data || error.message);
     handleAuthError(error);
     throw error;
   }
@@ -111,19 +100,6 @@ export const deleteVisit = async (visitId) => {
   }
 };
 
-export const startVisit = async (visitId) => {
-  try {
-    const response = await axios.post(`${API_URL}${BASE}/visits/${visitId}/start/`, {}, {
-      headers: getAuthHeaders(),
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error starting visit:', error.response?.data || error.message);
-    handleAuthError(error);
-    throw error;
-  }
-};
-
 export const completeVisit = async (visitId) => {
   try {
     const response = await axios.post(`${API_URL}${BASE}/visits/${visitId}/complete/`, {}, {
@@ -138,21 +114,8 @@ export const completeVisit = async (visitId) => {
 };
 
 // ============================================
-// SCHOOL WORKING DAYS
+// SCHOOL TEACHERS
 // ============================================
-
-export const fetchSchoolWorkingDays = async (schoolId) => {
-  try {
-    const response = await axios.get(`${API_URL}${BASE}/schools/${schoolId}/working-days/`, {
-      headers: getAuthHeaders(),
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching working days:', error.response?.data || error.message);
-    handleAuthError(error);
-    throw error;
-  }
-};
 
 export const fetchSchoolTeachers = async (schoolId) => {
   try {
@@ -179,80 +142,6 @@ export const fetchVisitTeachers = async (visitId) => {
     return response.data;
   } catch (error) {
     console.error('Error fetching visit teachers:', error.response?.data || error.message);
-    handleAuthError(error);
-    throw error;
-  }
-};
-
-// ============================================
-// TEMPLATES
-// ============================================
-
-export const fetchTemplates = async (detail = false) => {
-  try {
-    const params = detail ? { detail: 'true' } : {};
-    const response = await axios.get(`${API_URL}${BASE}/templates/`, {
-      headers: getAuthHeaders(),
-      params,
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching templates:', error.response?.data || error.message);
-    handleAuthError(error);
-    return [];
-  }
-};
-
-export const fetchTemplateDetail = async (templateId) => {
-  try {
-    const response = await axios.get(`${API_URL}${BASE}/templates/${templateId}/`, {
-      headers: getAuthHeaders(),
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching template detail:', error.response?.data || error.message);
-    handleAuthError(error);
-    throw error;
-  }
-};
-
-export const createTemplate = async (data) => {
-  try {
-    const response = await axios.post(`${API_URL}${BASE}/templates/`, data, {
-      headers: getAuthHeaders(),
-    });
-    bumpTemplatesCacheVersion();
-    return response.data;
-  } catch (error) {
-    console.error('Error creating template:', error.response?.data || error.message);
-    handleAuthError(error);
-    throw error;
-  }
-};
-
-export const updateTemplate = async (templateId, data) => {
-  try {
-    const response = await axios.put(`${API_URL}${BASE}/templates/${templateId}/`, data, {
-      headers: getAuthHeaders(),
-    });
-    bumpTemplatesCacheVersion();
-    return response.data;
-  } catch (error) {
-    console.error('Error updating template:', error.response?.data || error.message);
-    handleAuthError(error);
-    throw error;
-  }
-};
-
-export const deleteTemplate = async (templateId) => {
-  try {
-    const response = await axios.delete(`${API_URL}${BASE}/templates/${templateId}/`, {
-      headers: getAuthHeaders(),
-    });
-    bumpTemplatesCacheVersion();
-    return response.data;
-  } catch (error) {
-    console.error('Error deleting template:', error.response?.data || error.message);
     handleAuthError(error);
     throw error;
   }

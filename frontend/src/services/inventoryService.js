@@ -457,6 +457,15 @@ export const exportInventory = async (filters = {}) => {
     return true;
   } catch (error) {
     console.error('Error exporting inventory:', error);
+    if (error.response?.data instanceof Blob) {
+      const text = await error.response.data.text();
+      try {
+        const json = JSON.parse(text);
+        error.response.data = json;
+      } catch (e) {
+        // Not JSON
+      }
+    }
     throw error;
   }
 };

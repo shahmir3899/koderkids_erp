@@ -33,9 +33,11 @@ The AI Agent system enables natural language interaction with backend APIs throu
 ### Current Agents
 
 - **Fee Agent**: Manages fee creation, updates, bulk operations, and reporting
-- **Inventory Agent**: (Planned) Handles inventory tracking and assignments
+- **Inventory Agent**: Implemented. Handles inventory queries, item CRUD, transfers, and assignments — see [INVENTORY_AGENT_INTEGRATION.md](./INVENTORY_AGENT_INTEGRATION.md) for its action list, RBAC model, and known limitations
 - **HR Agent**: (Planned) Manages staff attendance and records
 - **Broadcast Agent**: (Planned) Sends notifications to parents/teachers
+
+> The four agent types documented per-app in the CLAUDE.md root guide are Fee, Inventory, Transaction, and Task. "HR" and "Broadcast" appear as action types in `backend/ai/actions.py`/`executor.py` but don't have a dedicated frontend chat component or doc as of this writing — verify current status in code before relying on either.
 
 ---
 
@@ -43,7 +45,7 @@ The AI Agent system enables natural language interaction with backend APIs throu
 
 ### 1. Frontend Layer
 
-**Location:** `frontend/src/components/finance/FeeAgentChat.js`
+**Location:** `frontend/src/components/finance/FeeAgentChat.js`, `frontend/src/components/inventory/InventoryAgentChat.js`
 
 **Responsibilities:**
 - Renders chat interface

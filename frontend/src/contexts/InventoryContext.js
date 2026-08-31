@@ -79,6 +79,18 @@ export const InventoryProvider = ({ children }) => {
 
   const isMounted = useRef(true);
 
+  // Request-generation guards: a loader increments its ref before issuing a
+  // network call, then checks the captured id against the ref's current
+  // value once the response lands. If a newer call for the same resource
+  // has started in the meantime, the response is discarded instead of
+  // overwriting state/cache with data that may already be stale.
+  const itemsRequestIdRef = useRef(0);
+  const summaryRequestIdRef = useRef(0);
+  const categoriesRequestIdRef = useRef(0);
+  const schoolsRequestIdRef = useRef(0);
+  const usersRequestIdRef = useRef(0);
+  const userContextRequestIdRef = useRef(0);
+
   // Cleanup on unmount
   useEffect(() => {
     isMounted.current = true;
@@ -94,7 +106,6 @@ export const InventoryProvider = ({ children }) => {
   const loadUserContext = useCallback(async (forceRefresh = false) => {
     const token = localStorage.getItem('access');
     if (!token) {
-      console.log('⏸️ InventoryContext: No auth token, skipping fetch');
       return null;
     }
 
@@ -102,7 +113,6 @@ export const InventoryProvider = ({ children }) => {
     if (!forceRefresh) {
       const cached = getCachedData(CACHE_KEYS.userContext);
       if (cached) {
-        console.log('⚡ InventoryContext: Using cached user context');
         if (isMounted.current) {
           setUserContext({
             isAdmin: cached.is_admin,
@@ -122,11 +132,11 @@ export const InventoryProvider = ({ children }) => {
     }
 
     // Fetch from API
+    const requestId = ++userContextRequestIdRef.current;
     try {
-      console.log('🌐 InventoryContext: Fetching user context from API...');
       const context = await fetchUserInventoryContext();
 
-      if (!isMounted.current) return null;
+      if (!isMounted.current || requestId !== userContextRequestIdRef.current) return null;
 
       setUserContext({
         isAdmin: context.is_admin,
@@ -145,7 +155,7 @@ export const InventoryProvider = ({ children }) => {
       setCachedData(CACHE_KEYS.userContext, context);
       return context;
     } catch (error) {
-      if (!isMounted.current) return null;
+      if (!isMounted.current || requestId !== userContextRequestIdRef.current) return null;
       console.error('❌ InventoryContext: Error loading user context:', error);
       setError(error.message || 'Failed to load user context');
       setUserContext(prev => ({ ...prev, loading: false }));
@@ -161,7 +171,6 @@ export const InventoryProvider = ({ children }) => {
     if (!forceRefresh) {
       const cached = getCachedData(CACHE_KEYS.items);
       if (cached) {
-        console.log('⚡ InventoryContext: Using cached items:', cached.length);
         if (isMounted.current) {
           setInventoryItems(cached);
           setLoading(prev => ({ ...prev, items: false }));
@@ -175,24 +184,23 @@ export const InventoryProvider = ({ children }) => {
       setLoading(prev => ({ ...prev, items: true }));
     }
 
+    const requestId = ++itemsRequestIdRef.current;
     try {
-      console.log('🌐 InventoryContext: Fetching items from API...');
       const data = await fetchInventoryItems({});
 
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== itemsRequestIdRef.current) return;
 
       const items = Array.isArray(data) ? data : [];
-      console.log('✅ InventoryContext: Items loaded:', items.length);
       setInventoryItems(items);
       setCachedData(CACHE_KEYS.items, items);
       return items;
     } catch (error) {
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== itemsRequestIdRef.current) return;
       console.error('❌ InventoryContext: Error loading items:', error);
       setError(error.message || 'Failed to load inventory items');
       toast.error('Failed to load inventory items');
     } finally {
-      if (isMounted.current) {
+      if (isMounted.current && requestId === itemsRequestIdRef.current) {
         setLoading(prev => ({ ...prev, items: false }));
       }
     }
@@ -206,7 +214,6 @@ export const InventoryProvider = ({ children }) => {
     if (!forceRefresh) {
       const cached = getCachedData(CACHE_KEYS.summary);
       if (cached) {
-        console.log('⚡ InventoryContext: Using cached summary');
         if (isMounted.current) {
           setSummary(cached);
           setLoading(prev => ({ ...prev, summary: false }));
@@ -220,22 +227,21 @@ export const InventoryProvider = ({ children }) => {
       setLoading(prev => ({ ...prev, summary: true }));
     }
 
+    const requestId = ++summaryRequestIdRef.current;
     try {
-      console.log('🌐 InventoryContext: Fetching summary from API...');
       const data = await fetchInventorySummary();
 
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== summaryRequestIdRef.current) return;
 
-      console.log('✅ InventoryContext: Summary loaded');
       setSummary(data);
       setCachedData(CACHE_KEYS.summary, data);
       return data;
     } catch (error) {
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== summaryRequestIdRef.current) return;
       console.error('❌ InventoryContext: Error loading summary:', error);
       setError(error.message || 'Failed to load inventory summary');
     } finally {
-      if (isMounted.current) {
+      if (isMounted.current && requestId === summaryRequestIdRef.current) {
         setLoading(prev => ({ ...prev, summary: false }));
       }
     }
@@ -249,7 +255,6 @@ export const InventoryProvider = ({ children }) => {
     if (!forceRefresh) {
       const cached = getCachedData(CACHE_KEYS.categories);
       if (cached) {
-        console.log('⚡ InventoryContext: Using cached categories');
         if (isMounted.current) {
           setCategories(cached);
         }
@@ -258,18 +263,17 @@ export const InventoryProvider = ({ children }) => {
     }
 
     // Fetch from API
+    const requestId = ++categoriesRequestIdRef.current;
     try {
-      console.log('🌐 InventoryContext: Fetching categories from API...');
       const data = await fetchCategories();
 
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== categoriesRequestIdRef.current) return;
 
-      console.log('✅ InventoryContext: Categories loaded:', data.length);
       setCategories(data);
       setCachedData(CACHE_KEYS.categories, data);
       return data;
     } catch (error) {
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== categoriesRequestIdRef.current) return;
       console.error('❌ InventoryContext: Error loading categories:', error);
       setError(error.message || 'Failed to load categories');
     }
@@ -283,7 +287,6 @@ export const InventoryProvider = ({ children }) => {
     if (!forceRefresh) {
       const cached = getCachedData(CACHE_KEYS.schools);
       if (cached) {
-        console.log('⚡ InventoryContext: Using cached schools');
         if (isMounted.current) {
           setSchools(cached);
         }
@@ -292,18 +295,17 @@ export const InventoryProvider = ({ children }) => {
     }
 
     // Fetch from API
+    const requestId = ++schoolsRequestIdRef.current;
     try {
-      console.log('🌐 InventoryContext: Fetching schools from API...');
       const data = await fetchAllowedSchools();
 
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== schoolsRequestIdRef.current) return;
 
-      console.log('✅ InventoryContext: Schools loaded:', data.length);
       setSchools(data);
       setCachedData(CACHE_KEYS.schools, data);
       return data;
     } catch (error) {
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== schoolsRequestIdRef.current) return;
       console.error('❌ InventoryContext: Error loading schools:', error);
       setError(error.message || 'Failed to load schools');
     }
@@ -317,7 +319,6 @@ export const InventoryProvider = ({ children }) => {
     if (!forceRefresh) {
       const cached = getCachedData(CACHE_KEYS.users);
       if (cached) {
-        console.log('⚡ InventoryContext: Using cached users');
         if (isMounted.current) {
           setUsers(cached);
         }
@@ -326,18 +327,17 @@ export const InventoryProvider = ({ children }) => {
     }
 
     // Fetch from API
+    const requestId = ++usersRequestIdRef.current;
     try {
-      console.log('🌐 InventoryContext: Fetching users from API...');
       const data = await fetchAvailableUsers();
 
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== usersRequestIdRef.current) return;
 
-      console.log('✅ InventoryContext: Users loaded:', data.length);
       setUsers(data);
       setCachedData(CACHE_KEYS.users, data);
       return data;
     } catch (error) {
-      if (!isMounted.current) return;
+      if (!isMounted.current || requestId !== usersRequestIdRef.current) return;
       console.error('❌ InventoryContext: Error loading users:', error);
       setError(error.message || 'Failed to load users');
     }
@@ -351,7 +351,6 @@ export const InventoryProvider = ({ children }) => {
     const initializeData = async () => {
       const token = localStorage.getItem('access');
       if (!token) {
-        console.log('⏸️ InventoryContext: No auth token, skipping initialization');
         if (isMounted.current) {
           setLoading(prev => ({ ...prev, initial: false }));
           setIsInitialized(true);
@@ -362,7 +361,6 @@ export const InventoryProvider = ({ children }) => {
       // Check user role - Students don't need inventory data
       const userRole = localStorage.getItem('role');
       if (userRole === 'Student') {
-        console.log('⏸️ InventoryContext: Student role detected, skipping inventory data fetch');
         if (isMounted.current) {
           setLoading(prev => ({ ...prev, initial: false }));
           setIsInitialized(true);
@@ -370,7 +368,6 @@ export const InventoryProvider = ({ children }) => {
         return;
       }
 
-      console.log('🏭 InventoryContext: Initializing for role:', userRole);
 
       // Load user context first
       await loadUserContext();
@@ -389,7 +386,6 @@ export const InventoryProvider = ({ children }) => {
       if (isMounted.current) {
         setLoading(prev => ({ ...prev, initial: false }));
         setIsInitialized(true);
-        console.log('✅ InventoryContext: Initialization complete');
       }
     };
 
@@ -399,7 +395,6 @@ export const InventoryProvider = ({ children }) => {
     const handleStorageChange = () => {
       const token = localStorage.getItem('access');
       if (!token && isMounted.current) {
-        console.log('🚪 InventoryContext: User logged out, clearing data');
         setInventoryItems([]);
         setSummary({ total: 0, total_value: 0, by_status: [], by_category: [], by_location: [] });
         setCategories([]);
@@ -421,25 +416,21 @@ export const InventoryProvider = ({ children }) => {
   // ============================================
 
   const refetchItems = useCallback(async () => {
-    console.log('🔄 InventoryContext: Force refetching items...');
     clearCache(CACHE_KEYS.items);
     return loadItems(true);
   }, [loadItems]);
 
   const refetchSummary = useCallback(async () => {
-    console.log('🔄 InventoryContext: Force refetching summary...');
     clearCache(CACHE_KEYS.summary);
     return loadSummary(true);
   }, [loadSummary]);
 
   const refetchCategories = useCallback(async () => {
-    console.log('🔄 InventoryContext: Force refetching categories...');
     clearCache(CACHE_KEYS.categories);
     return loadCategories(true);
   }, [loadCategories]);
 
   const refetchAll = useCallback(async () => {
-    console.log('🔄 InventoryContext: Force refetching all data...');
     // Clear all inventory caches
     Object.values(CACHE_KEYS).forEach(key => clearCache(key));
 
@@ -456,11 +447,6 @@ export const InventoryProvider = ({ children }) => {
   // ============================================
   // UPDATE FUNCTIONS (Update cache after mutations)
   // ============================================
-
-  const updateItemsCache = useCallback((newItems) => {
-    setInventoryItems(newItems);
-    setCachedData(CACHE_KEYS.items, newItems);
-  }, []);
 
   const addItemToCache = useCallback((newItem) => {
     setInventoryItems(prev => {
@@ -513,7 +499,6 @@ export const InventoryProvider = ({ children }) => {
     refetchAll,
 
     // Cache update functions
-    updateItemsCache,
     addItemToCache,
     updateItemInCache,
     removeItemFromCache,
@@ -526,7 +511,7 @@ export const InventoryProvider = ({ children }) => {
     inventoryItems, summary, categories, schools, users, userContext,
     loading, error, isInitialized,
     refetchItems, refetchSummary, refetchCategories, refetchAll,
-    updateItemsCache, addItemToCache, updateItemInCache, removeItemFromCache,
+    addItemToCache, updateItemInCache, removeItemFromCache,
   ]);
 
   return (

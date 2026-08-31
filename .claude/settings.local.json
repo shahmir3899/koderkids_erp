@@ -99,7 +99,28 @@
       "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install django-mptt openpyxl pandas pillow qrcode weasyprint reportlab humanize pdfplumber)",
       "Bash(\"d:/Personal/school-management-system/.venv/Scripts/pip.exe\" install chardet zipstream-ng)",
       "Bash(explorer \"D:\\\\Personal\\\\school-management-system\\\\backend\\\\aigala\\\\ai_gala_guide.pdf\")",
-      "Bash(xxd Dockerfile.ai)"
+      "Bash(xxd Dockerfile.ai)",
+      "Bash(npx eslint *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -m py_compile /d/personal/school-management-system/backend/inventory/pdf_views.py)",
+      "Bash(python manage.py makemigrations monitoring --check --dry-run)",
+      "Bash(python manage.py migrate monitoring)",
+      "Bash(DATABASE_URL=\"sqlite:///db.sqlite3\" python3 manage.py check inventory)",
+      "Bash(DATABASE_URL=\"sqlite:///db.sqlite3\" python3 manage.py test inventory)",
+      "Bash(DATABASE_URL=sqlite:///db.sqlite3 python3 manage.py shell -c ' *)",
+      "Bash(python manage.py test employees monitoring)",
+      "Bash(python3 manage.py makemigrations inventory)",
+      "Bash(python3 manage.py check inventory)",
+      "Bash(python3 -m py_compile /d/personal/school-management-system/backend/inventory/views.py /d/personal/school-management-system/backend/inventory/pdf_views.py /d/personal/school-management-system/backend/inventory/models.py)",
+      "Bash(python3 -m py_compile /d/personal/school-management-system/backend/inventory/views.py /d/personal/school-management-system/backend/inventory/pdf_views.py)",
+      "Bash(grep -v \"\\);$\")",
+      "Bash(python3 -m py_compile backend/inventory/views.py backend/inventory/pdf_views.py backend/inventory/serializers.py)",
+      "Bash(python3 -m py_compile /d/personal/school-management-system/backend/inventory/models.py)",
+      "Bash(python3 manage.py showmigrations inventory)",
+      "Bash(python3 manage.py migrate inventory)",
+      "Bash(python manage.py makemigrations monitoring)",
+      "Bash(python manage.py test monitoring employees --keepdb)",
+      "Bash(npm run *)"
     ]
   }
 }

@@ -4,6 +4,7 @@
 # ============================================
 
 from django.db import models
+from django.core.validators import MinValueValidator
 from django.utils.timezone import now
 from students.models import School
 from django.contrib.auth import get_user_model
@@ -57,9 +58,10 @@ class InventoryItem(models.Model):
     
     # Location
     location = models.CharField(
-        max_length=20, 
-        choices=LOCATION_CHOICES, 
-        default='School'
+        max_length=20,
+        choices=LOCATION_CHOICES,
+        default='School',
+        db_index=True
     )
     school = models.ForeignKey(
         School, 
@@ -78,13 +80,17 @@ class InventoryItem(models.Model):
         related_name='assigned_inventory'
     )
     status = models.CharField(
-        max_length=20, 
-        choices=STATUS_CHOICES, 
-        default='Available'
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='Available',
+        db_index=True
     )
     
     # Purchase Info
-    purchase_value = models.DecimalField(max_digits=12, decimal_places=2)
+    purchase_value = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        validators=[MinValueValidator(0)]
+    )
     purchase_date = models.DateField(null=True, blank=True)
     
     # Additional fields (optional)
@@ -111,9 +117,9 @@ class InventoryItem(models.Model):
             if self.school and self.school.name:
                 words = self.school.name.split()
                 if len(words) > 1:
-                    school_code = ''.join(word[0] for word in words).upper()
+                    school_code = ''.join(filter(str.isalnum, ''.join(word[0] for word in words))).upper()
                 else:
-                    school_code = self.school.name.upper()[:3]
+                    school_code = ''.join(filter(str.isalnum, self.school.name.upper()))[:3]
             else:
                 school_code = 'GEN'
             

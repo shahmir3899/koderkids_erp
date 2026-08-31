@@ -162,6 +162,7 @@ class AIExecuteView(APIView):
         }
     """
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'ai_agent'
 
     def post(self, request):
         message = request.data.get('message', '').strip()
@@ -222,6 +223,7 @@ class AIConfirmView(APIView):
         }
     """
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'ai_agent'
 
     def post(self, request):
         token = request.data.get('confirmation_token')
@@ -267,6 +269,7 @@ class AIOverwriteView(APIView):
         }
     """
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'ai_agent'
 
     def post(self, request):
         action = request.data.get('action', '')

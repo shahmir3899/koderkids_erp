@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from monitoring.models import MonitoringVisit, EvaluationFormTemplate, EvaluationFormField, TeacherEvaluation
+from monitoring.models import MonitoringVisit, TeacherEvaluation, EvaluationQuestion
 from students.models import CustomUser, School
 
 
@@ -27,28 +27,30 @@ class MonitoringAssignmentTests(APITestCase):
         self.school = School.objects.create(name='Monitoring Test School')
         self.list_url = '/api/monitoring/visits/'
 
-    def test_admin_cannot_create_visit_without_bdm(self):
+    def test_admin_starting_visit_is_assigned_to_admin(self):
         self.client.force_authenticate(user=self.admin)
 
         payload = {
             'school': self.school.id,
-            'visit_date': str(date.today()),
             'purpose': 'Monthly Review',
+            # Even if a bdm is sent, it must be ignored — the field is read-only.
+            'bdm': self.bdm_1.id,
         }
 
         response = self.client.post(self.list_url, payload, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(MonitoringVisit.objects.count(), 0)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        visit = MonitoringVisit.objects.get(id=response.data['id'])
+        self.assertEqual(visit.bdm_id, self.admin.id)
+        self.assertEqual(visit.status, 'in_progress')
+        self.assertEqual(visit.visit_date, date.today())
 
-    def test_admin_create_with_bdm_is_visible_to_that_bdm(self):
-        self.client.force_authenticate(user=self.admin)
+    def test_bdm_starting_visit_is_isolated_to_that_bdm(self):
+        self.client.force_authenticate(user=self.bdm_1)
 
         payload = {
             'school': self.school.id,
-            'bdm': self.bdm_1.id,
-            'visit_date': str(date.today()),
-            'purpose': 'Assigned by Admin',
+            'purpose': 'Self-started visit',
         }
 
         response = self.client.post(self.list_url, payload, format='json')
@@ -57,7 +59,6 @@ class MonitoringAssignmentTests(APITestCase):
         visit = MonitoringVisit.objects.get(id=response.data['id'])
         self.assertEqual(visit.bdm_id, self.bdm_1.id)
 
-        self.client.force_authenticate(user=self.bdm_1)
         bdm_response = self.client.get(self.list_url)
         self.assertEqual(bdm_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(bdm_response.data), 1)
@@ -68,7 +69,7 @@ class MonitoringAssignmentTests(APITestCase):
         self.assertEqual(other_bdm_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(other_bdm_response.data), 0)
 
-    def test_bdm_cannot_reassign_visit_to_another_bdm(self):
+    def test_put_cannot_change_bdm(self):
         visit = MonitoringVisit.objects.create(
             school=self.school,
             bdm=self.bdm_1,
@@ -76,32 +77,15 @@ class MonitoringAssignmentTests(APITestCase):
             purpose='Ownership Test',
         )
 
-        self.client.force_authenticate(user=self.bdm_1)
-
-        detail_url = f'/api/monitoring/visits/{visit.id}/'
-        response = self.client.put(detail_url, {'bdm': self.bdm_2.id}, format='json')
-
-        self.assertIn(response.status_code, (status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN))
-        visit.refresh_from_db()
-        self.assertEqual(visit.bdm_id, self.bdm_1.id)
-
-    def test_admin_can_reassign_planned_visit(self):
-        visit = MonitoringVisit.objects.create(
-            school=self.school,
-            bdm=self.bdm_1,
-            visit_date=date.today(),
-            purpose='Reassignment Test',
-            status='planned',
-        )
-
         self.client.force_authenticate(user=self.admin)
 
         detail_url = f'/api/monitoring/visits/{visit.id}/'
-        response = self.client.put(detail_url, {'bdm': self.bdm_2.id}, format='json')
+        response = self.client.put(detail_url, {'bdm': self.bdm_2.id, 'notes': 'Updated'}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         visit.refresh_from_db()
-        self.assertEqual(visit.bdm_id, self.bdm_2.id)
+        self.assertEqual(visit.bdm_id, self.bdm_1.id)
+        self.assertEqual(visit.notes, 'Updated')
 
 
 # ============================================
@@ -128,7 +112,7 @@ class MonitoringDeleteTests(APITestCase):
         self.school = School.objects.create(name='Delete Test School')
         self.school.teachers.add(self.teacher)
 
-    def _make_visit(self, visit_status='planned'):
+    def _make_visit(self, visit_status='in_progress'):
         return MonitoringVisit.objects.create(
             school=self.school,
             bdm=self.bdm,
@@ -137,24 +121,16 @@ class MonitoringDeleteTests(APITestCase):
             status=visit_status,
         )
 
-    def _make_template(self):
-        return EvaluationFormTemplate.objects.create(
-            name='Delete Test Template',
-            created_by=self.admin,
-        )
-
     def _make_evaluation(self, visit):
-        template = self._make_template()
         return TeacherEvaluation.objects.create(
             visit=visit,
             teacher=self.teacher,
-            template=template,
         )
 
     # --- Visit DELETE ---
 
-    def test_admin_can_delete_planned_visit(self):
-        visit = self._make_visit(visit_status='planned')
+    def test_admin_can_delete_in_progress_visit(self):
+        visit = self._make_visit(visit_status='in_progress')
         self.client.force_authenticate(user=self.admin)
         url = f'/api/monitoring/visits/{visit.id}/'
         response = self.client.delete(url)
@@ -226,10 +202,6 @@ class MonitoringListAndSummaryTests(APITestCase):
         )
         self.school = School.objects.create(name='List Summary School')
         self.school.teachers.add(self.teacher)
-        self.template = EvaluationFormTemplate.objects.create(
-            name='List Summary Template',
-            created_by=self.admin,
-        )
 
     def test_paginated_visits_returns_metadata_and_results(self):
         for i in range(3):
@@ -238,7 +210,7 @@ class MonitoringListAndSummaryTests(APITestCase):
                 bdm=self.bdm,
                 visit_date=date.today() + timedelta(days=i),
                 purpose=f'Visit {i}',
-                status='planned',
+                status='in_progress',
             )
 
         self.client.force_authenticate(user=self.admin)
@@ -255,6 +227,11 @@ class MonitoringListAndSummaryTests(APITestCase):
 
 class MonitoringMultipleEvaluationsTests(APITestCase):
     def setUp(self):
+        self.admin = CustomUser.objects.create_user(
+            username='admin_multi_eval',
+            password='testpass123',
+            role='Admin',
+        )
         self.bdm = CustomUser.objects.create_user(
             username='bdm_multi_eval',
             password='testpass123',
@@ -278,30 +255,16 @@ class MonitoringMultipleEvaluationsTests(APITestCase):
             status='in_progress',
         )
 
-        self.template = EvaluationFormTemplate.objects.create(
-            name='Multiple Eval Template',
-            created_by=self.bdm,
-        )
-        self.field = EvaluationFormField.objects.create(
-            template=self.template,
-            label='Discipline',
-            field_type='rating_1_5',
-            is_required=True,
-            order=0,
-            weight=1,
-        )
-
         self.url = f'/api/monitoring/visits/{self.visit.id}/evaluations/'
 
     def _payload(self, rating):
         return {
             'teacher_id': self.teacher.id,
-            'template_id': self.template.id,
-            'responses': [
+            'questions': [
                 {
-                    'field_id': self.field.id,
-                    'value': str(rating),
-                    'numeric_value': rating,
+                    'question_text': 'Classroom discipline?',
+                    'answer_text': 'Well managed',
+                    'rating': rating,
                 }
             ],
             'remarks': f'Evaluation #{rating}',
@@ -321,6 +284,17 @@ class MonitoringMultipleEvaluationsTests(APITestCase):
             2,
         )
 
+    def test_submitting_without_questions_is_rejected(self):
+        self.client.force_authenticate(user=self.bdm)
+
+        response = self.client.post(
+            self.url,
+            {'teacher_id': self.teacher.id, 'questions': []},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_compact_visit_summary_mode_returns_lightweight_payload(self):
         visit = MonitoringVisit.objects.create(
             school=self.school,
@@ -332,7 +306,6 @@ class MonitoringMultipleEvaluationsTests(APITestCase):
         TeacherEvaluation.objects.create(
             visit=visit,
             teacher=self.teacher,
-            template=self.template,
         )
 
         self.client.force_authenticate(user=self.admin)
@@ -342,77 +315,54 @@ class MonitoringMultipleEvaluationsTests(APITestCase):
         self.assertEqual(response.data['id'], visit.id)
         self.assertEqual(response.data['evaluations_count'], 1)
         self.assertEqual(response.data['evaluation_count'], 1)
-        self.assertIn('teacher_count', response.data)
         self.assertNotIn('evaluations', response.data)
 
 
-class MonitoringEvaluationUpdateOverflowTests(APITestCase):
+class MonitoringEvaluationScoreTests(APITestCase):
     def setUp(self):
         self.admin = CustomUser.objects.create_user(
-            username='admin_update_overflow',
+            username='admin_score',
             password='testpass123',
             role='Admin',
         )
         self.bdm = CustomUser.objects.create_user(
-            username='bdm_update_overflow',
+            username='bdm_score',
             password='testpass123',
             role='BDM',
         )
         self.teacher = CustomUser.objects.create_user(
-            username='teacher_update_overflow',
+            username='teacher_score',
             password='testpass123',
             role='Teacher',
         )
 
-        self.school = School.objects.create(name='Overflow Regression School')
+        self.school = School.objects.create(name='Score Regression School')
         self.school.teachers.add(self.teacher)
 
         self.visit = MonitoringVisit.objects.create(
             school=self.school,
             bdm=self.bdm,
             visit_date=date.today(),
-            purpose='Overflow regression',
+            purpose='Score regression',
             status='in_progress',
         )
-
-        self.template = EvaluationFormTemplate.objects.create(
-            name='Overflow Regression Template',
-            created_by=self.admin,
-        )
-
-        self.fields = []
-        for idx in range(5):
-            self.fields.append(
-                EvaluationFormField.objects.create(
-                    template=self.template,
-                    label=f'Field {idx + 1}',
-                    field_type='rating_1_5',
-                    is_required=True,
-                    order=idx,
-                    weight=20,
-                )
-            )
 
         self.evaluation = TeacherEvaluation.objects.create(
             visit=self.visit,
             teacher=self.teacher,
-            template=self.template,
         )
 
-    def test_put_update_does_not_overflow_score_columns(self):
+    def test_put_update_scores_only_rated_questions(self):
         self.client.force_authenticate(user=self.admin)
 
         payload = {
             'remarks': 'Updated after field review',
             'areas_of_improvement': 'None',
             'teacher_strengths': 'Excellent classroom control',
-            'responses': [
-                {
-                    'field_id': field.id,
-                    'value': '5',
-                    'numeric_value': 5,
-                }
-                for field in self.fields
+            'questions': [
+                {'question_text': 'Punctuality?', 'answer_text': 'On time', 'rating': 5},
+                {'question_text': 'Uses whiteboard?', 'answer_text': 'Yes', 'rating': 5},
+                {'question_text': 'Any incidents this month?', 'answer_text': 'None'},
             ],
         }
 
@@ -426,3 +376,8 @@ class MonitoringEvaluationUpdateOverflowTests(APITestCase):
         self.evaluation.refresh_from_db()
         self.assertEqual(float(self.evaluation.total_score), 100.0)
         self.assertEqual(float(self.evaluation.normalized_score), 100.0)
+        self.assertEqual(self.evaluation.questions.count(), 3)
+        self.assertEqual(
+            EvaluationQuestion.objects.filter(evaluation=self.evaluation, rating__isnull=True).count(),
+            1,
+        )

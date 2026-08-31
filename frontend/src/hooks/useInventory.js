@@ -62,6 +62,8 @@ export const useInventory = () => {
     refetchSummary,
     refetchCategories,
     refetchAll,
+    addItemToCache,
+    updateItemInCache,
     removeItemFromCache,
   } = context;
 
@@ -96,6 +98,7 @@ export const useInventory = () => {
     details: false,
     category: false,
     transfer: false,
+    reassign: false,
     report: false,
     confirmDelete: false,
   });
@@ -131,10 +134,6 @@ export const useInventory = () => {
   const filteredItems = useMemo(() => {
     const items = Array.isArray(allItems) ? allItems : [];
 
-    console.log('🔍 Client-side filtering inventory...');
-    console.log('   Total cached items:', items.length);
-    console.log('   Filters:', filters);
-
     return items.filter(item => {
       // Location filter (field is 'location', not 'location_type')
       if (filters.location && filters.location !== '') {
@@ -159,10 +158,10 @@ export const useInventory = () => {
         }
       }
 
-      // Category filter
+      // Category filter (backend returns 'category' as the FK ID directly, same as 'school')
       if (filters.categoryId && filters.categoryId !== '') {
         const categoryId = Number(filters.categoryId);
-        if (item.category_id !== categoryId && item.category?.id !== categoryId) {
+        if (item.category !== categoryId) {
           return false;
         }
       }
@@ -345,13 +344,27 @@ export const useInventory = () => {
     }
   }, [itemToDelete, userContext.canDelete, closeModal, removeItemFromCache, refetchSummary]);
 
-  const handleAddSuccess = useCallback(() => {
+  const handleAddSuccess = useCallback((result) => {
     closeModal('add');
-    // Refetch to get the new item with full data
-    refetchItems();
+
+    if (result?.item && !result.isBulk) {
+      // Single create/edit - the API already returned the full item, so
+      // merge it into the cache instantly instead of a full refetch.
+      if (result.isEditMode) {
+        updateItemInCache(result.item);
+      } else {
+        addItemToCache(result.item);
+      }
+    } else {
+      // Bulk create - no single item to merge, fall back to a full refetch.
+      refetchItems();
+    }
+
+    // Summary/categories are server-aggregated and can't be safely derived
+    // client-side, so these always go through a background refetch.
     refetchSummary();
     refetchCategories();
-  }, [closeModal, refetchItems, refetchSummary, refetchCategories]);
+  }, [closeModal, addItemToCache, updateItemInCache, refetchItems, refetchSummary, refetchCategories]);
 
   // ============================================
   // TRANSFER HANDLERS
@@ -371,6 +384,25 @@ export const useInventory = () => {
     refetchItems();
     refetchSummary();
     toast.success('Transfer completed successfully');
+  }, [closeModal, clearSelection, refetchItems, refetchSummary]);
+
+  // ============================================
+  // REASSIGN HANDLERS
+  // ============================================
+
+  const handleOpenReassign = useCallback(() => {
+    if (selectedItemIds.length === 0) {
+      toast.warning('Please select items to reassign');
+      return;
+    }
+    openModal('reassign');
+  }, [selectedItemIds.length, openModal]);
+
+  const handleReassignSuccess = useCallback(() => {
+    closeModal('reassign');
+    clearSelection();
+    refetchItems();
+    refetchSummary();
   }, [closeModal, clearSelection, refetchItems, refetchSummary]);
 
   // ============================================
@@ -437,7 +469,8 @@ export const useInventory = () => {
       if (!isMounted.current) return;
 
       console.error('Export error:', error);
-      toast.error(error.message || 'Failed to export');
+      const errorMsg = error.response?.data?.detail || error.response?.data?.error || 'Failed to export';
+      toast.error(errorMsg);
     } finally {
       if (isMounted.current) {
         setActionLoading(prev => ({ ...prev, export: false }));
@@ -470,26 +503,37 @@ export const useInventory = () => {
     return filteredItems.reduce((sum, item) => sum + Number(item.purchase_value || 0), 0);
   }, [filteredItems]);
 
+  // Stats/charts below are derived from filteredItems (not the global `summary`
+  // aggregate) so they react to the applied filters instead of always showing totals.
+
+  const statusCounts = useMemo(() => {
+    const counts = {};
+    filteredItems.forEach(item => {
+      if (item.status) {
+        counts[item.status] = (counts[item.status] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [filteredItems]);
+
   const getStatusCount = useCallback((statusName) => {
-    const found = summary.by_status?.find(s => s.status === statusName);
-    return found?.count || 0;
-  }, [summary.by_status]);
+    return statusCounts[statusName] || 0;
+  }, [statusCounts]);
 
   const categoryChartData = useMemo(() => {
-    return (summary.by_category || [])
-      .filter(c => c.category__name)
-      .map(c => ({
-        name: c.category__name,
-        value: c.count,
-      }));
-  }, [summary.by_category]);
+    const counts = {};
+    filteredItems.forEach(item => {
+      const name = item.category_name;
+      if (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [filteredItems]);
 
   const statusChartData = useMemo(() => {
-    return (summary.by_status || []).map(s => ({
-      name: s.status,
-      value: s.count,
-    }));
-  }, [summary.by_status]);
+    return Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+  }, [statusCounts]);
 
   // ============================================
   // COMBINED LOADING STATE
@@ -552,6 +596,8 @@ export const useInventory = () => {
     handleAddSuccess,
     handleOpenTransfer,
     handleTransferSuccess,
+    handleOpenReassign,
+    handleReassignSuccess,
     handlePrintCertificate,
     handleExport,
     handleOpenCategories,

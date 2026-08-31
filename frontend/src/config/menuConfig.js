@@ -273,13 +273,6 @@ export const MENU_SECTIONS = {
         roles: ['Admin', 'BDM'],
       },
       {
-        id: 'monitoring-templates',
-        label: 'Eval Templates',
-        icon: faClipboardList,
-        path: '/monitoring/templates',
-        roles: ['Admin'],
-      },
-      {
         id: 'monitoring-evaluations',
         label: 'Evaluation History',
         icon: faChartBar,

@@ -93,14 +93,14 @@ const AddInventoryModal = ({
       setFormData({
         name: editItem.name || '',
         description: editItem.description || '',
-        category: String(editItem.category || editItem.category_id || ''),
+        category: String(editItem.category ?? editItem.category_id ?? ''),
         location: editItem.location || 'School',
-        school: String(editItem.school || editItem.school_id || ''),
+        school: String(editItem.school ?? editItem.school_id ?? ''),
         status: editItem.status || 'Available',
         purchase_value: editItem.purchase_value || '',
         purchase_date: editItem.purchase_date || '',
         serial_number: editItem.serial_number || '',
-        assigned_to: String(editItem.assigned_to || editItem.assigned_to_id || ''),
+        assigned_to: String(editItem.assigned_to ?? editItem.assigned_to_id ?? ''),
       });
       setQuantity(1);
     } else {
@@ -146,6 +146,11 @@ const AddInventoryModal = ({
       return;
     }
 
+    if (formData.purchase_value !== '' && Number(formData.purchase_value) < 0) {
+      toast.error('Purchase value cannot be negative');
+      return;
+    }
+
     if (!isEditMode && quantity > 1 && !showBulkConfirm) {
       setShowBulkConfirm(true);
       return;
@@ -155,17 +160,19 @@ const AddInventoryModal = ({
 
     try {
       if (isEditMode) {
-        await updateInventoryItem(editItem.id, formData);
+        const updated = await updateInventoryItem(editItem.id, formData);
         toast.success('Item updated successfully');
+        onSuccess({ isEditMode: true, isBulk: false, item: updated });
       } else if (quantity > 1) {
         const result = await bulkCreateItems({ ...formData, quantity });
         toast.success(`${result.created_count} items created successfully`);
+        onSuccess({ isEditMode: false, isBulk: true, item: null });
       } else {
-        await createInventoryItem(formData);
+        const created = await createInventoryItem(formData);
         toast.success('Item created successfully');
+        onSuccess({ isEditMode: false, isBulk: false, item: created });
       }
 
-      onSuccess();
       onClose();
     } catch (error) {
       console.error('Save error:', error);

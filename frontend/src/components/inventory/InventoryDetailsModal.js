@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { toast } from 'react-toastify';
 import { fetchInventoryHistory } from '../../services/inventoryService';
 import {
   COLORS,
@@ -351,7 +352,10 @@ export const InventoryDetailsModal = ({
       setLoadingHistory(true);
       fetchInventoryHistory(item.id)
         .then(setHistory)
-        .catch(() => setHistory([]))
+        .catch(() => {
+          setHistory([]);
+          toast.error('Failed to load item history');
+        })
         .finally(() => setLoadingHistory(false));
     }
   }, [activeTab, item?.id]);
@@ -561,11 +565,7 @@ export const InventoryDetailsModal = ({
             ✏️ Edit
           </button>
           <button
-            onClick={() => {
-              if (window.confirm(`Are you sure you want to delete "${item.name}"?`)) {
-                onDelete(item.id);
-              }
-            }}
+            onClick={() => onDelete(item.id)}
             style={styles.deleteBtn}
           >
             🗑️ Delete

@@ -1,8 +1,8 @@
 # ============================================
 # MONITORING MODELS
 # ============================================
-# Visit planning, configurable evaluation forms,
-# and teacher evaluation during BDM school visits.
+# Instant-start BDM school visits with free-form
+# teacher evaluation (ad-hoc questions, optional ratings).
 
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -12,27 +12,25 @@ from students.models import CustomUser, School
 
 
 # ============================================
-# VISIT PLANNING
+# VISITS
 # ============================================
 
 class MonitoringVisit(models.Model):
     """
-    A planned or completed BDM visit to a school.
-    BDMs plan visits on school working days, then
-    evaluate teachers on-site during the visit.
+    A monitoring visit to a school. Created already in_progress —
+    whoever is on-site starts recording the moment they arrive,
+    then evaluates teachers before marking it completed.
     """
     STATUS_CHOICES = [
-        ('planned', 'Planned'),
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
-        ('missed', 'Missed'),
     ]
 
     bdm = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
-        limit_choices_to={'role': 'BDM'},
+        limit_choices_to={'role__in': ['Admin', 'BDM']},
         related_name='monitoring_visits',
     )
     school = models.ForeignKey(
@@ -40,21 +38,13 @@ class MonitoringVisit(models.Model):
         on_delete=models.CASCADE,
         related_name='monitoring_visits',
     )
-    assigned_teachers = models.ManyToManyField(
-        CustomUser,
-        blank=True,
-        related_name='assigned_monitoring_visits',
-        limit_choices_to={'role': 'Teacher', 'is_active': True},
-        help_text='Teachers selected during visit planning for evaluation.',
-    )
     visit_date = models.DateField()
-    planned_time = models.TimeField(null=True, blank=True, help_text='BDM planned visit time')
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='planned',
+        default='in_progress',
     )
     purpose = models.CharField(
         max_length=200,
@@ -68,7 +58,6 @@ class MonitoringVisit(models.Model):
 
     class Meta:
         ordering = ['-visit_date', '-created_at']
-        unique_together = ('bdm', 'school', 'visit_date')
         verbose_name = 'Monitoring Visit'
         verbose_name_plural = 'Monitoring Visits'
 
@@ -77,92 +66,14 @@ class MonitoringVisit(models.Model):
 
 
 # ============================================
-# CONFIGURABLE EVALUATION FORMS
-# ============================================
-
-class EvaluationFormTemplate(models.Model):
-    """
-    Admin-created evaluation form template.
-    Each template has a set of configurable fields.
-    A default template is seeded matching the existing
-    BDMVisitProforma 5-criteria format.
-    """
-    name = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(
-        CustomUser,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='created_form_templates',
-    )
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['name']
-        verbose_name = 'Evaluation Form Template'
-        verbose_name_plural = 'Evaluation Form Templates'
-
-    def __str__(self):
-        return self.name
-
-
-class EvaluationFormField(models.Model):
-    """
-    A single field within an evaluation form template.
-    Supports multiple field types and weighted scoring.
-    """
-    FIELD_TYPE_CHOICES = [
-        ('rating_1_5', 'Rating 1-5'),
-        ('rating_1_10', 'Rating 1-10'),
-        ('text', 'Text Input'),
-        ('textarea', 'Text Area'),
-        ('yes_no', 'Yes / No'),
-        ('select', 'Dropdown Select'),
-    ]
-
-    template = models.ForeignKey(
-        EvaluationFormTemplate,
-        on_delete=models.CASCADE,
-        related_name='fields',
-    )
-    label = models.CharField(max_length=200)
-    field_type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES)
-    is_required = models.BooleanField(default=True)
-    order = models.IntegerField(default=0)
-    options = models.JSONField(
-        default=list,
-        blank=True,
-        help_text='Options for select type, e.g. ["Good", "Average", "Poor"]',
-    )
-    weight = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        help_text='Weight for score calculation (0 = not scored)',
-    )
-
-    class Meta:
-        ordering = ['order']
-        verbose_name = 'Evaluation Form Field'
-        verbose_name_plural = 'Evaluation Form Fields'
-
-    def __str__(self):
-        return f"{self.template.name} → {self.label}"
-
-
-# ============================================
-# TEACHER EVALUATIONS (FILLED FORMS)
+# TEACHER EVALUATIONS (FREE-FORM Q&A)
 # ============================================
 
 class TeacherEvaluation(models.Model):
     """
     A completed evaluation for one teacher during a visit.
-    Links to the visit, teacher, and the template used.
-    Score is auto-calculated from weighted field responses.
+    Built from ad-hoc questions the BDM types on the spot.
+    Score is auto-calculated from any rated questions.
     """
     visit = models.ForeignKey(
         MonitoringVisit,
@@ -174,11 +85,6 @@ class TeacherEvaluation(models.Model):
         on_delete=models.CASCADE,
         limit_choices_to={'role': 'Teacher'},
         related_name='monitoring_evaluations',
-    )
-    template = models.ForeignKey(
-        EvaluationFormTemplate,
-        on_delete=models.PROTECT,
-        related_name='evaluations',
     )
 
     # Calculated scores
@@ -211,37 +117,16 @@ class TeacherEvaluation(models.Model):
 
     def calculate_score(self):
         """
-        Calculate total and normalized score from weighted responses.
-        Only rating fields with weight > 0 contribute to the score.
+        Average the 1-5 rating of any rated questions, normalized to 0-100.
+        Unrated questions (plain Q&A notes) don't contribute.
         """
-        responses = self.responses.select_related('field').filter(
-            field__weight__gt=0,
-            numeric_value__isnull=False,
+        ratings = list(
+            self.questions.filter(rating__isnull=False).values_list('rating', flat=True)
         )
 
-        total_weight = Decimal('0.00')
-        weighted_sum = Decimal('0.00')
-
-        for resp in responses:
-            field = resp.field
-            weight = field.weight
-
-            # Normalize the numeric value to 0-100 based on field type
-            if field.field_type == 'rating_1_5':
-                max_val = Decimal('5.00')
-            elif field.field_type == 'rating_1_10':
-                max_val = Decimal('10.00')
-            elif field.field_type == 'yes_no':
-                max_val = Decimal('1.00')
-            else:
-                continue  # text/textarea/select don't contribute to score
-
-            normalized = (resp.numeric_value / max_val) * Decimal('100.00')
-            weighted_sum += normalized * weight
-            total_weight += weight
-
-        if total_weight > 0:
-            score_0_to_100 = (weighted_sum / total_weight).quantize(Decimal('0.01'))
+        if ratings:
+            average = sum(Decimal(r) for r in ratings) / Decimal(len(ratings))
+            score_0_to_100 = ((average / Decimal('5.00')) * Decimal('100.00')).quantize(Decimal('0.01'))
         else:
             score_0_to_100 = Decimal('0.00')
 
@@ -252,35 +137,31 @@ class TeacherEvaluation(models.Model):
         self.save(update_fields=['total_score', 'normalized_score'])
 
 
-class EvaluationResponse(models.Model):
+class EvaluationQuestion(models.Model):
     """
-    A single field response within a teacher evaluation.
-    Stores the value as text for all types, plus a numeric
-    value for scoring purposes on rating fields.
+    A single ad-hoc question + answer within a teacher evaluation.
+    The BDM types the question and answer on the spot; a 1-5 rating
+    is optional and, when set, feeds the evaluation's score.
     """
     evaluation = models.ForeignKey(
         TeacherEvaluation,
         on_delete=models.CASCADE,
-        related_name='responses',
+        related_name='questions',
     )
-    field = models.ForeignKey(
-        EvaluationFormField,
-        on_delete=models.PROTECT,
-        related_name='responses',
-    )
-    value = models.TextField(help_text='Stored as text for all field types')
-    numeric_value = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
+    question_text = models.CharField(max_length=500)
+    answer_text = models.TextField(blank=True)
+    rating = models.IntegerField(
         null=True,
         blank=True,
-        help_text='Numeric value for rating fields (for scoring)',
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text='Optional 1-5 rating; only rated questions contribute to the score.',
     )
+    order = models.IntegerField(default=0)
 
     class Meta:
-        unique_together = ('evaluation', 'field')
-        verbose_name = 'Evaluation Response'
-        verbose_name_plural = 'Evaluation Responses'
+        ordering = ['order', 'id']
+        verbose_name = 'Evaluation Question'
+        verbose_name_plural = 'Evaluation Questions'
 
     def __str__(self):
-        return f"{self.field.label}: {self.value}"
+        return f"{self.question_text}: {self.answer_text}"

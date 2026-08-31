@@ -7,8 +7,6 @@ from rest_framework.test import APITestCase
 
 from employees.models import BDMVisitProforma, TeacherEvaluationScore, SalarySlip
 from monitoring.models import (
-    EvaluationFormTemplate,
-    EvaluationFormField,
     TeacherEvaluation,
     MonitoringVisit,
 )
@@ -31,19 +29,6 @@ def make_school(name='Test School'):
     return School.objects.create(name=name)
 
 
-def make_template(admin, name='Test Template'):
-    template = EvaluationFormTemplate.objects.create(name=name, created_by=admin)
-    EvaluationFormField.objects.create(
-        template=template,
-        label='Discipline',
-        field_type='rating_1_5',
-        is_required=True,
-        order=0,
-        weight=Decimal('1.00'),
-    )
-    return template
-
-
 # ============================================
 # calculate_for_teacher — attitude score source tests
 # ============================================
@@ -62,7 +47,6 @@ class CalculateForTeacherAttitudeScoreTests(TestCase):
         self.school = make_school('Calc School')
         self.school.teachers.add(self.teacher)
         self.teacher.assigned_schools.add(self.school)
-        self.template = make_template(self.admin, 'Calc Template')
         self.month = 4
         self.year = 2026
 
@@ -78,7 +62,6 @@ class CalculateForTeacherAttitudeScoreTests(TestCase):
         return TeacherEvaluation.objects.create(
             visit=visit,
             teacher=self.teacher,
-            template=self.template,
             normalized_score=normalized_score,
         )
 
@@ -210,35 +193,6 @@ class CalculateEvaluationEndpointTests(APITestCase):
 
 
 # ============================================
-# Seed management command — idempotency
-# ============================================
-
-class SeedEvaluationTemplateCommandTests(TestCase):
-    """
-    Verifies the seed_evaluation_template management command is idempotent:
-    running it twice must not create duplicate templates or fields.
-    """
-
-    def _run_command(self):
-        from django.core.management import call_command
-        from io import StringIO
-        out = StringIO()
-        call_command('seed_evaluation_template', stdout=out)
-        return out.getvalue()
-
-    def test_creates_template_and_five_fields_on_first_run(self):
-        from monitoring.models import EvaluationFormTemplate, EvaluationFormField
-
-        self._run_command()
-
-        self.assertEqual(
-            EvaluationFormTemplate.objects.filter(name='BDM Standard Evaluation').count(), 1
-        )
-        template = EvaluationFormTemplate.objects.get(name='BDM Standard Evaluation')
-        self.assertEqual(EvaluationFormField.objects.filter(template=template).count(), 5)
-
-
-# ============================================
 # Salary Slip Monitoring Snapshot (Phase 1)
 # ============================================
 
@@ -250,7 +204,6 @@ class SalarySlipMonitoringSnapshotTests(APITestCase):
         self.school = make_school('Salary Monitoring School')
         self.school.teachers.add(self.teacher)
         self.teacher.assigned_schools.add(self.school)
-        self.template = make_template(self.admin, 'Salary Monitoring Template')
         self.base_date = date(2026, 4, 15)
 
     def _make_visit(self, *, visit_date, bdm=None, status='completed'):
@@ -266,7 +219,6 @@ class SalarySlipMonitoringSnapshotTests(APITestCase):
         return TeacherEvaluation.objects.create(
             visit=visit,
             teacher=self.teacher,
-            template=self.template,
             normalized_score=Decimal(str(score)),
         )
 

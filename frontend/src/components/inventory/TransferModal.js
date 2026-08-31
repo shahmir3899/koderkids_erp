@@ -11,7 +11,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import Select from 'react-select';
 import { toast } from 'react-toastify';
-import { transferInventoryItems, fetchEmployees } from '../../services/inventoryService';
+import { transferInventoryItems } from '../../services/inventoryService';
 import {
   COLORS,
   SPACING,
@@ -277,6 +277,7 @@ export const TransferModal = ({
   onSuccess,
   selectedItems = [],
   schools = [],
+  users = [],
   userContext = {},
 }) => {
   const { isAdmin, userName } = userContext;
@@ -286,9 +287,7 @@ export const TransferModal = ({
   const [toSchool, setToSchool] = useState(null);
   const [receivedBy, setReceivedBy] = useState(null);
   const [reason, setReason] = useState('');
-  const [employees, setEmployees] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loadingEmployees, setLoadingEmployees] = useState(false);
 
   // ============================================
   // LOCATION OPTIONS (Role-based)
@@ -309,26 +308,11 @@ export const TransferModal = ({
   }, [isAdmin]);
 
   // ============================================
-  // FETCH EMPLOYEES
+  // RESET STATE ON OPEN
   // ============================================
 
   useEffect(() => {
-    const loadEmployees = async () => {
-      setLoadingEmployees(true);
-      try {
-        const data = await fetchEmployees();
-        setEmployees(data || []);
-      } catch (error) {
-        console.error('Failed to load employees:', error);
-        toast.error('Failed to load employees list');
-      } finally {
-        setLoadingEmployees(false);
-      }
-    };
-    
     if (isOpen) {
-      loadEmployees();
-      // Reset state
       setToLocation(null);
       setToSchool(null);
       setReceivedBy(null);
@@ -363,12 +347,15 @@ export const TransferModal = ({
     [schools]
   );
 
-  const employeeOptions = useMemo(() => 
-    employees.map(e => ({
-      value: e.user_id,
-      label: e.name + (e.title ? ` (${e.title})` : ''),
+  // `users` is the same active-only list InventoryFilters/AddInventoryModal use
+  // (sourced from InventoryContext -> fetchAvailableUsers), unlike fetchEmployees()
+  // which includes inactive staff.
+  const employeeOptions = useMemo(() =>
+    users.map(u => ({
+      value: u.id,
+      label: u.name,
     })),
-    [employees]
+    [users]
   );
 
   // ============================================
@@ -443,7 +430,7 @@ export const TransferModal = ({
   // RENDER
   // ============================================
 
-  if (!isOpen) return null;
+  if (!isOpen || selectedItems.length === 0) return null;
 
   return ReactDOM.createPortal(
     <div style={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -624,7 +611,6 @@ export const TransferModal = ({
                 placeholder="Select employee (optional)..."
                 styles={selectStyles}
                 isClearable
-                isLoading={loadingEmployees}
                 isDisabled={locationMismatch}
                 menuPortalTarget={document.body}
               />

@@ -33,7 +33,7 @@ import { ErrorDisplay } from '../../components/common/ui/ErrorDisplay';
 import { ConfirmationModal } from '../../components/common/modals/ConfirmationModal';
 
 // Monitoring Components
-import PlanVisitModal from '../../components/monitoring/PlanVisitModal';
+import StartMonitoringModal from '../../components/monitoring/StartMonitoringModal';
 import EvaluationWizard from '../../components/monitoring/EvaluationWizard';
 
 // Monitoring Services
@@ -41,13 +41,11 @@ import {
   fetchVisits,
   fetchVisitSummary,
   deleteVisit,
-  startVisit,
   completeVisit,
   fetchMonitoringStats,
   fetchVisitEvaluations,
   deleteEvaluation,
   fetchEvaluationDetail,
-  getTemplatesCacheVersion,
 } from '../../services/monitoringService';
 import { isRetryableError } from '../../utils/retryUtils';
 
@@ -55,11 +53,9 @@ import { isRetryableError } from '../../utils/retryUtils';
 // VISIT STATUS CONSTANTS
 // ============================================
 const VISIT_STATUSES = [
-  { value: 'planned', label: 'Planned' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
-  { value: 'missed', label: 'Missed' },
 ];
 
 const VIEW_MODES = [
@@ -83,11 +79,9 @@ const STAT_CARD_COLORS = {
 // STATUS BADGE COLORS
 // ============================================
 const STATUS_BADGE_COLORS = {
-  planned: { bg: 'rgba(59, 130, 246, 0.2)', text: '#60A5FA', border: 'rgba(59, 130, 246, 0.4)' },
   in_progress: { bg: 'rgba(245, 158, 11, 0.2)', text: '#FBBF24', border: 'rgba(245, 158, 11, 0.4)' },
   completed: { bg: 'rgba(16, 185, 129, 0.2)', text: '#34D399', border: 'rgba(16, 185, 129, 0.4)' },
   cancelled: { bg: 'rgba(239, 68, 68, 0.2)', text: '#F87171', border: 'rgba(239, 68, 68, 0.4)' },
-  missed: { bg: 'rgba(239, 68, 68, 0.2)', text: '#F87171', border: 'rgba(239, 68, 68, 0.4)' },
 };
 
 // ============================================
@@ -166,11 +160,11 @@ const StatCard = ({ label, value, icon, color = 'blue', isMobile = false, onClic
 // ============================================
 // VISIT CARD COMPONENT
 // ============================================
-const VisitCard = ({ visit, isMobile, showAssignedTo = false, onStart, onComplete, onEvaluate, onEdit, onDelete, onViewDetails, onEditEval, onDeleteEval, userRole }) => {
+const VisitCard = ({ visit, isMobile, showAssignedTo = false, onComplete, onEvaluate, onDelete, onViewDetails, onEditEval, userRole }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredButton, setHoveredButton] = useState(null);
 
-  const statusColors = STATUS_BADGE_COLORS[visit.status] || STATUS_BADGE_COLORS.planned;
+  const statusColors = STATUS_BADGE_COLORS[visit.status] || STATUS_BADGE_COLORS.in_progress;
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -188,30 +182,16 @@ const VisitCard = ({ visit, isMobile, showAssignedTo = false, onStart, onComplet
 
   const formatStatus = (status) => {
     const statusMap = {
-      planned: 'Planned',
       in_progress: 'In Progress',
       completed: 'Completed',
       cancelled: 'Cancelled',
-      missed: 'Missed',
     };
     return statusMap[status] || status;
   };
 
-  const getTeacherDisplay = () => {
-    const names = Array.isArray(visit.teacher_names)
-      ? visit.teacher_names.filter(Boolean)
-      : [];
-    if (names.length > 0) {
-      return names.join(', ');
-    }
-    return String(visit.teacher_count ?? visit.teachers_count ?? 0);
-  };
-
   const disabledEvaluateReasonByStatus = {
-    planned: 'Evaluation will be enabled after you start this visit.',
     completed: 'New evaluations are disabled because this visit is completed.',
     cancelled: 'Evaluation is disabled because this visit was cancelled.',
-    missed: 'Evaluation is disabled because this visit was marked missed.',
   };
 
   const renderDisabledEvaluateButton = () => {
@@ -237,71 +217,16 @@ const VisitCard = ({ visit, isMobile, showAssignedTo = false, onStart, onComplet
   const getEvaluationGuidance = () => {
     const guidanceByStatus = {
       in_progress: 'Evaluation is active now. Complete Visit will lock new submissions.',
-      planned: 'Start Visit to enable teacher evaluation.',
       completed: userRole === 'Admin'
         ? 'New evaluations are locked. Use Edit Evaluations to update existing submissions.'
         : 'New evaluations are locked once a visit is completed.',
       cancelled: 'Evaluation is unavailable for cancelled visits.',
-      missed: 'Evaluation is unavailable for missed visits.',
     };
     return guidanceByStatus[visit.status] || null;
   };
 
   const getActionButtons = () => {
     switch (visit.status) {
-      case 'planned':
-        return (
-          <div style={{
-            display: 'flex',
-            gap: SPACING.sm,
-            flexWrap: 'wrap',
-          }}>
-            <button
-              style={{
-                ...actionButtonBase,
-                background: 'rgba(59, 130, 246, 0.2)',
-                color: '#60A5FA',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                ...(hoveredButton === 'start' ? { background: 'rgba(59, 130, 246, 0.35)' } : {}),
-              }}
-              onMouseEnter={() => setHoveredButton('start')}
-              onMouseLeave={() => setHoveredButton(null)}
-              onClick={() => onStart(visit)}
-            >
-              Start Visit
-            </button>
-            <button
-              style={{
-                ...actionButtonBase,
-                background: 'rgba(139, 92, 246, 0.2)',
-                color: '#A78BFA',
-                border: '1px solid rgba(139, 92, 246, 0.3)',
-                ...(hoveredButton === 'edit' ? { background: 'rgba(139, 92, 246, 0.35)' } : {}),
-              }}
-              onMouseEnter={() => setHoveredButton('edit')}
-              onMouseLeave={() => setHoveredButton(null)}
-              onClick={() => onEdit(visit)}
-            >
-              Edit
-            </button>
-            <button
-              style={{
-                ...actionButtonBase,
-                background: 'rgba(239, 68, 68, 0.2)',
-                color: '#F87171',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                ...(hoveredButton === 'delete' ? { background: 'rgba(239, 68, 68, 0.35)' } : {}),
-              }}
-              onMouseEnter={() => setHoveredButton('delete')}
-              onMouseLeave={() => setHoveredButton(null)}
-              onClick={() => onDelete(visit)}
-            >
-              Delete
-            </button>
-            {renderDisabledEvaluateButton()}
-          </div>
-        );
-
       case 'in_progress':
         return (
           <div style={{
@@ -540,28 +465,6 @@ const VisitCard = ({ visit, isMobile, showAssignedTo = false, onStart, onComplet
             </div>
           )}
 
-          {(visit.teacher_count !== undefined || visit.teachers_count !== undefined) && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: SPACING.xs,
-            }}>
-              <span style={{
-                fontSize: FONT_SIZES.sm,
-                color: 'rgba(255, 255, 255, 0.82)',
-              }}>
-                Teachers:
-              </span>
-              <span style={{
-                fontSize: FONT_SIZES.sm,
-                fontWeight: FONT_WEIGHTS.semibold,
-                color: '#BFDBFE',
-              }}>
-                {getTeacherDisplay()}
-              </span>
-            </div>
-          )}
-
           {(visit.evaluations_count !== undefined || visit.evaluation_count !== undefined) && (
             <div style={{
               display: 'flex',
@@ -738,10 +641,9 @@ function MonitoringPage() {
   });
   const [stats, setStats] = useState({
     total_visits: 0,
-    planned: 0,
     in_progress: 0,
     completed: 0,
-    overdue: 0,
+    today: 0,
     evaluations_done: 0,
   });
 
@@ -754,12 +656,10 @@ function MonitoringPage() {
   const [viewMode, setViewMode] = useState('week');
 
   // UI States - Modals
-  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showStartModal, setShowStartModal] = useState(false);
   const [showEvalWizard, setShowEvalWizard] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState(null);
   const [editEvaluation, setEditEvaluation] = useState(null); // when set, EvaluationWizard opens in edit mode
-  const [templatesCache, setTemplatesCache] = useState([]);
-  const [templatesCacheVersion, setTemplatesCacheVersion] = useState(getTemplatesCacheVersion());
 
   // Eval management state
   const [visitEvaluations, setVisitEvaluations] = useState([]);
@@ -795,10 +695,9 @@ function MonitoringPage() {
       if (data) {
         setStats({
           total_visits: data.total_visits ?? data.total ?? 0,
-          planned: data.planned ?? 0,
           in_progress: data.in_progress ?? 0,
           completed: data.completed ?? 0,
-          overdue: data.overdue ?? 0,
+          today: data.today ?? 0,
           evaluations_done: data.evaluations_done ?? data.evaluations ?? 0,
         });
       }
@@ -872,25 +771,6 @@ function MonitoringPage() {
   // HANDLERS
   // ============================================
 
-  const handleStartVisit = async (visit) => {
-    if (!visit || !visit.id) {
-      toast.error('Unable to start: Invalid visit data');
-      return;
-    }
-
-    setLoading((prev) => ({ ...prev, action: true }));
-    try {
-      await startVisit(visit.id);
-      toast.success('Visit started successfully');
-      await refreshData();
-    } catch (err) {
-      console.error('Error starting visit:', err);
-      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to start visit');
-    } finally {
-      setLoading((prev) => ({ ...prev, action: false }));
-    }
-  };
-
   const handleCompleteVisit = async (visit) => {
     if (!visit || !visit.id) {
       toast.error('Unable to complete: Invalid visit data');
@@ -915,22 +795,8 @@ function MonitoringPage() {
       toast.error('Unable to evaluate: Invalid visit data');
       return;
     }
-    const currentVersion = getTemplatesCacheVersion();
-    if (currentVersion !== templatesCacheVersion) {
-      setTemplatesCache([]);
-      setTemplatesCacheVersion(currentVersion);
-    }
     setSelectedVisit(visit);
     setShowEvalWizard(true);
-  };
-
-  const handleEditVisit = (visit) => {
-    if (!visit || !visit.id) {
-      toast.error('Unable to edit: Invalid visit data');
-      return;
-    }
-    setSelectedVisit(visit);
-    setShowPlanModal(true);
   };
 
   const handleDeleteClick = (visit) => {
@@ -968,20 +834,17 @@ function MonitoringPage() {
       toast.error('Unable to view: Invalid visit data');
       return;
     }
-    if (visit.status === 'completed') {
-      navigate(`/monitoring/visits/${visit.id}`);
-      return;
-    }
-    // For non-completed visits open the plan modal (edit/info)
-    setSelectedVisit(visit);
-    setShowPlanModal(true);
+    navigate(`/monitoring/visits/${visit.id}`);
   };
 
-  const handlePlanVisitSuccess = (mode = 'create') => {
-    setShowPlanModal(false);
-    setSelectedVisit(null);
-    toast.success(mode === 'edit' ? 'Visit updated successfully' : 'Visit planned successfully');
+  const handleStartMonitoringSuccess = (visit) => {
+    setShowStartModal(false);
+    toast.success('Monitoring started');
     refreshData();
+    if (visit?.id) {
+      setSelectedVisit(visit);
+      setShowEvalWizard(true);
+    }
   };
 
   const updateVisitInState = useCallback((updatedVisit) => {
@@ -1024,12 +887,6 @@ function MonitoringPage() {
       ...prev,
       evaluations_done: Math.max(0, Number(prev.evaluations_done || 0) + delta),
     }));
-  }, []);
-
-  const handleTemplatesLoaded = useCallback((templates) => {
-    if (!Array.isArray(templates) || templates.length === 0) return;
-    setTemplatesCache(templates);
-    setTemplatesCacheVersion(getTemplatesCacheVersion());
   }, []);
 
   const handleEvalWizardClose = () => {
@@ -1158,34 +1015,31 @@ function MonitoringPage() {
 
   const activeStatFilter = useMemo(() => {
     const todayIso = new Date().toISOString().slice(0, 10);
-    if (filters.status === 'planned' && filters.dateTo && filters.dateTo < todayIso) return 'overdue';
-    if (filters.status === 'planned') return 'planned';
     if (filters.status === 'in_progress') return 'in_progress';
     if (filters.status === 'completed') return 'completed';
+    if (!filters.status && filters.dateFrom === todayIso && filters.dateTo === todayIso) return 'today';
     return 'total_visits';
-  }, [filters.status, filters.dateTo]);
+  }, [filters.status, filters.dateFrom, filters.dateTo]);
 
   const handleStatCardFilter = useCallback((key) => {
     const todayIso = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayIso = yesterday.toISOString().slice(0, 10);
     const nextFilters = { ...filters };
 
-    if (key === 'planned') {
-      nextFilters.status = 'planned';
-      nextFilters.dateTo = '';
-    } else if (key === 'in_progress') {
+    if (key === 'in_progress') {
       nextFilters.status = 'in_progress';
+      nextFilters.dateFrom = '';
       nextFilters.dateTo = '';
     } else if (key === 'completed' || key === 'evaluations_done') {
       nextFilters.status = 'completed';
+      nextFilters.dateFrom = '';
       nextFilters.dateTo = '';
-    } else if (key === 'overdue') {
-      nextFilters.status = 'planned';
-      nextFilters.dateTo = yesterdayIso;
+    } else if (key === 'today') {
+      nextFilters.status = '';
+      nextFilters.dateFrom = todayIso;
+      nextFilters.dateTo = todayIso;
     } else {
       nextFilters.status = '';
+      nextFilters.dateFrom = '';
       nextFilters.dateTo = '';
     }
 
@@ -1320,10 +1174,8 @@ function MonitoringPage() {
           visit={visit}
           isMobile={isMobile}
           showAssignedTo={isAdmin}
-          onStart={handleStartVisit}
           onComplete={handleCompleteVisit}
           onEvaluate={handleEvaluateTeacher}
-          onEdit={handleEditVisit}
           onDelete={handleDeleteClick}
           onEditEval={handleEditEval}
           userRole={userRole}
@@ -1347,7 +1199,7 @@ function MonitoringPage() {
       <PageHeader
         icon="🏫"
         title="School Monitoring"
-        subtitle="Plan, execute, and track school monitoring visits"
+        subtitle="Start and record school monitoring visits"
       />
 
       {/* Quick Action Buttons */}
@@ -1359,12 +1211,9 @@ function MonitoringPage() {
       }}>
         <button
           style={responsiveStyles.primaryButton}
-          onClick={() => {
-            setSelectedVisit(null);
-            setShowPlanModal(true);
-          }}
+          onClick={() => setShowStartModal(true)}
         >
-          + Plan Visit
+          + Start Monitoring
         </button>
         <button
           style={responsiveStyles.secondaryButton}
@@ -1387,13 +1236,13 @@ function MonitoringPage() {
           isActive={activeStatFilter === 'total_visits'}
         />
         <StatCard
-          label="Planned"
-          value={stats.planned}
-          icon="📋"
+          label="Today"
+          value={stats.today}
+          icon="📅"
           color="indigo"
           isMobile={isMobile}
-          onClick={() => handleStatCardFilter('planned')}
-          isActive={activeStatFilter === 'planned'}
+          onClick={() => handleStatCardFilter('today')}
+          isActive={activeStatFilter === 'today'}
         />
         <StatCard
           label="In Progress"
@@ -1412,15 +1261,6 @@ function MonitoringPage() {
           isMobile={isMobile}
           onClick={() => handleStatCardFilter('completed')}
           isActive={activeStatFilter === 'completed'}
-        />
-        <StatCard
-          label="Overdue"
-          value={stats.overdue}
-          icon="⚠️"
-          color="red"
-          isMobile={isMobile}
-          onClick={() => handleStatCardFilter('overdue')}
-          isActive={activeStatFilter === 'overdue'}
         />
         <StatCard
           label="Evaluations Done"
@@ -1539,7 +1379,7 @@ function MonitoringPage() {
         <div style={styles.emptyState}>
           {activeFilterCount > 0
             ? 'No visits found matching your filters. Try adjusting your criteria.'
-            : 'No monitoring visits found. Plan your first visit to get started!'
+            : 'No monitoring visits found. Start your first monitoring visit to get started!'
           }
         </div>
       ) : viewMode === 'day' ? (
@@ -1639,16 +1479,11 @@ function MonitoringPage() {
         </button>
       </div>
 
-      {/* Plan Visit Modal */}
-      <PlanVisitModal
-        isOpen={showPlanModal}
-        onClose={() => {
-          setShowPlanModal(false);
-          setSelectedVisit(null);
-        }}
-        onSuccess={handlePlanVisitSuccess}
-        mode={selectedVisit ? 'edit' : 'create'}
-        initialVisit={selectedVisit}
+      {/* Start Monitoring Modal */}
+      <StartMonitoringModal
+        isOpen={showStartModal}
+        onClose={() => setShowStartModal(false)}
+        onStarted={handleStartMonitoringSuccess}
       />
 
       {/* Evaluation Wizard */}
@@ -1657,8 +1492,6 @@ function MonitoringPage() {
         visitId={selectedVisit?.id}
         visitSchoolName={selectedVisit?.school_name}
         editEvaluation={editEvaluation}
-        initialTemplates={templatesCache}
-        onTemplatesLoaded={handleTemplatesLoaded}
         onClose={handleEvalWizardClose}
         onSuccess={handleEvalWizardSuccess}
       />

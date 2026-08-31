@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework import status
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Count, Sum, Q
 
 from .models import InventoryCategory, InventoryItem
@@ -218,12 +219,17 @@ class InventoryItemViewSet(ModelViewSet):
             
             # Check if school is in their assigned schools
             allowed_schools = get_user_allowed_schools(user)
-            if school_id and int(school_id) not in allowed_schools:
-                return Response(
-                    {"detail": "You can only add items to your assigned schools"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        
+            if school_id:
+                try:
+                    school_id = int(school_id)
+                except (TypeError, ValueError):
+                    return Response({"detail": "Invalid school id"}, status=status.HTTP_400_BAD_REQUEST)
+                if school_id not in allowed_schools:
+                    return Response(
+                        {"detail": "You can only add items to your assigned schools"},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
         return super().create(request, *args, **kwargs)
     
     def update(self, request, *args, **kwargs):
@@ -237,14 +243,11 @@ class InventoryItemViewSet(ModelViewSet):
 
         if not is_admin_or_bdm(user):
             allowed_schools = get_user_allowed_schools(user)
-            
-            # Check if current item is at allowed school
-            if item.school_id not in allowed_schools:
-                return Response(
-                    {"detail": "You can only edit items at your assigned schools"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            
+
+            # (No need to re-check the item's current school here - get_object()
+            # already went through the role-filtered get_queryset(), so a Teacher
+            # requesting an out-of-scope item would have already gotten a 404.)
+
             # Check if trying to move to non-allowed location/school
             new_location = request.data.get('location', item.location)
             new_school_id = request.data.get('school', item.school_id)
@@ -255,12 +258,17 @@ class InventoryItemViewSet(ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            if new_school_id and int(new_school_id) not in allowed_schools:
-                return Response(
-                    {"detail": "You can only move items to your assigned schools"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        
+            if new_school_id:
+                try:
+                    new_school_id = int(new_school_id)
+                except (TypeError, ValueError):
+                    return Response({"detail": "Invalid school id"}, status=status.HTTP_400_BAD_REQUEST)
+                if new_school_id not in allowed_schools:
+                    return Response(
+                        {"detail": "You can only move items to your assigned schools"},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
         return super().update(request, *args, **kwargs)
     
     def destroy(self, request, *args, **kwargs):
@@ -600,14 +608,20 @@ def bulk_assign(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+    if user_id:
+        try:
+            user_id = int(user_id)
+        except (TypeError, ValueError):
+            return Response({"detail": "Invalid user id"}, status=status.HTTP_400_BAD_REQUEST)
+
     # Teachers can only assign to themselves (Admin/BDM can assign to anyone)
     if not is_admin_or_bdm(current_user):
-        if user_id and int(user_id) != current_user.id:
+        if user_id and user_id != current_user.id:
             return Response(
                 {"detail": "You can only assign items to yourself"},
                 status=status.HTTP_403_FORBIDDEN
             )
-    
+
     assign_to_user = None
     if user_id:
         try:
@@ -617,19 +631,25 @@ def bulk_assign(request):
                 {"detail": "User not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
-    
+        if assign_to_user.role != 'Teacher':
+            return Response(
+                {"detail": "Items can only be assigned to Teachers"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
     # Get items filtered by role
     items = InventoryItem.objects.filter(id__in=item_ids)
     items = filter_items_by_role(items, current_user)
-    
+
     count = 0
-    for item in items:
-        item.assigned_to = assign_to_user
-        if assign_to_user:
-            item.status = 'Assigned'
-        item.save()
-        count += 1
-    
+    with transaction.atomic():
+        for item in items:
+            item.assigned_to = assign_to_user
+            if assign_to_user:
+                item.status = 'Assigned'
+            item.save()
+            count += 1
+
     return Response({"updated_count": count})
 
 
@@ -665,11 +685,16 @@ def bulk_create_items(request):
             )
         
         allowed_schools = get_user_allowed_schools(user)
-        if school_id and int(school_id) not in allowed_schools:
-            return Response(
-                {"detail": "You can only add items to your assigned schools"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        if school_id:
+            try:
+                school_id = int(school_id)
+            except (TypeError, ValueError):
+                return Response({"detail": "Invalid school id"}, status=status.HTTP_400_BAD_REQUEST)
+            if school_id not in allowed_schools:
+                return Response(
+                    {"detail": "You can only add items to your assigned schools"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
     
     quantity = request.data.get('quantity', 1)
     

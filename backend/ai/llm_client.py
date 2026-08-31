@@ -234,6 +234,156 @@ class LLMClient:
                 "response_time_ms": int((time.time() - start_time) * 1000)
             }
 
+    def generate_with_tools(
+        self,
+        messages: list,
+        tools: list,
+        tool_choice: str = "auto",
+        temperature: float = 0.1,
+        max_tokens: int = 500
+    ) -> Dict[str, Any]:
+        """
+        Native tool/function-calling via Groq's OpenAI-compatible API.
+
+        Unlike generate_sync(), which asks the model to emit JSON as free
+        text and then bracket-matches it out with _parse_json_response(),
+        this returns the structured `tool_calls` the API gives back directly
+        - no text parsing involved. Groq-only for now (Ollama's tool-calling
+        support is inconsistent across models): callers must check
+        `result['provider'] == 'groq'` and fall back to generate_sync()
+        otherwise.
+
+        Args:
+            messages: Full chat messages list, e.g.
+                [{"role": "system", "content": ...}, {"role": "user", "content": ...}]
+            tools: OpenAI-style tool schemas, e.g.
+                [{"type": "function", "function": {"name": ..., "description": ..., "parameters": {...}}}]
+            tool_choice: "auto" | "required" | {"type": "function", "function": {"name": ...}}
+
+        Returns:
+            {
+                "success": bool,
+                "tool_calls": [{"id": str, "name": str, "arguments": dict|None}] | None,
+                "content": str | None,   # any plain-text content alongside/instead of tool calls
+                "error": str | None,
+                "response_time_ms": int,
+                "provider": str | None
+            }
+        """
+        import requests
+
+        provider = self.get_available_provider()
+        if provider != 'groq':
+            return {
+                "success": False,
+                "tool_calls": None,
+                "content": None,
+                "error": f"Tool-calling requires the Groq provider (active provider: {provider or 'none'})",
+                "response_time_ms": 0,
+                "provider": provider
+            }
+
+        start_time = time.time()
+        groq_api_key = self.config['GROQ_API_KEY']
+        groq_model = self.config['GROQ_MODEL']
+
+        try:
+            logger.info(f"Groq tool-call request - model: {groq_model}, tools: {len(tools)}")
+
+            response = requests.post(
+                GROQ_API_URL,
+                headers={
+                    "Authorization": f"Bearer {groq_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": groq_model,
+                    "messages": messages,
+                    "tools": tools,
+                    "tool_choice": tool_choice,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": False
+                },
+                timeout=60
+            )
+
+            response_time_ms = int((time.time() - start_time) * 1000)
+
+            if response.status_code != 200:
+                error_text = response.text[:500] if response.text else "No response"
+                logger.error(f"Groq tool-call error: {error_text}")
+                return {
+                    "success": False,
+                    "tool_calls": None,
+                    "content": None,
+                    "error": f"Groq returned status {response.status_code}: {error_text}",
+                    "response_time_ms": response_time_ms,
+                    "provider": "groq"
+                }
+
+            data = response.json()
+
+            if 'error' in data:
+                error_msg = data.get('error', {})
+                error_text = error_msg.get('message', str(error_msg)) if isinstance(error_msg, dict) else str(error_msg)
+                logger.error(f"Groq API error in tool-call response: {error_text}")
+                return {
+                    "success": False,
+                    "tool_calls": None,
+                    "content": None,
+                    "error": f"Groq API error: {error_text}",
+                    "response_time_ms": response_time_ms,
+                    "provider": "groq"
+                }
+
+            message = data.get('choices', [{}])[0].get('message', {})
+            raw_tool_calls = message.get('tool_calls') or []
+
+            parsed_calls = []
+            for call in raw_tool_calls:
+                func = call.get('function', {})
+                raw_args = func.get('arguments')
+                try:
+                    args = json.loads(raw_args) if raw_args else {}
+                except json.JSONDecodeError:
+                    logger.warning(f"Could not parse tool call arguments: {raw_args}")
+                    args = None
+                parsed_calls.append({
+                    "id": call.get('id'),
+                    "name": func.get('name'),
+                    "arguments": args
+                })
+
+            return {
+                "success": True,
+                "tool_calls": parsed_calls,
+                "content": message.get('content'),
+                "error": None,
+                "response_time_ms": response_time_ms,
+                "provider": "groq"
+            }
+
+        except requests.Timeout:
+            return {
+                "success": False,
+                "tool_calls": None,
+                "content": None,
+                "error": "Groq request timed out",
+                "response_time_ms": int((time.time() - start_time) * 1000),
+                "provider": "groq"
+            }
+        except Exception as e:
+            logger.error(f"Groq tool-call error: {e}")
+            return {
+                "success": False,
+                "tool_calls": None,
+                "content": None,
+                "error": str(e),
+                "response_time_ms": int((time.time() - start_time) * 1000),
+                "provider": "groq"
+            }
+
     def _generate_groq(
         self,
         prompt: str,

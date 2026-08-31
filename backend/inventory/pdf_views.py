@@ -12,6 +12,7 @@ from collections import defaultdict
 
 from django.http import HttpResponse
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Sum, Count
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -21,43 +22,11 @@ from weasyprint import HTML, CSS
 import html
 
 from .models import InventoryItem, InventoryCategory
+from .views import is_admin_or_bdm, get_user_allowed_schools
 from students.models import School, CustomUser
 from employees.models import TeacherProfile
 
 logger = logging.getLogger(__name__)
-
-
-# ============================================
-# RBAC HELPER FUNCTIONS
-# ============================================
-
-def is_admin_user(user):
-    """Check if user has admin privileges"""
-    return (
-        user.is_superuser or 
-        user.is_staff or 
-        getattr(user, 'role', None) == 'Admin'
-    )
-
-
-def get_user_allowed_schools(user):
-    """Get list of school IDs the user can access"""
-    if is_admin_user(user):
-        return None  # None means all schools
-    
-    if hasattr(user, 'assigned_schools'):
-        return list(user.assigned_schools.values_list('id', flat=True))
-    
-    return []
-
-
-def validate_school_access(user, school_id):
-    """Check if user can access a specific school"""
-    if is_admin_user(user):
-        return True
-    
-    allowed = get_user_allowed_schools(user)
-    return school_id in allowed if allowed else False
 
 
 # ============================================
@@ -178,9 +147,21 @@ def get_employee_name(user_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_employees_list(request):
-    """Get list of employees (TeacherProfile) for Received By dropdown."""
+    """
+    Get list of employees (TeacherProfile) for Received By dropdown.
+
+    RBAC:
+    - Admin/BDM: See all employees
+    - Teacher: See only colleagues at their own assigned school(s)
+    """
     try:
+        user = request.user
         profiles = TeacherProfile.objects.select_related('user').all()
+
+        if not is_admin_or_bdm(user):
+            allowed_schools = get_user_allowed_schools(user)
+            profiles = profiles.filter(user__assigned_schools__in=allowed_schools).distinct()
+
         employees = []
         for profile in profiles:
             user = profile.user
@@ -461,16 +442,31 @@ def generate_transfer_receipt(request):
         
         if not to_location:
             return Response({"error": "Destination location is required"}, status=400)
-        
+
+        if to_school_id:
+            try:
+                to_school_id = int(to_school_id)
+            except (TypeError, ValueError):
+                return Response({"error": "Invalid school id"}, status=400)
+
         # Fetch items with related data
         items = list(InventoryItem.objects.filter(id__in=item_ids).select_related('category', 'school'))
         if not items:
             return Response({"error": "No valid items found"}, status=404)
-        
-        # RBAC: Teachers can only access items at their schools
-        if not is_admin_user(user):
+
+        found_ids = {item.id for item in items}
+        missing_ids = [i for i in item_ids if i not in found_ids]
+        if missing_ids:
+            return Response({
+                "error": "Some selected items could not be found or are no longer available",
+                "missing_item_ids": missing_ids
+            }, status=404)
+
+
+        # RBAC: Teachers can only access items at their schools (Admin/BDM unrestricted)
+        if not is_admin_or_bdm(user):
             allowed_schools = get_user_allowed_schools(user)
-            
+
             # Check all items are at allowed schools
             for item in items:
                 if item.location != 'School' or item.school_id not in allowed_schools:
@@ -480,7 +476,7 @@ def generate_transfer_receipt(request):
             
             # Check destination is allowed
             if to_location == 'School':
-                if to_school_id and int(to_school_id) not in allowed_schools:
+                if to_school_id and to_school_id not in allowed_schools:
                     return Response({
                         "error": "You can only transfer items to your assigned schools"
                     }, status=403)
@@ -533,17 +529,18 @@ def generate_transfer_receipt(request):
             if reason:
                 transfer_note += f" Reason: {reason}"
             
-            for item in items:
-                existing_notes = item.notes or ''
-                item.notes = f"{existing_notes}\n{transfer_note}".strip()
-                item.location = to_location
-                item.school = to_school if to_location == 'School' else None
-                
-                if received_by_user:
-                    item.assigned_to = received_by_user
-                    item.status = 'Assigned'
-                
-                item.save()
+            with transaction.atomic():
+                for item in items:
+                    existing_notes = item.notes or ''
+                    item.notes = f"{existing_notes}\n{transfer_note}".strip()
+                    item.location = to_location
+                    item.school = to_school if to_location == 'School' else None
+
+                    if received_by_user:
+                        item.assigned_to = received_by_user
+                        item.status = 'Assigned'
+
+                    item.save()
             
             logger.info(f"Transferred {len(items)} items from {from_location_display} to {to_location_display}")
         
@@ -590,7 +587,7 @@ def generate_transfer_receipt_pdf(grouped_items, from_location, to_location,
 
     table_rows = ""
     for idx, item in enumerate(grouped_items, 1):
-        unique_id_display = item['unique_ids'][0] if item['unique_ids'] else 'N/A'
+        unique_id_display = html.escape(item['unique_ids'][0]) if item['unique_ids'] else 'N/A'
         if len(item['unique_ids']) > 1:
             unique_id_display += f" <span style='color:#666;font-size:7pt;'>+{len(item['unique_ids'])-1} more</span>"
         
@@ -665,14 +662,14 @@ def generate_transfer_receipt_pdf(grouped_items, from_location, to_location,
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width: 8%;" class="text-center">#</th>
-                    <th style="width: 25%;">Item Name</th>
-                    <th style="width: 8%;" class="text-center">Qty</th>
-                    <th style="width: 22%;">Unique ID</th>
-                    <th style="width: 17%;">Category</th>
-                     <th style="width: 14%;">Assigned To</th>
-
-                    <th style="width: 20%;" class="text-right">Value</th>
+                    <th style="width: 5%;" class="text-center">#</th>
+                    <th style="width: 20%;">Item Name</th>
+                    <th style="width: 5%;" class="text-center">Qty</th>
+                    <th style="width: 18%;">Unique ID</th>
+                    <th style="width: 12%;">Category</th>
+                    <th style="width: 10%;" class="text-center">Status</th>
+                    <th style="width: 15%;">Assigned To</th>
+                    <th style="width: 15%;" class="text-right">Value</th>
                 </tr>
             </thead>
             <tbody>
@@ -757,24 +754,28 @@ def generate_inventory_list_report(request):
         # Build queryset
         queryset = InventoryItem.objects.select_related('category', 'school', 'assigned_to')
         
-        # RBAC filter first
-        if not is_admin_user(user):
+        # RBAC filter first (Admin/BDM unrestricted)
+        if not is_admin_or_bdm(user):
             allowed_schools = get_user_allowed_schools(user)
             queryset = queryset.filter(
                 location='School',
                 school_id__in=allowed_schools
             )
-        
+
         # Apply additional filters
         if filters.get('location'):
             queryset = queryset.filter(location=filters['location'])
         if filters.get('school_id'):
+            try:
+                filter_school_id = int(filters['school_id'])
+            except (TypeError, ValueError):
+                return Response({"error": "Invalid school id"}, status=400)
             # Validate teacher can access this school
-            if not is_admin_user(user):
+            if not is_admin_or_bdm(user):
                 allowed = get_user_allowed_schools(user)
-                if int(filters['school_id']) not in allowed:
+                if filter_school_id not in allowed:
                     return Response({"error": "Access denied to this school"}, status=403)
-            queryset = queryset.filter(school_id=filters['school_id'])
+            queryset = queryset.filter(school_id=filter_school_id)
         if filters.get('category_id'):
             queryset = queryset.filter(category_id=filters['category_id'])
         if filters.get('status'):
@@ -846,7 +847,7 @@ def generate_inventory_list_pdf(items, total_items, total_value, filter_descript
     
     table_rows = ""
     for idx, item in enumerate(items, 1):
-        unique_id_display = item['unique_ids'][0] if item['unique_ids'] else 'N/A'
+        unique_id_display = html.escape(item['unique_ids'][0]) if item['unique_ids'] else 'N/A'
         if len(item['unique_ids']) > 1:
             unique_id_display += f" <span style='color:#666;font-size:7pt;'>+{len(item['unique_ids'])-1} more</span>"
         
@@ -897,7 +898,6 @@ def generate_inventory_list_pdf(items, total_items, total_value, filter_descript
         
         <table class="data-table">
             <thead>
-               <thead>
                 <tr>
                     <th style="width: 5%;" class="text-center">#</th>
                     <th style="width: 20%;">Item Name</th>
@@ -908,7 +908,6 @@ def generate_inventory_list_pdf(items, total_items, total_value, filter_descript
                     <th style="width: 15%;">Assigned To</th>
                     <th style="width: 15%;" class="text-right">Value</th>
                 </tr>
-
             </thead>
             <tbody>
                 {table_rows}
@@ -965,8 +964,8 @@ def generate_item_detail_report(request, item_id):
         user = request.user
         item = InventoryItem.objects.select_related('category', 'school', 'assigned_to').get(id=item_id)
         
-        # RBAC check
-        if not is_admin_user(user):
+        # RBAC check (Admin/BDM unrestricted)
+        if not is_admin_or_bdm(user):
             allowed_schools = get_user_allowed_schools(user)
             if item.location != 'School' or item.school_id not in allowed_schools:
                 return Response({"error": "Access denied to this item"}, status=403)

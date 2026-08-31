@@ -41,7 +41,6 @@ import TransactionsPage from "./pages/TransactionsPage";
 import { ToastContainer } from "react-toastify"; 
 import "react-toastify/dist/ReactToastify.css"; 
 import RobotChat from "./components/RobotChat";
-import InventoryPage from './pages/InventoryPage';
 import CSVUpload from './components/CSVUpload';
 import SettingsPage from './pages/SettingsPage';
 import SettingsRouter from './pages/SettingsRouter';
@@ -62,7 +61,6 @@ import ProposalGenerator from './pages/crm/ProposalGenerator';
 
 // Monitoring Pages
 import MonitoringPage from './pages/monitoring/MonitoringPage';
-import MonitoringTemplatesPage from './pages/monitoring/MonitoringTemplatesPage';
 import VisitDetailPage from './pages/monitoring/VisitDetailPage';
 import EvaluationHistoryPage from './pages/monitoring/EvaluationHistoryPage';
 
@@ -389,7 +387,7 @@ const AppContent = React.memo(function AppContent() {
 
       <Route path="/robot-chat" element={<ProtectedRoute element={<RobotChat />} allowedRoles={["Admin", "Teacher", "Student"]} />} />
       <Route path="/inventory-dashboard" element={<ProtectedRoute element= {<InventoryDashboard/>}allowedRoles={["Admin", "Teacher", "BDM"]} />} />
-      <Route path="/inventory" element={<ProtectedRoute element={<InventoryPage />} allowedRoles={["Admin", "Teacher", "BDM"]}/>}/>
+      <Route path="/inventory" element={<Navigate to="/inventory-dashboard" replace />} />
 
       {/* ✅ Admin Only Routes */}
       <Route path="/admindashboard" element={<ProtectedRoute element={<AdminDashboard />} allowedRoles={["Admin"]} />} />
@@ -412,7 +410,6 @@ const AppContent = React.memo(function AppContent() {
 
       {/* ✅ Monitoring Routes - Admin & BDM */}
       <Route path="/monitoring" element={<ProtectedRoute element={<MonitoringPage />} allowedRoles={["Admin", "BDM"]} />} />
-      <Route path="/monitoring/templates" element={<ProtectedRoute element={<MonitoringTemplatesPage />} allowedRoles={["Admin"]} />} />
       <Route path="/monitoring/visits/:visitId" element={<ProtectedRoute element={<VisitDetailPage />} allowedRoles={["Admin", "BDM"]} />} />
       <Route path="/monitoring/evaluations" element={<ProtectedRoute element={<EvaluationHistoryPage />} allowedRoles={["Admin", "Teacher"]} />} />
 

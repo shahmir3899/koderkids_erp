@@ -5,24 +5,9 @@
 from django.contrib import admin
 from .models import (
     MonitoringVisit,
-    EvaluationFormTemplate,
-    EvaluationFormField,
     TeacherEvaluation,
-    EvaluationResponse,
+    EvaluationQuestion,
 )
-
-
-class EvaluationFormFieldInline(admin.TabularInline):
-    model = EvaluationFormField
-    extra = 1
-    ordering = ['order']
-
-
-@admin.register(EvaluationFormTemplate)
-class EvaluationFormTemplateAdmin(admin.ModelAdmin):
-    list_display = ['name', 'is_active', 'created_by', 'created_at']
-    list_filter = ['is_active']
-    inlines = [EvaluationFormFieldInline]
 
 
 @admin.register(MonitoringVisit)
@@ -33,15 +18,15 @@ class MonitoringVisitAdmin(admin.ModelAdmin):
     date_hierarchy = 'visit_date'
 
 
-class EvaluationResponseInline(admin.TabularInline):
-    model = EvaluationResponse
+class EvaluationQuestionInline(admin.TabularInline):
+    model = EvaluationQuestion
     extra = 0
-    readonly_fields = ['field', 'value', 'numeric_value']
+    readonly_fields = ['question_text', 'answer_text', 'rating']
 
 
 @admin.register(TeacherEvaluation)
 class TeacherEvaluationAdmin(admin.ModelAdmin):
-    list_display = ['teacher', 'visit', 'template', 'normalized_score', 'submitted_at']
-    list_filter = ['template', 'submitted_at']
+    list_display = ['teacher', 'visit', 'normalized_score', 'submitted_at']
+    list_filter = ['submitted_at']
     search_fields = ['teacher__username', 'teacher__first_name']
-    inlines = [EvaluationResponseInline]
+    inlines = [EvaluationQuestionInline]

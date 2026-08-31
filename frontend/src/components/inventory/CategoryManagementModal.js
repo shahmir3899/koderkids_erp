@@ -1,54 +1,142 @@
 // ============================================
-// CATEGORY MANAGEMENT MODAL
+// CATEGORY MANAGEMENT MODAL - Gradient Design System
 // ============================================
 // Location: src/components/inventory/CategoryManagementModal.js
+//
+// Restyled to match the glassmorphism gradient design used by
+// TransferModal.js / ReassignModal.js. All add/edit/delete/validation
+// logic below is unchanged from the previous light-theme version -
+// only the styling layer, portal wrapping, and close-button markup changed.
 
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { toast } from 'react-toastify';
 import { createCategory, updateCategory, deleteCategory } from '../../services/inventoryService';
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  TRANSITIONS,
+  Z_INDEX,
+} from '../../utils/designConstants';
 
 // ============================================
-// STYLES
+// STYLES - matches TransferModal/ReassignModal's gradient design
 // ============================================
 
-const modalOverlayStyle = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-  padding: '1rem',
-};
-
-const modalContentStyle = {
-  backgroundColor: 'white',
-  borderRadius: '16px',
-  width: '100%',
-  maxWidth: '500px',
-  maxHeight: '80vh',
-  overflow: 'hidden',
-  display: 'flex',
-  flexDirection: 'column',
-  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-};
-
-const modalHeaderStyle = {
-  padding: '1.5rem',
-  borderBottom: '1px solid #E5E7EB',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-};
-
-const modalBodyStyle = {
-  padding: '1.5rem',
-  overflowY: 'auto',
-  flex: 1,
+const styles = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: Z_INDEX.modal,
+    padding: SPACING.sm,
+    backdropFilter: 'blur(4px)',
+  },
+  modal: {
+    background: COLORS.background.gradient,
+    borderRadius: BORDER_RADIUS.xl,
+    width: '100%',
+    maxWidth: '600px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: SPACING.lg,
+    borderBottom: `1px solid ${COLORS.border.whiteTransparent}`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+  },
+  title: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    margin: 0,
+  },
+  subtitle: {
+    margin: `${SPACING.xs} 0 0`,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text.whiteSubtle,
+  },
+  closeButton: {
+    padding: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: '50%',
+    cursor: 'pointer',
+    color: COLORS.text.white,
+    transition: `all ${TRANSITIONS.fast} ease`,
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  content: {
+    padding: SPACING.lg,
+  },
+  label: {
+    display: 'block',
+    marginBottom: SPACING.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.sm,
+  },
+  input: {
+    width: '100%',
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    boxSizing: 'border-box',
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: COLORS.text.white,
+    outline: 'none',
+  },
+  footer: {
+    padding: SPACING.lg,
+    borderTop: `1px solid ${COLORS.border.whiteTransparent}`,
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: SPACING.sm,
+    background: 'rgba(255, 255, 255, 0.03)',
+  },
+  cancelButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: COLORS.text.white,
+    border: `1px solid ${COLORS.border.whiteTransparent}`,
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+  },
+  submitButton: {
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    backgroundColor: '#8B5CF6',
+    color: COLORS.text.white,
+    border: 'none',
+    borderRadius: BORDER_RADIUS.md,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    cursor: 'pointer',
+    transition: `all ${TRANSITIONS.fast} ease`,
+    boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)',
+  },
 };
 
 // ============================================
@@ -69,9 +157,9 @@ const CategoryItem = ({ category, onEdit, onDelete, isDeleting }) => {
 
     setIsSaving(true);
     try {
-      await onEdit(category.id, { 
-        name: editName.trim(), 
-        description: editDescription.trim() 
+      await onEdit(category.id, {
+        name: editName.trim(),
+        description: editDescription.trim()
       });
       setIsEditing(false);
     } catch (error) {
@@ -89,25 +177,18 @@ const CategoryItem = ({ category, onEdit, onDelete, isDeleting }) => {
   if (isEditing) {
     return (
       <div style={{
-        padding: '1rem',
-        backgroundColor: '#F0F9FF',
-        borderRadius: '8px',
-        marginBottom: '0.75rem',
-        border: '1px solid #BAE6FD',
+        padding: SPACING.md,
+        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+        borderRadius: BORDER_RADIUS.md,
+        marginBottom: SPACING.sm,
+        border: '1px solid rgba(139, 92, 246, 0.3)',
       }}>
         <input
           type="text"
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           placeholder="Category name"
-          style={{
-            width: '100%',
-            padding: '0.5rem 0.75rem',
-            border: '1px solid #D1D5DB',
-            borderRadius: '6px',
-            marginBottom: '0.5rem',
-            fontSize: '0.875rem',
-          }}
+          style={{ ...styles.input, marginBottom: SPACING.sm }}
           autoFocus
         />
         <input
@@ -115,27 +196,18 @@ const CategoryItem = ({ category, onEdit, onDelete, isDeleting }) => {
           value={editDescription}
           onChange={(e) => setEditDescription(e.target.value)}
           placeholder="Description (optional)"
-          style={{
-            width: '100%',
-            padding: '0.5rem 0.75rem',
-            border: '1px solid #D1D5DB',
-            borderRadius: '6px',
-            marginBottom: '0.75rem',
-            fontSize: '0.875rem',
-          }}
+          style={{ ...styles.input, marginBottom: SPACING.md }}
         />
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: SPACING.sm, justifyContent: 'flex-end' }}>
           <button
             onClick={handleCancel}
             disabled={isSaving}
             style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: '6px',
-              border: '1px solid #D1D5DB',
-              backgroundColor: 'white',
-              color: '#374151',
-              fontSize: '0.75rem',
-              cursor: 'pointer',
+              ...styles.cancelButton,
+              padding: `${SPACING.xs} ${SPACING.md}`,
+              fontSize: FONT_SIZES.xs,
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              opacity: isSaving ? 0.6 : 1,
             }}
           >
             Cancel
@@ -144,12 +216,13 @@ const CategoryItem = ({ category, onEdit, onDelete, isDeleting }) => {
             onClick={handleSave}
             disabled={isSaving}
             style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: '6px',
+              padding: `${SPACING.xs} ${SPACING.md}`,
+              borderRadius: BORDER_RADIUS.md,
               border: 'none',
-              backgroundColor: '#10B981',
-              color: 'white',
-              fontSize: '0.75rem',
+              backgroundColor: isSaving ? 'rgba(16, 185, 129, 0.5)' : COLORS.status.success,
+              color: COLORS.text.white,
+              fontSize: FONT_SIZES.xs,
+              fontWeight: FONT_WEIGHTS.medium,
               cursor: isSaving ? 'not-allowed' : 'pointer',
             }}
           >
@@ -165,53 +238,53 @@ const CategoryItem = ({ category, onEdit, onDelete, isDeleting }) => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '1rem',
-      backgroundColor: '#F9FAFB',
-      borderRadius: '8px',
-      marginBottom: '0.75rem',
-      border: '1px solid #E5E7EB',
+      padding: SPACING.md,
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      borderRadius: BORDER_RADIUS.md,
+      marginBottom: SPACING.sm,
+      border: `1px solid ${COLORS.border.whiteTransparent}`,
     }}>
       <div style={{ flex: 1 }}>
-        <div style={{ 
-          fontWeight: '500', 
-          color: '#1F2937',
+        <div style={{
+          fontWeight: FONT_WEIGHTS.medium,
+          color: COLORS.text.white,
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
+          gap: SPACING.sm,
         }}>
           🏷️ {category.name}
           {category.item_count !== undefined && (
             <span style={{
-              fontSize: '0.75rem',
-              padding: '0.125rem 0.5rem',
-              backgroundColor: '#E0E7FF',
-              color: '#3730A3',
-              borderRadius: '9999px',
+              fontSize: FONT_SIZES.xs,
+              padding: `2px ${SPACING.sm}`,
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              color: COLORS.text.whiteSubtle,
+              borderRadius: BORDER_RADIUS.full,
             }}>
               {category.item_count} items
             </span>
           )}
         </div>
         {category.description && (
-          <div style={{ 
-            fontSize: '0.75rem', 
-            color: '#6B7280', 
-            marginTop: '0.25rem' 
+          <div style={{
+            fontSize: FONT_SIZES.xs,
+            color: COLORS.text.whiteSubtle,
+            marginTop: SPACING.xs,
           }}>
             {category.description}
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: SPACING.sm }}>
         <button
           onClick={() => setIsEditing(true)}
           style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: '6px',
+            padding: `${SPACING.xs} ${SPACING.md}`,
+            borderRadius: BORDER_RADIUS.md,
             border: 'none',
-            backgroundColor: '#3B82F6',
-            color: 'white',
-            fontSize: '0.75rem',
+            backgroundColor: COLORS.status.infoDark,
+            color: COLORS.text.white,
+            fontSize: FONT_SIZES.xs,
             cursor: 'pointer',
           }}
         >
@@ -221,12 +294,12 @@ const CategoryItem = ({ category, onEdit, onDelete, isDeleting }) => {
           onClick={() => onDelete(category.id)}
           disabled={isDeleting}
           style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: '6px',
+            padding: `${SPACING.xs} ${SPACING.md}`,
+            borderRadius: BORDER_RADIUS.md,
             border: 'none',
-            backgroundColor: isDeleting ? '#9CA3AF' : '#EF4444',
-            color: 'white',
-            fontSize: '0.75rem',
+            backgroundColor: isDeleting ? 'rgba(156, 163, 175, 0.6)' : COLORS.status.errorDark,
+            color: COLORS.text.white,
+            fontSize: FONT_SIZES.xs,
             cursor: isDeleting ? 'not-allowed' : 'pointer',
           }}
         >
@@ -260,11 +333,17 @@ export const CategoryManagementModal = ({
       return;
     }
 
+    const trimmedName = newName.trim();
+    if (categories.some(c => c.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
+      toast.error('A category with this name already exists');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await createCategory({ 
-        name: newName.trim(), 
-        description: newDescription.trim() 
+      await createCategory({
+        name: trimmedName,
+        description: newDescription.trim()
       });
       toast.success('Category added successfully');
       setNewName('');
@@ -294,8 +373,8 @@ export const CategoryManagementModal = ({
   // Delete category
   const handleDelete = async (id) => {
     const category = categories.find(c => c.id === id);
-    
-    if (category?.item_count > 0) {
+
+    if ((category?.item_count ?? 0) > 0) {
       toast.error(`Cannot delete: ${category.item_count} items are using this category`);
       return;
     }
@@ -325,50 +404,48 @@ export const CategoryManagementModal = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div style={modalOverlayStyle} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={modalContentStyle}>
-        {/* ============================================ */}
-        {/* HEADER */}
-        {/* ============================================ */}
-        <div style={modalHeaderStyle}>
+  return ReactDOM.createPortal(
+    <div style={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <style>
+        {`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+          .category-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+          }
+          .category-input:focus {
+            border-color: rgba(139, 92, 246, 0.6) !important;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+          }
+        `}
+      </style>
+      <div style={styles.modal}>
+        {/* Header */}
+        <div style={styles.header}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600', color: '#1F2937' }}>
-              🏷️ Manage Categories
-            </h2>
-            <p style={{ margin: '0.25rem 0 0 0', color: '#6B7280', fontSize: '0.875rem' }}>
-              {categories.length} categories total
-            </p>
+            <h2 style={styles.title}>🏷️ Manage Categories</h2>
+            <p style={styles.subtitle}>{categories.length} categories total</p>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              color: '#6B7280',
-              padding: '0.5rem',
-            }}
-          >
-            ✕
+          <button onClick={onClose} style={styles.closeButton} title="Close">
+            <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        {/* ============================================ */}
-        {/* BODY */}
-        {/* ============================================ */}
-        <div style={modalBodyStyle}>
+        {/* Body */}
+        <div style={styles.content}>
           {/* Add New Category Section */}
           {isAdding ? (
             <div style={{
-              padding: '1rem',
-              backgroundColor: '#F0FDF4',
-              borderRadius: '8px',
-              marginBottom: '1.5rem',
-              border: '1px solid #BBF7D0',
+              padding: SPACING.md,
+              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+              borderRadius: BORDER_RADIUS.md,
+              marginBottom: SPACING.lg,
+              border: '1px solid rgba(16, 185, 129, 0.3)',
             }}>
-              <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', color: '#166534' }}>
+              <h4 style={{ margin: `0 0 ${SPACING.sm} 0`, fontSize: FONT_SIZES.sm, color: COLORS.text.white }}>
                 ➕ Add New Category
               </h4>
               <input
@@ -376,14 +453,8 @@ export const CategoryManagementModal = ({
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Category name *"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #D1D5DB',
-                  borderRadius: '8px',
-                  marginBottom: '0.75rem',
-                  fontSize: '0.875rem',
-                }}
+                className="category-input"
+                style={{ ...styles.input, marginBottom: SPACING.sm }}
                 autoFocus
               />
               <input
@@ -391,16 +462,10 @@ export const CategoryManagementModal = ({
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
                 placeholder="Description (optional)"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #D1D5DB',
-                  borderRadius: '8px',
-                  marginBottom: '1rem',
-                  fontSize: '0.875rem',
-                }}
+                className="category-input"
+                style={{ ...styles.input, marginBottom: SPACING.md }}
               />
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: SPACING.sm, justifyContent: 'flex-end' }}>
                 <button
                   onClick={() => {
                     setIsAdding(false);
@@ -409,14 +474,9 @@ export const CategoryManagementModal = ({
                   }}
                   disabled={isSubmitting}
                   style={{
-                    padding: '0.625rem 1.25rem',
-                    borderRadius: '8px',
-                    border: '1px solid #D1D5DB',
-                    backgroundColor: 'white',
-                    color: '#374151',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
+                    ...styles.cancelButton,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    opacity: isSubmitting ? 0.6 : 1,
                   }}
                 >
                   Cancel
@@ -425,14 +485,14 @@ export const CategoryManagementModal = ({
                   onClick={handleAdd}
                   disabled={isSubmitting}
                   style={{
-                    padding: '0.625rem 1.25rem',
-                    borderRadius: '8px',
+                    padding: `${SPACING.sm} ${SPACING.lg}`,
+                    borderRadius: BORDER_RADIUS.md,
                     border: 'none',
-                    backgroundColor: isSubmitting ? '#9CA3AF' : '#10B981',
-                    color: 'white',
-                    fontWeight: '500',
+                    backgroundColor: isSubmitting ? 'rgba(16, 185, 129, 0.5)' : COLORS.status.success,
+                    color: COLORS.text.white,
+                    fontWeight: FONT_WEIGHTS.medium,
                     cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    fontSize: '0.875rem',
+                    fontSize: FONT_SIZES.sm,
                   }}
                 >
                   {isSubmitting ? '⏳ Adding...' : '✓ Add Category'}
@@ -444,28 +504,28 @@ export const CategoryManagementModal = ({
               onClick={() => setIsAdding(true)}
               style={{
                 width: '100%',
-                padding: '1rem',
-                border: '2px dashed #D1D5DB',
-                borderRadius: '8px',
+                padding: SPACING.md,
+                border: `2px dashed ${COLORS.border.whiteTransparent}`,
+                borderRadius: BORDER_RADIUS.md,
                 backgroundColor: 'transparent',
-                color: '#6B7280',
-                fontWeight: '500',
+                color: COLORS.text.whiteSubtle,
+                fontWeight: FONT_WEIGHTS.medium,
                 cursor: 'pointer',
-                marginBottom: '1.5rem',
-                fontSize: '0.875rem',
+                marginBottom: SPACING.lg,
+                fontSize: FONT_SIZES.sm,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s',
+                gap: SPACING.sm,
+                transition: `all ${TRANSITIONS.normal}`,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#10B981';
-                e.currentTarget.style.color = '#10B981';
+                e.currentTarget.style.borderColor = COLORS.status.success;
+                e.currentTarget.style.color = COLORS.status.success;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#D1D5DB';
-                e.currentTarget.style.color = '#6B7280';
+                e.currentTarget.style.borderColor = COLORS.border.whiteTransparent;
+                e.currentTarget.style.color = COLORS.text.whiteSubtle;
               }}
             >
               ➕ Add New Category
@@ -474,22 +534,22 @@ export const CategoryManagementModal = ({
 
           {/* Categories List */}
           <div>
-            <h4 style={{ 
-              margin: '0 0 1rem 0', 
-              fontSize: '0.875rem', 
-              color: '#374151',
-              fontWeight: '600',
+            <h4 style={{
+              margin: `0 0 ${SPACING.md} 0`,
+              fontSize: FONT_SIZES.sm,
+              color: COLORS.text.white,
+              fontWeight: FONT_WEIGHTS.semibold,
             }}>
               Existing Categories
             </h4>
-            
+
             {categories.length === 0 ? (
               <div style={{
-                padding: '2rem',
+                padding: SPACING['2xl'],
                 textAlign: 'center',
-                color: '#9CA3AF',
-                backgroundColor: '#F9FAFB',
-                borderRadius: '8px',
+                color: COLORS.text.whiteSubtle,
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: BORDER_RADIUS.md,
               }}>
                 No categories yet. Add your first category above.
               </div>
@@ -507,7 +567,8 @@ export const CategoryManagementModal = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

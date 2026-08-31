@@ -270,7 +270,7 @@ INVENTORY_ACTIONS: Dict[str, ActionDefinition] = {
         required_params=["item_id"],
         optional_params=["user_id", "notes"],
         endpoint="/api/inventory/items/{item_id}/",
-        requires_confirmation=False,
+        requires_confirmation=True,
         description="Assign or unassign item to user"
     ),
     "GET_ITEM_DETAILS": ActionDefinition(

@@ -59,6 +59,7 @@ export const InventoryTable = ({
   items,
   loading,
   selectedItemIds,
+  selectedItems = [],
   toggleItemSelection,
   toggleSelectAll,
   clearSelection,
@@ -67,6 +68,7 @@ export const InventoryTable = ({
   onDelete,
   onPrintCertificate,
   onOpenTransfer,
+  onOpenReassign,
   onOpenReport,
   certificateLoading = {},
   noCollapse = false,
@@ -88,6 +90,7 @@ export const InventoryTable = ({
             type="checkbox"
             checked={selectedItemIds.length === items.length && items.length > 0}
             onChange={toggleSelectAll}
+            aria-label="Select all items"
             style={{
               cursor: 'pointer',
               width: isMobile ? '20px' : '16px',
@@ -102,6 +105,7 @@ export const InventoryTable = ({
             type="checkbox"
             checked={selectedItemIds.includes(row.id)}
             onChange={() => toggleItemSelection(row.id)}
+            aria-label={`Select ${row.name || 'item'}`}
             style={{
               cursor: 'pointer',
               width: isMobile ? '20px' : '16px',
@@ -366,6 +370,12 @@ export const InventoryTable = ({
   const SelectionBar = () => {
     if (selectedItemIds.length === 0) return null;
 
+    // Bulk reassign only makes sense when every selected item currently
+    // shares the same assignee - otherwise it's ambiguous whose assignment
+    // is being replaced.
+    const canReassign = selectedItems.length > 0 &&
+      selectedItems.every(item => item.assigned_to === selectedItems[0].assigned_to);
+
     return (
       <div style={{
         display: 'flex',
@@ -414,6 +424,30 @@ export const InventoryTable = ({
           >
             📦 {isMobile ? 'Transfer' : 'Transfer Selected'}
           </button>
+
+          {canReassign && (
+            <button
+              onClick={onOpenReassign}
+              style={{
+                padding: isMobile ? SPACING.sm : `${SPACING.sm} ${SPACING.md}`,
+                backgroundColor: '#0EA5E9',
+                color: 'white',
+                border: 'none',
+                borderRadius: BORDER_RADIUS.md,
+                fontSize: isMobile ? '0.875rem' : '0.8125rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: SPACING.xs,
+                minHeight: TOUCH_TARGETS.minimum,
+                flex: isMobile ? 1 : 'none',
+              }}
+            >
+              🔄 {isMobile ? 'Reassign' : 'Reassign Selected'}
+            </button>
+          )}
 
           <button
             onClick={clearSelection}

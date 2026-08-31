@@ -40,11 +40,9 @@ import { fetchVisitDetail, fetchVisitEvaluations, fetchEvaluationDetail } from '
 // ============================================
 
 const STATUS_COLORS = {
-  planned:     { bg: 'rgba(99,102,241,0.15)', color: '#818CF8', border: 'rgba(99,102,241,0.4)' },
   in_progress: { bg: 'rgba(245,158,11,0.15)', color: '#FBBF24', border: 'rgba(245,158,11,0.4)' },
   completed:   { bg: 'rgba(16,185,129,0.15)', color: '#34D399', border: 'rgba(16,185,129,0.4)' },
   cancelled:   { bg: 'rgba(239,68,68,0.15)', color: '#F87171', border: 'rgba(239,68,68,0.4)' },
-  missed:      { bg: 'rgba(156,163,175,0.15)', color: '#9CA3AF', border: 'rgba(156,163,175,0.4)' },
 };
 
 const scoreColor = (score) => {
@@ -69,46 +67,41 @@ const formatDate = (d) => {
   return new Date(d).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-const formatTime = (t) => {
-  if (!t) return '—';
-  const [h, m] = t.split(':');
-  const hour = parseInt(h);
-  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
-};
-
 // ============================================
-// EVALUATION RESPONSE ROW
+// EVALUATION QUESTION ROW
 // ============================================
 
-const ResponseRow = ({ response, isMobile }) => (
+const QuestionRow = ({ question, isMobile }) => (
   <div style={{
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: SPACING.md,
     padding: `${SPACING.sm} 0`,
     borderBottom: '1px solid rgba(255,255,255,0.06)',
-    flexWrap: isMobile ? 'wrap' : 'nowrap',
   }}>
-    <span style={{ fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.65)', flex: 1, minWidth: 120 }}>
-      {response.field_label}
-    </span>
-    <span style={{
-      fontSize: FONT_SIZES.sm,
-      fontWeight: FONT_WEIGHTS.semibold,
-      color: response.field_type?.startsWith('rating')
-        ? scoreColor(parseFloat(response.numeric_value) * (response.field_type === 'rating_1_5' ? 20 : 10))
-        : COLORS.text.white,
-      textAlign: 'right',
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: SPACING.md,
+      flexWrap: isMobile ? 'wrap' : 'nowrap',
     }}>
-      {response.field_type === 'rating_1_5' && response.numeric_value
-        ? `${response.numeric_value} / 5`
-        : response.field_type === 'rating_1_10' && response.numeric_value
-        ? `${response.numeric_value} / 10`
-        : response.field_type === 'yes_no'
-        ? (response.numeric_value === '1' || response.numeric_value === 1 ? 'Yes' : 'No')
-        : response.value || '—'}
-    </span>
+      <span style={{ fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.65)', flex: 1, minWidth: 120 }}>
+        {question.question_text}
+      </span>
+      {question.rating != null && (
+        <span style={{
+          fontSize: FONT_SIZES.sm,
+          fontWeight: FONT_WEIGHTS.semibold,
+          color: scoreColor((question.rating / 5) * 100),
+          whiteSpace: 'nowrap',
+        }}>
+          {question.rating} / 5 <FontAwesomeIcon icon={faStar} style={{ fontSize: 11, marginLeft: 2 }} />
+        </span>
+      )}
+    </div>
+    {question.answer_text && (
+      <p style={{ margin: `${SPACING.xs} 0 0`, fontSize: FONT_SIZES.sm, color: COLORS.text.white }}>
+        {question.answer_text}
+      </p>
+    )}
   </div>
 );
 
@@ -182,9 +175,6 @@ const EvaluationCard = ({ evaluation, isMobile }) => {
             <p style={{ margin: 0, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.text.white, fontSize: FONT_SIZES.sm, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {evaluation.teacher_name}
             </p>
-            <p style={{ margin: 0, fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.5)' }}>
-              {evaluation.template_name}
-            </p>
           </div>
         </div>
 
@@ -222,14 +212,14 @@ const EvaluationCard = ({ evaluation, isMobile }) => {
           borderTop: '1px solid rgba(255,255,255,0.08)',
           animation: 'fadeIn 0.15s ease',
         }}>
-          {/* Field responses */}
-          {Array.isArray(detail.responses) && detail.responses.length > 0 && (
+          {/* Questions */}
+          {Array.isArray(detail.questions) && detail.questions.length > 0 && (
             <div style={{ marginBottom: SPACING.md }}>
               <p style={{ margin: `${SPACING.md} 0 ${SPACING.sm}`, fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.semibold, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Evaluation Responses
+                Questions & Answers
               </p>
-              {detail.responses.map((r) => (
-                <ResponseRow key={r.id} response={r} isMobile={isMobile} />
+              {detail.questions.map((q) => (
+                <QuestionRow key={q.id} question={q} isMobile={isMobile} />
               ))}
             </div>
           )}
@@ -318,11 +308,7 @@ const VisitDetailPage = () => {
   if (error) return <ErrorDisplay message={error} onRetry={loadData} />;
   if (!visit) return null;
 
-  const statusColors = STATUS_COLORS[visit.status] || STATUS_COLORS.planned;
-  const teacherNames = Array.isArray(visit.teacher_names) ? visit.teacher_names.filter(Boolean) : [];
-  const teacherCount = teacherNames.length > 0
-    ? teacherNames.length
-    : Number(visit.teacher_count || 0);
+  const statusColors = STATUS_COLORS[visit.status] || STATUS_COLORS.in_progress;
   const avgScore = evaluations.length > 0
     ? evaluations.reduce((sum, e) => sum + parseFloat(e.normalized_score || 0), 0) / evaluations.length
     : null;
@@ -399,19 +385,8 @@ const VisitDetailPage = () => {
           <MetaChip icon={faSchool} label="School" value={visit.school_name} color="#60A5FA" />
           <MetaChip icon={faUserTie} label="BDM" value={visit.bdm_name} color="#A78BFA" />
           <MetaChip icon={faCalendarAlt} label="Date" value={formatDate(visit.visit_date)} />
-          {visit.planned_time && (
-            <MetaChip icon={faStar} label="Planned Time" value={formatTime(visit.planned_time)} />
-          )}
-          <MetaChip icon={faUser} label="Teachers" value={`${teacherCount} assigned`} color="#93C5FD" />
           <MetaChip icon={faClipboardCheck} label="Evaluations" value={`${evaluations.length} recorded`} color="#34D399" />
         </div>
-
-        {teacherNames.length > 0 && (
-          <p style={{ margin: `${SPACING.md} 0 0`, fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.7)' }}>
-            <span style={{ color: 'rgba(255,255,255,0.4)' }}>Teacher Names: </span>
-            {teacherNames.join(', ')}
-          </p>
-        )}
 
         {visit.purpose && (
           <p style={{ margin: `${SPACING.md} 0 0`, fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.6)' }}>

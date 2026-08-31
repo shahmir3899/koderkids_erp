@@ -106,7 +106,19 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         # If location is not 'School', clear school
         if location != 'School':
             data['school'] = None
-        
+
+        # Guard against duplicate serial numbers (existing data may already have
+        # duplicates/blanks, so this is enforced here rather than a DB constraint)
+        serial_number = data.get('serial_number', self.instance.serial_number if self.instance else None)
+        if serial_number:
+            qs = InventoryItem.objects.filter(serial_number=serial_number)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    'serial_number': 'An item with this serial number already exists.'
+                })
+
         return data
 
 

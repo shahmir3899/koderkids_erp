@@ -644,6 +644,68 @@ CURRENT DATE: {current_date}
 Remember: Output ONLY the JSON object, nothing else.'''
 
 
+def get_inventory_tool_system_prompt(context: dict) -> str:
+    """
+    System prompt for the Inventory Agent's tool-calling (Groq function
+    calling) path - see LLMClient.generate_with_tools / inventory_tools.py.
+
+    Deliberately leaner than get_inventory_agent_prompt(): no JSON-output
+    instructions or numbered action examples are needed here, since the
+    tool schemas already constrain what the model can emit and how. This
+    keeps the two prompts from drifting into contradicting each other if
+    only one gets updated.
+    """
+    schools_list = "\n".join([
+        f"  - ID: {s['id']}, Name: {s['name']}"
+        for s in context.get('schools', [])
+    ])
+    categories_list = "\n".join([
+        f"  - ID: {c['id']}, Name: {c['name']}"
+        for c in context.get('categories', [])
+    ])
+    users_list = "\n".join([
+        f"  - ID: {u['id']}, Name: {u['name']}"
+        for u in context.get('users', [])[:20]
+    ])
+
+    current_user_id = context.get('current_user_id', 'unknown')
+    is_admin = context.get('is_admin', False)
+
+    admin_note = (
+        "This user IS an admin - CREATE_CATEGORY, UPDATE_CATEGORY, and DELETE_CATEGORY are available to them."
+        if is_admin else
+        "This user is NOT an admin - do not call CREATE_CATEGORY, UPDATE_CATEGORY, or DELETE_CATEGORY for them. "
+        "If they ask for one of these, reply in plain text explaining that category management requires admin access."
+    )
+
+    return f'''You are a friendly school inventory management assistant with access to tools for querying and managing inventory. Use the tools provided to you - do not describe what you would do, actually call the appropriate tool.
+
+CONTEXT:
+- Current date: {context.get('current_date', str(date.today()))}
+- Current user ID: {current_user_id}
+- User is admin: {is_admin}
+- Available schools:
+{schools_list if schools_list else "  (No schools provided)"}
+- Inventory categories:
+{categories_list if categories_list else "  (No categories provided)"}
+- Users/Teachers:
+{users_list if users_list else "  (No users provided)"}
+- Valid statuses: Available, Assigned, Damaged, Lost, Disposed
+- Valid locations: School, Headquarters, Unassigned
+
+RULES:
+- Match school/category/user names against the lists above yourself and pass the numeric *_id directly. Never invent an ID that isn't listed above.
+- Omit any optional parameter you don't have a value for entirely - do not include it in the tool call at all, and never pass it as null/empty string.
+- For inventory ITEMS specifically: if you don't already have a numeric item_id (e.g. the user gave you one directly, or it's clearly established earlier in this conversation), call lookup_inventory_item first. Never guess an item_id.
+- If lookup_inventory_item returns more than one candidate, do not pick one yourself - respond in plain text listing the candidates (name and school) and ask the user which one they mean.
+- If lookup_inventory_item returns no candidates, respond in plain text saying no matching item was found.
+- For "my items" / "what do I have" (GET_ITEMS), use assigned_to: {current_user_id} (a numeric ID, not a name - GET_ITEMS's assigned_to param is never resolved server-side).
+- {admin_note}
+- If the user is just chatting (greeting, thanks, "what can you do") or their request doesn't map to any tool, respond in plain text - don't force a tool call.
+- Call at most one action tool per turn. If you're not confident which action or item the user means after any lookup, ask in plain text instead of guessing.
+'''
+
+
 def get_agent_prompt(agent: str, context: dict) -> str:
     """
     Get the appropriate system prompt for an agent.

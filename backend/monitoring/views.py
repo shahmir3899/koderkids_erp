@@ -8,24 +8,18 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Count, Q, Prefetch
-from datetime import datetime, timedelta
 from decimal import Decimal
 
 from .models import (
     MonitoringVisit,
-    EvaluationFormTemplate,
-    EvaluationFormField,
     TeacherEvaluation,
-    EvaluationResponse,
+    EvaluationQuestion,
 )
 from .serializers import (
     MonitoringVisitSerializer,
     MonitoringVisitDetailSerializer,
-    EvaluationFormTemplateSerializer,
-    EvaluationFormTemplateListSerializer,
     TeacherEvaluationSerializer,
     TeacherEvaluationListSerializer,
-    EvaluationResponseWriteSerializer,
 )
 from students.models import CustomUser, School
 
@@ -64,7 +58,7 @@ def is_admin_or_bdm(user):
 def visit_list(request):
     """
     GET  /api/monitoring/visits/        — List visits (BDM: own, Admin: all)
-    POST /api/monitoring/visits/        — Plan a new visit
+    POST /api/monitoring/visits/        — Start monitoring a school now
     """
     if not is_admin_or_bdm(request.user):
         return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
@@ -95,7 +89,6 @@ def visit_list(request):
         # Annotate counts to avoid N+1
         visits = visits.annotate(
             _evaluations_count=Count('evaluations', distinct=True),
-            _teacher_count=Count('assigned_teachers', filter=Q(assigned_teachers__role='Teacher', assigned_teachers__is_active=True), distinct=True),
         )
 
         paginate = request.query_params.get('paginate') == 'true'
@@ -121,54 +114,25 @@ def visit_list(request):
         serializer = MonitoringVisitSerializer(visits, many=True)
         return Response(serializer.data)
 
-    # POST — Plan a new visit
-    # Auto-assign BDM to self so serializer validation sees the field
-    data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
-    if is_bdm(request.user) and 'bdm' not in data:
-        data['bdm'] = request.user.id
-
-    serializer = MonitoringVisitSerializer(data=data, context={'request': request})
+    # POST — Start monitoring a school now (visit is created already in_progress,
+    # always owned by whoever started it — Admin or BDM alike)
+    serializer = MonitoringVisitSerializer(data=request.data, context={'request': request})
     serializer.is_valid(raise_exception=True)
 
-    school = serializer.validated_data['school']
-    visit_date = serializer.validated_data['visit_date']
-
-    # Validate working day
-    if hasattr(school, 'is_working_day') and not school.is_working_day(visit_date):
-        return Response(
-            {'error': f'{visit_date} is not a working day for {school.name}'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # Determine which BDM should own the visit
-    if is_bdm(request.user):
-        assigned_bdm = request.user
-    else:
-        assigned_bdm = serializer.validated_data.get('bdm')
-        if not assigned_bdm:
-            return Response(
-                {'error': 'Please assign a BDM when creating a visit'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    try:
-        serializer.save(bdm=assigned_bdm)
-        logger.info(
-            'Monitoring visit created: visit_id=%s actor_id=%s actor_role=%s assigned_bdm_id=%s school_id=%s visit_date=%s',
-            serializer.instance.id,
-            request.user.id,
-            request.user.role,
-            assigned_bdm.id,
-            serializer.instance.school_id,
-            serializer.instance.visit_date,
-        )
-    except Exception as e:
-        if 'unique' in str(e).lower():
-            return Response(
-                {'error': 'A visit already exists for this school on this date'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        raise
+    now = timezone.now()
+    serializer.save(
+        bdm=request.user,
+        status='in_progress',
+        visit_date=now.date(),
+        start_time=now.time(),
+    )
+    logger.info(
+        'Monitoring visit started: visit_id=%s actor_id=%s actor_role=%s school_id=%s',
+        serializer.instance.id,
+        request.user.id,
+        request.user.role,
+        serializer.instance.school_id,
+    )
 
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -178,7 +142,7 @@ def visit_list(request):
 def visit_detail(request, visit_id):
     """
     GET    /api/monitoring/visits/<id>/   — Visit detail with evaluations
-    PUT    /api/monitoring/visits/<id>/   — Update visit
+    PUT    /api/monitoring/visits/<id>/   — Update visit (purpose/notes)
     DELETE /api/monitoring/visits/<id>/   — Cancel visit
     """
     if not is_admin_or_bdm(request.user):
@@ -190,7 +154,7 @@ def visit_detail(request, visit_id):
         ).prefetch_related(
             Prefetch(
                 'evaluations',
-                queryset=TeacherEvaluation.objects.select_related('teacher', 'template'),
+                queryset=TeacherEvaluation.objects.select_related('teacher'),
             )
         ).get(id=visit_id)
     except MonitoringVisit.DoesNotExist:
@@ -205,16 +169,11 @@ def visit_detail(request, visit_id):
             evaluations_qs = visit.evaluations.all()
             evaluations_count = evaluations_qs.count()
             latest_evaluation = evaluations_qs.order_by('-submitted_at').values('submitted_at').first()
-            teachers_qs = visit.assigned_teachers.filter(role='Teacher', is_active=True)
-            teacher_count = teachers_qs.count()
-            teacher_names = [teacher.get_full_name() or teacher.username for teacher in teachers_qs]
             return Response({
                 'id': visit.id,
                 'status': visit.status,
                 'school_name': visit.school.name,
                 'visit_date': visit.visit_date,
-                'teacher_count': teacher_count,
-                'teacher_names': teacher_names,
                 'evaluations_count': evaluations_count,
                 'evaluation_count': evaluations_count,
                 'last_evaluation_submitted_at': latest_evaluation['submitted_at'] if latest_evaluation else None,
@@ -226,43 +185,7 @@ def visit_detail(request, visit_id):
     if request.method == 'PUT':
         serializer = MonitoringVisitSerializer(visit, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
-
-        # Re-validate working day if date changed
-        new_date = serializer.validated_data.get('visit_date')
-        if new_date and new_date != visit.visit_date:
-            if hasattr(visit.school, 'is_working_day') and not visit.school.is_working_day(new_date):
-                return Response(
-                    {'error': f'{new_date} is not a working day for {visit.school.name}'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        new_bdm = serializer.validated_data.get('bdm')
-        previous_bdm = visit.bdm
-
-        if new_bdm and new_bdm != previous_bdm and visit.status == 'completed':
-            return Response(
-                {'error': 'Cannot reassign a completed visit'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if is_bdm(request.user):
-            if new_bdm and new_bdm != visit.bdm:
-                return Response({'error': 'BDMs cannot reassign visits'}, status=status.HTTP_403_FORBIDDEN)
-            serializer.save(bdm=visit.bdm)
-        else:
-            serializer.save()
-
-        if new_bdm and previous_bdm != serializer.instance.bdm:
-            logger.info(
-                'Monitoring visit reassigned: visit_id=%s actor_id=%s actor_role=%s old_bdm_id=%s new_bdm_id=%s status=%s',
-                serializer.instance.id,
-                request.user.id,
-                request.user.role,
-                previous_bdm.id if previous_bdm else None,
-                serializer.instance.bdm_id,
-                serializer.instance.status,
-            )
-
+        serializer.save()
         return Response(serializer.data)
 
     # DELETE — remove visit
@@ -273,37 +196,6 @@ def visit_detail(request, visit_id):
         )
     visit.delete()
     return Response({'message': 'Visit deleted'}, status=status.HTTP_200_OK)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def visit_start(request, visit_id):
-    """POST /api/monitoring/visits/<id>/start/ — Mark visit as in_progress"""
-    if not is_admin_or_bdm(request.user):
-        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
-
-    try:
-        visit = MonitoringVisit.objects.get(id=visit_id)
-    except MonitoringVisit.DoesNotExist:
-        return Response({'error': 'Visit not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    if is_bdm(request.user) and visit.bdm != request.user:
-        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
-
-    if visit.status != 'planned':
-        return Response(
-            {'error': f'Cannot start a visit with status "{visit.status}"'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    visit.status = 'in_progress'
-    visit.start_time = timezone.now().time()
-    visit.save(update_fields=['status', 'start_time', 'updated_at'])
-
-    return Response({
-        'message': 'Visit started',
-        'visit': MonitoringVisitSerializer(visit).data,
-    })
 
 
 @api_view(['POST'])
@@ -340,7 +232,7 @@ def visit_complete(request, visit_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def visit_teachers(request, visit_id):
-    """GET /api/monitoring/visits/<id>/teachers/ — Teachers at the visit's school"""
+    """GET /api/monitoring/visits/<id>/teachers/ — Active teachers at the visit's school"""
     if not is_admin_or_bdm(request.user):
         return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -352,10 +244,11 @@ def visit_teachers(request, visit_id):
     if is_bdm(request.user) and visit.bdm != request.user:
         return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-    teachers = visit.assigned_teachers.filter(
+    teachers = CustomUser.objects.filter(
+        assigned_schools=visit.school,
         role='Teacher',
         is_active=True,
-    ).values('id', 'username', 'first_name', 'last_name')
+    ).distinct().values('id', 'username', 'first_name', 'last_name')
 
     # Check which teachers already have an evaluation for this visit
     evaluated_counts = {}
@@ -405,153 +298,6 @@ def school_teachers(request, school_id):
 
 
 # ============================================
-# SCHOOL WORKING DAYS
-# ============================================
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def school_working_days(request, school_id):
-    """
-    GET /api/monitoring/schools/<id>/working-days/
-    Returns the school's assigned_days and upcoming valid visit dates.
-    """
-    if not is_admin_or_bdm(request.user):
-        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
-
-    try:
-        school = School.objects.get(id=school_id, is_active=True)
-    except School.DoesNotExist:
-        return Response({'error': 'School not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    assigned_days = school.assigned_days or []
-
-    # Generate next 30 valid working dates
-    upcoming_dates = []
-    current = timezone.now().date()
-    for i in range(60):  # look ahead 60 days to find 30 valid ones
-        check_date = current + timedelta(days=i)
-        if check_date.weekday() in assigned_days:
-            upcoming_dates.append(check_date.isoformat())
-        if len(upcoming_dates) >= 30:
-            break
-
-    # Use provided times or default to 8:00 AM - 3:00 PM
-    if school.start_time:
-        start_time = school.start_time
-    else:
-        start_time = datetime.strptime("08:00", "%H:%M").time()
-    
-    if school.end_time:
-        end_time = school.end_time
-    else:
-        end_time = datetime.strptime("15:00", "%H:%M").time()
-
-    return Response({
-        'school_id': school.id,
-        'school_name': school.name,
-        'assigned_days': assigned_days,
-        'start_time': str(start_time),
-        'end_time': str(end_time),
-        'upcoming_working_dates': upcoming_dates,
-    })
-
-
-# ============================================
-# TEMPLATE ENDPOINTS
-# ============================================
-
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
-def template_list(request):
-    """
-    GET  /api/monitoring/templates/  — List form templates
-    POST /api/monitoring/templates/  — Create template (Admin only)
-    """
-    if not is_admin_or_bdm(request.user):
-        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
-
-    if request.method == 'GET':
-        templates = EvaluationFormTemplate.objects.filter(is_active=True)
-        if request.query_params.get('detail') == 'true':
-            templates = templates.prefetch_related('fields')
-            serializer = EvaluationFormTemplateSerializer(templates, many=True)
-        else:
-            templates = templates.annotate(_field_count=Count('fields'))
-            serializer = EvaluationFormTemplateListSerializer(templates, many=True)
-        return Response(serializer.data)
-
-    # POST — Admin only
-    if not is_admin(request.user):
-        return Response({'error': 'Only Admin can create templates'}, status=status.HTTP_403_FORBIDDEN)
-
-    data = request.data
-    fields_data = data.pop('fields', [])
-
-    serializer = EvaluationFormTemplateSerializer(data=data)
-    serializer.is_valid(raise_exception=True)
-    template = serializer.save(created_by=request.user)
-
-    # Create fields
-    for i, field_data in enumerate(fields_data):
-        field_data['order'] = field_data.get('order', i)
-        EvaluationFormField.objects.create(template=template, **field_data)
-
-    # Re-fetch with fields
-    template.refresh_from_db()
-    return Response(
-        EvaluationFormTemplateSerializer(template).data,
-        status=status.HTTP_201_CREATED,
-    )
-
-
-@api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAuthenticated])
-def template_detail(request, template_id):
-    """
-    GET    /api/monitoring/templates/<id>/  — Template detail with fields
-    PUT    /api/monitoring/templates/<id>/  — Update template (Admin)
-    DELETE /api/monitoring/templates/<id>/  — Deactivate template (Admin)
-    """
-    if not is_admin_or_bdm(request.user):
-        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
-
-    try:
-        template = EvaluationFormTemplate.objects.prefetch_related('fields').get(id=template_id)
-    except EvaluationFormTemplate.DoesNotExist:
-        return Response({'error': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-        serializer = EvaluationFormTemplateSerializer(template)
-        return Response(serializer.data)
-
-    if not is_admin(request.user):
-        return Response({'error': 'Only Admin can modify templates'}, status=status.HTTP_403_FORBIDDEN)
-
-    if request.method == 'PUT':
-        data = request.data
-        fields_data = data.pop('fields', None)
-
-        serializer = EvaluationFormTemplateSerializer(template, data=data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-
-        # Update fields if provided
-        if fields_data is not None:
-            template.fields.all().delete()
-            for i, field_data in enumerate(fields_data):
-                field_data['order'] = field_data.get('order', i)
-                EvaluationFormField.objects.create(template=template, **field_data)
-
-        template.refresh_from_db()
-        return Response(EvaluationFormTemplateSerializer(template).data)
-
-    # DELETE — soft deactivate
-    template.is_active = False
-    template.save(update_fields=['is_active', 'updated_at'])
-    return Response({'message': 'Template deactivated'})
-
-
-# ============================================
 # EVALUATION ENDPOINTS
 # ============================================
 
@@ -574,7 +320,7 @@ def visit_evaluations(request, visit_id):
         return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'GET':
-        evaluations = visit.evaluations.select_related('teacher', 'template')
+        evaluations = visit.evaluations.select_related('teacher')
         serializer = TeacherEvaluationListSerializer(evaluations, many=True)
         return Response(serializer.data)
 
@@ -587,8 +333,7 @@ def visit_evaluations(request, visit_id):
 
     data = request.data
     teacher_id = data.get('teacher_id')
-    template_id = data.get('template_id')
-    responses_data = data.get('responses', [])
+    questions_data = data.get('questions', [])
 
     # Validate teacher
     try:
@@ -602,26 +347,9 @@ def visit_evaluations(request, visit_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Validate template
-    try:
-        template = EvaluationFormTemplate.objects.prefetch_related('fields').get(
-            id=template_id, is_active=True,
-        )
-    except EvaluationFormTemplate.DoesNotExist:
-        return Response({'error': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    # Validate required fields
-    required_field_ids = set(
-        template.fields.filter(is_required=True).values_list('id', flat=True)
-    )
-    provided_field_ids = {r['field_id'] for r in responses_data}
-    missing = required_field_ids - provided_field_ids
-    if missing:
-        missing_labels = list(
-            template.fields.filter(id__in=missing).values_list('label', flat=True)
-        )
+    if not questions_data:
         return Response(
-            {'error': f'Missing required fields: {", ".join(missing_labels)}'},
+            {'error': 'Add at least one question before submitting.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -629,28 +357,23 @@ def visit_evaluations(request, visit_id):
     evaluation = TeacherEvaluation.objects.create(
         visit=visit,
         teacher=teacher,
-        template=template,
         remarks=data.get('remarks', ''),
         areas_of_improvement=data.get('areas_of_improvement', ''),
         teacher_strengths=data.get('teacher_strengths', ''),
     )
 
-    # Create responses
-    field_map = {f.id: f for f in template.fields.all()}
-    for resp_data in responses_data:
-        field = field_map.get(resp_data['field_id'])
-        if not field:
+    # Create questions
+    for i, q_data in enumerate(questions_data):
+        question_text = (q_data.get('question_text') or '').strip()
+        if not question_text:
             continue
-
-        numeric_value = resp_data.get('numeric_value')
-        if numeric_value is not None:
-            numeric_value = Decimal(str(numeric_value))
-
-        EvaluationResponse.objects.create(
+        rating = q_data.get('rating')
+        EvaluationQuestion.objects.create(
             evaluation=evaluation,
-            field=field,
-            value=str(resp_data.get('value', '')),
-            numeric_value=numeric_value,
+            question_text=question_text,
+            answer_text=q_data.get('answer_text', ''),
+            rating=rating if rating not in ('', None) else None,
+            order=q_data.get('order', i),
         )
 
     # Calculate score
@@ -673,9 +396,9 @@ def evaluation_detail(request, evaluation_id):
 
     try:
         evaluation = TeacherEvaluation.objects.select_related(
-            'visit__bdm', 'teacher', 'template'
+            'visit__bdm', 'teacher'
         ).prefetch_related(
-            'responses__field'
+            'questions'
         ).get(id=evaluation_id)
     except TeacherEvaluation.DoesNotExist:
         return Response({'error': 'Evaluation not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -699,7 +422,7 @@ def evaluation_detail(request, evaluation_id):
         evaluation.delete()
         return Response({'message': 'Evaluation deleted'}, status=status.HTTP_200_OK)
 
-    # PUT — update remarks and responses
+    # PUT — update remarks and questions
     data = request.data
 
     # Update qualitative fields
@@ -711,25 +434,21 @@ def evaluation_detail(request, evaluation_id):
         evaluation.teacher_strengths = data['teacher_strengths']
     evaluation.save()
 
-    # Update responses if provided
-    responses_data = data.get('responses')
-    if responses_data:
-        for resp_data in responses_data:
-            field_id = resp_data.get('field_id')
-            if not field_id:
+    # Replace questions wholesale if provided
+    questions_data = data.get('questions')
+    if questions_data is not None:
+        evaluation.questions.all().delete()
+        for i, q_data in enumerate(questions_data):
+            question_text = (q_data.get('question_text') or '').strip()
+            if not question_text:
                 continue
-
-            numeric_value = resp_data.get('numeric_value')
-            if numeric_value is not None:
-                numeric_value = Decimal(str(numeric_value))
-
-            EvaluationResponse.objects.update_or_create(
+            rating = q_data.get('rating')
+            EvaluationQuestion.objects.create(
                 evaluation=evaluation,
-                field_id=field_id,
-                defaults={
-                    'value': str(resp_data.get('value', '')),
-                    'numeric_value': numeric_value,
-                },
+                question_text=question_text,
+                answer_text=q_data.get('answer_text', ''),
+                rating=rating if rating not in ('', None) else None,
+                order=q_data.get('order', i),
             )
 
         evaluation.calculate_score()
@@ -763,12 +482,10 @@ def dashboard_stats(request):
     # Single aggregated query
     stats = visits.aggregate(
         total=Count('id'),
-        planned=Count('id', filter=Q(status='planned')),
         in_progress=Count('id', filter=Q(status='in_progress')),
         completed=Count('id', filter=Q(status='completed')),
         this_month=Count('id', filter=Q(visit_date__gte=month_start)),
-        upcoming=Count('id', filter=Q(status='planned', visit_date__gte=today)),
-        overdue=Count('id', filter=Q(status='planned', visit_date__lt=today)),
+        today=Count('id', filter=Q(visit_date=today)),
     )
 
     # Evaluation count
@@ -783,12 +500,10 @@ def dashboard_stats(request):
 
     return Response({
         'total_visits': stats['total'],
-        'planned': stats['planned'],
         'in_progress': stats['in_progress'],
         'completed': stats['completed'],
         'this_month': stats['this_month'],
-        'upcoming': stats['upcoming'],
-        'overdue': stats['overdue'],
+        'today': stats['today'],
         'evaluations_done': eval_stats['total_evaluations'],
         'this_month_evaluations': eval_stats['this_month_evaluations'],
     })

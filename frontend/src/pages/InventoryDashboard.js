@@ -38,6 +38,7 @@ import AddInventoryModal from '../components/inventory/AddInventoryModal';
 import InventoryDetailsModal from '../components/inventory/InventoryDetailsModal';
 import CategoryManagementModal from '../components/inventory/CategoryManagementModal';
 import TransferModal from '../components/inventory/TransferModal';
+import ReassignModal from '../components/inventory/ReassignModal';
 import InventoryReportModal from '../components/inventory/InventoryReportModal';
 
 // AI Agent
@@ -117,12 +118,15 @@ const InventoryDashboard = () => {
     handleAddSuccess,
     handleOpenTransfer,
     handleTransferSuccess,
+    handleOpenReassign,
+    handleReassignSuccess,
     handlePrintCertificate,
     handleExport,
     handleOpenCategories,
     handleCategoryUpdate,
 
     // Computed
+    totalValue,
     getStatusCount,
     categoryChartData,
     statusChartData,
@@ -147,22 +151,41 @@ const InventoryDashboard = () => {
           isExporting={loading.export}
         />
 
-        {/* 2. Stats Cards - Pass individual props from summary */}
+        {/* 2. Filters - drive stats/analytics below, so they come first */}
+        <CollapsibleSection
+          title="🔍 Filter Options"
+          defaultOpen={true}
+        >
+          <InventoryFilters
+            userContext={userContext}
+            filters={filters}
+            updateFilter={updateFilter}
+            resetFilters={resetFilters}
+            hasActiveFilters={hasActiveFilters}
+            locationOptions={locationOptions}
+            schools={schools}
+            categories={categories}
+            users={users}
+            noCollapse={true}
+          />
+        </CollapsibleSection>
+
+        {/* 3. Stats Cards - reflect the currently filtered items */}
         <InventoryStats
-          totalItems={summary.total || 0}
-          totalValue={summary.total_value || 0}
+          totalItems={inventoryItems.length}
+          totalValue={totalValue}
           availableCount={getStatusCount('Available')}
           assignedCount={getStatusCount('Assigned')}
-          loading={loading.summary}
+          loading={loading.items}
         />
 
-        {/* 3. Analytics/Charts - MOVED ABOVE FILTERS */}
+        {/* 4. Analytics/Charts - reflect the currently filtered items */}
         <InventoryCharts
           categoryChartData={categoryChartData}
           statusChartData={statusChartData}
         />
 
-        {/* 3.5. AI Assistant */}
+        {/* 5. AI Assistant */}
         <CollapsibleSection
           title="🤖 AI Assistant"
           defaultOpen={false}
@@ -179,31 +202,17 @@ const InventoryDashboard = () => {
           </div>
         </CollapsibleSection>
 
-        {/* 4 & 5. Filters + Table in one collapsible section */}
+        {/* 6. Table */}
         <CollapsibleSection
           title="📦 Inventory Items"
           defaultOpen={true}
         >
-          {/* Filters */}
-          <InventoryFilters
-            userContext={userContext}
-            filters={filters}
-            updateFilter={updateFilter}
-            resetFilters={resetFilters}
-            hasActiveFilters={hasActiveFilters}
-            locationOptions={locationOptions}
-            schools={schools}
-            categories={categories}
-            users={users}
-            noCollapse={true}
-          />
-
-          {/* Table */}
           <InventoryTable
             userContext={userContext}
             items={inventoryItems}
             loading={loading.items}
             selectedItemIds={selectedItemIds}
+            selectedItems={selectedItems}
             toggleItemSelection={toggleItemSelection}
             toggleSelectAll={toggleSelectAll}
             clearSelection={clearSelection}
@@ -212,6 +221,7 @@ const InventoryDashboard = () => {
             onDelete={handleDeleteRequest}
             onPrintCertificate={handlePrintCertificate}
             onOpenTransfer={handleOpenTransfer}
+            onOpenReassign={handleOpenReassign}
             onOpenReport={() => openModal('report')}
             certificateLoading={loading.certificate}
             noCollapse={true}
@@ -272,6 +282,19 @@ const InventoryDashboard = () => {
             onSuccess={handleTransferSuccess}
             selectedItems={selectedItems}
             schools={schools}
+            users={users}
+            userContext={userContext}
+          />
+        )}
+
+        {/* Reassign Modal */}
+        {modals.reassign && (
+          <ReassignModal
+            isOpen={modals.reassign}
+            onClose={() => closeModal('reassign')}
+            onSuccess={handleReassignSuccess}
+            selectedItems={selectedItems}
+            users={users}
             userContext={userContext}
           />
         )}

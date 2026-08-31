@@ -913,21 +913,29 @@ class ParameterResolver:
         if params.get('item_id'):
             try:
                 item = InventoryItem.objects.select_related('school', 'category', 'assigned_to').get(id=params['item_id'])
-                return {
-                    "success": True,
-                    "params": params,
-                    "info": {
-                        "item_name": item.name,
-                        "unique_id": item.unique_id,
-                        "school": item.school.name if item.school else None,
-                        "category": item.category.name if item.category else None
-                    }
-                }
             except InventoryItem.DoesNotExist:
                 return {
                     "success": False,
                     "clarify": f"Item #{params['item_id']} not found."
                 }
+
+            accessible_ids = self._get_accessible_school_ids()
+            if accessible_ids is not None and item.school_id not in accessible_ids:
+                return {
+                    "success": False,
+                    "clarify": f"Item #{params['item_id']} not found."
+                }
+
+            return {
+                "success": True,
+                "params": params,
+                "info": {
+                    "item_name": item.name,
+                    "unique_id": item.unique_id,
+                    "school": item.school.name if item.school else None,
+                    "category": item.category.name if item.category else None
+                }
+            }
 
         # Gather search criteria
         item_name = params.get('item_name')
@@ -1086,6 +1094,70 @@ class ParameterResolver:
             "clarify": f"Found {item_count} items. Which one?\n" + "\n".join(match_list) +
                       "\n\nPlease specify the item name."
         }
+
+    def lookup_items_for_tool(
+        self,
+        item_name: str,
+        school_name: str = None,
+        category_name: str = None,
+        limit: int = 8
+    ) -> list:
+        """
+        Server-side implementation of the lookup_inventory_item tool (see
+        ai/inventory_tools.py) used by the tool-calling inventory agent
+        path. Fuzzy-searches items by name, scoped to the caller's
+        accessible schools same as every other inventory resolution here,
+        and returns candidates WITHOUT auto-selecting a winner - the model
+        (per its system prompt) is expected to ask the user when more than
+        one candidate comes back, rather than the resolver silently
+        guessing on its behalf the way _resolve_inventory_item's >0.85
+        auto-pick does for the text-prompt path.
+
+        Returns a list of dicts: [{item_id, name, unique_id, school,
+        category, status}, ...] - empty list if nothing matches.
+        """
+        from inventory.models import InventoryItem, InventoryCategory
+
+        items = InventoryItem.objects.select_related('school', 'category', 'assigned_to')
+
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            items = items.filter(school_id__in=accessible_ids)
+
+        if school_name:
+            resolved_school_id, _ = self._resolve_school(school_name)
+            if resolved_school_id:
+                items = items.filter(school_id=resolved_school_id)
+
+        if category_name:
+            categories = InventoryCategory.objects.all()
+            cat_matches = []
+            for cat in categories:
+                score = fuzzy_match_score(str(category_name), cat.name)
+                if score >= 0.6:
+                    cat_matches.append((cat, score))
+            cat_matches.sort(key=lambda x: x[1], reverse=True)
+            if cat_matches:
+                items = items.filter(category_id=cat_matches[0][0].id)
+
+        matches = []
+        for item in items:
+            score = fuzzy_match_score(item_name, item.name)
+            if score >= 0.4:
+                matches.append((item, score))
+        matches.sort(key=lambda x: x[1], reverse=True)
+
+        return [
+            {
+                "item_id": item.id,
+                "name": item.name,
+                "unique_id": item.unique_id,
+                "school": item.school.name if item.school else None,
+                "category": item.category.name if item.category else None,
+                "status": item.status,
+            }
+            for item, score in matches[:limit]
+        ]
 
     def _resolve_bulk_inventory_items(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Resolve multiple inventory items for bulk operations."""

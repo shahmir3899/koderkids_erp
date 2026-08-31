@@ -106,7 +106,7 @@ export const TeacherInventoryWidget = ({
         <h3 style={{ ...styles.title, ...(isMobile ? { color: COLORS.text.white } : {}) }}>📚 My Teaching Resources</h3>
         <button 
           style={styles.viewAllButton}
-          onClick={() => window.location.href = '/inventory'}
+          onClick={() => window.location.href = '/inventory-dashboard'}
           onMouseEnter={(e) => e.target.style.background = COLORS.background.offWhite}
           onMouseLeave={(e) => e.target.style.background = 'none'}
         >

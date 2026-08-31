@@ -3,12 +3,13 @@ import ReactDOM from 'react-dom';
 import { toast } from 'react-toastify';
 import { ClipLoader } from 'react-spinners';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faCheck, faChevronRight, faChevronLeft, faStar, faClipboardCheck, faUserTie } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faCheck, faChevronRight, faChevronLeft, faStar, faClipboardCheck, faUserTie, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, TRANSITIONS, MIXINS } from '../../utils/designConstants';
 import { useResponsive } from '../../hooks/useResponsive';
-import { fetchVisitTeachers, fetchTemplates, fetchTemplateDetail, submitEvaluation, updateEvaluation } from '../../services/monitoringService';
-import DynamicFormRenderer from './DynamicFormRenderer';
+import { fetchVisitTeachers, submitEvaluation, updateEvaluation } from '../../services/monitoringService';
+
+const EMPTY_QUESTION = () => ({ question_text: '', answer_text: '', rating: null });
 
 // ============================================
 // Z_INDEX (local reference for portal)
@@ -26,8 +27,6 @@ const EvaluationWizard = ({
   visitId,
   visitSchoolName,
   editEvaluation = null,
-  initialTemplates = [],
-  onTemplatesLoaded,
 }) => {
   // editEvaluation — when set, wizard pre-populates from an existing evaluation (edit mode)
   const { isMobile, isTablet } = useResponsive();
@@ -40,13 +39,10 @@ const EvaluationWizard = ({
 
   // Step 1 data
   const [teachers, setTeachers] = useState([]);
-  const [templates, setTemplates] = useState([]);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
-  // Step 2 data
-  const [templateFields, setTemplateFields] = useState([]);
-  const [formValues, setFormValues] = useState({});
+  // Step 2 data — ad-hoc questions the BDM types on the spot
+  const [questions, setQuestions] = useState([EMPTY_QUESTION()]);
 
   // Step 3 data
   const [remarks, setRemarks] = useState('');
@@ -68,51 +64,15 @@ const EvaluationWizard = ({
     setLoading(true);
     setError('');
     try {
-      const teacherPromise = fetchVisitTeachers(visitId);
-      const shouldFetchTemplates = !Array.isArray(initialTemplates) || initialTemplates.length === 0;
-      const templatePromise = shouldFetchTemplates
-        ? fetchTemplates()
-        : Promise.resolve(initialTemplates);
-
-      const [teacherData, templateData] = await Promise.all([teacherPromise, templatePromise]);
-
+      const teacherData = await fetchVisitTeachers(visitId);
       setTeachers(Array.isArray(teacherData) ? teacherData : []);
-      const resolvedTemplates = Array.isArray(templateData) ? templateData : [];
-      setTemplates(resolvedTemplates);
-      if (shouldFetchTemplates && typeof onTemplatesLoaded === 'function') {
-        onTemplatesLoaded(resolvedTemplates);
-      }
     } catch (err) {
       console.error('Error loading step 1 data:', err);
-      setError('Failed to load teachers or templates. Please try again.');
+      setError('Failed to load teachers. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [visitId, initialTemplates, onTemplatesLoaded]);
-
-  const loadTemplateFields = useCallback(async (templateId) => {
-    if (!templateId) return;
-    setLoading(true);
-    setError('');
-    try {
-      const detail = await fetchTemplateDetail(templateId);
-      const fields = detail?.fields || detail?.template_fields || [];
-      setTemplateFields(fields);
-      // Initialize formValues for all fields
-      const initialValues = {};
-      fields.forEach((field) => {
-        if (!formValues[field.id]) {
-          initialValues[field.id] = { value: '', numeric_value: null };
-        }
-      });
-      setFormValues((prev) => ({ ...initialValues, ...prev }));
-    } catch (err) {
-      console.error('Error loading template fields:', err);
-      setError('Failed to load evaluation form. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  }, [visitId]);
 
   // ============================================
   // EFFECTS
@@ -131,13 +91,13 @@ const EvaluationWizard = ({
       setRemarks(editEvaluation.remarks || '');
       setAreasOfImprovement(editEvaluation.areas_of_improvement || '');
       setTeacherStrengths(editEvaluation.teacher_strengths || '');
-      // Pre-fill form values from stored responses
-      if (Array.isArray(editEvaluation.responses)) {
-        const vals = {};
-        editEvaluation.responses.forEach((r) => {
-          vals[r.field] = { value: r.value ?? '', numeric_value: r.numeric_value ?? null };
-        });
-        setFormValues(vals);
+      // Pre-fill questions from the stored evaluation
+      if (Array.isArray(editEvaluation.questions) && editEvaluation.questions.length > 0) {
+        setQuestions(editEvaluation.questions.map((q) => ({
+          question_text: q.question_text || '',
+          answer_text: q.answer_text || '',
+          rating: q.rating ?? null,
+        })));
       }
       setCurrentStep(3);
     }
@@ -148,12 +108,6 @@ const EvaluationWizard = ({
       resetWizard();
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (currentStep === 2 && selectedTemplate) {
-      loadTemplateFields(selectedTemplate.id);
-    }
-  }, [currentStep, selectedTemplate, loadTemplateFields]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -174,11 +128,8 @@ const EvaluationWizard = ({
   const resetWizard = () => {
     setCurrentStep(1);
     setTeachers([]);
-    setTemplates([]);
     setSelectedTeacher(null);
-    setSelectedTemplate(null);
-    setTemplateFields([]);
-    setFormValues({});
+    setQuestions([EMPTY_QUESTION()]);
     setRemarks('');
     setAreasOfImprovement('');
     setTeacherStrengths('');
@@ -188,36 +139,27 @@ const EvaluationWizard = ({
     setIsSubmitting(false);
   };
 
-  const handleFormChange = (fieldId, value, numericValue) => {
-    setFormValues((prev) => ({
-      ...prev,
-      [fieldId]: { value, numeric_value: numericValue },
-    }));
-    // Clear error for this field
-    if (fieldErrors[fieldId]) {
+  const handleTeacherSelect = (teacher) => {
+    setSelectedTeacher(teacher);
+  };
+
+  const handleQuestionChange = (index, key, value) => {
+    setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, [key]: value } : q)));
+    if (fieldErrors[index]) {
       setFieldErrors((prev) => {
         const next = { ...prev };
-        delete next[fieldId];
+        delete next[index];
         return next;
       });
     }
   };
 
-  const handleTeacherSelect = (teacher) => {
-    setSelectedTeacher(teacher);
+  const handleAddQuestion = () => {
+    setQuestions((prev) => [...prev, EMPTY_QUESTION()]);
   };
 
-  const handleTemplateSelect = (e) => {
-    const templateId = e.target.value;
-    if (!templateId) {
-      setSelectedTemplate(null);
-      return;
-    }
-    const tmpl = templates.find((t) => String(t.id) === String(templateId));
-    setSelectedTemplate(tmpl || null);
-    // Reset form values when template changes
-    setFormValues({});
-    setTemplateFields([]);
+  const handleRemoveQuestion = (index) => {
+    setQuestions((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
   };
 
   // ============================================
@@ -230,40 +172,21 @@ const EvaluationWizard = ({
       setError('Please select a teacher to evaluate.');
       return false;
     }
-    if (!selectedTemplate) {
-      setError('Please select an evaluation template.');
-      return false;
-    }
     return true;
   };
 
   const validateStep2 = () => {
     const newErrors = {};
-    templateFields.forEach((field) => {
-      if (field.is_required) {
-        const val = formValues[field.id];
-        if (!val) {
-          newErrors[field.id] = `${field.label} is required.`;
-        } else if (field.field_type === 'yes_no') {
-          // numeric_value can be '0' (No) or '1' (Yes) — both are valid
-          if (val.numeric_value === null || val.numeric_value === undefined) {
-            newErrors[field.id] = `${field.label} is required.`;
-          }
-        } else if (field.field_type === 'rating_1_5' || field.field_type === 'rating_1_10') {
-          if (val.numeric_value === null || val.numeric_value === undefined) {
-            newErrors[field.id] = `${field.label} is required.`;
-          }
-        } else {
-          // text, textarea, select — check value string
-          if (val.value === '' || val.value === null || val.value === undefined) {
-            newErrors[field.id] = `${field.label} is required.`;
-          }
-        }
+    questions.forEach((q, i) => {
+      if (!q.question_text.trim()) {
+        newErrors[i] = 'Question text is required.';
       }
     });
     setFieldErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      setError('Please fill in all required fields.');
+
+    const hasAtLeastOneQuestion = questions.some((q) => q.question_text.trim());
+    if (!hasAtLeastOneQuestion || Object.keys(newErrors).length > 0) {
+      setError('Add at least one question before continuing.');
       return false;
     }
     setError('');
@@ -308,36 +231,15 @@ const EvaluationWizard = ({
   // ============================================
 
   const calculateScorePreview = () => {
-    let totalWeightedScore = 0;
-    let totalWeight = 0;
+    const ratings = questions
+      .map((q) => q.rating)
+      .filter((r) => r !== null && r !== undefined && r !== '')
+      .map((r) => parseFloat(r))
+      .filter((r) => !isNaN(r));
 
-    templateFields.forEach((field) => {
-      const val = formValues[field.id];
-      if (!val || val.numeric_value === null || val.numeric_value === undefined) return;
-
-      const numericVal = parseFloat(val.numeric_value);
-      if (isNaN(numericVal)) return;
-
-      const weight = parseFloat(field.weight) || 0;
-      if (weight <= 0) return;
-
-      let normalizedScore = 0;
-      if (field.field_type === 'rating_1_5') {
-        normalizedScore = (numericVal / 5) * 100;
-      } else if (field.field_type === 'rating_1_10') {
-        normalizedScore = (numericVal / 10) * 100;
-      } else if (field.field_type === 'yes_no') {
-        normalizedScore = numericVal === '1' || numericVal === 1 ? 100 : 0;
-      } else {
-        return;
-      }
-
-      totalWeightedScore += normalizedScore * weight;
-      totalWeight += weight;
-    });
-
-    if (totalWeight === 0) return null;
-    return Math.round((totalWeightedScore / totalWeight) * 10) / 10;
+    if (ratings.length === 0) return null;
+    const average = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+    return Math.round((average / 5) * 100 * 10) / 10;
   };
 
   const getScoreColor = (score) => {
@@ -367,30 +269,30 @@ const EvaluationWizard = ({
     setIsSubmitting(true);
     setError('');
 
+    const questionsPayload = questions
+      .filter((q) => q.question_text.trim())
+      .map((q, i) => ({
+        question_text: q.question_text.trim(),
+        answer_text: q.answer_text,
+        rating: q.rating === '' || q.rating === undefined ? null : q.rating,
+        order: i,
+      }));
+
     try {
       if (editEvaluation) {
-        // Edit mode — update remarks and responses
+        // Edit mode — update remarks and questions
         await updateEvaluation(editEvaluation.id, {
           remarks,
           areas_of_improvement: areasOfImprovement,
           teacher_strengths: teacherStrengths,
-          responses: Object.entries(formValues).map(([fieldId, val]) => ({
-            field_id: parseInt(fieldId),
-            value: val.value,
-            numeric_value: val.numeric_value,
-          })),
+          questions: questionsPayload,
         });
         toast.success('Evaluation updated successfully!');
       } else {
         // Create mode
         await submitEvaluation(visitId, {
           teacher_id: selectedTeacher.id,
-          template_id: selectedTemplate.id,
-          responses: Object.entries(formValues).map(([fieldId, val]) => ({
-            field_id: parseInt(fieldId),
-            value: val.value,
-            numeric_value: val.numeric_value,
-          })),
+          questions: questionsPayload,
           remarks,
           areas_of_improvement: areasOfImprovement,
           teacher_strengths: teacherStrengths,
@@ -419,7 +321,7 @@ const EvaluationWizard = ({
   // RENDER HELPERS
   // ============================================
 
-  const stepTitles = ['Select Teacher & Template', 'Fill Evaluation Form', 'Remarks & Submit'];
+  const stepTitles = ['Select Teacher', 'Ask Questions', 'Remarks & Submit'];
 
   const scorePreview = calculateScorePreview();
 
@@ -508,39 +410,34 @@ const EvaluationWizard = ({
         })}
       </div>
 
-      <div style={{ marginTop: SPACING.xl }}>
-        <h3 style={styles.stepTitle}>
-          <FontAwesomeIcon icon={faClipboardCheck} style={{ marginRight: SPACING.sm }} />
-          Select Evaluation Template
-        </h3>
+    </div>
+  );
 
-        <select
-          style={styles.select}
-          value={selectedTemplate?.id || ''}
-          onChange={handleTemplateSelect}
+  const renderStarPicker = (index, rating) => (
+    <div style={styles.starPicker}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <FontAwesomeIcon
+          key={n}
+          icon={faStar}
+          onClick={() => handleQuestionChange(index, 'rating', rating === n ? null : n)}
+          style={{
+            cursor: 'pointer',
+            fontSize: FONT_SIZES.lg,
+            color: rating && n <= rating ? '#FBBF24' : 'rgba(255, 255, 255, 0.25)',
+            transition: `color ${TRANSITIONS.fast}`,
+          }}
+          title={`${n} star${n > 1 ? 's' : ''}`}
+        />
+      ))}
+      {rating != null && (
+        <button
+          type="button"
+          onClick={() => handleQuestionChange(index, 'rating', null)}
+          style={styles.clearRatingButton}
         >
-          <option value="" style={styles.selectOption}>-- Select Template --</option>
-          {templates.map((tmpl) => (
-            <option key={tmpl.id} value={tmpl.id} style={styles.selectOption}>
-              {tmpl.name || tmpl.title || `Template #${tmpl.id}`}
-            </option>
-          ))}
-        </select>
-
-        {selectedTemplate && (
-          <div style={styles.templatePreview}>
-            <span style={styles.templatePreviewLabel}>Selected:</span>
-            <span style={styles.templatePreviewName}>
-              {selectedTemplate.name || selectedTemplate.title}
-            </span>
-            {selectedTemplate.description && (
-              <p style={styles.templatePreviewDescription}>
-                {selectedTemplate.description}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+          Clear
+        </button>
+      )}
     </div>
   );
 
@@ -548,33 +445,73 @@ const EvaluationWizard = ({
     <div style={styles.stepContainer}>
       <h3 style={styles.stepTitle}>
         <FontAwesomeIcon icon={faStar} style={{ marginRight: SPACING.sm }} />
-        {selectedTemplate?.name || 'Evaluation Form'}
+        Questions
       </h3>
 
       <div style={styles.formContextBar}>
         <span style={styles.contextItem}>
           Teacher: <strong>{selectedTeacher?.name || selectedTeacher?.full_name}</strong>
         </span>
-        <span style={styles.contextDivider}>|</span>
-        <span style={styles.contextItem}>
-          Template: <strong>{selectedTemplate?.name || selectedTemplate?.title}</strong>
-        </span>
       </div>
 
-      {templateFields.length > 0 ? (
-        <DynamicFormRenderer
-          fields={templateFields}
-          values={formValues}
-          onChange={handleFormChange}
-          errors={fieldErrors}
-        />
-      ) : (
-        !loading && (
-          <div style={styles.emptyState}>
-            No fields found in this template.
+      <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.lg }}>
+        {questions.map((q, index) => (
+          <div key={index} style={styles.questionCard}>
+            <div style={styles.questionCardHeader}>
+              <span style={styles.questionCardIndex}>Q{index + 1}</span>
+              {questions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveQuestion(index)}
+                  style={styles.removeQuestionButton}
+                  title="Remove question"
+                >
+                  <FontAwesomeIcon icon={faTrash} />
+                </button>
+              )}
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Question</label>
+              <input
+                type="text"
+                style={{
+                  ...styles.input,
+                  borderColor: fieldErrors[index] ? COLORS.status.error : COLORS.border.whiteTransparent,
+                }}
+                placeholder="e.g. Is the teacher following the lesson plan?"
+                value={q.question_text}
+                onChange={(e) => handleQuestionChange(index, 'question_text', e.target.value)}
+              />
+              {fieldErrors[index] && (
+                <span style={styles.fieldErrorText}>{fieldErrors[index]}</span>
+              )}
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Answer / Notes</label>
+              <textarea
+                style={styles.textarea}
+                rows={2}
+                placeholder="What did you observe..."
+                value={q.answer_text}
+                onChange={(e) => handleQuestionChange(index, 'answer_text', e.target.value)}
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Rating (optional)</label>
+              {renderStarPicker(index, q.rating)}
+            </div>
           </div>
-        )
-      )}
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={handleAddQuestion}
+        style={styles.addQuestionButton}
+      >
+        <FontAwesomeIcon icon={faPlus} style={{ marginRight: SPACING.sm }} />
+        Add Question
+      </button>
     </div>
   );
 
@@ -596,18 +533,15 @@ const EvaluationWizard = ({
             </span>
           </div>
           <div style={styles.reviewItem}>
-            <span style={styles.reviewLabel}>Template</span>
+            <span style={styles.reviewLabel}>Questions</span>
             <span style={styles.reviewValue}>
-              {selectedTemplate?.name || selectedTemplate?.title || '-'}
+              {questions.filter((q) => q.question_text.trim()).length}
             </span>
           </div>
           <div style={styles.reviewItem}>
-            <span style={styles.reviewLabel}>Fields Completed</span>
+            <span style={styles.reviewLabel}>Rated Questions</span>
             <span style={styles.reviewValue}>
-              {Object.values(formValues).filter(
-                (v) => v.value !== '' || v.numeric_value !== null
-              ).length}{' '}
-              / {templateFields.length}
+              {questions.filter((q) => q.rating != null).length}
             </span>
           </div>
           <div style={styles.reviewItem}>
@@ -1192,58 +1126,24 @@ const styles = {
     fontSize: FONT_SIZES.xs,
   },
 
-  // Template dropdown
-  select: {
+  input: {
     width: '100%',
     padding: `${SPACING.md} ${SPACING.lg}`,
     fontSize: FONT_SIZES.sm,
     border: `1px solid ${COLORS.border.whiteTransparent}`,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     color: COLORS.text.white,
     outline: 'none',
     transition: `all ${TRANSITIONS.normal}`,
-    cursor: 'pointer',
-    appearance: 'none',
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFFFFF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 0.75rem center',
-    backgroundSize: '1.25rem',
-    paddingRight: '2.5rem',
+    boxSizing: 'border-box',
   },
 
-  selectOption: {
-    backgroundColor: '#1e293b',
-    color: COLORS.text.white,
-    padding: SPACING.sm,
-  },
-
-  templatePreview: {
-    marginTop: SPACING.md,
-    padding: SPACING.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: BORDER_RADIUS.md,
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-  },
-
-  templatePreviewLabel: {
+  fieldErrorText: {
+    display: 'block',
+    marginTop: SPACING.xs,
     fontSize: FONT_SIZES.xs,
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginRight: SPACING.sm,
-  },
-
-  templatePreviewName: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text.white,
-    fontWeight: FONT_WEIGHTS.semibold,
-  },
-
-  templatePreviewDescription: {
-    fontSize: FONT_SIZES.xs,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginTop: SPACING.sm,
-    marginBottom: 0,
-    lineHeight: '1.5',
+    color: '#FCA5A5',
   },
 
   // Step 2 - form context bar
@@ -1264,8 +1164,66 @@ const styles = {
     color: 'rgba(255, 255, 255, 0.7)',
   },
 
-  contextDivider: {
-    color: 'rgba(255, 255, 255, 0.2)',
+  // Step 2 - question builder
+  questionCard: {
+    padding: SPACING.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+
+  questionCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+
+  questionCardIndex: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: 'rgba(255, 255, 255, 0.5)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+
+  removeQuestionButton: {
+    background: 'rgba(239, 68, 68, 0.15)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    color: '#F87171',
+    borderRadius: BORDER_RADIUS.md,
+    padding: `${SPACING.xs} ${SPACING.sm}`,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.xs,
+  },
+
+  addQuestionButton: {
+    marginTop: SPACING.lg,
+    width: '100%',
+    padding: `${SPACING.md} ${SPACING.lg}`,
+    background: 'rgba(59, 130, 246, 0.15)',
+    border: '1px dashed rgba(59, 130, 246, 0.4)',
+    color: '#60A5FA',
+    borderRadius: BORDER_RADIUS.md,
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+
+  starPicker: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+
+  clearRatingButton: {
+    background: 'none',
+    border: 'none',
+    color: 'rgba(255, 255, 255, 0.5)',
+    cursor: 'pointer',
+    fontSize: FONT_SIZES.xs,
+    marginLeft: SPACING.sm,
+    textDecoration: 'underline',
   },
 
   // Step 3 - Review section

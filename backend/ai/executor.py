@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from django.urls import resolve, Resolver404
 from django.core.cache import cache
-from rest_framework.test import APIRequestFactory
+from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework.request import Request
 
 
@@ -36,7 +36,7 @@ class ActionExecutor:
         if not self.user or not self.user.is_authenticated:
             return []
 
-        if self.user.role == 'Admin':
+        if self.user.role in ('Admin', 'BDM') or self.user.is_staff or self.user.is_superuser:
             self._accessible_school_ids = None  # Full access
             return None
 
@@ -123,8 +123,6 @@ class ActionExecutor:
 
     def _make_request(self, method: str, url: str, data: Dict = None) -> Any:
         """Create an authenticated request."""
-        from rest_framework.test import force_authenticate
-
         if method.lower() == 'post':
             request = self.factory.post(url, data=data or {}, format='json')
         elif method.lower() == 'get':
@@ -1625,7 +1623,7 @@ class ActionExecutor:
         logger.info(f"🔍 GET_ITEMS query_params: {query_params}, user: {self.user.id} ({self.user.username})")
 
         request = self.factory.get('/api/inventory/items/', query_params)
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryItemViewSet.as_view({'get': 'list'})
         response = viewset(request)
@@ -1692,7 +1690,7 @@ class ActionExecutor:
 
     def _execute_get_inventory_summary(self, params: Dict) -> Dict:
         """Get inventory summary."""
-        from inventory.views import InventorySummaryView
+        from inventory.views import inventory_summary
         from students.models import School
 
         query_params = {}
@@ -1708,10 +1706,9 @@ class ActionExecutor:
                 school_name = f"School #{params['school_id']}"
 
         request = self.factory.get('/api/inventory/summary/', query_params)
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
-        view = InventorySummaryView.as_view()
-        response = view(request)
+        response = inventory_summary(request)
         response.render()
 
         data = response.data
@@ -1723,17 +1720,22 @@ class ActionExecutor:
 
         message = f"Inventory Summary{scope}: {total_items} items | Total Value: PKR {float(total_value):,.0f}"
 
-        # Add status breakdown if available
-        by_status = data.get('by_status', {})
+        # Add status breakdown if available. inventory_summary() returns
+        # by_status/by_category as lists of {field: value, count: N} dicts
+        # (from a .values().annotate() queryset), not {name: count} maps.
+        by_status = data.get('by_status', [])
         if by_status:
-            status_parts = [f"{s}: {c}" for s, c in by_status.items() if c > 0]
+            status_parts = [
+                f"{s.get('status', 'Unknown')}: {s.get('count', 0)}"
+                for s in by_status if s.get('count', 0) > 0
+            ]
             if status_parts:
                 message += f"\nBy Status: {', '.join(status_parts)}"
 
         # Add category breakdown if available
         by_category = data.get('by_category', [])
         if by_category and len(by_category) > 0:
-            cat_parts = [f"{c.get('name', 'Unknown')}: {c.get('count', 0)}" for c in by_category[:5]]
+            cat_parts = [f"{(c.get('category__name') or 'Uncategorized')}: {c.get('count', 0)}" for c in by_category[:5]]
             if cat_parts:
                 message += f"\nBy Category: {', '.join(cat_parts)}"
                 if len(by_category) > 5:
@@ -1775,7 +1777,7 @@ class ActionExecutor:
             data=json.dumps({'status': new_status}),
             content_type='application/json'
         )
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryItemViewSet.as_view({'patch': 'partial_update'})
         response = viewset(request, pk=item_id)
@@ -1827,7 +1829,7 @@ class ActionExecutor:
             }
 
         request = self.factory.delete(f'/api/inventory/items/{item_id}/')
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryItemViewSet.as_view({'delete': 'destroy'})
         response = viewset(request, pk=item_id)
@@ -1948,7 +1950,7 @@ class ActionExecutor:
             data=json.dumps(item_data),
             content_type='application/json'
         )
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryItemViewSet.as_view({'post': 'create'})
         response = viewset(request)
@@ -2058,7 +2060,7 @@ class ActionExecutor:
             data=json.dumps(update_data),
             content_type='application/json'
         )
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryItemViewSet.as_view({'patch': 'partial_update'})
         response = viewset(request, pk=item_id)
@@ -2099,6 +2101,25 @@ class ActionExecutor:
                 "data": None,
                 "error": "Item not found"
             }
+
+        # Same access rule InventoryItemViewSet enforces: a Teacher can only
+        # touch items at (and move items between) their assigned schools.
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            if item.school_id not in accessible_ids:
+                return {
+                    "success": False,
+                    "message": f"Item #{item_id} not found",
+                    "data": None,
+                    "error": "Item not found"
+                }
+            if target_school_id and int(target_school_id) not in accessible_ids:
+                return {
+                    "success": False,
+                    "message": "You can only transfer items to your assigned schools",
+                    "data": None,
+                    "error": "Permission denied"
+                }
 
         # Get target school
         try:
@@ -2153,7 +2174,7 @@ class ActionExecutor:
 
         # Get the item
         try:
-            item = InventoryItem.objects.select_related('assigned_to').get(id=item_id)
+            item = InventoryItem.objects.select_related('assigned_to', 'school').get(id=item_id)
             old_assignee = None
             if item.assigned_to:
                 old_assignee = f"{item.assigned_to.first_name} {item.assigned_to.last_name}".strip() or item.assigned_to.username
@@ -2164,6 +2185,26 @@ class ActionExecutor:
                 "data": None,
                 "error": "Item not found"
             }
+
+        # Same access rule InventoryItemViewSet enforces: a Teacher can only
+        # touch items at their assigned schools, and (matching bulk_assign in
+        # inventory/views.py) can only assign items to themselves.
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None:
+            if item.school_id not in accessible_ids:
+                return {
+                    "success": False,
+                    "message": f"Item #{item_id} not found",
+                    "data": None,
+                    "error": "Item not found"
+                }
+            if user_id and int(user_id) != self.user.id:
+                return {
+                    "success": False,
+                    "message": "You can only assign items to yourself",
+                    "data": None,
+                    "error": "Permission denied"
+                }
 
         if user_id:
             # Assign to user
@@ -2233,7 +2274,7 @@ class ActionExecutor:
         item_id = params.get('item_id')
 
         request = self.factory.get(f'/api/inventory/items/{item_id}/')
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryItemViewSet.as_view({'get': 'retrieve'})
         response = viewset(request, pk=item_id)
@@ -2281,7 +2322,7 @@ class ActionExecutor:
             data=json.dumps(category_data),
             content_type='application/json'
         )
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryCategoryViewSet.as_view({'post': 'create'})
         response = viewset(request)
@@ -2353,7 +2394,7 @@ class ActionExecutor:
             data=json.dumps(update_data),
             content_type='application/json'
         )
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryCategoryViewSet.as_view({'patch': 'partial_update'})
         response = viewset(request, pk=category_id)
@@ -2423,7 +2464,7 @@ class ActionExecutor:
             }
 
         request = self.factory.delete(f'/api/inventory/categories/{category_id}/')
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         viewset = InventoryCategoryViewSet.as_view({'delete': 'destroy'})
         response = viewset(request, pk=category_id)
