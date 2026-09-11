@@ -7,19 +7,13 @@ export function calculateActualDays(fromDate, tillDate) {
   return Math.floor((till - from) / (1000 * 60 * 60 * 24)) + 1;
 }
 
-// Calculate days normalized (30 or 31 becomes 30)
-export function calculateNormalizedDays(fromDate, tillDate) {
-  if (!fromDate || !tillDate) return 0;
-  const from = new Date(fromDate);
-  const till = new Date(tillDate);
-  if (till < from) return 0;
-  const days = Math.floor((till - from) / (1000 * 60 * 60 * 24)) + 1;
-  return (days === 30 || days === 31) ? 30 : days;
-}
-
-// Calculate prorated salary
-export function calculateProratedSalary(basicSalary, normalizedDays) {
-  return (basicSalary / 30) * normalizedDays || 0;
+// Calculate prorated salary based on marked working days (present/total),
+// derived from the union of the teacher's assigned schools' weekly class
+// days rather than the calendar. E.g. 16 working days, 8 marked present ->
+// half salary.
+export function calculateProratedSalaryFromWorkingDays(basicSalary, presentDays, totalWorkingDays) {
+  if (!totalWorkingDays) return 0;
+  return (basicSalary * presentDays) / totalWorkingDays || 0;
 }
 
 // Calculate totals

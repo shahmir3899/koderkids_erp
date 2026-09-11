@@ -232,6 +232,27 @@ const getResponsiveStyles = (isMobile, isTablet) => ({
     textAlign: 'center',
     color: COLORS.text.whiteSubtle,
   },
+  sliderWrapper: {
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.lg,
+    borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+  },
+  sliderRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  sliderInput: (value) => ({
+    flex: 1,
+    height: '6px',
+    borderRadius: BORDER_RADIUS.full,
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    background: `linear-gradient(to right, ${COLORS.primary} 0%, ${COLORS.primary} ${((value - 1) / 11) * 100}%, rgba(255, 255, 255, 0.18) ${((value - 1) / 11) * 100}%, rgba(255, 255, 255, 0.18) 100%)`,
+    outline: 'none',
+    cursor: 'pointer',
+    minHeight: isMobile ? '44px' : 'auto',
+  }),
 });
 
 // Static Styles (non-responsive)
@@ -282,6 +303,19 @@ const styles = {
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
   },
+  sliderValue: {
+    minWidth: '32px',
+    textAlign: 'center',
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.base,
+  },
+  sliderHint: {
+    marginTop: SPACING.sm,
+    marginBottom: 0,
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text.whiteSubtle,
+  },
 };
 
 // ============================================
@@ -305,6 +339,7 @@ const ReportsPage = () => {
   const [endDate, setEndDate] = useState('');
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
+  const [maxImagesPerReport, setMaxImagesPerReport] = useState(4);
 
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -339,6 +374,7 @@ const ReportsPage = () => {
     includeBackground,
     selectedImages,
     backgroundImageUrl: '/bg.png',
+    maxImagesPerReport,
   });
 
   // ============================================
@@ -377,6 +413,23 @@ const ReportsPage = () => {
       setErrorMessage(reportError);
     }
   }, [reportError]);
+
+  // Trim any existing per-student image selections down to the new cap
+  useEffect(() => {
+    setSelectedImages((prev) => {
+      let changed = false;
+      const trimmed = Object.fromEntries(
+        Object.entries(prev).map(([studentId, images]) => {
+          if (images.length > maxImagesPerReport) {
+            changed = true;
+            return [studentId, images.slice(0, maxImagesPerReport)];
+          }
+          return [studentId, images];
+        })
+      );
+      return changed ? trimmed : prev;
+    });
+  }, [maxImagesPerReport]);
 
   // ============================================
   // HANDLERS
@@ -555,6 +608,7 @@ const ReportsPage = () => {
           student_class: selectedClass,
           selectedImages: selectedImages,
           includeBackground: includeBackground,
+          max_images: maxImagesPerReport,
         },
         {
           headers: getAuthHeaders(),
@@ -588,6 +642,7 @@ const ReportsPage = () => {
     selectedClass,
     selectedImages,
     includeBackground,
+    maxImagesPerReport,
   ]);
 
   // ============================================
@@ -869,6 +924,30 @@ const ReportsPage = () => {
               </button>
             </div>
           </div>
+
+          {/* Max Images Per Report */}
+          <div style={responsiveStyles.sliderWrapper}>
+            <label style={responsiveStyles.label} htmlFor="maxImagesSlider">
+              Max images per report
+            </label>
+            <div style={responsiveStyles.sliderRow}>
+              <input
+                id="maxImagesSlider"
+                type="range"
+                min={1}
+                max={12}
+                step={1}
+                value={maxImagesPerReport}
+                onChange={(e) => setMaxImagesPerReport(Number(e.target.value))}
+                style={responsiveStyles.sliderInput(maxImagesPerReport)}
+                aria-label="Maximum progress images per report"
+              />
+              <span style={styles.sliderValue}>{maxImagesPerReport}</span>
+            </div>
+            <p style={styles.sliderHint}>
+              Applies to every report generated below — single and bulk ZIP alike.
+            </p>
+          </div>
         </CollapsibleSection>
 
         {/* Students List Section */}
@@ -933,6 +1012,7 @@ const ReportsPage = () => {
             endDate={endDate}
             mode={mode}
             initialSelectedImages={selectedImages[modalStudentId] || EMPTY_ARRAY}
+            maxSelections={maxImagesPerReport}
             onClose={handleCloseImageModal}
           />
         )}

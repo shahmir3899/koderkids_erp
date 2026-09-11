@@ -42,6 +42,7 @@ from .views import (
     SalarySlipCreateView,
     SalarySlipDetailView,
     SalarySlipMonitoringLinesPreviewView,
+    SalarySlipWorkingDaysPreviewView,
 
     # Notification Settings
     NotificationSettingsView,
@@ -168,6 +169,7 @@ urlpatterns = [
     # DELETE - Delete slip (Admin only)
     path('salary-slips/<int:pk>/', SalarySlipDetailView.as_view(), name='salary-slip-detail'),
     path('salary-slips/monitoring-lines/', SalarySlipMonitoringLinesPreviewView.as_view(), name='salary-slip-monitoring-lines'),
+    path('salary-slips/working-days/', SalarySlipWorkingDaysPreviewView.as_view(), name='salary-slip-working-days'),
 
     # ============================================
     # BDM Proforma Endpoints (Teacher Attitude Evaluation)

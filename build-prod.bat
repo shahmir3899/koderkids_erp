@@ -1,10 +1,9 @@
 @echo off
 title KoderKids ERP - Production Build
 
-:: Switch to production environment
-python "%~dp0scripts\switch_env.py" prod --no-start
+:: `npm run build` auto-loads frontend/.env.production (REACT_APP_API_URL etc.)
+:: — no env-switching step needed anymore.
 
-:: Build frontend
 echo.
 echo Building frontend... This may take a few minutes.
 echo.

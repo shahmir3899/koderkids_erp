@@ -139,6 +139,7 @@ export const useReportGeneration = ({
   includeBackground = {},
   selectedImages = {},
   backgroundImageUrl = '/bg.png',
+  maxImagesPerReport = 4,
 }) => {
   const [isGenerating, setIsGenerating] = useState({});
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
@@ -231,6 +232,7 @@ export const useReportGeneration = ({
           month: selectedMonth,
           start_date: mode === 'range' ? formattedStart : undefined,
           end_date: mode === 'range' ? formattedEnd : undefined,
+          max_images: maxImagesPerReport,
         };
 
         // Generate PDF
@@ -327,6 +329,7 @@ export const useReportGeneration = ({
       includeBackground,
       selectedImages,
       backgroundImageUrl,
+      maxImagesPerReport,
       getDateRange,
     ]
   );

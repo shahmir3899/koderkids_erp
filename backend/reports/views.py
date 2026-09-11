@@ -65,6 +65,24 @@ from employees.models import Notification
 
 logger = logging.getLogger(__name__)
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
+# Progress-images-per-report cap: the frontend slider lets a user ask for more
+# than the old fixed 4, but the server always clamps to this range regardless
+# of what the client sends.
+DEFAULT_REPORT_IMAGES = 4
+MIN_REPORT_IMAGES = 1
+MAX_REPORT_IMAGES = 12
+
+
+def clamp_max_images(value, default=DEFAULT_REPORT_IMAGES):
+    """Coerce and clamp a requested image count into a safe, server-trusted range."""
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(MIN_REPORT_IMAGES, min(value, MAX_REPORT_IMAGES))
+
+
 # Set up logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -548,9 +566,10 @@ def fetch_student_data(student_id, school_id, student_class, start_date, end_dat
     logger.info(f"Student data fetched: student={student.name}, attendance={attendance_data['percentage']}%, lessons={len(lessons_data)}")
     return student, attendance_data, lessons_data
 
-def fetch_student_images(student_id, start_date, end_date):
-    """Fetch up to 4 image URLs for a student within the date range."""
-    logger.info(f"Fetching images for student {student_id}, from {start_date} to {end_date}")
+def fetch_student_images(student_id, start_date, end_date, max_images=DEFAULT_REPORT_IMAGES):
+    """Fetch up to max_images image URLs for a student within the date range."""
+    max_images = clamp_max_images(max_images)
+    logger.info(f"Fetching images for student {student_id}, from {start_date} to {end_date}, max_images={max_images}")
     folder_path = f"{student_id}/"
     supabase_response = supabase.storage.from_(settings.SUPABASE_BUCKET).list(folder_path)
     if "error" in supabase_response:
@@ -575,9 +594,9 @@ def fetch_student_images(student_id, start_date, end_date):
             logger.warning(f"Invalid date in filename: {name}")
             continue
 
-    # Sort descending by name (latest dates first) and take first 4
+    # Sort descending by name (latest dates first) and take the requested count
     all_urls.sort(reverse=True)
-    image_urls = all_urls[:4]
+    image_urls = all_urls[:max_images]
     logger.info(f"Fetched {len(image_urls)} image URLs: {image_urls}")
     return image_urls# reports/views.py (add this function near generate_pdf)
 @api_view(['POST'])
@@ -603,6 +622,7 @@ def generate_bulk_pdf_zip(request):
         student_class = request.data.get('student_class')
         selected_images_dict = request.data.get('selectedImages', {})  # {student_id: [url1, url2]}
         include_background_dict = request.data.get('includeBackground', {})  # {student_id: bool} – per student
+        max_images = clamp_max_images(request.data.get('max_images'))
 
         start_date_parsed, end_date_parsed, period = get_date_range(mode, month, start_date, end_date)
         request_uuid = uuid.uuid4()
@@ -621,13 +641,16 @@ def generate_bulk_pdf_zip(request):
                     # Use manually selected images if any, otherwise auto-fetch
                     image_urls = selected_images_dict.get(str(student_id), None)
                     if not image_urls:
-                        image_urls = fetch_student_images(student_id, start_date_parsed, end_date_parsed)
+                        image_urls = fetch_student_images(
+                            student_id, start_date_parsed, end_date_parsed, max_images=max_images
+                        )
 
                     # Use per-student include_background if provided, else True
                     include_background = include_background_dict.get(str(student_id), True)
 
                     pdf_buffer = generate_pdf_content(
-                        student, attendance_data, lessons_data, image_urls, period, include_background=include_background
+                        student, attendance_data, lessons_data, image_urls, period,
+                        include_background=include_background, max_images=max_images
                     )
 
                     _log_student_report_generation_event(
@@ -1090,6 +1113,7 @@ def generate_pdf(request):
             student_class = data.get('studentData', {}).get('student_class')
             selected_images = data.get('selectedImages', [])
             include_background = data.get('includeBackground', True)  # Read from request, default True
+            max_images = clamp_max_images(data.get('max_images'))
         else:  # GET (existing logic)
             student_id = request.GET.get('student_id')
             mode = request.GET.get('mode')
@@ -1100,6 +1124,7 @@ def generate_pdf(request):
             student_class = request.GET.get('student_class')
             selected_images = None
             include_background = True  # Default for GET
+            max_images = clamp_max_images(request.GET.get('max_images'))
 
         if not all([student_id, mode, school_id, student_class]):
             logger.warning("Missing required parameters in generate_pdf")
@@ -1123,9 +1148,15 @@ def generate_pdf(request):
             return Response({'message': 'Failed to generate PDF', 'error': 'Student not found'}, status=404)
 
         # Use selected_images for POST, otherwise fetch default images
-        image_urls = selected_images if request.method == 'POST' and selected_images else fetch_student_images(student_id, start_date, end_date)
+        image_urls = (
+            selected_images if request.method == 'POST' and selected_images
+            else fetch_student_images(student_id, start_date, end_date, max_images=max_images)
+        )
         logger.info(f"Progress image URLs: {image_urls}")
-        buffer = generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, include_background=include_background)
+        buffer = generate_pdf_content(
+            student, attendance_data, lessons_data, image_urls, period,
+            include_background=include_background, max_images=max_images
+        )
         _log_student_report_generation_event(
             event_type='single_pdf',
             user=request.user,
@@ -1154,11 +1185,12 @@ def generate_pdf(request):
 
 
 
-def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, include_background=True):
+def generate_pdf_content(student, attendance_data, lessons_data, image_urls, period, include_background=True, max_images=DEFAULT_REPORT_IMAGES):
     logger.info("Generating PDF content")
+    max_images = clamp_max_images(max_images)
 
     progress_images = []
-    for url in image_urls[:4]:
+    for url in image_urls[:max_images]:
         logger.info(f"Fetching progress image: {url}")
         img_buffer = fetch_image(url)
         if img_buffer:

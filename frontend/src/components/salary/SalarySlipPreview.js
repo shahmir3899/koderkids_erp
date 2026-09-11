@@ -16,6 +16,16 @@ export function SalarySlipPreview({ data }) {
 
   const schoolsList = parseSchools(data.schools);
   const monitoringVisits = Array.isArray(data.monitoringVisits) ? data.monitoringVisits : [];
+  const workingDays = Array.isArray(data.workingDays) ? data.workingDays : [];
+  const presentDays = workingDays.filter((d) => d.status === 'present').length;
+  const absentDaysList = workingDays.filter((d) => d.status !== 'present');
+
+  // Convert a 0-100 score into a 1-5 star display (e.g. 87% -> 4 filled stars)
+  const scoreToStars = (score) => {
+    if (score === null || score === undefined) return null;
+    const filled = Math.max(0, Math.min(5, Math.round((Number(score) / 100) * 5)));
+    return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+  };
 
   return (
     <div style={{
@@ -58,10 +68,17 @@ export function SalarySlipPreview({ data }) {
         </div>
       </div>
 
-      {/* No of Days */}
-      <p style={{ marginBottom: '1rem', fontWeight: 'bold' }}>
-        No of Days: {data.noOfDays} {data.noOfDays === 31 ? '(normalized to 30 for calculation)' : ''}
-      </p>
+      {/* Working Days */}
+      <div style={{ marginBottom: '1rem' }}>
+        <p style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+          Working Days: {presentDays} present / {absentDaysList.length} absent of {workingDays.length}
+        </p>
+        {absentDaysList.length > 0 && (
+          <p style={{ marginLeft: '1.5rem', color: '#DC2626', fontSize: '0.85rem' }}>
+            Absent: {absentDaysList.map((d) => formatDateWithOrdinal(d.date)).join(', ')}
+          </p>
+        )}
+      </div>
 
       {/* Earnings */}
       <div style={{ marginBottom: '1rem' }}>
@@ -120,7 +137,15 @@ export function SalarySlipPreview({ data }) {
                     <td style={{ padding: '6px 4px', borderBottom: '1px solid #F3F4F6' }}>{visit.school_name || '-'}</td>
                     <td style={{ padding: '6px 4px', borderBottom: '1px solid #F3F4F6' }}>{visit.status || '-'}</td>
                     <td style={{ padding: '6px 4px', borderBottom: '1px solid #F3F4F6', textAlign: 'right' }}>
-                      {visit.score === null || visit.score === undefined ? '-' : `${Number(visit.score).toFixed(2)}%`}
+                      {visit.score === null || visit.score === undefined ? (
+                        '-'
+                      ) : (
+                        <span>
+                          <span style={{ color: '#F59E0B', letterSpacing: '1px' }}>{scoreToStars(visit.score)}</span>
+                          {' '}
+                          <span>{Number(visit.score).toFixed(2)}%</span>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

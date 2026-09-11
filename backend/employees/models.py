@@ -381,6 +381,29 @@ class SalarySlip(models.Model):
         help_text="Number of monitoring visit rows included in this slip"
     )
 
+    # Working days (attendance) for this salary period. Days are derived from
+    # the union of the teacher's assigned schools' weekly class days
+    # (School.assigned_days), defaulting to 'present'; the admin toggles
+    # individual days to 'absent' before saving. Prorated salary is
+    # basic_salary * present_days / total_working_days.
+    working_days_snapshot = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="JSON array of {date, weekday, status} for each working day in the period"
+    )
+    total_working_days = models.IntegerField(
+        default=0,
+        help_text="Total working days in the period, from assigned schools' class days"
+    )
+    present_days = models.IntegerField(
+        default=0,
+        help_text="Working days marked present"
+    )
+    absent_days = models.IntegerField(
+        default=0,
+        help_text="Working days marked absent"
+    )
+
     # Totals
     total_earnings = models.DecimalField(
         max_digits=10,

@@ -11,6 +11,19 @@ import { fetchVisitTeachers, submitEvaluation, updateEvaluation } from '../../se
 
 const EMPTY_QUESTION = () => ({ question_text: '', answer_text: '', rating: null });
 
+// Quick star-rating questions — pre-populated so the BDM can just tap stars
+// instead of typing a question. Optional: left unrated, they don't count
+// toward the score (same rule as any other unrated question).
+const PRESET_QUESTIONS = [
+  'Punctuality & Attendance',
+  'Lesson Delivery',
+  'Classroom Management',
+  'Student Engagement',
+];
+
+const buildPresetQuestions = () =>
+  PRESET_QUESTIONS.map((text) => ({ question_text: text, answer_text: '', rating: null, isPreset: true }));
+
 // ============================================
 // Z_INDEX (local reference for portal)
 // ============================================
@@ -41,8 +54,8 @@ const EvaluationWizard = ({
   const [teachers, setTeachers] = useState([]);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
 
-  // Step 2 data — ad-hoc questions the BDM types on the spot
-  const [questions, setQuestions] = useState([EMPTY_QUESTION()]);
+  // Step 2 data — quick preset star ratings + ad-hoc questions the BDM types on the spot
+  const [questions, setQuestions] = useState(buildPresetQuestions());
 
   // Step 3 data
   const [remarks, setRemarks] = useState('');
@@ -97,6 +110,7 @@ const EvaluationWizard = ({
           question_text: q.question_text || '',
           answer_text: q.answer_text || '',
           rating: q.rating ?? null,
+          isPreset: PRESET_QUESTIONS.includes(q.question_text),
         })));
       }
       setCurrentStep(3);
@@ -129,7 +143,7 @@ const EvaluationWizard = ({
     setCurrentStep(1);
     setTeachers([]);
     setSelectedTeacher(null);
-    setQuestions([EMPTY_QUESTION()]);
+    setQuestions(buildPresetQuestions());
     setRemarks('');
     setAreasOfImprovement('');
     setTeacherStrengths('');
@@ -413,7 +427,7 @@ const EvaluationWizard = ({
     </div>
   );
 
-  const renderStarPicker = (index, rating) => (
+  const renderStarPicker = (index, rating, size = FONT_SIZES.lg) => (
     <div style={styles.starPicker}>
       {[1, 2, 3, 4, 5].map((n) => (
         <FontAwesomeIcon
@@ -422,7 +436,7 @@ const EvaluationWizard = ({
           onClick={() => handleQuestionChange(index, 'rating', rating === n ? null : n)}
           style={{
             cursor: 'pointer',
-            fontSize: FONT_SIZES.lg,
+            fontSize: size,
             color: rating && n <= rating ? '#FBBF24' : 'rgba(255, 255, 255, 0.25)',
             transition: `color ${TRANSITIONS.fast}`,
           }}
@@ -454,21 +468,32 @@ const EvaluationWizard = ({
         </span>
       </div>
 
+      {/* Quick star ratings — tap to rate, no typing needed. All optional. */}
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Quick Ratings (optional)</label>
+        <div style={styles.quickRatingList}>
+          {questions.map((q, index) => q.isPreset && (
+            <div key={index} style={styles.quickRatingRow}>
+              <span style={styles.quickRatingLabel}>{q.question_text}</span>
+              {renderStarPicker(index, q.rating, FONT_SIZES.xl)}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.lg }}>
-        {questions.map((q, index) => (
+        {questions.map((q, index) => !q.isPreset && (
           <div key={index} style={styles.questionCard}>
             <div style={styles.questionCardHeader}>
-              <span style={styles.questionCardIndex}>Q{index + 1}</span>
-              {questions.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveQuestion(index)}
-                  style={styles.removeQuestionButton}
-                  title="Remove question"
-                >
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
-              )}
+              <span style={styles.questionCardIndex}>Additional Question</span>
+              <button
+                type="button"
+                onClick={() => handleRemoveQuestion(index)}
+                style={styles.removeQuestionButton}
+                title="Remove question"
+              >
+                <FontAwesomeIcon icon={faTrash} />
+              </button>
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Question</label>
@@ -1214,6 +1239,31 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: SPACING.sm,
+  },
+
+  quickRatingList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SPACING.sm,
+    padding: SPACING.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BORDER_RADIUS.lg,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+
+  quickRatingRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    padding: `${SPACING.xs} 0`,
+  },
+
+  quickRatingLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.text.white,
   },
 
   clearRatingButton: {

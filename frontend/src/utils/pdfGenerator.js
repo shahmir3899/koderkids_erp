@@ -674,7 +674,6 @@ export class PDFGenerator {
       bankName = '',
       accountTitle = '',
       accountNumber = '',
-      noOfDays = 0,
       proratedSalary = 0,
       earnings = [],
       deductions = [],
@@ -682,6 +681,10 @@ export class PDFGenerator {
       totalDeduction = 0,
       netPay = 0,
       monitoringVisits = [],
+      workingDays = [],
+      totalWorkingDays = 0,
+      presentDays = 0,
+      absentDays = 0,
     } = options;
 
     try {
@@ -729,6 +732,32 @@ export class PDFGenerator {
         return `PKR ${parseFloat(amount)
           .toFixed(2)
           .replace(/\d(?=(\d{3})+\.)/g, '$&,')}`;
+      };
+
+      // Helper: Draw a 5-dot star rating (0-100 score -> 0-5 filled dots).
+      // Standard PDF fonts can't render the ★ glyph, so dots are drawn as
+      // small circles instead — filled for the rating, outlined for the rest.
+      const drawScoreDots = (targetPage, x, textBaselineY, score) => {
+        const filled = Math.max(0, Math.min(5, Math.round((Number(score) / 100) * 5)));
+        const radius = 2.5;
+        const spacing = 8;
+        const dotY = textBaselineY + this.fontSize * 0.32; // roughly vertically centered on the text
+        for (let i = 0; i < 5; i += 1) {
+          const cx = x + radius + i * spacing;
+          if (i < filled) {
+            targetPage.drawEllipse({ x: cx, y: dotY, xScale: radius, yScale: radius, color: rgb(0.96, 0.62, 0.04) });
+          } else {
+            targetPage.drawEllipse({
+              x: cx,
+              y: dotY,
+              xScale: radius,
+              yScale: radius,
+              borderColor: rgb(0.7, 0.7, 0.7),
+              borderWidth: 0.75,
+            });
+          }
+        }
+        return 5 * spacing; // width consumed
       };
 
       // Draw background
@@ -884,8 +913,8 @@ export class PDFGenerator {
       yRight = drawLabelValue('From: ', formatDateWithOrdinal(fromDate), rightColumnX, yRight);
       yRight = drawLabelValue('Till: ', formatDateWithOrdinal(tillDate), rightColumnX, yRight);
 
-      // No of Days
-      const daysText = noOfDays === 31 ? `${noOfDays} (normalized)` : `${noOfDays}`;
+      // Working Days (present / total, from assigned schools' class days)
+      const daysText = `${presentDays}/${totalWorkingDays} present`;
       yRight = drawLabelValue('Working Days: ', daysText, rightColumnX, yRight);
 
       yRight -= lineHeight * 0.5;
@@ -1015,9 +1044,50 @@ export class PDFGenerator {
       });
 
       // ============================================
+      // ATTENDANCE SECTION (Full Width)
+      // ============================================
+      let yAttendance = Math.min(yEarnings, yDeductions) - lineHeight * 1.5;
+
+      yAttendance = drawSectionHeader('ATTENDANCE', this.margin, yAttendance, 120);
+
+      if (!Array.isArray(workingDays) || workingDays.length === 0) {
+        page.drawText('No working days configured for this period.', {
+          x: this.margin,
+          y: yAttendance,
+          size: this.fontSize,
+          font: fontRegular,
+          color: rgb(0.45, 0.45, 0.45),
+        });
+        yAttendance -= lineHeight;
+      } else {
+        page.drawText(`${presentDays} present / ${absentDays} absent of ${totalWorkingDays} working days`, {
+          x: this.margin,
+          y: yAttendance,
+          size: this.fontSize,
+          font: fontRegular,
+          color: rgb(0, 0, 0),
+        });
+        yAttendance -= lineHeight;
+
+        const absentDates = workingDays.filter((d) => d.status !== 'present');
+        if (absentDates.length > 0) {
+          const absentText = `Absent: ${absentDates.map((d) => formatDateWithOrdinal(d.date)).join(', ')}`;
+          const clippedAbsentText = absentText.length > 150 ? `${absentText.slice(0, 147)}...` : absentText;
+          page.drawText(clippedAbsentText, {
+            x: this.margin,
+            y: yAttendance,
+            size: this.fontSize - 1,
+            font: fontRegular,
+            color: rgb(0.8, 0, 0),
+          });
+          yAttendance -= lineHeight;
+        }
+      }
+
+      // ============================================
       // MONITORING VISITS SECTION (Full Width)
       // ============================================
-      let yMonitoring = Math.min(yEarnings, yDeductions) - lineHeight * 1.5;
+      let yMonitoring = yAttendance - lineHeight * 0.5;
 
       yMonitoring = drawSectionHeader('MONITORING VISITS', this.margin, yMonitoring, 170);
 
@@ -1035,17 +1105,21 @@ export class PDFGenerator {
         const rowsToRender = monitoringVisits.slice(0, maxRows);
 
         rowsToRender.forEach((visit) => {
-          const scoreText = visit?.score === null || visit?.score === undefined
-            ? '-'
-            : `${Number(visit.score).toFixed(2)}%`;
+          const hasScore = !(visit?.score === null || visit?.score === undefined);
+          const scoreText = hasScore ? `${Number(visit.score).toFixed(2)}%` : '-';
           const rowText = `${formatDateWithOrdinal(visit?.visit_date)} | ${visit?.school_name || '-'} | ${visit?.status || '-'} | Score: ${scoreText}`;
-          page.drawText(rowText.slice(0, 110), {
+          const clippedRowText = rowText.slice(0, 110);
+          page.drawText(clippedRowText, {
             x: this.margin,
             y: yMonitoring,
             size: this.fontSize,
             font: fontRegular,
             color: rgb(0, 0, 0),
           });
+          if (hasScore) {
+            const textWidth = fontRegular.widthOfTextAtSize(clippedRowText, this.fontSize);
+            drawScoreDots(page, this.margin + textWidth + 8, yMonitoring, visit.score);
+          }
           yMonitoring -= lineHeight;
         });
 

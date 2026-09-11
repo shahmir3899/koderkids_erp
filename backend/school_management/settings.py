@@ -10,6 +10,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load .env from the backend folder
 load_dotenv()
 
+# =============================================================================
+# Environment Toggle: set ENVIRONMENT=production in your .env to harden everything
+# =============================================================================
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'local')
+IS_PRODUCTION = ENVIRONMENT == 'production'
+
 # Supabase Storage Configuration
 SUPABASE_URL = os.getenv("REACT_APP_SUPABASE_URL")
 SUPABASE_KEY = os.getenv("REACT_APP_SUPABASE_SEC_KEY")
@@ -17,8 +23,10 @@ SUPABASE_BUCKET = "profile-photos"
 
 # Secret key & Debug mode from environment
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
-DEBUG = True
-DJANGO_DEBUG = True
+
+# DEBUG is derived from ENVIRONMENT — no separate toggle needed
+DEBUG = not IS_PRODUCTION
+DJANGO_DEBUG = DEBUG
 
 # Database Configuration
 import dj_database_url
@@ -45,7 +53,7 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Static Files Directories (Only in Development)
-if os.getenv("DEBUG", "True") == "True":
+if DEBUG:
     STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 else:
     STATICFILES_DIRS = []
@@ -64,7 +72,17 @@ ALLOWED_HOSTS = [
     'koderkids-erp.onrender.com',
     'personal-gateway.onrender.com'
 ]
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+# Local vs production defaults derived from ENVIRONMENT — override with FRONTEND_URL/
+# NGROK_URL in .env only if you need something other than the standard local/prod URL.
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "https://portal.koderkids.pk" if IS_PRODUCTION else "http://localhost:3000",
+)
+# Used by onlineclasses/tasks.py to build links in class-reminder emails.
+NGROK_URL = os.getenv(
+    "NGROK_URL",
+    "https://koderkids-erp.onrender.com" if IS_PRODUCTION else "http://127.0.0.1:8000",
+)
 
 # CORS Headers
 CORS_ALLOW_HEADERS = [
@@ -177,7 +195,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-CORS_ALLOW_ALL_ORIGINS = True  # TODO: Set back to False in production
+CORS_ALLOW_ALL_ORIGINS = not IS_PRODUCTION  # open in local dev, locked to CORS_ALLOWED_ORIGINS in production
 CSRF_TRUSTED_ORIGINS = [
     "https://frontend.koderkids.pk",
     "https://portal.koderkids.pk",
@@ -216,7 +234,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ============================================
 # EMAIL CONFIGURATION (Hostnext cPanel - SSL)
 # ============================================
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# Local dev: print emails to the console instead of actually sending them.
+# Production: real SMTP delivery. Override with EMAIL_BACKEND in .env if needed.
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.smtp.EmailBackend' if IS_PRODUCTION else 'django.core.mail.backends.console.EmailBackend',
+)
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'mail.koderkids.pk')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '465'))  # SSL port as string to avoid int() error
 EMAIL_USE_TLS = False  # Don't use TLS
@@ -229,26 +252,27 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 # Email timeout (in seconds)
 EMAIL_TIMEOUT = 10
 
-# Debug: Print email settings on startup (REMOVE IN PRODUCTION)
-print("\n" + "="*50)
-print("EMAIL CONFIGURATION LOADED:")
-print("="*50)
-print(f"HOST: {EMAIL_HOST}")
-print(f"PORT: {EMAIL_PORT}")
-print(f"USER: {EMAIL_HOST_USER}")
-print(f"SSL: {EMAIL_USE_SSL}")
-print(f"PASSWORD SET: {'Yes' if EMAIL_HOST_PASSWORD else 'No (MISSING!)'}")
-print(f"FROM EMAIL: {DEFAULT_FROM_EMAIL}")
-print("="*50 + "\n")
+# Debug: Print email settings on startup (local dev only)
+if not IS_PRODUCTION:
+    print("\n" + "="*50)
+    print("EMAIL CONFIGURATION LOADED:")
+    print("="*50)
+    print(f"HOST: {EMAIL_HOST}")
+    print(f"PORT: {EMAIL_PORT}")
+    print(f"USER: {EMAIL_HOST_USER}")
+    print(f"SSL: {EMAIL_USE_SSL}")
+    print(f"PASSWORD SET: {'Yes' if EMAIL_HOST_PASSWORD else 'No (MISSING!)'}")
+    print(f"FROM EMAIL: {DEFAULT_FROM_EMAIL}")
+    print("="*50 + "\n")
 
 # ============================================
 # AI/LLM CONFIGURATION
 # ============================================
 # Provider preference: comma-separated list (first available will be used)
 # Options: "ollama" (local), "groq" (cloud, free tier)
-# For production on Render: use "groq" or "groq,ollama"
-# For local development: use "ollama,groq" or just "ollama"
-LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'ollama,groq')
+# Default follows ENVIRONMENT: local dev tries Ollama first, production uses Groq
+# (Render doesn't run Ollama for this service). Override with LLM_PROVIDER in .env.
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'groq' if IS_PRODUCTION else 'ollama,groq')
 
 # Ollama (local LLM - for development)
 OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')

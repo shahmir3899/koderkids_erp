@@ -1,8 +1,8 @@
 @echo off
 title KoderKids ERP - Local Dev
 
-:: Switch to local environment
-python "%~dp0scripts\switch_env.py" local --no-start
+:: No env-switching needed anymore: backend/.env defaults to ENVIRONMENT=local,
+:: and `npm start` auto-loads frontend/.env.development for the API URL.
 
 :: Open VS Code in project root
 start "" code "%~dp0."

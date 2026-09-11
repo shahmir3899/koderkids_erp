@@ -15,6 +15,7 @@ import { LoadingSpinner } from '../components/common/ui/LoadingSpinner';
 import { Button } from '../components/common/ui/Button';
 import { ErrorDisplay } from '../components/common/ui/ErrorDisplay';
 import { EarningsDeductionsList } from '../components/salary/EarningsDeductionsList';
+import { WorkingDaysSelector } from '../components/salary/WorkingDaysSelector';
 import { CalculatedValues } from '../components/salary/CalculatedValues';
 import { SalarySlipPreview } from '../components/salary/SalarySlipPreview';
 import ReportCompletionLine from '../components/salary/ReportCompletionLine';
@@ -235,6 +236,8 @@ function SalarySlipPage() {
     salarySlipHistory,
     selectedHistorySlip,
     monitoringVisits,
+    workingDays,
+    workingDaysActions,
     fetchSalarySlipHistory,
     loadHistoricalSlip,
     deleteHistoricalSlip,
@@ -930,6 +933,18 @@ function SalarySlipPage() {
           </CollapsibleSection>
 
           {/* ============================================ */}
+          {/* WORKING DAYS SECTION */}
+          {/* ============================================ */}
+          <CollapsibleSection title="🗓️ Working Days">
+            <WorkingDaysSelector
+              workingDays={workingDays}
+              onToggle={workingDaysActions.toggle}
+              onMarkAllPresent={workingDaysActions.markAllPresent}
+              readOnly={isSelfServiceMode}
+            />
+          </CollapsibleSection>
+
+          {/* ============================================ */}
           {/* SUMMARY & PREVIEW SECTION */}
           {/* ============================================ */}
           <CollapsibleSection title="📊 Summary & Preview">
@@ -942,6 +957,7 @@ function SalarySlipPage() {
                   earnings: [{ category: 'Salary', amount: calculations.proratedSalary }, ...earnings],
                   deductions,
                   monitoringVisits,
+                  workingDays,
                 }}
               />
             </div>

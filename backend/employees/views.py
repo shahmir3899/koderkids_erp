@@ -14,7 +14,7 @@ from supabase import create_client, Client
 from django.conf import settings
 import uuid
 import os
-from datetime import date
+from datetime import date, timedelta
 
 
 from .models import TeacherProfile, TeacherEarning, TeacherDeduction, Notification, SalarySlip, NotificationSettings
@@ -113,6 +113,44 @@ def build_monitoring_visit_snapshot(employee, from_date, till_date):
                 'score': None,  # As requested for phase 1 BDM rows
                 'notes': '',
             })
+
+    return rows
+
+
+def build_working_days_snapshot(employee, from_date, till_date):
+    """Build the working-days list for a salary period.
+
+    Working days are the union of the employee's active assigned schools'
+    weekly class days (School.assigned_days), expanded to actual calendar
+    dates within [from_date, till_date]. Every day defaults to 'present' -
+    the admin toggles individual days to 'absent' in the UI before saving.
+    A school with no assigned_days configured contributes no days (rather
+    than treating every day as a working day).
+    """
+    if not employee or not from_date or not till_date or till_date < from_date:
+        return []
+
+    schools = employee.assigned_schools.filter(is_active=True)
+    working_weekdays = set()
+    for school in schools:
+        if school.assigned_days:
+            working_weekdays.update(school.assigned_days)
+
+    if not working_weekdays:
+        return []
+
+    weekday_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    rows = []
+    current = from_date
+    one_day = timedelta(days=1)
+    while current <= till_date:
+        if current.weekday() in working_weekdays:
+            rows.append({
+                'date': current.isoformat(),
+                'weekday': weekday_names[current.weekday()],
+                'status': 'present',
+            })
+        current += one_day
 
     return rows
 
@@ -1067,22 +1105,32 @@ class SalarySlipCreateView(APIView):
             till_date = serializer.validated_data.get('till_date')
             monitoring_snapshot = build_monitoring_visit_snapshot(teacher, from_date, till_date)
 
+            working_days_snapshot = serializer.validated_data.get('working_days_snapshot') or []
+            total_working_days = len(working_days_snapshot)
+            present_days = sum(1 for d in working_days_snapshot if d.get('status') == 'present')
+            absent_days = total_working_days - present_days
+
+            extra_fields = {
+                'monitoring_visits_snapshot': monitoring_snapshot,
+                'monitoring_visits_count': len(monitoring_snapshot),
+                'total_working_days': total_working_days,
+                'present_days': present_days,
+                'absent_days': absent_days,
+            }
+
             # Check if updating existing
             if serializer.instance:
                 # Update existing slip
                 for attr, value in serializer.validated_data.items():
                     setattr(serializer.instance, attr, value)
-                serializer.instance.monitoring_visits_snapshot = monitoring_snapshot
-                serializer.instance.monitoring_visits_count = len(monitoring_snapshot)
+                for attr, value in extra_fields.items():
+                    setattr(serializer.instance, attr, value)
                 serializer.instance.generated_by = request.user
                 serializer.instance.save()
                 slip = serializer.instance
             else:
                 # Create new slip
-                slip = serializer.save(
-                    monitoring_visits_snapshot=monitoring_snapshot,
-                    monitoring_visits_count=len(monitoring_snapshot),
-                )
+                slip = serializer.save(**extra_fields)
 
             response_serializer = SalarySlipSerializer(slip)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -1150,9 +1198,19 @@ class SalarySlipDetailView(APIView):
             till_date = serializer.validated_data.get('till_date', slip.till_date)
             monitoring_snapshot = build_monitoring_visit_snapshot(teacher, from_date, till_date)
 
+            working_days_snapshot = serializer.validated_data.get('working_days_snapshot')
+            if working_days_snapshot is None:
+                working_days_snapshot = slip.working_days_snapshot
+            total_working_days = len(working_days_snapshot)
+            present_days = sum(1 for d in working_days_snapshot if d.get('status') == 'present')
+            absent_days = total_working_days - present_days
+
             updated_slip = serializer.save(
                 monitoring_visits_snapshot=monitoring_snapshot,
                 monitoring_visits_count=len(monitoring_snapshot),
+                total_working_days=total_working_days,
+                present_days=present_days,
+                absent_days=absent_days,
             )
             response_serializer = SalarySlipSerializer(updated_slip)
             return Response(response_serializer.data)
@@ -1205,6 +1263,40 @@ class SalarySlipMonitoringLinesPreviewView(APIView):
             'teacher': teacher.id,
             'monitoring_visits_snapshot': rows,
             'monitoring_visits_count': len(rows),
+        })
+
+
+class SalarySlipWorkingDaysPreviewView(APIView):
+    """Preview working days (all defaulted to present) for a salary period
+    before generating a slip. The admin toggles days in the UI; the final
+    per-day statuses are submitted back when the slip is saved."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        teacher_id = request.query_params.get('teacher_id')
+        from_date = _parse_iso_date(request.query_params.get('from_date'))
+        till_date = _parse_iso_date(request.query_params.get('till_date'))
+
+        if not from_date or not till_date:
+            return Response(
+                {'error': 'from_date and till_date are required (YYYY-MM-DD).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if request.user.role == 'Admin':
+            if not teacher_id:
+                return Response({'error': 'teacher_id is required for admin preview.'}, status=status.HTTP_400_BAD_REQUEST)
+            teacher = get_object_or_404(CustomUser, id=teacher_id)
+        else:
+            teacher = request.user
+            if teacher_id and str(teacher.id) != str(teacher_id):
+                return Response({'error': 'You can only preview your own working days.'}, status=status.HTTP_403_FORBIDDEN)
+
+        rows = build_working_days_snapshot(teacher, from_date, till_date)
+        return Response({
+            'teacher': teacher.id,
+            'working_days_snapshot': rows,
+            'total_working_days': len(rows),
         })
 
 

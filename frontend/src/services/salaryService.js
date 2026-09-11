@@ -108,6 +108,26 @@ export const salaryService = {
   },
 
   /**
+   * Preview working days (default all present) for a salary period, derived
+   * from the union of the teacher's assigned schools' weekly class days.
+   * @param {number} teacherId
+   * @param {string} fromDate - YYYY-MM-DD
+   * @param {string} tillDate - YYYY-MM-DD
+   */
+  fetchWorkingDaysPreview: async (teacherId, fromDate, tillDate) => {
+    const params = new URLSearchParams();
+    if (teacherId) params.append('teacher_id', teacherId);
+    if (fromDate) params.append('from_date', fromDate);
+    if (tillDate) params.append('till_date', tillDate);
+
+    const response = await axios.get(
+      `${API_BASE_URL}/employees/salary-slips/working-days/?${params.toString()}`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  /**
    * Save salary slip to database (Admin only)
    * Creates new or updates existing slip for same teacher/period
    * @param {Object} slipData - Complete salary slip data

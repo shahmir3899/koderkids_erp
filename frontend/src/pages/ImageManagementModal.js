@@ -34,7 +34,7 @@ import {
 // CONSTANTS
 // ============================================
 
-const MAX_SELECTIONS = 4;
+const DEFAULT_MAX_SELECTIONS = 4;
 
 // ============================================
 // STYLES - Glassmorphism Design
@@ -432,10 +432,14 @@ const ImageManagementModal = ({
   mode,
   onClose,
   initialSelectedImages = [], // NEW: Accept pre-selected images
+  maxSelections = DEFAULT_MAX_SELECTIONS, // Dynamic cap, set via the Reports page slider
 }) => {
   // State
   const [images, setImages] = useState([]);
-  const [selectedImages, setSelectedImages] = useState(initialSelectedImages);
+  // Respect a smaller max even if a previous selection (made under a higher cap) is longer
+  const [selectedImages, setSelectedImages] = useState(
+    initialSelectedImages.slice(0, maxSelections)
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState(null);
@@ -544,14 +548,14 @@ const ImageManagementModal = ({
         );
       }
 
-      if (prev.length >= MAX_SELECTIONS) {
-        toast.warning(`You can only select up to ${MAX_SELECTIONS} images.`);
+      if (prev.length >= maxSelections) {
+        toast.warning(`You can only select up to ${maxSelections} images.`);
         return prev;
       }
 
       return [...prev, image.url];
     });
-  }, []);
+  }, [maxSelections]);
 
   const handleDeleteImage = useCallback(async (filename) => {
     if (!window.confirm('Are you sure you want to delete this image? This cannot be undone.')) {
@@ -640,7 +644,7 @@ const ImageManagementModal = ({
   }, [selectionOrderMap]);
 
   // Check if max selections reached
-  const isMaxReached = selectedImages.length >= MAX_SELECTIONS;
+  const isMaxReached = selectedImages.length >= maxSelections;
 
   // ============================================
   // RENDER
@@ -665,7 +669,7 @@ const ImageManagementModal = ({
           <div style={styles.selectionBadge}>
             <span>{selectedImages.length}</span>
             <span>/</span>
-            <span>{MAX_SELECTIONS}</span>
+            <span>{maxSelections}</span>
             <span>selected</span>
           </div>
         </div>
@@ -696,7 +700,7 @@ const ImageManagementModal = ({
             {isMaxReached && (
               <div style={styles.warningMessage}>
                 <span>⚠️</span>
-                <span>Maximum {MAX_SELECTIONS} images selected. Deselect an image to choose a different one.</span>
+                <span>Maximum {maxSelections} images selected. Deselect an image to choose a different one.</span>
               </div>
             )}
 
@@ -729,7 +733,7 @@ const ImageManagementModal = ({
           <div style={styles.footerHint}>
             {images.length > 0 && (
               <>
-                Click images to select (max {MAX_SELECTIONS}).
+                Click images to select (max {maxSelections}).
                 Selected images will appear in the report.
               </>
             )}

@@ -8,8 +8,7 @@ import { toast } from 'react-toastify';
 import { salaryService } from '../services/salaryService';
 import {
   calculateActualDays,
-  calculateNormalizedDays,
-  calculateProratedSalary,
+  calculateProratedSalaryFromWorkingDays,
   calculateTotals,
 } from '../utils/salaryCalculations';
 import { PDFGenerator } from '../utils/pdfGenerator';
@@ -109,6 +108,7 @@ export function useSalarySlip() {
   const [salarySlipHistory, setSalarySlipHistory] = useState([]);
   const [selectedHistorySlip, setSelectedHistorySlip] = useState(null);
   const [monitoringVisits, setMonitoringVisits] = useState([]);
+  const [workingDays, setWorkingDays] = useState([]);
 
   // ============================================
   // HELPERS
@@ -271,14 +271,69 @@ export function useSalarySlip() {
     loadMonitoringPreview();
   }, [selectedTeacherId, formData.fromDate, formData.tillDate]);
 
+  // Fetch working days (union of assigned schools' class days) when teacher
+  // or period changes, defaulting every day to present. If a historical slip
+  // for this exact teacher+period is loaded, keep its saved day-by-day
+  // statuses instead of overwriting them with a fresh all-present preview.
+  useEffect(() => {
+    const loadWorkingDaysPreview = async () => {
+      if (!selectedTeacherId || !formData.fromDate || !formData.tillDate) {
+        setWorkingDays([]);
+        return;
+      }
+
+      if (
+        selectedHistorySlip &&
+        String(selectedHistorySlip.teacher) === String(selectedTeacherId) &&
+        selectedHistorySlip.from_date === formData.fromDate &&
+        selectedHistorySlip.till_date === formData.tillDate
+      ) {
+        return;
+      }
+
+      try {
+        const payload = await salaryService.fetchWorkingDaysPreview(
+          selectedTeacherId,
+          formData.fromDate,
+          formData.tillDate
+        );
+        if (!isMounted.current) return;
+        setWorkingDays(payload?.working_days_snapshot || []);
+      } catch (err) {
+        if (!isMounted.current) return;
+        console.warn('Working days preview unavailable:', err?.response?.data || err.message);
+        setWorkingDays([]);
+      }
+    };
+
+    loadWorkingDaysPreview();
+  }, [selectedTeacherId, formData.fromDate, formData.tillDate, selectedHistorySlip]);
+
+  // ============================================
+  // WORKING DAYS ACTIONS
+  // ============================================
+
+  const workingDaysActions = {
+    toggle: useCallback((dateStr) => {
+      setWorkingDays(prev => prev.map(d => (
+        d.date === dateStr ? { ...d, status: d.status === 'present' ? 'absent' : 'present' } : d
+      )));
+    }, []),
+    markAllPresent: useCallback(() => {
+      setWorkingDays(prev => prev.map(d => ({ ...d, status: 'present' })));
+    }, []),
+  };
+
   // ============================================
   // CALCULATED VALUES (Memoized)
   // ============================================
-  
+
   const calculations = useMemo(() => {
     const actualDays = calculateActualDays(formData.fromDate, formData.tillDate);
-    const normalizedDays = calculateNormalizedDays(formData.fromDate, formData.tillDate);
-    const proratedSalary = calculateProratedSalary(formData.basicSalary, normalizedDays);
+    const totalWorkingDays = workingDays.length;
+    const presentDays = workingDays.filter(d => d.status === 'present').length;
+    const absentDays = totalWorkingDays - presentDays;
+    const proratedSalary = calculateProratedSalaryFromWorkingDays(formData.basicSalary, presentDays, totalWorkingDays);
     const { totalEarning, totalDeduction, netPay } = calculateTotals(
       proratedSalary,
       earnings,
@@ -287,13 +342,15 @@ export function useSalarySlip() {
 
     return {
       noOfDays: actualDays,
-      normalizedDays,
+      totalWorkingDays,
+      presentDays,
+      absentDays,
       proratedSalary,
       totalEarning,
       totalDeduction,
       netPay,
     };
-  }, [formData.fromDate, formData.tillDate, formData.basicSalary, earnings, deductions]);
+  }, [formData.fromDate, formData.tillDate, formData.basicSalary, earnings, deductions, workingDays]);
 
   // ============================================
   // CRUD OPERATIONS
@@ -345,10 +402,17 @@ export function useSalarySlip() {
       toast.warning("Invalid date range.");
       return false;
     }
-    
+
+    if (calculations.totalWorkingDays <= 0) {
+      const errorMsg = "No working days found for this period. Check the teacher's assigned schools have their weekly class days configured.";
+      setError(errorMsg);
+      toast.warning(errorMsg);
+      return false;
+    }
+
     setError(null);
     return true;
-  }, [formData, calculations.noOfDays]);
+  }, [formData, calculations.noOfDays, calculations.totalWorkingDays]);
 
   // ============================================
   // SALARY SLIP HISTORY FUNCTIONS
@@ -407,13 +471,13 @@ export function useSalarySlip() {
         account_number: formData.accountNumber,
         basic_salary: parseFloat(formData.basicSalary) || 0,
         no_of_days: calculations.noOfDays,
-        normalized_days: calculations.normalizedDays,
         prorated_salary: calculations.proratedSalary,
         total_earnings: calculations.totalEarning,
         total_deductions: calculations.totalDeduction,
         net_pay: calculations.netPay,
         earnings_snapshot: earnings.map(e => ({ category: e.category, amount: parseFloat(e.amount) || 0 })),
         deductions_snapshot: deductions.map(d => ({ category: d.category, amount: parseFloat(d.amount) || 0 })),
+        working_days_snapshot: workingDays,
         line_spacing: formData.lineSpacing,
       };
 
@@ -432,7 +496,7 @@ export function useSalarySlip() {
         setLoading(prev => ({ ...prev, saving: false }));
       }
     }
-  }, [selectedTeacherId, formData, earnings, deductions, calculations, teachers, fetchSalarySlipHistory]);
+  }, [selectedTeacherId, formData, earnings, deductions, calculations, teachers, workingDays, fetchSalarySlipHistory]);
 
   /**
    * Update an existing salary slip in database
@@ -462,13 +526,13 @@ export function useSalarySlip() {
         account_number: formData.accountNumber,
         basic_salary: parseFloat(formData.basicSalary) || 0,
         no_of_days: calculations.noOfDays,
-        normalized_days: calculations.normalizedDays,
         prorated_salary: calculations.proratedSalary,
         total_earnings: calculations.totalEarning,
         total_deductions: calculations.totalDeduction,
         net_pay: calculations.netPay,
         earnings_snapshot: earnings.map(e => ({ category: e.category, amount: parseFloat(e.amount) || 0 })),
         deductions_snapshot: deductions.map(d => ({ category: d.category, amount: parseFloat(d.amount) || 0 })),
+        working_days_snapshot: workingDays,
         line_spacing: formData.lineSpacing,
       };
 
@@ -487,7 +551,7 @@ export function useSalarySlip() {
         setLoading(prev => ({ ...prev, saving: false }));
       }
     }
-  }, [selectedTeacherId, formData, earnings, deductions, calculations, teachers, fetchSalarySlipHistory]);
+  }, [selectedTeacherId, formData, earnings, deductions, calculations, teachers, workingDays, fetchSalarySlipHistory]);
 
   // ============================================
   // PDF GENERATION
@@ -519,6 +583,7 @@ export function useSalarySlip() {
         earnings: [{ category: 'Salary', amount: calculations.proratedSalary }, ...earnings],
         deductions,
         monitoringVisits,
+        workingDays,
       };
 
       // Generate PDF blob
@@ -549,7 +614,7 @@ export function useSalarySlip() {
         setLoading(prev => ({ ...prev, generating: false }));
       }
     }
-  }, [formData, earnings, deductions, calculations, validateForm, saveSalarySlipToDb]);
+  }, [formData, earnings, deductions, calculations, workingDays, validateForm, saveSalarySlipToDb]);
 
   // ============================================
   // LOAD/DELETE HISTORICAL SLIPS
@@ -591,6 +656,7 @@ export function useSalarySlip() {
       setEarnings(slip.earnings_snapshot || []);
       setDeductions(slip.deductions_snapshot || []);
       setMonitoringVisits(slip.monitoring_visits_snapshot || []);
+      setWorkingDays(slip.working_days_snapshot || []);
 
       // Update selected teacher - set flags FIRST to prevent useEffect from re-fetching
       isLoadingHistoricalRef.current = true;
@@ -646,6 +712,7 @@ export function useSalarySlip() {
     setEarnings([]);
     setDeductions([]);
     setMonitoringVisits([]);
+    setWorkingDays([]);
   }, []);
 
   // ============================================
@@ -671,6 +738,7 @@ export function useSalarySlip() {
     salarySlipHistory,
     selectedHistorySlip,
     monitoringVisits,
+    workingDays,
 
     // Actions
     updateFormField,
@@ -678,6 +746,7 @@ export function useSalarySlip() {
     setLoading,
     earningsActions,
     deductionsActions,
+    workingDaysActions,
     validateForm,
     downloadPDF,
 

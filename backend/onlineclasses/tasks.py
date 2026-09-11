@@ -103,7 +103,7 @@ def send_class_reminder(self, session_id):
     )
 
     wa_bot_key = os.getenv('WHATSAPP_BOT_KEY', '')
-    ngrok_url = os.getenv('NGROK_URL', 'http://127.0.0.1:8000')
+    ngrok_url = settings.NGROK_URL
 
     for student in students:
         # Email

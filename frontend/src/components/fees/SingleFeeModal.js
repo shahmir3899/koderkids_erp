@@ -18,6 +18,7 @@ const SingleFeeModal = ({
   onClose,
   onSubmit,
   students,
+  classes = [],
   loading,
   selectedMonth,
   schoolName,
@@ -29,6 +30,7 @@ const SingleFeeModal = ({
   });
   const [errors, setErrors] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [classFilter, setClassFilter] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -39,12 +41,14 @@ const SingleFeeModal = ({
       });
       setErrors({});
       setSearchTerm('');
+      setClassFilter('');
     }
   }, [isOpen, selectedMonth]);
 
   const filteredStudents = students.filter(student =>
-    student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.reg_num?.toLowerCase().includes(searchTerm.toLowerCase())
+    (!classFilter || student.student_class === classFilter) &&
+    (student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.reg_num?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Get selected student details
@@ -149,6 +153,19 @@ const SingleFeeModal = ({
               Student <span className="text-red-500">*</span>
             </label>
             
+            <select
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              className="w-full border border-gray-300 rounded-md p-2 mb-2 focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Classes</option>
+              {classes.map((cls, index) => (
+                <option key={index} value={cls}>
+                  {cls}
+                </option>
+              ))}
+            </select>
+
             <input
               type="text"
               value={searchTerm}
@@ -175,8 +192,11 @@ const SingleFeeModal = ({
             {errors.studentId && (
               <p className="text-red-500 text-xs mt-1">{errors.studentId}</p>
             )}
-            {filteredStudents.length === 0 && searchTerm && (
-              <p className="text-gray-500 text-xs mt-1">No students found matching "{searchTerm}"</p>
+            {filteredStudents.length === 0 && (searchTerm || classFilter) && (
+              <p className="text-gray-500 text-xs mt-1">
+                No students found{classFilter ? ` in class "${classFilter}"` : ''}
+                {searchTerm ? ` matching "${searchTerm}"` : ''}
+              </p>
             )}
           </div>
 

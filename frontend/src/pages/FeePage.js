@@ -392,6 +392,7 @@ function FeePage() {
         onClose={() => setShowSingleFeeModal(false)}
         onSubmit={handleCreateSingleFee}
         students={students}
+        classes={classes}
         loading={loading.create || loading.students}
         selectedMonth={filters.month}
         schoolName={schoolName}

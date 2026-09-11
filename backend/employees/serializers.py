@@ -269,6 +269,7 @@ class SalarySlipListSerializer(serializers.ModelSerializer):
             'from_date', 'till_date', 'payment_date',
             'period_display', 'month',
             'monitoring_visits_count',
+            'total_working_days', 'present_days', 'absent_days',
             'net_pay', 'generated_at',
         ]
 
@@ -301,6 +302,7 @@ class SalarySlipSerializer(serializers.ModelSerializer):
             'basic_salary', 'no_of_days', 'normalized_days', 'prorated_salary',
             'earnings_snapshot', 'deductions_snapshot',
             'monitoring_visits_snapshot', 'monitoring_visits_count',
+            'working_days_snapshot', 'total_working_days', 'present_days', 'absent_days',
             'total_earnings', 'total_deductions', 'net_pay',
             # Formatting
             'line_spacing',
@@ -336,11 +338,18 @@ class SalarySlipCreateSerializer(serializers.ModelSerializer):
             'basic_salary', 'no_of_days', 'normalized_days', 'prorated_salary',
             'earnings_snapshot', 'deductions_snapshot',
             'monitoring_visits_snapshot', 'monitoring_visits_count',
+            'working_days_snapshot', 'total_working_days', 'present_days', 'absent_days',
             'total_earnings', 'total_deductions', 'net_pay',
             # Formatting
             'line_spacing',
         ]
-        read_only_fields = ['monitoring_visits_snapshot', 'monitoring_visits_count']
+        # monitoring_visits_* and the working-day counts are recomputed
+        # server-side in the view (see build_monitoring_visit_snapshot /
+        # working_days_snapshot handling) rather than trusted from the client.
+        read_only_fields = [
+            'monitoring_visits_snapshot', 'monitoring_visits_count',
+            'total_working_days', 'present_days', 'absent_days',
+        ]
 
     def create(self, validated_data):
         # Set the generated_by to current user
