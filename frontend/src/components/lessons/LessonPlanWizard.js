@@ -237,6 +237,10 @@ const LessonPlanWizard = ({
   // NAVIGATION
   // ============================================================
 
+  const selectedSchoolObj = schools.find(
+    (s) => String(s.id) === String(wizardData.selectedSchool)
+  );
+
   const isBookMode = wizardData.topicSourceMode === 'book';
   const assignStep = isBookMode ? 5 : 4;
   const reviewStep = isBookMode ? 6 : 5;
@@ -598,6 +602,7 @@ const LessonPlanWizard = ({
                   setWizardData({ ...wizardData, selectedDates: dates });
                 }}
                 error={errors.selectedDates}
+                workingDays={selectedSchoolObj?.assigned_days || []}
               />
             </div>
           )}

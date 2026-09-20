@@ -376,7 +376,9 @@ class LessonPlan(models.Model):
             ---
             [Next topic...]
         """
-        topics = self.planned_topics.select_related('book', 'parent__book').all()
+        topics = self.planned_topics.select_related(
+            'book', 'parent__book', 'parent__parent'
+        ).all()
         if not topics.exists():
             return None
 
@@ -386,10 +388,15 @@ class LessonPlan(models.Model):
             book = topic.book or (topic.parent.book if topic.parent else None)
             book_title = getattr(book, "title", "Unknown") or "Unknown"
 
-            # ----- 2. Chapter code (only if parent is a chapter) -----
+            # ----- 2. Chapter code: the topic itself if it is a chapter, else its nearest
+            # chapter ancestor (lessons sit under a chapter, activities under a lesson) -----
             chapter_code = ""
-            if topic.parent and getattr(topic.parent, "type", "") == "chapter":
-                chapter_code = getattr(topic.parent, "code", "").strip()
+            node = topic
+            while node is not None:
+                if getattr(node, "type", "") == "chapter":
+                    chapter_code = (node.code or "").strip()
+                    break
+                node = node.parent
 
             # ----- 3. Topic line – use only the *first two* parts of code -----
             raw_code = getattr(topic, "code", "").strip()
@@ -571,3 +578,28 @@ class WeeklyCheckIn(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - week of {self.week_start_date}"
+
+
+# --- Cache invalidation for the schools/classes caches (core/cache_helpers.py) ---
+from django.db.models.signals import post_save, post_delete, m2m_changed  # noqa: E402
+from django.dispatch import receiver  # noqa: E402
+
+
+@receiver([post_save, post_delete], sender=School)
+@receiver([post_save, post_delete], sender=Student)
+def _invalidate_schools_cache(sender, **kwargs):
+    from core.cache_helpers import invalidate_school_cache
+    invalidate_school_cache()
+
+
+@receiver(m2m_changed, sender=CustomUser.assigned_schools.through)
+def _invalidate_schools_cache_on_assignment(sender, **kwargs):
+    from core.cache_helpers import invalidate_school_cache
+    invalidate_school_cache()
+
+
+@receiver([post_save, post_delete], sender=LessonPlan)
+@receiver([post_save, post_delete], sender=StudentImage)
+def _invalidate_lessons_cache(sender, **kwargs):
+    from core.cache_helpers import bump_version
+    bump_version('lessons')  # teacher dashboard endpoints (dashboards/views.py)

@@ -28,23 +28,15 @@ class StandardResultsSetPagination(LimitOffsetPagination):
     max_limit = 1000    # Maximum limit to prevent excessive data fetching
 
 
-def get_list_cache_key(transaction_type, params):
-    """Generate a cache key for transaction list queries."""
-    param_str = f"{transaction_type}:{params.get('school', 'all')}:{params.get('category', '')}:{params.get('date__gte', '')}:{params.get('date__lte', '')}:{params.get('limit', 50)}:{params.get('offset', 0)}"
-    return f"txn_list_{hashlib.md5(param_str.encode()).hexdigest()[:12]}"
-
-
 class TransactionViewSetMixin:
     """
     Mixin providing common transaction filtering logic.
     Uses select_related to prevent N+1 queries on account/school names.
-    Includes response caching for list operations.
     """
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
     transaction_type = None  # Override in subclass
-    cache_timeout = 60  # 1 minute cache for list queries
 
     def get_queryset(self):
         """Filter transactions with optimized query using select_related."""
@@ -84,42 +76,6 @@ class TransactionViewSetMixin:
 
         return queryset
 
-    def list(self, request, *args, **kwargs):
-        """Cached list with ETag support."""
-        cache_key = get_list_cache_key(self.transaction_type, request.query_params)
-        cached_response = cache.get(cache_key)
-
-        if cached_response is not None:
-            return Response(cached_response)
-
-        response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, self.cache_timeout)
-        return response
-
-    def create(self, request, *args, **kwargs):
-        """Create and invalidate cache."""
-        response = super().create(request, *args, **kwargs)
-        self._invalidate_list_cache()
-        return response
-
-    def update(self, request, *args, **kwargs):
-        """Update and invalidate cache."""
-        response = super().update(request, *args, **kwargs)
-        self._invalidate_list_cache()
-        return response
-
-    def destroy(self, request, *args, **kwargs):
-        """Delete and invalidate cache."""
-        response = super().destroy(request, *args, **kwargs)
-        self._invalidate_list_cache()
-        return response
-
-    def _invalidate_list_cache(self):
-        """Clear list caches for this transaction type."""
-        # Clear pattern-based caches (simplified - in production use cache.delete_pattern)
-        cache.delete('finance_summary')
-        cache.delete('loan_summary')
-
 
 # Income ViewSet
 class IncomeViewSet(TransactionViewSetMixin, ModelViewSet):
@@ -155,7 +111,6 @@ class UnifiedTransactionViewSet(ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
-    cache_timeout = 60
 
     TYPE_MAP = {
         'income': 'Income',
@@ -282,41 +237,35 @@ class AccountViewSet(ModelViewSet):
 
 @api_view(["GET"])
 def finance_summary(request):
-    """Provides a cached summary of income, expenses, loans, and account balances."""
-    cache_key = "finance_summary"
-    summary = cache.get(cache_key)
+    """Live summary of income, expenses, loans, and account balances (never cached)."""
+    # Aggregate straight from the ledger
+    total_income = Transaction.objects.filter(
+        transaction_type="Income"
+    ).exclude(category="Transfer").aggregate(total=Sum("amount"))["total"] or 0
 
-    if summary is None:
-        # Calculate aggregates if cache miss
-        total_income = Transaction.objects.filter(
-            transaction_type="Income"
-        ).exclude(category="Transfer").aggregate(total=Sum("amount"))["total"] or 0
+    total_loans_received = Transaction.objects.filter(
+        transaction_type="Income", category="Loan Received"
+    ).aggregate(Sum("amount"))["amount__sum"] or 0
 
-        total_loans_received = Transaction.objects.filter(
-            transaction_type="Income", category="Loan Received"
-        ).aggregate(Sum("amount"))["amount__sum"] or 0
+    income = total_income - total_loans_received
 
-        income = total_income - total_loans_received
+    expenses = Transaction.objects.filter(
+        transaction_type="Expense"
+    ).exclude(category="Transfer").aggregate(total=Sum("amount"))["total"] or 0
 
-        expenses = Transaction.objects.filter(
-            transaction_type="Expense"
-        ).exclude(category="Transfer").aggregate(total=Sum("amount"))["total"] or 0
+    total_loans_paid = Transaction.objects.filter(
+        transaction_type="Expense", category="Loan Paid"
+    ).aggregate(Sum("amount"))["amount__sum"] or 0
+    loans = total_loans_received - total_loans_paid
 
-        total_loans_paid = Transaction.objects.filter(
-            transaction_type="Expense", category="Loan Paid"
-        ).aggregate(Sum("amount"))["amount__sum"] or 0
-        loans = total_loans_received - total_loans_paid
+    accounts = Account.objects.values("account_name", "current_balance")
 
-        accounts = Account.objects.values("account_name", "current_balance")
-
-        summary = {
-            "income": income,
-            "expenses": expenses,
-            "loans": loans,
-            "accounts": list(accounts),
-        }
-        # Cache for 5 minutes
-        cache.set(cache_key, summary, 300)
+    summary = {
+        "income": income,
+        "expenses": expenses,
+        "loans": loans,
+        "accounts": list(accounts),
+    }
 
     return Response(summary)
 
@@ -352,43 +301,36 @@ def account_balances(request):
 
 @api_view(['GET'])
 def loan_summary(request):
-    """Fetch cached summarized loan data for all lenders."""
-    cache_key = "loan_summary"
-    summary_data = cache.get(cache_key)
+    """Live summarized loan data for all lenders (never cached)."""
+    lenders = Transaction.objects.filter(
+        transaction_type="Income",
+        category="Loan Received"
+    ).values_list("from_account_id", flat=True).distinct()
 
-    if summary_data is None:
-        lenders = Transaction.objects.filter(
+    persons = Account.objects.filter(id__in=lenders)
+    summary_data = []
+
+    for person in persons:
+        total_received = Transaction.objects.filter(
             transaction_type="Income",
-            category="Loan Received"
-        ).values_list("from_account_id", flat=True).distinct()
+            category="Loan Received",
+            from_account_id=person.id
+        ).aggregate(Sum("amount"))["amount__sum"] or 0
 
-        persons = Account.objects.filter(id__in=lenders)
-        summary_data = []
+        total_paid = Transaction.objects.filter(
+            transaction_type="Expense",
+            category="Loan Paid",
+            to_account_id=person.id
+        ).aggregate(Sum("amount"))["amount__sum"] or 0
 
-        for person in persons:
-            total_received = Transaction.objects.filter(
-                transaction_type="Income",
-                category="Loan Received",
-                from_account_id=person.id
-            ).aggregate(Sum("amount"))["amount__sum"] or 0
+        balance_outstanding = total_received - total_paid
 
-            total_paid = Transaction.objects.filter(
-                transaction_type="Expense",
-                category="Loan Paid",
-                to_account_id=person.id
-            ).aggregate(Sum("amount"))["amount__sum"] or 0
-
-            balance_outstanding = total_received - total_paid
-
-            summary_data.append({
-                "person": person.account_name,
-                "total_received": total_received,
-                "total_paid": total_paid,
-                "balance_outstanding": balance_outstanding
-            })
-
-        # Cache for 5 minutes
-        cache.set(cache_key, summary_data, 300)
+        summary_data.append({
+            "person": person.account_name,
+            "total_received": total_received,
+            "total_paid": total_paid,
+            "balance_outstanding": balance_outstanding
+        })
 
     return Response(summary_data)
 

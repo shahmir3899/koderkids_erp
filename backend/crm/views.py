@@ -30,6 +30,8 @@ from employees.email_tasks import send_lead_assignment_email_task, send_activity
 from employees.models import Notification, NotificationSettings
 import logging
 
+from core.cache_helpers import cached_api
+
 logger = logging.getLogger(__name__)
 
 
@@ -910,6 +912,8 @@ def whatsapp_lead_ingest(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsBDMOrAdmin])
+@cached_api('crm')
+
 def dashboard_stats(request):
     """
     Get dashboard statistics for BDM/Admin
@@ -960,6 +964,8 @@ def dashboard_stats(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsBDMOrAdmin])
+@cached_api('crm')
+
 def lead_sources_breakdown(request):
     """
     Get lead sources breakdown
@@ -983,6 +989,8 @@ def lead_sources_breakdown(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsBDMOrAdmin])
+@cached_api('crm')
+
 def conversion_metrics(request):
     """
     Get conversion rate metrics over time
@@ -1041,6 +1049,8 @@ def conversion_metrics(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsBDMOrAdmin])
+@cached_api('crm')
+
 def upcoming_activities(request):
     """
     Get upcoming activities for today and tomorrow
@@ -1141,6 +1151,8 @@ def bdm_list(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminOnly])
+@cached_api('crm')
+
 def admin_dashboard_overview(request):
     """
     Get comprehensive dashboard overview for Admin
@@ -1233,6 +1245,8 @@ def admin_dashboard_overview(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminOnly])
+@cached_api('crm')
+
 def admin_lead_distribution(request):
     """
     Get lead distribution across BDMs
@@ -1266,6 +1280,8 @@ def admin_lead_distribution(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminOnly])
+@cached_api('crm')
+
 def admin_recent_activities(request):
     """
     Get recent activities across all BDMs

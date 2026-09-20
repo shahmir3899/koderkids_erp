@@ -29,6 +29,7 @@ from django.db.models import Count
 import logging
 
 from .serializers import SchoolSerializer, SchoolStatsSerializer
+from core.cache_helpers import cached_api, get_user_schools_cached, get_classes_cached
 
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
@@ -347,7 +348,7 @@ class SchoolViewSet(viewsets.ModelViewSet):
         return Response(data)
     
     def list(self, request, *args, **kwargs):
-        """List all schools with basic stats"""
+        """List all schools with basic stats (live: includes fee revenue, so never cached)"""
         queryset = self.filter_queryset(self.get_queryset())
         
         # Filter by active status if requested
@@ -364,6 +365,8 @@ class SchoolViewSet(viewsets.ModelViewSet):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api('schools', per_user=False)
+
 def get_schools_with_classes(request):
     """
     Returns schools with their class breakdown and student counts
@@ -617,40 +620,9 @@ def get_class_image_count(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_schools(request):
-    user = request.user
-    logger.debug(f"Debug: User={user.username}, Role={user.role}")
-
-    if user.role == "Admin":
-        schools = School.objects.all()  # ✅ Admins see all schools
-    elif user.role == "Teacher":
-        schools = user.assigned_schools.all()  # ✅ Teachers see only assigned schools
-    else:
+    schools_data = get_user_schools_cached(request.user)
+    if schools_data is None:
         return Response({"error": "Unauthorized"}, status=403)
-
-    # ✅ Only filter classes if the user is a teacher
-    if user.role == "Teacher":
-        assigned_schools = user.assigned_schools.all()
-    else:
-        assigned_schools = schools  # ✅ Admin should see all schools
-
-    # Single query for all schools' classes instead of one query per school (N+1).
-    classes_by_school = defaultdict(list)
-    class_rows = Student.objects.filter(school__in=assigned_schools).values(
-        'school_id', 'student_class'
-    ).distinct()
-    for row in class_rows:
-        classes_by_school[row['school_id']].append(row['student_class'])
-
-    schools_data = []
-    for school in assigned_schools:
-        schools_data.append({
-            "id": school.id,
-            "name": school.name,
-            "classes": classes_by_school.get(school.id, []),
-            "address": school.location,
-        })
-
-    logger.debug(f"Schools Response: {len(schools_data)} schools")
     return Response(schools_data)
 
 
@@ -672,12 +644,12 @@ def get_classes(request):
         return Response({"error": "School ID is required"}, status=400)
 
     try:
-        classes = Student.objects.filter(school_id=school_id).values_list('student_class', flat=True).distinct()
+        classes = get_classes_cached(school_id)
 
         if not classes:
             return Response({"error": "No classes found for this school."}, status=404)
 
-        return Response(list(classes))
+        return Response(classes)
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)

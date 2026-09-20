@@ -654,3 +654,14 @@ class MonthlyNarrative(models.Model):
 
     def __str__(self):
         return f"{self.student.name} - {self.month}"
+
+
+# --- Expire cached student-report analytics (core/cache_helpers.cached_api) ---
+from django.db.models.signals import post_save, post_delete  # noqa: E402
+from django.dispatch import receiver  # noqa: E402
+
+
+@receiver([post_save, post_delete], sender=StudentReportGenerationEvent)
+def _invalidate_report_events_cache(sender, **kwargs):
+    from core.cache_helpers import bump_version
+    bump_version('report_events')

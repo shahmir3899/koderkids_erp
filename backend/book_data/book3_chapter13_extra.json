@@ -1,0 +1,165 @@
+{
+  "format": "koderkids-book/1",
+  "source": "Koder Kids Book 3 Ver-1.pdf (Canva export, 16 Jun 2026) - text taken from the PDF itself",
+  "notes": [
+    "PDF pages 175-184. Same lessons as chapter 9 (M3D GO movement blocks / speed / sequences) with home activities titled; the contents page lists only 12 chapters, so this looks like a duplicate or newer copy of chapter 9. Import it only if you want it as chapter 13."
+  ],
+  "books": [
+    {
+      "title": "Book 3",
+      "description": "Koder Kids Book 3: Coding Explorations",
+      "chapters": [
+        {
+          "code": "13",
+          "title": "Movements with M3D GO",
+          "content": "<h2>Dive into M3D GO Coding!</h2>\n<p>Building upon the foundational setup established in the previous chapter, this section introduces the principles of coding movements using the Scratch interface integrated with M3D GO. Users will learn to apply block-based commands to direct the robot's actions, facilitating structured exploration of motion concepts. This progression enhances computational thinking and prepares for more complex interactions in subsequent chapters.</p>\n<h3>What is Coding in This Context?</h3>\n<p>The process of assembling instructional blocks to control robot behavior, such as directing paths or adjusting velocities.</p>\n<h3>Why Focus on Movements?</h3>\n<p>Mastery of basic motions forms the basis for advanced applications, including navigation and task automation.</p>\n<h3>Chapter Preview:</h3>\n<p>Coverage includes introductory movement blocks, speed modifications, and sequence construction with integrated effects. Instructions: Confirm the robot is connected via Scratch before proceeding.</p>",
+          "lessons": [
+            {
+              "code": "13.1",
+              "title": "Introduction to Movement Blocks",
+              "content": "<p>The Scratch environment provides specialized blocks for M3D GO, enabling precise control over the robot's locomotion. These include commands for forward and backward motion, as well as rotational adjustments. Understanding these blocks allows for the creation of deliberate trajectories, akin to mapping routes in a logistical system.</p>\n<h3>Why Begin with These Blocks?</h3>\n<p>They establish core functionality, ensuring reliable execution before incorporating variables.</p>\n<h3>Key Tips:</h3>\n<p>Align blocks vertically to form logical sequences; test incrementally to verify outcomes.</p>\n<p><strong>Fun Fact:</strong> Block-based coding, as used here, aligns with educational methodologies employed in Pakistani STEM curricula to promote logical reasoning.</p>\n<h3>Class Activity Preview:</h3>\n<p>The subsequent activity involves applying these blocks for initial motion tests.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Basic Robot Movements",
+                  "introduction": "This activity introduces the application of fundamental movement blocks, enabling users to observe direct responses from the robot.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "In the Scratch workspace, locate the M3D GO extension blocks and drag the \"When Green Flag Clicked\" starter."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Attach the \"Go Forward\" block and execute the code to observe linear motion."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Incorporate a \"Turn Left\" block following the initial command, then run the sequence to assess directional change."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Repeat with \"Go Backward\" to evaluate reverse functionality."
+                    }
+                  ],
+                  "challenge": "Construct a sequence resulting in a 180-degree rotation using turn blocks."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "Replicate Basic Movements",
+                  "introduction": "Reproduce the class sequence at home, executing forward and turn commands. Measure the distance covered in a single \"Go Forward\" execution and record variations across multiple trials. Movement Fundamentals: Consider environmental factors, such as surface type, which may influence outcomes; this reinforces observational skills.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "13.2",
+              "title": "Adding Speed and Controls",
+              "content": "<p>Enhancing movement involves modulating velocity through percentage-based parameters and incorporating alternative input methods, such as keyboard controls. This allows for nuanced adjustments, optimizing performance for specific tasks.</p>\n<h3>Why Incorporate Speed?</h3>\n<p>Variable speeds enable simulation of real-world dynamics, improving precision in applications.</p>\n<h3>Key Tips:</h3>\n<p>Utilize lower percentages for controlled maneuvers and higher for efficient traversal.</p>\n<p><strong>Fun Fact:</strong> Speed control mechanisms in robotics mirror those in Pakistani engineering projects, such as automated transport systems.</p>\n<h3>Activity Preview:</h3>\n<p>The activity explores these enhancements through targeted testing.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Control Speed and Direction",
+                  "introduction": "This activity applies speed modifications within directional contexts, facilitating comparative analysis.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Modify the \"Go Forward\" block to \"Go Forward at 30%\" and observe the reduced velocity."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Increase to \"Go Forward at 70%\" and compare traversal times over a fixed distance."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Integrate keyboard controls: Use arrow keys to direct motion while varying speeds via blocks."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test a combined sequence, such as slow forward followed by a rapid turn."
+                    }
+                  ],
+                  "challenge": "Determine the optimal speed for a curved path without deviation."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "Optimize Speed Controls",
+                  "introduction": "Implement a sequence with alternating speeds, using keyboard inputs for real-time adjustments. Document the most effective speed for straight-line stability. Control Optimization: Experiment with pauses between commands to enhance directional accuracy.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "13.3",
+              "title": "Simple Sequences with Effects",
+              "content": "<p>Sequences combine multiple blocks to achieve compound behaviors, augmented by effects such as text displays or emojis on the OLED screen. This integration adds communicative elements to movements.</p>\n<h3>Why Use Sequences?</h3>\n<p>They enable the simulation of complex tasks through modular construction.</p>\n<h3>Key Tips:</h3>\n<p>Employ \"Wait\" blocks to synchronize actions, ensuring coherent execution.</p>\n<p><strong>Fun Fact:</strong> Sequenced coding supports initiatives in Pakistani education for developing algorithmic thinking. .</p>\n<h3>Class Activity Preview:</h3>\n<p>The activity constructs integrated sequences</p>\n<h3>Sequence Enhancements:</h3>\n<h3>Chapter Review and Coding Exercises</h3>\n<h3>Chapter Review:</h3>\n<h3>Coding Exercises:</h3>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Build a Movement Sequence",
+                  "introduction": "This activity synthesizes movements into sequences, incorporating effects for enhanced interactivity.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Begin with \"When Green Flag Clicked\" and append \"Go Forward\" followed by \"Wait 1 Second.\""
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Add \"Turn Right\" and \"Show Text 'Turning Now'\" to provide visual feedback."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Include an \"Express Smile\" effect post-sequence for completion indication."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Execute and refine the timing for seamless flow."
+                    }
+                  ],
+                  "challenge": "Extend the sequence to form a closed loop pattern with repeated turns."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "Enhance a Sequence",
+                  "introduction": "Construct a sequence incorporating at least three movements and one effect, such as a display message. Test variations and note improvements in execution.\nIntroduce minor modifications, like alternating effects, to explore variability.\nThis review consolidates movement coding principles through targeted exercises.\nRevisit key blocks, speed controls, and sequence construction; evaluate personal progress in command application.\nPractice assembling a sequence for a linear path with speed variation; solve a provided puzzle by correcting a flawed block arrangement.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "13.S",
+              "title": "Chapter 13 Summary and Final Home Activity",
+              "content": "<p>This chapter has advanced users' proficiency in coding basic movements and sequences. You have applied blocks for directed motion, modulated speeds, and integrated effects.</p>\n<p>Recognize achievement with a \"Movement Master!\" badge for demonstrated control.</p>",
+              "activities": [
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "Themed Movement Challenge",
+                  "introduction": "Develop a sequence simulating a festival procession: Include forward advances, turns, and a concluding display effect. Document the code and path for submission.",
+                  "steps": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

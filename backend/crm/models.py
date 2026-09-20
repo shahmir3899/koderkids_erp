@@ -537,3 +537,16 @@ class ProposalRateSlab(models.Model):
             f"{self.get_pricing_mode_display()} {self.min_students}-{self.max_students}: "
             f"PKR {self.suggested_standard_rate}"
         )
+
+
+# --- Expire cached CRM dashboard endpoints (core/cache_helpers.cached_api) ---
+# BDMTarget is deliberately not hooked: target_progress refreshes it on every call.
+from django.db.models.signals import post_save, post_delete  # noqa: E402
+from django.dispatch import receiver  # noqa: E402
+
+
+@receiver([post_save, post_delete], sender=Lead)
+@receiver([post_save, post_delete], sender=Activity)
+def _invalidate_crm_cache(sender, **kwargs):
+    from core.cache_helpers import bump_version
+    bump_version('crm')

@@ -6,7 +6,7 @@
 // PURPOSE: Cache books list AND individual book details (with topics)
 // BENEFIT: Eliminates slow book API calls, especially for full book data
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getAuthHeaders } from '../api';
 import { getCachedData, setCachedData, clearCache } from '../utils/cacheUtils';
 import { toast } from 'react-toastify';
@@ -168,6 +168,34 @@ export const BooksProvider = ({ children }) => {
   }, [booksDetails]);
 
   /**
+   * Fetch a book's table of contents only (id, code, type, display_title, children).
+   * Much lighter and faster than fetchBookDetails - used by the lesson plan wizard.
+   */
+  const tocMemory = useRef({});
+  const fetchBookToc = useCallback(async (bookId) => {
+    if (tocMemory.current[bookId]) {
+      return tocMemory.current[bookId];
+    }
+
+    const cacheKey = `bookToc_${bookId}`;
+    const cachedToc = getCachedData(cacheKey, 30 * 60 * 1000); // 30 minutes
+    if (cachedToc !== null) {
+      tocMemory.current[bookId] = cachedToc;
+      return cachedToc;
+    }
+
+    const response = await fetch(`${API_URL}/api/books/books/${bookId}/toc/`, { headers: getAuthHeaders() });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const toc = await response.json();
+    tocMemory.current[bookId] = toc;
+    setCachedData(cacheKey, toc);
+    return toc;
+  }, []);
+
+  /**
    * Refetch books list (bypasses cache)
    */
   const refetchBooksList = useCallback(async (bypassCache = true) => {
@@ -218,9 +246,10 @@ export const BooksProvider = ({ children }) => {
     console.log('🗑️ BooksContext: Clearing all books cache');
     clearCache('booksList');
     setBooksDetails({});
-    // Clear individual book detail caches
+    tocMemory.current = {};
+    // Clear individual book detail / table-of-contents caches
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('bookDetails_')) {
+      if (key.startsWith('bookDetails_') || key.startsWith('bookToc_')) {
         localStorage.removeItem(key);
       }
     });
@@ -232,9 +261,10 @@ export const BooksProvider = ({ children }) => {
     loading,
     error,
     fetchBookDetails,
+    fetchBookToc,
     refetchBooksList,
     clearAllBooksCache,
-  }), [booksList, booksDetails, loading, error, fetchBookDetails, refetchBooksList, clearAllBooksCache]);
+  }), [booksList, booksDetails, loading, error, fetchBookDetails, fetchBookToc, refetchBooksList, clearAllBooksCache]);
 
   return <BooksContext.Provider value={value}>{children}</BooksContext.Provider>;
 };

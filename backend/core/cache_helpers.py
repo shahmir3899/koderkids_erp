@@ -64,31 +64,69 @@ def get_categories_cached(category_type=None):
     return categories
 
 
-def get_classes_cached(school_id=None):
+def _version(name):
+    """Current version number for a cache group (DatabaseCache has no wildcard delete,
+    so groups are invalidated by bumping this number, which changes every key in the group)."""
+    return cache.get(f'ver_{name}', 1)
+
+
+def bump_version(name):
+    """Invalidate every cached entry in a group at once."""
+    cache.set(f'ver_{name}', _version(name) + 1, None)
+
+
+def get_classes_cached(school_id):
     """
-    Get unique class names from cache or database.
-    Args:
-        school_id: Optional filter by school
-    Returns list of class names.
+    Distinct class names for a school (same rows as the get_classes view).
+    Returns a list; empty list if the school has no students.
     """
-    cache_key = f'classes_{school_id or "all"}'
+    cache_key = f'classes_v{_version("schools")}_{school_id}'
     classes = cache.get(cache_key)
 
     if classes is None:
         from students.models import Student
-        queryset = Student.objects.filter(status='Active')
-        if school_id:
-            queryset = queryset.filter(school_id=school_id)
-
         classes = list(
-            queryset.values_list('student_class', flat=True)
+            Student.objects.filter(school_id=school_id)
+            .values_list('student_class', flat=True)
             .distinct()
-            .order_by('student_class')
         )
         cache.set(cache_key, classes, CACHE_TIMEOUTS['classes'])
-        logger.debug(f"Classes cached: {len(classes)} classes")
 
     return classes
+
+
+def get_user_schools_cached(user):
+    """
+    Schools (with their classes) visible to a user, for the get_schools view.
+    Admins share one entry; teachers get one entry each. Returns None for other roles.
+    """
+    if user.role == "Admin":
+        scope = 'admin'
+    elif user.role == "Teacher":
+        scope = f'teacher_{user.id}'
+    else:
+        return None
+
+    cache_key = f'user_schools_v{_version("schools")}_{scope}'
+    data = cache.get(cache_key)
+
+    if data is None:
+        from collections import defaultdict
+        from students.models import School, Student
+        schools = School.objects.all() if scope == 'admin' else user.assigned_schools.all()
+
+        classes_by_school = defaultdict(list)
+        rows = Student.objects.filter(school__in=schools).values('school_id', 'student_class').distinct()
+        for row in rows:
+            classes_by_school[row['school_id']].append(row['student_class'])
+
+        data = [
+            {"id": s.id, "name": s.name, "classes": classes_by_school.get(s.id, []), "address": s.location}
+            for s in schools
+        ]
+        cache.set(cache_key, data, CACHE_TIMEOUTS['schools_list'])
+
+    return data
 
 
 def get_accounts_cached():
@@ -119,7 +157,7 @@ def get_accounts_cached():
 def invalidate_school_cache():
     """Invalidate all school-related caches."""
     cache.delete('schools_list_all')
-    cache.delete_pattern('classes_*') if hasattr(cache, 'delete_pattern') else None
+    bump_version('schools')  # also expires classes_* and user_schools_* entries
     cache.delete('transactions_page_reference_data')
     logger.debug("School cache invalidated")
 
@@ -146,9 +184,6 @@ def invalidate_finance_cache():
     """Invalidate all finance-related caches."""
     cache.delete('finance_summary')
     cache.delete('loan_summary')
-    # Also invalidate dashboard caches
-    cache.delete_pattern('admin_dashboard_summary_*') if hasattr(cache, 'delete_pattern') else None
-    cache.delete_pattern('finance_dashboard_*') if hasattr(cache, 'delete_pattern') else None
     logger.debug("Finance cache invalidated")
 
 
@@ -182,6 +217,49 @@ def cached_view(cache_key_func, timeout=300):
                 cache.set(cache_key, response, timeout)
                 logger.debug(f"Cache set: {cache_key}")
 
+            return response
+        return wrapper
+    return decorator
+
+
+def cached_api(*groups, timeout=120, per_user=True):
+    """
+    Cache a GET DRF view's JSON body (works on @api_view functions and APIView.get methods;
+    put it under the @api_view/@permission_classes decorators so auth still runs first).
+
+    Key = view + user (unless per_user=False) + query string + version of each group.
+    Bump a group with bump_version(name) (signals do this) to expire everything in it early;
+    otherwise entries expire after `timeout` seconds. Only 200 responses are cached.
+    """
+    def decorator(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            request = args[-1] if hasattr(args[-1], 'query_params') else args[0]
+            if request.method != 'GET':
+                return view(*args, **kwargs)
+
+            import hashlib
+            versions = cache.get_many([f'ver_{g}' for g in groups])
+            ver = '-'.join(str(versions.get(f'ver_{g}', 1)) for g in groups)
+            who = f'u{request.user.id}' if per_user else 'all'
+            # URL kwargs (e.g. a book id in /books/<id>/toc/) are part of the key too,
+            # otherwise every id would share one cached response.
+            params = '&'.join(f'{k}={v}' for k, v in sorted(request.query_params.items()))
+            params += '|' + '&'.join(f'{k}={v}' for k, v in sorted(kwargs.items()))
+            key =f'api_{view.__qualname__}_{ver}_{who}_{hashlib.md5(params.encode()).hexdigest()[:10]}'
+
+            data = cache.get(key)
+            if data is not None:
+                from rest_framework.response import Response
+                return Response(data)
+
+            response = view(*args, **kwargs)
+            if getattr(response, 'status_code', None) == 200:
+                # Round-trip through JSON so only plain, picklable data is stored
+                # (and dates/decimals look exactly as the client sees them).
+                import json
+                from rest_framework.renderers import JSONRenderer
+                cache.set(key, json.loads(JSONRenderer().render(response.data)), timeout)
             return response
         return wrapper
     return decorator

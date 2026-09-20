@@ -19,11 +19,110 @@ def natural_sort_key(obj):
     # Convert numeric parts to integers for proper sorting
     return [int(part) if part.isdigit() else part.lower() for part in parts]
 
+def topic_sort_key(obj):
+    """
+    Order topics by the numeric parts of their code, so 2 < 10, 1.2 < 1.10 and
+    1.1.class.2 < 1.1.class.10. Topic's own MPTT ordering sorts codes as plain text,
+    which puts chapter 10 before chapter 2. Class activities sort before home
+    activities. Title is only a tie-breaker / fallback for topics without a code.
+    """
+    code = getattr(obj, 'code', '') or ''
+    # (0, n, '') for numbers and (1, 0, text) for words keeps int/str comparisons safe
+    parts = [(0, int(p), '') if p.isdigit() else (1, 0, p.lower()) for p in code.split('.') if p]
+    return (not parts, parts, natural_sort_key(obj))
+
+
+def topic_display_title(topic_type, code, title):
+    """Label shown in the tree: chapters drop their leading number, activities show the title."""
+    if topic_type == "chapter":
+        parts = title.split(" ", 1)
+        if parts and parts[0].isdigit() and len(parts) > 1:
+            title = parts[1]
+        return title
+    if topic_type == "activity":
+        return title
+    return f"{code} {title}".strip()
+
+
 class ActivityBlockSerializer(serializers.Serializer):
     type = serializers.CharField()
     title = serializers.CharField(required=False, allow_blank=True, default="")
     content = serializers.CharField(required=False, allow_blank=True, default="")
     order = serializers.IntegerField()
+
+def normalize_activity_blocks(blocks):
+    blocks = blocks or []
+    if isinstance(blocks, dict):
+        blocks = [blocks]
+
+    normalized = []
+    for i, block in enumerate(blocks):
+        normalized.append(
+            {
+                "type": block.get("type", "class"),
+                "title": block.get(
+                    "title",
+                    f"{block.get('type', 'Activity').capitalize()} Activity",
+                ),
+                "content": block.get("content", ""),
+                "order": block.get("order", i),
+            }
+        )
+    return ActivityBlockSerializer(normalized, many=True).data
+
+
+def build_topic_tree(topics, q=""):
+    """
+    Serialize a book's topic tree from ONE query, building the hierarchy in memory.
+    (TopicSerializer.get_children used to run a query per topic - hundreds per book.)
+
+    Same output as the old nested TopicSerializer: id, code, display_title,
+    activity_blocks, children, type; natural order by code; 4 levels deep;
+    with `q`, only roots on a path to a match and, below them, children that match.
+    """
+    q = (q or "").lower()
+    rows = list(topics.only("id", "code", "title", "type", "parent_id", "activity_blocks"))
+
+    children_of = {}
+    for t in rows:
+        children_of.setdefault(t.parent_id, []).append(t)
+
+    def matches(t):
+        return q in (t.title or "").lower() or q in (t.code or "").lower()
+
+    relevant = None
+    if q:
+        by_id = {t.id: t for t in rows}
+        relevant = set()
+        found = False
+        for t in rows:
+            if matches(t):
+                found = True
+                node = t
+                while node is not None and node.id not in relevant:
+                    relevant.add(node.id)
+                    node = by_id.get(node.parent_id)
+        if not found:
+            return []
+
+    def build(t, depth):
+        kids = []
+        if depth < 3:
+            kids = [c for c in children_of.get(t.id, []) if not q or matches(c)]
+            kids.sort(key=topic_sort_key)
+        return {
+            "id": t.id,
+            "code": t.code,
+            "display_title": topic_display_title(t.type, t.code, t.title),
+            "activity_blocks": normalize_activity_blocks(t.activity_blocks),
+            "children": [build(c, depth + 1) for c in kids],
+            "type": t.type,
+        }
+
+    roots = [t for t in children_of.get(None, []) if relevant is None or t.id in relevant]
+    roots.sort(key=topic_sort_key)
+    return [build(t, 0) for t in roots]
+
 
 class TopicSerializer(serializers.ModelSerializer):
     display_title = serializers.SerializerMethodField()
@@ -42,35 +141,10 @@ class TopicSerializer(serializers.ModelSerializer):
         ]
 
     def get_display_title(self, obj):
-        if obj.type == "chapter":
-            title = obj.title
-            parts = title.split(" ", 1)
-            if parts and parts[0].isdigit():
-                title = parts[1]
-            return title
-        if obj.type == "activity":
-            return obj.title
-        return f"{obj.code} {obj.title}".strip()
+        return topic_display_title(obj.type, obj.code, obj.title)
 
     def get_activity_blocks(self, obj):
-        blocks = obj.activity_blocks or []
-        if isinstance(blocks, dict):
-            blocks = [blocks]
-
-        normalized = []
-        for i, block in enumerate(blocks):
-            normalized.append(
-                {
-                    "type": block.get("type", "class"),
-                    "title": block.get(
-                        "title",
-                        f"{block.get('type', 'Activity').capitalize()} Activity",
-                    ),
-                    "content": block.get("content", ""),
-                    "order": block.get("order", i),
-                }
-            )
-        return ActivityBlockSerializer(normalized, many=True).data
+        return normalize_activity_blocks(obj.activity_blocks)
 
     def get_children(self, obj):
         depth = self.context.get("depth", 0)
@@ -87,7 +161,7 @@ class TopicSerializer(serializers.ModelSerializer):
 
         # Apply natural sorting for proper numeric ordering (1, 2, 3...10 instead of 1, 10, 2)
         children_list = list(children_qs)
-        children_list.sort(key=natural_sort_key)
+        children_list.sort(key=topic_sort_key)
 
         child_context = self.context.copy()
         child_context["depth"] = depth + 1
@@ -115,36 +189,9 @@ class BookSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "isbn", "school", "cover", "description", "is_published", "difficulty_level", "topics"]
 
     def get_topics(self, obj):
-        q = self.context.get("q", "").lower()
-        root_qs = obj.topics.filter(parent=None).defer("activity_blocks")  # Defer heavy fields
-
-        if not q:
-            ctx = self.context.copy()
-            ctx["depth"] = 0
-            return TopicSerializer(root_qs, many=True, context=ctx).data
-
-        # Find matching topics (1 query)
-        matching_qs = obj.topics.filter(
-            Q(title__icontains=q) | Q(code__icontains=q)
-        ).only("id", "tree_id", "lft", "rgt")
-
-        if not matching_qs.exists():
-            return []
-
-        # Build a combined filter for all ancestors (including self)
-        filters = Q()
-        for tree_id, lft, rgt in matching_qs.values_list("tree_id", "lft", "rgt"):
-            filters |= Q(tree_id=tree_id, lft__lte=lft, rgt__gte=rgt)  # Includes self and ancestors
-
-        # Fetch all relevant nodes in 1 query
-        relevant_nodes = obj.topics.filter(filters).values_list("id", flat=True).distinct()
-
-        # Filter roots to only those in relevant paths
-        root_qs = root_qs.filter(id__in=relevant_nodes)
-
-        ctx = self.context.copy()
-        ctx["depth"] = 0
-        return TopicSerializer(root_qs, many=True, context=ctx).data
+        # Topic.objects.filter, not obj.topics.all(): the related manager reads book_id on every
+        # row, which .only() defers, costing one extra query per topic.
+        return build_topic_tree(Topic.objects.filter(book_id=obj.id), self.context.get("q", ""))
 
 
 # ============================================

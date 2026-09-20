@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from django.utils.timezone import now
 import logging
 
+from core.cache_helpers import cached_api
+
 from students.models import LessonPlan, Student, StudentImage, School, CustomUser
 from students.serializers import (
     MonthlyLessonsSerializer, UpcomingLessonsSerializer,
@@ -22,6 +24,8 @@ logger = logging.getLogger(__name__)
 # Create your views here.
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+@cached_api('lessons')
+
 def get_teacher_dashboard_lessons(request):
     """
     Fetch lessons for the next 4 days (Yesterday, Today, Tomorrow, Day After Tomorrow)
@@ -70,6 +74,7 @@ def get_teacher_dashboard_lessons(request):
 class TeacherLessonStatus(APIView):
     permission_classes = [IsAuthenticated]
 
+    @cached_api('lessons')
     def get(self, request):
         if request.user.role != 'Teacher':
             return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
@@ -119,6 +124,7 @@ class TeacherLessonStatus(APIView):
 class TeacherLessonsSummary(APIView):
     permission_classes = [IsAuthenticated]
 
+    @cached_api('lessons')
     def get(self, request):
         if request.user.role != 'Teacher':
             return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
@@ -190,6 +196,7 @@ class TeacherLessonsSummary(APIView):
 class TeacherLessonsByMonth(APIView):
     permission_classes = [IsAuthenticated]
 
+    @cached_api('lessons')
     def get(self, request):
         if request.user.role != 'Teacher':
             return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
@@ -213,6 +220,7 @@ class TeacherLessonsByMonth(APIView):
 class TeacherUpcomingLessons(APIView):
     permission_classes = [IsAuthenticated]
 
+    @cached_api('lessons')
     def get(self, request):
         if request.user.role != 'Teacher':
             return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
@@ -229,6 +237,7 @@ class TeacherUpcomingLessons(APIView):
 class TeacherLessonsBySchool(APIView):
     permission_classes = [IsAuthenticated]
 
+    @cached_api('lessons')
     def get(self, request):
         if request.user.role != 'Teacher':
             return Response({"error": "Only teachers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
@@ -253,6 +262,7 @@ class TeacherLessonsBySchool(APIView):
 class TeacherStudentEngagement(APIView):
     permission_classes = [IsAuthenticated]
 
+    @cached_api('lessons')
     def get(self, request):
 
 
@@ -279,6 +289,8 @@ class TeacherStudentEngagement(APIView):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api(timeout=120, per_user=False)
+
 def get_login_activity(request):
     """
     Returns login counts for students and teachers for the last 3 days.

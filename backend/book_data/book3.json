@@ -1,0 +1,2504 @@
+{
+  "format": "koderkids-book/1",
+  "source": "Koder Kids Book 3 Ver-1.pdf (Canva export, 16 Jun 2026) - text taken from the PDF itself",
+  "notes": [
+    "Text is the PDF wording (not the Aug 2026 Word file, whose wording differs in about half of the text units).",
+    "Steps have titles only in chapters 11-12 (the PDF gives \"Title: text\"); elsewhere they are titled \"Step N\".",
+    "The PDF spells \"AI\" as \"Al\" in its text layer; corrected to \"AI\".",
+    "Summary cards in chapters 11 and 12 are badged 1.1-1.4 in the PDF; numbered 11.x / 12.x here.",
+    "No images are included (the PDF illustrations are not extracted); no separate chapter introduction beyond the \"Welcome\" page.",
+    "extraction: 11.S: card 1 is badged '1.1' in the PDF; using '11.1'",
+    "extraction: 11.S: card 2 is badged '1.2' in the PDF; using '11.2'",
+    "extraction: 11.S: card 3 is badged '1.3' in the PDF; using '11.3'",
+    "extraction: 11.S: card 4 is badged '1.4' in the PDF; using '11.4'",
+    "extraction: 12.S: card 1 is badged '1.1' in the PDF; using '12.1'",
+    "extraction: 12.S: card 2 is badged '1.2' in the PDF; using '12.2'",
+    "extraction: 12.S: card 3 is badged '1.3' in the PDF; using '12.3'",
+    "extraction: 12.S: card 4 is badged '1.4' in the PDF; using '12.4'",
+    "title fix: lesson 11.S: \"Chapter 11 Summaryand Advanced AI Challenge!\" -> \"Chapter 11 Summary and Advanced AI Challenge!\""
+  ],
+  "books": [
+    {
+      "title": "Book 3",
+      "description": "Koder Kids Book 3: Coding Explorations",
+      "chapters": [
+        {
+          "code": "1",
+          "title": "Using Excel for Simple Data",
+          "content": "<h2>Welcome to Google Sheets Mastery!</h2>\n<p>Google Sheets is your online data powerhouse! In Book 1, you used calculators for math. Now, advance to organizing, calculating, and charting data like a pro, for projects such as festival toy tracking. Let’s dive in!</p>\n<h3>What is Google Sheets?</h3>\n<p>A free web tool for spreadsheets, accessible anywhere.</p>\n<h3>Why Learn More?</h3>\n<p>Analyze trends, like Eid spending, for smarter decisions.</p>\n<h3>Chapter Preview:</h3>\n<p>You’ll explore grids, organize data, use formulas, and create charts.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open sheets.google.com.</p>",
+          "lessons": [
+            {
+              "code": "1.1",
+              "title": "Introduction to Spreadsheets",
+              "content": "<p>Spreadsheets are digital organizers for numbers and words! You’ll explore advanced features like merging cells and freezing panes to manage data efficiently, like inventory for festival toys. This builds on Book 2's file organization.</p>\n<h3>Why Focus on Grids?</h3>\n<p>They structure data for easy analysis.</p>\n<h3>Key Tips:</h3>\n<p>Use rows for items, columns for details; name ranges for quick reference.</p>\n<p><strong>Fun Fact:</strong> Google Sheets can handle over a million rows, powering global projects!</p>\n<h3>Class Activity Preview:</h3>\n<p>You’ll explore the grid next.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Explore Google Sheets’ Grid",
+                  "introduction": "Let’s build a structured grid! You’ll merge cells, freeze panes, and name ranges for a professional setup.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open sheets.google.com (with adult help)."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Click cell A1, type “Toy Inventory”; select A1:B1, Format > Merge cells > Merge all."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Freeze row 1: View > Freeze > 1 row."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Enter toy names in A2:A5; select A2:A5, Data > Named ranges, name “Toys”."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name the sheet “MyFirstSheet” (File > Rename)."
+                    }
+                  ],
+                  "challenge": "Freeze column A and name B2:B5 “Counts”."
+                }
+              ]
+            },
+            {
+              "code": "1.2",
+              "title": "Entering and Organizing data",
+              "content": "<p>Enter data like toy counts and organize with sorting, filtering and conditional formatting to spot patterns advancing from Book 2's file management.</p>\n<h3>What’s Organizing?</h3>\n<p>Sorting/filtering data, highlighting with colours for insights.</p>\n<h3>Key tip:</h3>\n<p>Use conditional rules for auto highlights , like green for high counts.</p>\n<p><strong>Fun fact:</strong> Conditonal formatting in sheets can change based on formulas, like traffic light for grades!</p>\n<h3>Class Activity Preview:</h3>\n<p>You’ll input and organize toy data next.</p>\n<p><strong>Parent Tip:</strong> Discuss data trends with your child !</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "INPUT TOY CAR COUNTS",
+                  "introduction": "Let's organize toy data dynamically! You will enter counts, sort,filter and format conditionally.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open sheets.google.com, create a new sheet."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "In A1-A5, list toys (e.g....car,doll,robot); B1-B5, counts(e.g...,5,3,7)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Select A1:B5, Data > Sort range > Sort by column B(Z to A)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Add filter : Data > Create a filter, filter B>4."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Conditional format: select B1-B5 , Format > conditional formatting > Greater than 4 > Green fill."
+                    },
+                    {
+                      "number": 6,
+                      "title": "Step 6",
+                      "content": "Name the sheet \" Toy Cars \"."
+                    }
+                  ],
+                  "challenge": "Filters for even counts only."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "List 3 family events in column A, dates in B , costs in C, sort by cost , red format > 500 , name \"Events\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "1.3",
+              "title": "Using simple Formulas",
+              "content": "<p>Formulas calculate dynamically! Use SUMIF/AVERAGEIF for conditions and validations for accuracy , like summing specific Eid gifts_extending Book 2's Python inputs.</p>\n<h3>Why Formulas?</h3>\n<p>Automate math for quick insights.</p>\n<p><strong>Example:</strong> Average toys over a count threshold.</p>\n<h3>Funfact:</h3>\n<p>Sheet formulas update live, so changes ripple instantly _ like quick math!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll calculate gifts totals next.</p>\n<p><strong>DIY Idea:</strong> Track real festival expenses!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Calculate Eid gifts Total",
+                  "introduction": "Let’s make your presentation pop with sounds and videos! You’ll add an audio clip and a video to your slides, building on your animated slide.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"ToyCars\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "In B6, type \"= SUMIF(B1:B5,\">3\")\" for sum over 3."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "In B7,type\"= AVERAGEIF(B1:B5,\">3\")\" for average."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Select B1:B5, Data > Data validation > Number > Between 1-10 > Show warning."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Press Enter ; rename if needed."
+                    }
+                  ],
+                  "challenge": "Add column C prices, use SUMPRODUCT(B1:B5*C1:C 5) in C6."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "List 4 chores in A, hours in B , categories in C,SUMIF indoors, validate hours 1-5,name \" Chores\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "1.4",
+              "title": "Creating Charts",
+              "content": "<p>Charts visualize data professionally! Add trendlines, labels and customize for interactive insights, like festival food trends_ advancing from Book 2's Canva visuals.</p>\n<h3>What's a Chart?</h3>\n<p>Graphic data representation with trends.</p>\n<p><strong>Example:</strong> Bar chart with popularity line.</p>\n<p><strong>Fun fact:</strong> Sheet charts can be embedded in Docs, turning reports in visual!</p>\n<h3>Class Activity Preview:</h3>\n<p>you'll make a food chart next.</p>\n<p><strong>Parent Tip:</strong> Interpret chart trends together!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Make a festival food chart",
+                  "introduction": "Let's create an interactive Chart! You'll add data, generate a combo chart ,and customize.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open sheets.google.com and create a new sheet."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "In A1-A4, foods (e.g., Biryani, samosa); B1-B4, popularity (10,8); C1-C4,votes (20,15)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Select A1:C4, Insert > Chart > Combo chart( bar for B, line for C)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "In chart editor , add trendline ( Series>trendline), data labels, axis titles(e.g.., \" Foods \" , \"Scores\" )."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name the sheet \" Food Sheet \"."
+                    }
+                  ],
+                  "challenge": "Change to scatter plot with custom colors."
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "List 3 cities in A, visits in B ,ratings in C , combo bar/ line chart with labels, name \" Cities \".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "1.S",
+              "title": "Chapter 1 Summary and Final Home Activity",
+              "content": "<h2>You’re a Google sheet master! You:</h2>\n<p><strong>1.1</strong> - Explores grids with merging , freezing and ranges.</p>\n<p><strong>1.2</strong> - Organized data via sorting, filtering and conditional formatting .</p>\n<p><strong>1.3</strong> - Used conditional formulas and validations.</p>\n<p><strong>1.4</strong> - Created customized interactive charts.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "2",
+          "title": "Advanced Scratch Animation",
+          "content": "<h2>Welcome to Advanced Scratch Animation Mastery!</h2>\n<p>Scratch (scratch.mit.edu) elevates your coding! From Book 2's basic Scratch Jr. advance to multi-scene, interactive animations with variables and clones for professional stories like Eid adventures. Let's code!</p>\n<h3>What is Advanced Scratch?</h3>\n<p>Block-based platform for dynamic projects.</p>\n<h3>Why Learn More?</h3>\n<p>Craft engaging narratives with user control.</p>\n<h3>Chapter Preview:</h3>\n<p>You'll build multi-scenes, add sound/motion, use loops/variables, create interactive tales.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open scratch.mit.edu.</p>",
+          "lessons": [
+            {
+              "code": "2.1",
+              "title": "Multi-Scene Animations in Scratch",
+              "content": "<p>Multi-scenes create epic stories! Use backdrops and broadcasts for transitions, advancing Book 2's VEXcode paths to narrative flow, like switching festival settings.</p>\n<h3>Why Multi-Scenes?</h3>\n<p>Build layered tales with smooth changes.</p>\n<h3>Key Tip</h3>\n<p>Broadcast messages to sync sprites across scenes.</p>\n<p><strong>Fun Fact:</strong> Scratch's broadcast system mimics real-world signals, like radio waves in festivals!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll create a two-scene Eid story next.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Create a Two-Scene Eid Story",
+                  "introduction": "Let's craft a multi-scene narrative! You'll add backdrops and use broadcasts for transitions.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open scratch.mit.edu, click \"Create\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Stage Backdrops > Add two Eid-themed (e.g., home, mosque)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "In sprite script: \"when green flag clicked (Events), \"switch backdrop to Home\" (Looks)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Add \"broadcast nextScene\" (Events) after actions; \"when I receive nextScene\" switch to Mosque."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name the project \"Eid Story\". (File>save)"
+                    }
+                  ],
+                  "challenge": "Add \"wait 2 seconds\" (Control) before broadcast."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Add a third scene to \"EidStory\" with new broadcast, name updated project.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "2.2",
+              "title": "Adding Sound and Advanced Motion",
+              "content": "<p>Enhance with custom sounds and motion paths! Import audio and use glide for realism, building on Book 2's Tynker sounds for immersive effects like festival drums.</p>\n<h3>What's Advanced Motion?</h3>\n<p>Precise paths with coordinates.</p>\n<h3>Key Tips:</h3>\n<p>Sync glide with sounds for timed effects.</p>\n<h3>Funfact:</h3>\n<p>Scratch's sound library includes global instruments, perfect for qawwali recreations!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll add music next.</p>\n<p><strong>Parent Tip:</strong> Record family sounds for projects!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Add Festival Music to Story",
+                  "introduction": "Let's make scenes lively! You'll import sound and code advanced motion.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"EidStory\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Sounds > Upload or Record qawwali clip; add \"play sound until done\" (Sound) in scene script."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "For sprite: \"glide 2 secs to x: 100 y:50\" (Motion) synced with sound."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test timing; name project."
+                    }
+                  ],
+                  "challenge": "Layer \"start sound\" for background/foreground audio."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Code a dancing character in \"EidStory\" with motion and new sound; name updated project.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "2.3",
+              "title": "Using Loops and Variables",
+              "content": "<p>Loops repeat actions; variables track changes! Use for dynamic control, extending Book 2's Python loops to animation logic like varying kite speeds.</p>\n<h3>Why Loops/Variables?</h3>\n<p>Create efficient, adaptable code.</p>\n<h3>Key Tips:</h3>\n<p>Initialize variables before loops for control.</p>\n<h3>Funfact:</h3>\n<p>Variables in Scratch can be cloud-based, allowing shared projects across users!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll code a looping animation next.</p>\n<p><strong>DIY Idea:</strong> Experiment with variable displays!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Code a Looping Kite Animation",
+                  "introduction": "Let's add repetition and dynamics! You'll create/use variables in loops.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"EidStory\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Variables > Make \"kiteSpeed\"; \"set kiteSpeed to 5° (Variables)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add \"repeat 10\" (Control): 'move (kiteSpeed) steps\" (Motion), \"change kiteSpeed by 1\"."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test acceleration; name project."
+                    }
+                  ],
+                  "challenge": "Wrap in \"forever\" loop with \"if kiteSpeed >10 then set to 5'."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Use \"sceneNum\" variable in \"EidStory\" loop to cycle scenes; name updated project.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "2.4",
+              "title": "Building an Interactive Story",
+              "content": "<p>Make stories responsive! Use clicks, clones, and inputs for branching, advancing Book 2's Canva collaborations to user-driven narratives.</p>\n<h3>What's Interactivity?</h3>\n<p>Events triggering changes, like choices.</p>\n<h3>Key Tips:</h3>\n<p>Clones allow multiple instances with unique behaviors.</p>\n<h3>Funfact:</h3>\n<p>Scratch clones inspired game mechanics, like spawning enemies in adventures!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll make a clickable tale next.</p>\n<p><strong>Parent tip:</strong> Playtest stories together!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Make a Clickable Basant Tale",
+                  "introduction": "Let's add repetition and dynamics! You'll create/use variables in loops.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"EidStory\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Add \"when this sprite clicked\" (Events) to broadcast choice."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Use 'create clone of myself\" (Control) for duplicate kites."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "When I start as a clone: Unique motion/sound."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Test; name \"Basant Tale\"."
+                    }
+                  ],
+                  "challenge": "pressed for alternate path. Add 'when space key"
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Build a family story project with clones/inputs; name \"FamilyStory",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "2.S",
+              "title": "Chapter 2 Summary and Final Home Activity",
+              "content": "<h2>You're a Scratch animation expert! You:</h2>\n<p><strong>2.1</strong> - Built multi-scenes with broadcasts.</p>\n<p><strong>2.2</strong> - Added sounds and advanced motion.</p>\n<p><strong>2.3</strong> - Used loops/variables for dynamics.</p>\n<p><strong>2.4</strong> - Created interactive stories with clones.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "3",
+          "title": "Mastering VEXcode VR for Complex Mazes",
+          "content": "<h2>Welcome to VEXcode VR Mastery!</h2>\n<p>VEXcode VR empowers virtual robot programming! Building on Book 2's obstacle courses, advance to navigating intricate mazes with precision, loops, and sensors for problem-solving challenges like exploring Pakistani landmarks. Let's program!</p>\n<h3>What is Complex Maze Programming?</h3>\n<p>Coding robots to solve multi-path puzzles efficiently.</p>\n<h3>Why Learn More?</h3>\n<p>Develop logical thinking for real-world robotics</p>\n<h3>Chapter Preview:</h3>\n<p>You'll build multi-scenes, add sound/motion, use loops/variables, create interactive tales.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open vr.vex.com.</p>",
+          "lessons": [
+            {
+              "code": "3.1",
+              "title": "Maze Programming Basics",
+              "content": "<p>Maze basics involve planning paths with commands! Use Drivetrain blocks for initial navigation, advancing Book 2's simple courses to strategic planning, like a Lahore Fort layout</p>\n<h3>Why Maze Basics?</h3>\n<p>Establish foundations for complex problem-solving.</p>\n<h3>Key Tip</h3>\n<p>Map tums before coding: test incrementally.</p>\n<p><strong>Fun Fact:</strong> VEXcode VR simulates real robots used in global competitions!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll code a simple path next.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Code a Simple Maze Path",
+                  "introduction": "Let's start with fundamentals! You'll program a robot through a basic maze using motion blocks",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open vr.vex.com, select \"Wall Maze\" playground."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Drag \"drive forward for 200mm\" (Drivetrain) to the workspace."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add \"turn right for 90 degrees\" (Drivetrain) for a corner.."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Click play to test; adjust distances to avoid walls."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name project \"SimpleMaze\" (File > Save)."
+                    }
+                  ],
+                  "challenge": "Add \"drive backward for 100mm for a retreat."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Design a Lahore Fort maze on paper, then code a basic path in VEXcode VR; name \"FortMaze\"",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "3.2",
+              "title": "Advanced Turns and Movements",
+              "content": "<p>Refine movements with angles and speeds! Program precise turns and variable drivetrain for agility, extending Book 2's sensor avoidance to detailed control.</p>\n<h3>What's Advanced Movement?</h3>\n<p>Custom angles and velocities for tight spaces,</p>\n<h3>Key Tips:</h3>\n<p>Use \"set drive velocity to 50%\" for slower, accurate turns.</p>\n<h3>Funfact:</h3>\n<p>Real VEX robots compete in mazes at events like the VEX World Championship!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll program turns next.</p>\n<p><strong>Parent Tip:</strong> Discuss robot paths like a game strategy!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Program Precise Robot Turns",
+                  "introduction": "Let's master precision! You'll code custom turns and movements for obstacle navigation.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open vr.vex.com, load \"Wall Maze\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Add \"set drive velocity to 30% (Drivetrain) for control."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Use \"turn left for 45 degrees\" (Drivetrain) for diagonal avoidance."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Combine with \"drive forward for 150mm, play to test"
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name project \"Precise Turns\"."
+                    }
+                  ],
+                  "challenge": "Alternate velocities mid-path for speed changes."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Code a zigzag path in a new playground, using variable tums; name \"Zigzag Path\"",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "3.3",
+              "title": "Loops for Efficiency",
+              "content": "<p>Loops optimize repetitive actions! Use repeat and forever loops to shorten code, building on Book 2's Python loops for maze efficiency</p>\n<h3>Why Loops?</h3>\n<p>Reduce blocks for scalable paths, like repeating tums.</p>\n<h3>Key Tips:</h3>\n<p>Nest motions inside loops; adjust counts for patterns.</p>\n<h3>Funfact:</h3>\n<p>Loops in coding mimic real robot assembly lines in factories!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll use loops for moves next.</p>\n<p><strong>DIY Idea:</strong> Count real-life repeats, like steps in a dance!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Use Loops for Repeated Moves",
+                  "introduction": "Let's streamline code! You'll loop movements for efficient patterns.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open vr.vex.com, select \"Wall Maze"
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Drag \"repeat 4 times\" (Control)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Inside: \"drive forward for 200mm\" and \"tum right for 90 degrees\" (Drivetrain)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Play to test square path; adjust for maze fit."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name project \"LoopMaze"
+                    }
+                  ],
+                  "challenge": "Use \"forever\" loop with a\nstop condition."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Create a square path loop in a custom playground, name \" SquareLoop \".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "3.4",
+              "title": "Solving Multi-Step Mazes",
+              "content": "<p>Combine skills for full mazes! Integrate sensors, loops, and movements to solve layered puzzles, advancing Book 2's Tynker challenges</p>\n<h3>What's Multi-Step Solving?</h3>\n<p>Layered code for decision-making paths.</p>\n<h3>Key Tips:</h3>\n<p>Use \"if\" with sensors inside loops for adaptability.</p>\n<h3>Funfact:</h3>\n<p>VEXcode VR mazes train skills for autonomous drones in exploration!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll navigate a landmark maze next.</p>\n<p><strong>Parent tip:</strong> Cheer as the robot succeeds</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Navigate a Minar-e-Pakistan Maze",
+                  "introduction": "Let's conquer complexity! You'll code a full maze solution with integrated features.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open vr.vex.com, create custom maze resembling Minar-e-Pakistan."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Plan path: Add loops for straights, sensor \"if distance <100mm then tum left (Sensing/Control)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Combine movements and velocities; play to complete."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Debug walls; name \"PakistanMaze\"."
+                    }
+                  ],
+                  "challenge": "Minimize blocks using nested loops"
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Solve a custom multi-step maze in VEXcode VR; name \"CustomMaze",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "3.S",
+              "title": "Chapter 3 Summary and Final Home Activity",
+              "content": "<h2>You're a VEXcode VR maze expert! You:</h2>\n<p><strong>3.1</strong> - Mastered advanced turns and movements.</p>\n<p><strong>3.2</strong> - Programmed basic maze paths</p>\n<p><strong>3.3</strong> - Used loops for efficiency</p>\n<p><strong>3.4</strong> - Solved multi-step mazes with sensors.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "4",
+          "title": "Mastering Python for Simple Games",
+          "content": "<h2>Welcome to Python Game Mastery!</h2>\n<p>Python transforms your coding into interactive adventures! Building on Book 2's Python basics, advance to creating text-based games with conditions, variables, and loops, like guessing games inspired by Pakistani culture. Let's code!</p>\n<h3>What is Python Game Coding?</h3>\n<p>Writing programs for interactive challenges.</p>\n<h3>Why Learn More?</h3>\n<p>Build fun, logical games to share with friends.</p>\n<h3>Chapter Preview:</h3>\n<p>You'll master conditions, variables/inputs, loops, and game creation.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open colab.google.com</p>",
+          "lessons": [
+            {
+              "code": "4.1",
+              "title": "Conditions in Python",
+              "content": "<p>Conditions make programs decide! Use \"if\" statements to check answers, extending Book 2's Scratch events for game logic, like quizzing about Pakistani landmarks. Compare to Scratch (Book 3, Ch. 2) for cross-tool leaming.</p>\n<h3>Why Conditions?</h3>\n<p>Enable choices, like right/wrong quiz answers.</p>\n<h3>Key Tip</h3>\n<p>Use\"\" for exact matches; indent code under \"if\".</p>\n<p><strong>Fun Fact:</strong> Python's \"if\" logic powers AI assistants like me!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll code a quiz question next.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Code an \"If\" Quiz Question",
+                  "introduction": "Let's create a decision-making quiz! You'll use conditions to check answers, similar to Scratch's event blocks.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open colab.google.com, create a new notebook."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Type: answer input(\"What is Pakistan's capital?\")."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add: if answer \"Islamabad:\nprint(\"Correct!\")."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Add: else: print(\"Oops, it's Islamabad!\")."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Run cell, test answer, name notebook \"QuizGame\"."
+                    }
+                  ],
+                  "challenge": "Add a second question about a festival (e.g. Eid)."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Write a yes/no question (e.g., \"Is Lahore a city?\"); name \"YesNoQuiz\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "4.2",
+              "title": "Combining Variables and Input",
+              "content": "<p>Variables store game data, like player names! Combine with inputs for personalization, building on Book 2's input basics and Scratch variables (Book 3, Ch. 2).</p>\n<h3>Why Variables/Input?</h3>\n<p>Make games unique, like greeting players.</p>\n<h3>Key Tips:</h3>\n<p>Store inputs in variables; use\"+\" to combine strings.</p>\n<h3>Funfact:</h3>\n<p>Python variables can hold millions of values, like game scores!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll store a player's name next.</p>\n<p><strong>Parent Tip:</strong> Enter your name in your child's game!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Store Player Name in Game",
+                  "introduction": "Let's personalize a game! You'll use variables and inputs, like Scratch's data blocks.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"QuizGame\" in Colab."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Type: name = input(\"What's your name?\")"
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add: print(\"Welcome to the quiz,+name+\"'\")."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Run cell, enter a name, check output."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name notebook \"NameQuiz\"."
+                    }
+                  ],
+                  "challenge": "Add a variable for favorite color, print it."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Code input for favorite city, print greeting, name \"City Quiz\"",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "4.3",
+              "title": "Loops in Python",
+              "content": "<p>Loops repeat actions for engaging games! Use \"while\" loops to retry questions, advancing Book 2's Scratch loops and linking to Scratch's repeat blocks (Book 3, Ch. 2).</p>\n<h3>Why Loops?</h3>\n<p>Keep games running until a condition is met.</p>\n<h3>Key Tips:</h3>\n<p>Use \"while True\" for continuous loops; \"break\" to exit.</p>\n<h3>Funfact:</h3>\n<p>Loops in Python run apps like music playlists on repeat!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll loop a question next.</p>\n<p><strong>DIY Idea:</strong> Count loops in real life, like festival songs!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Loop a Question Three Times",
+                  "introduction": "Let's add repetition! You'll loop a question for multiple tries, like Scratch's looping animations.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"NameQuiz\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Type: count = 0."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add: while count <3:"
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Inside loop: answer = input(\"Name a Pakistani river: \"); count += 1."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Run, test answers, name \"Loop Quiz\"."
+                    }
+                  ],
+                  "challenge": "Break loop if answer is \"Indus\"."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Loop a greeting message three times; name \"GreetingLoop\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "4.4",
+              "title": "Creating a Text Game",
+              "content": "<p>Combine skills for a full game! Build a guessing game with conditions, variables, and loops, extending Book 2's Scratch games to Python text adventures.</p>\n<h3>What's a Text Game?</h3>\n<p>Interactive program with challenges, like guessing numbers.</p>\n<h3>Key Tips:</h3>\n<p>Combine \"if\", variables, loops for dynamic play.</p>\n<h3>Funfact:</h3>\n<p>Python games inspired classics like text-based adventure Zork!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll build a number game next</p>\n<p><strong>Parent tip:</strong> Play the game together!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Build a Number-Guessing Game",
+                  "introduction": "Let's create a full game! You'll code a number-guessing challenge with feedback.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open Colab, create a new notebook."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Type: secret = 7; guess int(input(\"Guess a number 1-10: \"))."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add while guess secret: print(Try again!\"); guess int(input('Guess: \"))."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Add: print(\"You got it!\")."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Run, test guesses; name \"NumberGame\"."
+                    }
+                  ],
+                  "challenge": "Add player name input for personalized win message."
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Code a city-guessing game (e.g.. \"Is it Karachi?\"); name \" CityGame\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "4.S",
+              "title": "Chapter 4 Summary and Final Home Activity",
+              "content": "<h2>You're a Python game master! You:</h2>\n<p><strong>4.1</strong> - Coded conditions for quiz logic.</p>\n<p><strong>4.2</strong> - Used variables and inputs for personalization</p>\n<p><strong>4.3</strong> - Added loops for repeated actions.</p>\n<p><strong>4.4</strong> - Built a full text-based game.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "5",
+          "title": "Mastering AI Tools for Creative Projects",
+          "content": "<h2>Welcome to AI Tools Mastery!</h2>\n<p>Artificial Intelligence tools enhance productivity and creativity! Building on Book 2's AI image and audio creation, advance to using AI for drafting, editing, generating visuals, and assembling projects like applications and presentations. Focus on ethical assistance to support learning. Let's innovate!</p>\n<h3>What are AI Tools?</h3>\n<p>Systems that generate drafts, images, and ideas to aid tasks.</p>\n<h3>Why Learn More?</h3>\n<p>Boost efficiency in writing, visualizing, and presenting while practicing originality.</p>\n<h3>Chapter Preview:</h3>\n<p>You'll master conditions, variables/inputs, loops, and game creation.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open chat.openai.com, docs.google.com, or Slides.google.com</p>",
+          "lessons": [
+            {
+              "code": "5.1",
+              "title": "Using AI to Draft Applications",
+              "content": "<p>AI like ChatGPT can generate initial drafts! Prompt for a school leave application, then review for accuracy, practicing ethical use by editing personally.</p>\n<h3>Why Draft with AI?</h3>\n<p>Get structured starting points to learn formatting</p>\n<h3>Key Tip</h3>\n<p>Provide clear prompts, always revise for your voice.</p>\n<p><strong>Fun Fact:</strong> AI drafting tools process requests in seconds, based on vast training datal</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll draft a leave application next</p>\n<p><strong>Parent tip:</strong> Guide prompt refinement for better results!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Draft a School Leave Application with AI",
+                  "introduction": "Let's use AI as a helper! You'll prompt for a draft application and discuss editing ethics",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open chat openai.com (with adult help)."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Type: \"Draft a polite school leave application for 3 days due to family travel \"."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Read draft, discuss: \"How to make it original? Add personal details"
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Copy to notes; prompt revision:\n\"Make it shorter and more formal.\""
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name notes \"LeaveDraft\""
+                    }
+                  ],
+                  "challenge": "Draft for another reason, like a competition."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Draft an application for a day off with AI; name \" DayoffDraft \".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "5.2",
+              "title": "Editing AI Drafts in Google Docs",
+              "content": "<p>Move AI drafts to Google Docs for refinement! Edit structure, add details, and format, focusing on learning writing skills through practice.</p>\n<h3>What's Editing in Docs?</h3>\n<p>Polishing content for clarity and professionalism.</p>\n<h3>Key Tips:</h3>\n<p>Use bold for headings; check spelling with built-in tools.</p>\n<h3>Funfact:</h3>\n<p>Google Docs tracks changes, showing edits like a digital red pen!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll edit an application next.</p>\n<p><strong>Parent Tip:</strong> Compare before/after versions!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Edit an AI-Drafted Application",
+                  "introduction": "Let's refine your draft! You'll paste into Docs, edit, and format for a polished version.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open docs.google.com, create a new document."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Type: name = input(\"What's your name?\")"
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Edit: Add your name/date, adjust reason, bold sections (e.g. \"Subject\")."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Format: Align left, add bullets for dates; use spell-check (Tools > Spelling)."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name document \"EditedApplication\" (File > Rename)."
+                    }
+                  ],
+                  "challenge": "Add a closing paragraph for politeness.."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Edit your \"DayOffDraft\" in Docs, add personal touches, name\n\"Edited DayOff",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "5.3",
+              "title": "Generating Images with AI for Projects",
+              "content": "<p>AI creates visuals to enhance work! Prompt for images like illustrations for presentations, ensuring ethical use by describing originals and crediting AI.</p>\n<h3>Why AI Images?</h3>\n<p>Add engaging visuals to support learning content</p>\n<h3>Key Tips:</h3>\n<p>Use descriptive prompts; resize images in tools.</p>\n<h3>Funfact:</h3>\n<p>AI image generators like DALL-E create unique art from text in moments!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll generate a presentation image next.</p>\n<p><strong>Parent tip:</strong> Suggest creative prompt ideas!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Create an Image for a Presentation",
+                  "introduction": "Let's visualize ethically! You'll prompt AI for an image and discuss originality.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open chat.openai.com (DALL-E mode)"
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Type: \"Generate an image of a family gathering for a holiday, in a colorful style\"."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "View image, discuss: \"How to use ethically? Credit AI and adapt.\""
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Download, prompt variation: \"Make it more vibrant with decorations.\""
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name file \"ProjectImage\""
+                    }
+                  ],
+                  "challenge": "Generate an image for a math concept, like a chart"
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Generate an image for a story scene, name \"StoryImage\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "5.4",
+              "title": "Building Presentations with AI Elements",
+              "content": "<p>Integrate AI drafts and images into Google Slides! Create a presentation on a topic like holidays, practicing assembly and flow for effective communication.</p>\n<h3>What's Building with AI?</h3>\n<p>Combining assisted content for cohesive projects.</p>\n<h3>Key Tips:</h3>\n<p>Insert images; align elements for clean design.</p>\n<h3>Funfact:</h3>\n<p>Google Slides integrates with AI tools seamlessly for hybrid creation!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll assemble a presentation next</p>\n<p><strong>DIY idea:</strong> Rehearse your slides aloud!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Build a Presentation with AI Help",
+                  "introduction": "Let's put it together! You'll use AI drafts/images in Slides for a topic presentation",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open slides.google.com, create a new presentation."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Slide 1: Title \"My Holiday Adventure\", paste edited AI text."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Slide 2: Add details from draft; Insert > Image > Upload your AI-generated image."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Add animation to text (Insert Animation > Fade in)."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name presentation \"AlPresentation\" (File > Rename)."
+                    }
+                  ],
+                  "challenge": "Add a third slide with a math example from Sheets."
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Build a 3-slide presentation using AI draft/image; name \"HomePresentation\"",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "5.5",
+              "title": "Mathematics with AI Assistance in Sheets.",
+              "content": "<p>AI helps brainstorm math problems! Prompt for ideas, then solve in Sheets with formulas, practicing calculation skills.</p>\n<h3>Why Math with AI?</h3>\n<p>Generate practice problems for targeted learning.</p>\n<h3>Key Tips:</h3>\n<p>Verify AI suggestions; use Sheets for accurate computation.</p>\n<h3>Funfact:</h3>\n<p>AI can create endless math puzzles, like personalized quizzes!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll solve an AI-suggested problem next.</p>\n<p><strong>Parent tip:</strong> Solve together for fun!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 5,
+                  "title": "Solve AI-Suggested Math in Sheets",
+                  "introduction": "Let's practice math! You'll prompt AI for a problem and solve it in Sheets.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open Chat GPT, type: \"Suggest a simple average problem with 5 numbers.\""
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Open sheets.google.com, enter numbers in A1-A5"
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "In A6, type=AVERAGE(A1:A5)\"; chart the data (Insert > Chart)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Compare to AI suggestion; adjust."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name sheet \"AlMath\"."
+                    }
+                  ],
+                  "challenge": "Prompt for a sum problem, solve similarly."
+                },
+                {
+                  "kind": "home",
+                  "number": 5,
+                  "title": "",
+                  "introduction": "Prompt AI for a math word problem, solve in Sheets; name\" Math practice\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "5.S",
+              "title": "Chapter 5 Summary and Final Home Activity",
+              "content": "<h2>You're a productivity and AI expert! You:</h2>\n<p><strong>5.1</strong> - Drafted applications with AI</p>\n<p><strong>5.2</strong> - Edited drafts in Google Docs.</p>\n<p><strong>5.3</strong> - Generated images with AI.</p>\n<p><strong>5.4</strong> - Built presentations with AI elements.</p>\n<p><strong>5.5</strong> - Solved math with AI assistance in Sheets.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "6",
+          "title": "Mastering Advanced Electronics with Circuits",
+          "content": "<h2>Welcome to Advanced Electronics Mastery</h2>\n<p>Electronics bring circuits to lifel Building on Book T's basic components like bulbs and motors advance to designing circuits with LEDs, sensors, and buzzers for creative projects like interactive displays. Let's createl</p>\n<h3>What are Advanced Circuits?</h3>\n<p>Systems combining components for dynamic functions</p>\n<h3>Why Learn More?</h3>\n<p>Develop problem-solving and hands-on skills for real world applications</p>\n<h3>Chapter Preview:</h3>\n<p>You'll build simple circuits, use sensors, create buzzers, and design a project.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to prepare a circuit kit (LEDs, resistom, light sensors, buzzers)</p>",
+          "lessons": [
+            {
+              "code": "6.1",
+              "title": "Introduction to Simple Circuits",
+              "content": "<p>Circuits power electronics with connected components! Leam to build an LED circuit safely.extending Book T's bulb lighting with precise setups.</p>\n<h3>Why Simple Circuits?</h3>\n<p>Foundation for understanding electricity flow.</p>\n<h3>Key Tip</h3>\n<p>Connect positive/negative correctly, use resistors to protect LEDs.</p>\n<p><strong>Fun Fact:</strong> LEDs use less energy than bulbis, lighting up modem cities</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll build an LED circuit next</p>\n<h3>Safety tip:</h3>\n<p>Always disconnect power before adjusting circuits.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Build a Basic LED Circuit",
+                  "introduction": "Let's light it up safely! You'll construct a simple LED circuit with a resistor",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Gather kit LED, 220-ohm resistor, breadboard, 9V battery, wires"
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Insert LED into breadboard (long leg positive)"
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Connect resistor from LED's negative to breadboard's negative rail"
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Wire positive rail to battery's positive, negative to negative"
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Connect battery; check LED glow, disconnect power."
+                    }
+                  ],
+                  "challenge": "Swap LED for a different color."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Draw a circat diagram of your LED setup, label parts",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "6.2",
+              "title": "Using Sensors in Circuits",
+              "content": "<p>Sensors detect changes, like light levels! Add a light sensor to control an LED, advancing Book 2's VEXcode VR sensors for physical interaction.</p>\n<h3>What's a Sensor Circuit?</h3>\n<p>Components reacting to environment inputs.</p>\n<h3>Key Tips:</h3>\n<p>Calibrate sensors with resistors for sensitivity.</p>\n<h3>Funfact:</h3>\n<p>Light sensors power automatic streetlights worldwide!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll test a light sensor next</p>\n<h3>Safety Tip:</h3>\n<p>Handle sensors gently to avoid damage.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Test a Light Sensor",
+                  "introduction": "Let's make circuits smart! You'll use a light sensor to control an LED's brightness",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Use LED circuit from Activity 1; disconnect battery"
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Add light sensor (photoresistor) in series with LED"
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Connect battery, shine a flashlight on sensor, observe LED change."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Cover sensor, note dimming; disconnect power"
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Store circuit safely"
+                    }
+                  ],
+                  "challenge": "Adjust resistor value (e.g. 330\nohms) for sensitivity"
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Explore a home light switch, sketch how it might use a sensor",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "6.3",
+              "title": "Creating a Buzzer Circuit",
+              "content": "<p>Buzzers add sound to circuits! Build a circuit with a buzzer for alerts, like a timer extending Book 2's audio creation with physical outputs.</p>\n<h3>Why Buzzer Circuits?</h3>\n<p>Create audible signals for interactive projects.</p>\n<h3>Key Tips:</h3>\n<p>Ensure buzzer polarity, test short beeps to avoid strain.</p>\n<h3>Funfact:</h3>\n<p>Buzzers are in alarms, from doorbells to spacecraft!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll make a buzzer next.</p>\n<h3>Safety tip:</h3>\n<p>Use low voltage to protect buzzers.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Make a Buzzer Circuit",
+                  "introduction": "Let's add sound safely! You'll build a buzzer circuit for a short alert.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Gather: Buzzer, breadboard, 9V battery, wires."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Insert buzzer into breadboard (check positive/negative markings)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Connect positive to battery positive via wire, negative to battery negative."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Connect battery, hear beep, disconnect after 2 seconds."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Store circuit."
+                    }
+                  ],
+                  "challenge": "Add a pushbutton switch to control buzzing."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Design a sound pattern (eg, short/long beeps); sketch a buzzer circuit for it.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "6.4",
+              "title": "Building a Mini Project",
+              "content": "<p>Combine components for creativity! Design an interactive project, like a light-up display with sensors and buzzers, advancing Book 2's Tynker projects with physical builds.</p>\n<h3>What's a Mini Project?</h3>\n<p>Integrated circuit for a functional outcome.</p>\n<h3>Key Tips:</h3>\n<p>Plan connections, test each part before combining</p>\n<h3>Funfact:</h3>\n<p>Circuit projects power gadgets like smart toys and wearables!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll create a display next.</p>\n<h3>Safety tip:</h3>\n<p>Adult supervision for complex setups.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Create a Light-Up Display",
+                  "introduction": "Let's build interactively! You'll combine LED, sensor and buzzer for a display.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Plan: LED lights up, buzzer beeps when light sensor detects brightness."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Use LED circuit; add light sensor to control LED."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Connect buzzer in parallel with switch for manual beeps."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test: Shine light, press switch, adjust connections, disconnect power."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name project \"LightDisplay\"."
+                    }
+                  ],
+                  "challenge": "Add a second LED for dual colours."
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Build a simple fan circuit with a motor and battery, name \"FanProject\"",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "6.S",
+              "title": "Chapter 6 Summary and Final Home Activity",
+              "content": "<h2>You're an electronics expert! You</h2>\n<p><strong>6.1</strong> - Built simple LED circuits safely.</p>\n<p><strong>6.2</strong> - Used light sensors for smart control.</p>\n<p><strong>6.3</strong> - Created buzzer circuits for sound.</p>\n<p><strong>6.4</strong> - Designed a light-up display project.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "7",
+          "title": "Mastering 3D Design with Tinkercad",
+          "content": "<h2>Welcome to 3D Design Mastery!</h2>\n<p>Tinkercad brings your ideas into three dimensione! Bulding on Book 2's 20 Canva designs, advance to creating, customizing, and sharing 3D models for projects like designing objects for a school showcase. Let's shape the future.</p>\n<h3>What is 3D Design?</h3>\n<p>Creating digital objects with height, width, and depth.</p>\n<h3>Why Learn More?</h3>\n<p>Develop spatial thinking for real-world design applications.</p>\n<h3>Chapter Preview:</h3>\n<p>You'll explore Tinkercad, build models, customize designs, and share creations.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open tinkercad.com..</p>",
+          "lessons": [
+            {
+              "code": "7.1",
+              "title": "Exploring Tinkercad",
+              "content": "<p>Tinkercad is a user-friendly 3D design platform! Learn the workspace, tools, and basic shapes to start modeling, advancing from Book 2's flat designs to 30 creativity.</p>\n<h3>Why Explore Tinkercad?</h3>\n<p>Understand tools to build precise objects.</p>\n<h3>Key Tip</h3>\n<p>Drag shapes to the workplane, use align for accuracy.</p>\n<p><strong>Fun Fact:</strong> Tinkercad models can be 3D printed into real objects.</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll build a simple shape next.</p>\n<p><strong>Parent tip:</strong> Discuss what objects to model!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Build a 3D Cube",
+                  "introduction": "Let's start designing! You'll create a basic 3D cube to learn Tinkercad's interface.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open tinkercad.com, sign in, click \"Create new design\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Drag a 'Box\" shape from the right panel to the workplane."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Adjust size: Click box, set dimensions to 20x20x20mm (use size handles)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Rotate 45 degrees (use rotate tool)."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name project \"CubeDesign\" (top bar)."
+                    }
+                  ],
+                  "challenge": "Add a second cube, align them (Align tool)."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Create a 3D star shape, name \"StarDesign\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "7.2",
+              "title": "Building Simple 3D Models",
+              "content": "<p>Combine shapes to create objects! Build a simple model like a house by stacking and grouping shapes, advancing Book 2's Canva projects with 3D complexity</p>\n<h3>What's a 3D Model?</h3>\n<p>A digital object made from combined shapes.</p>\n<h3>Key Tips:</h3>\n<p>Group shapes to move as one, use holes for circuits..</p>\n<h3>Funfact:</h3>\n<p>Tinkercad is used by engineers to prototype real products.</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll build a model next.</p>\n<p><strong>DIY idea:</strong> Sketch your model on paper first!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Create a 3D House Model",
+                  "introduction": "Lef's construct a house! You'll combine shapes to form a simple structure.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"CubeDesign or start new in Tinkercad."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Drag a \"Box (base, 30x30x20mm); add \"Roof shape for top."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Drag Cylinder\" (hole mode) for a window, align and group."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test rotation/view adjust placement."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name project \"HouseModel\"."
+                    }
+                  ],
+                  "challenge": "Add a chimney (small box) on roof."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Build a 3D model of a car (box cylinders); name \"CarModer\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "7.3",
+              "title": "Customizing Designs",
+              "content": "<p>Make models unique! Adjust colors, textures, and sizes for professional designs, enhancing Book 2's visual skills with 30 aesthetics.</p>\n<h3>Why Customize?</h3>\n<p>Add personality and clarity to models.</p>\n<h3>Key Tips:</h3>\n<p>Use color panel scale precisely for balance.</p>\n<h3>Funfact:</h3>\n<p>Tinkercad's colors mimic real 3D printer filaments!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll customize a model next.</p>\n<h3>Safety tip:</h3>\n<p>Suggest fun color combos.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Color a 3D Model",
+                  "introduction": "Let's add style! You'll customize your house with colors and textures",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open HouseModel."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Select base, click Material >Solid> Blue."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Select roof, choose Red; adjust window size (scale smaller)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test view in 3D: tweak colors if needed."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name updated project."
+                    }
+                  ],
+                  "challenge": "Add a texture (eg, wood grain) to base."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Customize \"CarModel\" with colors and sizes, name updated project.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "7.4",
+              "title": "Exporting and Sharing",
+              "content": "<p>Share your creations! Export models as files or share links, practicing presentation skills for showcasing work, like Book 2's Google Drive sharing.</p>\n<h3>What's Exporting/Sharing?</h3>\n<p>Saving or presenting designs for others.</p>\n<h3>Key Tips:</h3>\n<p>Use STL, for 3D printing, share links for feedback.</p>\n<h3>Funfact:</h3>\n<p>Tinkercad designs are used in schools and maker fairs worldwide!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll export a model next.</p>\n<p><strong>DIY idea:</strong> Present your model to family!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Save and Share a 3D Model",
+                  "introduction": "Let's showcase your work! You'll export and share your model for others.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"HouseModel\""
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": ",Click \"Export\" (top right), select \"STI\" format, save as \"HouseModel.st/\""
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Click \"Share\" (top bar), copy public link (set to view-only."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test link in new tab, ensure model displays."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name updated project."
+                    }
+                  ],
+                  "challenge": "Export as OBJ format\nfor comparison."
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Export CarModel as STL, share link with family, name updated project.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "7.S",
+              "title": "Chapter 7 Summary and Final Home Activity",
+              "content": "<h2>You're a 3D design expert! You</h2>\n<p><strong>7.1</strong> - Built simple 3D models like a house.</p>\n<p><strong>7.2</strong> - Explored Tinkercad with basic shapes.</p>\n<p><strong>7.3</strong> - Customized designs with colors and textures.</p>\n<p><strong>7.4</strong> - Exported and shared models professionally.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "8",
+          "title": "Mastering Advanced Google Docs for Storytelling",
+          "content": "<h2>Welcome to Advanced Google Docs Mastery!</h2>\n<p>Google Docs elevates your writing! Building on Book 2's Google Drive basics, advance to formatting stories, collaborating, adding links, and creating digital storybooks for engaging narratives like adventure tales. Let's craft!</p>\n<h3>What is Advanced Docs?</h3>\n<p>A tool for polished, shared documents with interactive features.</p>\n<h3>Why Learn More?</h3>\n<p>Develop collaborative writing skills for school and creative projects.</p>\n<h3>Chapter Preview:</h3>\n<p>You'll format documents, write collaboratively, add hyperlinks, and build storybooks.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open docs.google.com.</p>",
+          "lessons": [
+            {
+              "code": "8.1",
+              "title": "Formatting Documents",
+              "content": "<p>Formatting makes stories professional! Use fonts, headings, and styles to organize text, advancing Book 2's file editing for clear, attractive narratives.</p>\n<h3>Why Formatting?</h3>\n<p>Enhances readability and emphasizes key parts.</p>\n<h3>Key Tip</h3>\n<p>Use headings for sections; bold/italic for emphasis.</p>\n<p><strong>Fun Fact:</strong> Google Docs styles mimic professional publishing tools!.</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll format a story title next.</p>\n<p><strong>Parent tip:</strong> Suggest story ideas from family experiences!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Format a Story Title",
+                  "introduction": "Let's style your writing! You'll format a story title and paragraphs for a neat look.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open docs.google.com, create a new document."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Type a title like \"My Adventure Story\"; select it, Format > Headings > Title."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add a paragraph: Write a short intro sentence."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Bold key words (select, Ctrl+B); change font to Arial (Format > Font)."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name document \"StoryFormat\" (File > Rename)."
+                    }
+                  ],
+                  "challenge": "Add a subtitle with Heading 2 style."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Style a poem (e.g., about nature) with italics and centering; name \"PoemStyle\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "8.2",
+              "title": "Collaborative Writing",
+              "content": "<p>Collaborate in real-time! Share documents for group editing, practicing teamwork on tales, like Book 2's Canva collaborations but for writing.</p>\n<h3>What's Collaborative Writing?</h3>\n<p>Multiple users editing simultaneously for shared ideas.</p>\n<h3>Key Tips:</h3>\n<p>Use comments for feedback; track changes with Suggesting mode.</p>\n<h3>Funfact:</h3>\n<p>Google Docs allows unlimited collaborators, like a digital writers' room!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll co-write a tale next.</p>\n<p><strong>DIY idea:</strong> Invite a sibling to edit!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Co-Write a Tale",
+                  "introduction": "Let's team up! You'll share a document and edit a short story together.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"StoryFormat or new in Docs."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Click Share (top right), add classmate's email (view/comment/suggest)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Switch to Suggesting mode (Editing > Suggesting)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Add sentences alternately; comment on ideas (Insert > Comment)."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name document \"Group Tale\"."
+                    }
+                  ],
+                  "challenge": "Resolve suggestions by accepting/rejecting."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Edit a friend's or family's story draft via share link; name\"Edited Tale\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "8.3",
+              "title": "Adding Hyperlinks",
+              "content": "<p>Hyperlinks connect to resources! Insert links to websites or documents for enriched stories, advancing Book 2's web browsing with interactive elements.</p>\n<h3>Why Hyperlinks?</h3>\n<p>Provide quick access to related info, like story references.</p>\n<h3>Key Tips:</h3>\n<p>Select text, Insert &gt; Link; test clicks.</p>\n<h3>Funfact:</h3>\n<p>Hyperlinks power the web, linking billions of pages!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll add a link next.</p>\n<p><strong>Parent tip:</strong> Suggest safe, educational sites!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Add Hyperlinks to a Story",
+                  "introduction": "Let's make it interactive! You'll hyperlink words in your story to extemal resources.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"GroupTale\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Select a word (e.g., \"adventure\"), Insert > Link, paste a safe URL (e.g..educational site)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add another link to a related Doc or image."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Ctrl+Click to test; ensure links open."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name updated document."
+                    }
+                  ],
+                  "challenge": "Link to a video for visual enhancement."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Add hyperlinks to a document about a topic (e.g., animals);",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "8.4",
+              "title": "Creating a Storybook",
+              "content": "<p>Assemble a full storybook! Combine formatting, collaboration, and links into a multi-page digital book, practicing comprehensive storytelling.</p>\n<h3>What's a Storybook?</h3>\n<p>A formatted Doc with narrative, visuals, and interactivity.</p>\n<h3>Key Tips:</h3>\n<p>Use page breaks for sections; add images via Insert.</p>\n<h3>Funfact:</h3>\n<p>Digital storybooks can be shared globally in seconds!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll build a storybook next.</p>\n<p><strong>DIY idea:</strong> Illustrate your story with drawings!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Build a Digital Storybook",
+                  "introduction": "Let's compile your tale! You'll create a storybook with all features.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open a new Doc or extend \"GroupTale\"."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Add pages: Insert > Break > Page break for chapters."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Format headings, add links/images, collaborate for final edits."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Review flow; export as PDF if needed (File > Download > PDF)."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name document \"MyStorybook\"."
+                    }
+                  ],
+                  "challenge": "(Insert > Table of contents). Add a table of contents"
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Create a family adventure storybook; name \"FamilyBook\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "8.S",
+              "title": "Chapter 8 Summary and Final Home Activity",
+              "content": "<h2>You're a Google Docs storytelling expert! You:</h2>\n<p><strong>8.1</strong> - Formatted documents for style.</p>\n<p><strong>8.2</strong> - Collaborated on writing.</p>\n<p><strong>8.3</strong> - Added hyperlinks for interactivity.</p>\n<p><strong>8.4</strong> - Built digital storybooks.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "9",
+          "title": "Basic Coding and Movements with M3D GO",
+          "content": "<h2>Dive into M3D GO Coding!</h2>\n<p>Building upon the foundational setup established in the Chapter 12 Book 2, this section introduces the principles of coding movements using the Scratch interface integrated with M3D GO. You will learn to apply block-based commands to direct the robot's actions and exploration of motion concepts. This progression enhances computational thinking and prepares for more complex interactions in subsequent chapters.</p>\n<h3>What is Coding in This Context?</h3>\n<p>The process of assembling instructional blocks to control robot behavior, such as directing paths or adjusting velocities.</p>\n<h3>Why Focus on Movements?</h3>\n<p>Mastery of basic motions forms the basis for advanced applications, including navigation and task automation.</p>\n<h3>Chapter Preview:</h3>\n<p>Coverage includes introductory movement blocks, speed modifications, and sequence construction with integrated effects.</p>\n<h3>Instructions:</h3>\n<p>Confirm the robot is connected via Scratch before proceeding.</p>",
+          "lessons": [
+            {
+              "code": "9.1",
+              "title": "Introduction to Movement Blocks",
+              "content": "<p>The Scratch environment provides specialized blocks for M3D GO, enabling precise control over the robot's locomotion. These include commands for forward and backward motion, as well as rotational adjustments. Understanding these blocks allows for the creation of deliberate trajectories, akin to mapping routes in a logistical system.</p>\n<h3>Why Begin with These Blocks?</h3>\n<p>They establish core functionality, ensuring reliable execution before incorporating variables.</p>\n<h3>Key Tip</h3>\n<p>Align blocks vertically to form logical sequences; test incrementally to verify outcomes.</p>\n<p><strong>Fun Fact:</strong> Block-based coding, as used here, aligns with educational methodologies employed in Pakistani STEM curricula to promote logical reasoning.</p>\n<h3>Class Activity Preview:</h3>\n<p>The subsequent activity involves applying these blocks for initial motion tests.</p>\n<p><strong>Parent tip:</strong> Ensure safe handling of robot parts!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Basic Robot Movements",
+                  "introduction": "This activity introduces the application of fundamental movement blocks, enabling users to observe direct responses from the robot.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open https://scratch.markhor3d.com/ In the Scratch workspace, locate the M3D GO extension blocks and drag the \"When Green Flag Clicked\" starter."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Attach the \"Go Forward\" block and execute the code to observe linear motion."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add a \"Turn Left\" block following the initial command, then run the sequence to assess directional change."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Repeat with \"Go Backward\" to evaluate reverse functionality."
+                    }
+                  ],
+                  "challenge": "Construct a sequence resulting in a 180-degree rotation using turn blocks"
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Reproduce the class sequence at home, executing forward and turn commands.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "9.2",
+              "title": "Adding Speed and Controls",
+              "content": "<p>Enhancing movement involves modulating velocity through percentage-based parameters and incorporating alternative input methods, such as keyboard controls. This allows for nuanced adjustments, optimizing performance for specific tasks.</p>\n<h3>Why Incorporate Speed?</h3>\n<p>Variable speeds enable simulation of real-world dynamics, improving precision in applications.</p>\n<h3>Key Tips:</h3>\n<p>Utilize lower percentages for controlled maneuvers and higher for efficient traversal.</p>\n<h3>Class Activity Preview:</h3>\n<p>The activity explores these enhancements through targeted testing</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Control Speed and Direction",
+                  "introduction": "This activity applies speed modifications within directional contexts, facilitating comparative analysis.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Modify the \"Go Forward\" block to \"Go Forward at 30%\" and observe the reduced velocity."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Increase to \"Go Forward at 70%\" and compare traversal times over a fixed distance."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Use arrow keys to direct motion while varying speeds via blocks."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test a combined sequence, such as slow forward followed by a rapid turn."
+                    }
+                  ],
+                  "challenge": "Determine the optimal speed for a curved path without deviation."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Implement a sequence with alternating speeds, using keyboard inputs for real-time adjustments.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "9.3",
+              "title": "Simple Sequences with Effects",
+              "content": "<p>Sequences combine multiple blocks to achieve compound behaviors, augmented by effects such as text displays or emojis on the OLED screen. This integration adds communicative elements to movements.</p>\n<h3>Why Use Sequences?</h3>\n<p>They enable the simulation of complex tasks through modular construction.</p>\n<h3>Key Tips:</h3>\n<p>Employ \"Wait\" blocks to synchronize actions, ensuring coherent execution.</p>\n<h3>Class Activity Preview:</h3>\n<p>The activity constructs integrated sequences.</p>\n<p><strong>Parent tip:</strong> Supervise sensor tests for safety!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Build a Movement Sequence",
+                  "introduction": "This activity synthesizes movements into sequences, incorporating effects for enhanced interactivity.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Begin with \"When Green Flag Clicked\" and append \"Go Forward\" followed by \"Wait 1 Second.\""
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Add \"Turn Right\" and \"Show Text 'Turning Now'\" to provide visual feedback."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Include an \"Express Smile\" effect post-sequence for completion indication."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Execute and refine the timing for seamless flow."
+                    }
+                  ],
+                  "challenge": "Extend the sequence to form a closed loop pattern with repeated turns"
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Enhance a Sequence Construct a sequence incorporating at least three movements and one effect, such as a display message. Test variations and note improvements in execution. Sequence Enhancements: Introduce minor modifications, like alternating effects, to explore variability.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "9.S",
+              "title": "Chapter 9 Summary and Final Home Activity",
+              "content": "<p>This chapter has advanced users' proficiency in coding basic movements and sequences. You have applied blocks for directed motion, modulated speeds, and integrated effects.</p>\n<h3>Chapter Review:</h3>\n<p>Revisit key blocks, speed controls, and sequence construction; evaluate personal progress in command application.</p>\n<h3>Coding Exercises:</h3>\n<p>Practice assembling a sequence for a linear path with speed variation; solve a provided puzzle by correcting a flawed block arrangement.</p>\n<p>Recognize achievement with a \"Movement Master!\" badge for demonstrated control.</p>",
+              "activities": [
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Themed Movement Challenge Develop a sequence simulating a festival procession:\nInclude forward advances, turns, and a concluding display effect. Document the code and path for submission.",
+                  "steps": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "10",
+          "title": "Mastering Virtual Reality (VR) Basics",
+          "content": "<h2>Welcome to VR Mastery!</h2>\n<p>Virtual Reality immerses you in digital worlds! Building on Book 1's AR/VR introductions, advance to exploring, creating, and sharing VR scenes with AR integrations for interactive experiences like virtual adventures. Let's immerse!</p>\n<h3>What is VR?</h3>\n<p>A technology simulating environments, often with headsets, compare to AR overlaying digital on real.</p>\n<h3>Why Learn More?</h3>\n<p>Enhance spatial awareness and creativity for educational fun.</p>\n<h3>Chapter Preview:</h3>\n<p>You'll understand VR/AR, explore worlds, create scenes, and share projects.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open cospaces.io/edu (free signup for educators).</p>",
+          "lessons": [
+            {
+              "code": "10.1",
+              "title": "What is VR?",
+              "content": "<p>VR creates simulated experiences; AR adds digital layers to reality! Compare them to understand differences, advancing Book 2's digital art with immersive tech.</p>\n<h3>Why Compare VR/AR?</h3>\n<p>Grasp how they enhance learning differently.</p>\n<h3>Key Tip</h3>\n<p>VR fully immerses; AR blends real/digital for overlays.</p>\n<p><strong>Fun Fact:</strong> VR headsets track head movements for 360-degree views!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll explore CoSpaces next.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Explore a VR App",
+                  "introduction": "Let's dive into basics! You'll explore CoSpaces and compare VR to AR features.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open cospaces.io/edu (with adult help); join or create a space."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Select a sample scene (e.g., ocean); view in VR mode (browser or headset if available)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Discuss: \"How is VR different from AR? VR surrounds, AR adds to real world.\""
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Switch to AR mode (webcam/phone) for overlay example."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Note observations; name notes \"VRCompare\"."
+                    }
+                  ],
+                  "challenge": "Describe a real object with AR overlay in notes."
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Draw a VR headset and label parts (e.g., lenses, sensors); name \"HeadsetDrawing\"",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "10.2",
+              "title": "Exploring VR Worlds with Apps",
+              "content": "<p>Navigate virtual worlds! Use CoSpaces to tour scenes and add AR overlays for hybrid experiences, practicing observation and comparison..</p>\n<h3>What's Exploring VR?</h3>\n<p>Interacting with simulated environments for discovery.</p>\n<h3>Key Tips:</h3>\n<p>Use mouse/keyboard to move; note AR additions like digital labels</p>\n<h3>Funfact:</h3>\n<p>CoSpaces worlds can be explored collaboratively online!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll tour a world next.</p>\n<p><strong>Parent tip:</strong> Guide safe screen time!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Tour a VR World",
+                  "introduction": "Let's adventure digitally! You'll explore a CoSpaces world and add an AR overlay for enhancement.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "In CoSpaces, select or join a shared world (e.g., historical site)."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Navigate using arrows/mouse; discover objects."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Add AR: Place an AR marker/object viewable via webcam."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Discuss: \"How does AR enhance VR? Adds real-world ties.\""
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Screenshot; name file \"VRTour\"."
+                    }
+                  ],
+                  "challenge": "Tour a nature scene, overlay an animal."
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Visit a virtual museum in CoSpaces; note favorites; name \"MuseumNotes\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "10.3",
+              "title": "Creating a VR Scene",
+              "content": "<p>Build your own VR world! Design a scene in CoSpaces and enhance with AR elements, advancing Book 2's Canva creations with immersive design.</p>\n<h3>Why Create Scenes?</h3>\n<p>Practice building environments for storytelling.</p>\n<h3>Key Tips:</h3>\n<p>Drag objects; position for 360-view balance.</p>\n<h3>Funfact:</h3>\n<p>CoSpaces scenes can be viewed in VR or AR on any device!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll design a scene next.</p>\n<p><strong>DIY idea:</strong> Sketch scene ideas first!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Design a VR Scene",
+                  "introduction": "Let's create immersively! You'll build a VR scene and add AR enhancements.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "In CoSpaces, create a new space."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Add background (e.g., landscape); drag 3D objects (e.g., trees, buildings)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Enhance with AR: Add an interactive AR marker/object."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test in VR view; adjust positions."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Name project \"MyVRScene\"."
+                    }
+                  ],
+                  "challenge": "Add a sound effect to an object."
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "",
+                  "introduction": "Create a simple VR room scene; name \"RoomScene\".",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "10.4",
+              "title": "Sharing VR Projects",
+              "content": "<p>Share your VR creations! Export scenes or links in CoSpaces for feedback, practicing presentation with AR views for accessibility</p>\n<h3>What's Sharing VR?</h3>\n<p>Distributing projects for collaboration or viewing.</p>\n<h3>Key Tips:</h3>\n<p>Use share links, include AR mode for non-VR users.</p>\n<h3>Funfact:</h3>\n<p>Shared CoSpaces projects can be remixed by others for community building!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll share a project next.</p>\n<p><strong>Parent tip:</strong> View the shared scene together!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Share a VR Project",
+                  "introduction": "Let's distribute your work! You'll export and share your scene with AR view options",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open \"MyVRScene\" in CoSpaces."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Click Share (top bar), generate a link (set to view/remix)."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Export as QR code for AR access (Export > QR)."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Test link/QR on another device; ensure AR view works."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Store link; tweak project."
+                    }
+                  ],
+                  "challenge": "Share with a classmate for feedback."
+                },
+                {
+                  "kind": "home",
+                  "number": 4,
+                  "title": "",
+                  "introduction": "Share your \"RoomScene\" link with family, name updated",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "10.S",
+              "title": "Chapter 10 Summary and Final Home Activity",
+              "content": "<p>You're a VR expert! You:</p>\n<p>Navigated VR worlds with AR</p>\n<h3>10.2</h3>\n<p>Explored VR and compared to</p>\n<h3>10.1</h3>\n<p>AR.</p>\n<p>overlays.</p>\n<h3>10.3</h3>\n<h3>10.4</h3>\n<p>Created VR scenes with AR enhancements.</p>\n<p>Shared VR projects including AR views.</p>",
+              "activities": []
+            }
+          ]
+        },
+        {
+          "code": "11",
+          "title": "Level-Up Your AI with Google Teachable Machine",
+          "content": "<h2>Welcome to Advanced AI!</h2>\n<p>You've already taught an AI to recognize simple things! In this book, you'll become an AI expert by learning how to make your AI even smarter and more useful. We’ll dive into advanced techniques like teaching AI to understand your body, making it guess better, and even showing how it could be used in a real project!</p>\n<h3>What is Advanced AI?</h3>\n<p>It’s about making your AI models more accurate and teaching them to do more complex tasks.</p>\n<h3>Why Learn More?</h3>\n<p>To create amazing projects that solve real problems, like a plant that knows when it needs water!</p>\n<h3>Chapter Preview:</h3>\n<p>You’ll train an AI to recognize complex poses, fix its mistakes, and plan a real-world AI invention.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to open Teachable Machine, just like you did before!</p>",
+          "lessons": [
+            {
+              "code": "11.1",
+              "title": "Making AI Smarter (Dealing with Bias)",
+              "content": "<p>Sometimes AI makes a mistake because it wasn't given enough good examples! This is called \"bias.\" To make a smart AI, you need to give it lots of different examples. You also need to teach it what things are not the answer, using a \"Background\" class. This helps your AI focus on what's important, like learning how to spot different kinds of kites in a busy sky!</p>\n<h3>What is Bias?</h3>\n<p>.When an AI guesses wrong because its examples were all too similar.</p>\n<h3>Key Tips:</h3>\n<p>Take pictures from different angles and in different light. Add a \"Background\" class with no objects in it.</p>\n<p><strong>Fun Fact:</strong> Self-driving cars use AI trained on millions of images to see the road!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll train a smarter AI next.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Train a Smarter AI",
+                  "introduction": "Let’s train an AI that’s really good at telling the difference between things! You’ll collect lots of examples, including a \"Background\" class, to make your model super smart.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Open Teachable Machine",
+                      "content": "Go to the website and select \"Image Project.\""
+                    },
+                    {
+                      "number": 2,
+                      "title": "Create Your Classes",
+                      "content": "Rename \"Class 1\" to \"Apple\" and \"Class 2\" to \"Orange.\" Add a third class and rename it \"Background.\""
+                    },
+                    {
+                      "number": 3,
+                      "title": "Collect Examples",
+                      "content": "For \"Apple,\" hold an apple and use your webcam to take at least 30 pictures from different angles. For \"Orange,\" do the same with an orange. For \"Background,\" point the webcam at an empty table or a blank wall and take 20 pictures."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Train and Test",
+                      "content": "Click \"Train Model\" and wait. In the \"Preview\" window, show your AI an apple, an orange, and the empty table. See how well it guesses!"
+                    },
+                    {
+                      "number": 5,
+                      "title": "Save",
+                      "content": "Download your model and save it as \"FruitAI.tm.\""
+                    }
+                  ],
+                  "challenge": "Find an object that is neither an apple nor an orange (like a banana). Show it to your AI. What does it guess?"
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "Train a smarter AI to recognize a family member's face. Collect many pictures of their face, and also collect pictures of an empty room as the \"Background\" class.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "11.2",
+              "title": "Training AI with Body Movements (Pose Models)",
+              "content": "<p>AI isn't just for pictures and sounds—it can also be a dance partner! With a Pose Model, you can train an AI to recognize your body's movements and gestures. Each pose is a different class, and the AI learns from the positions of your shoulders, elbows, and hands! This is just like learning the precise movements for a folk dance!</p>\n<h3>What is a Pose Model?</h3>\n<p>t’s an AI that learns to recognize the shape of your body in different positions.</p>\n<h3>Key Tips:</h3>\n<p>Make sure your webcam can see your whole body. Give lots of examples for each pose.</p>\n<h3>Class Activity Preview:</h3>\n<p>You’ll train an AI to recognize a secret hand gesture.</p>\n<p><strong>Parent Tip:</strong> Get your family involved! Everyone can help create new poses for the AI to learn.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Train a Pose Model",
+                  "introduction": "Let's teach an AI a secret move! You'll train a Pose Model to recognize two different body poses, which is a great first step toward making a game that reacts to your body!",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Open Teachable Machine",
+                      "content": "Go to the website and select \"Pose Project.\""
+                    },
+                    {
+                      "number": 2,
+                      "title": "Create Your Classes",
+                      "content": "Rename \"Class 1\" to \"Arms Up\" and \"Class 2\" to \"Arms Down.\" Add a third class called \"Background.\""
+                    },
+                    {
+                      "number": 3,
+                      "title": "Collect Examples",
+                      "content": "For \"Arms Up,\" stand back from your computer and hold your arms up in the air. Use the webcam to take at least 30 pictures. For \"Arms Down,\" put your arms down by your sides and take another 30 pictures. For \"Background,\" step away from the computer so the webcam only sees an empty scene and record 20 pictures."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Train and Test",
+                      "content": "Click \"Train Model.\" When it's done, stand in front of the webcam and raise or lower your arms. Watch how the AI guesses!"
+                    }
+                  ],
+                  "challenge": "Add a third class called \"Superhero\nPose\" and train your AI to recognize it!"
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "Train a Pose Model to recognize a simple hand gesture, like a \"thumbs up\" or a \"high five.\"",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "11.3",
+              "title": "Improving Your AI Model",
+              "content": "<p>What do you do if your AI makes a mistake? Don't worry, you can fix it! You can make your AI better by adding more examples, or by removing bad ones. This is called fine-tuning, and it's what real AI developers do all the time. It's like a chef tasting a dish and adding a pinch of salt to make it perfect!</p>\n<h3>How to Fine-Tune?</h3>\n<p>Add more examples to the class that the AI is guessing wrong. Delete pictures that are blurry or confusing for the AI.</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll fix a buggy AI next.</p>\n<p><strong>DIY Idea:</strong> :Find a family photo that's blurry. Imagine how an AI might get confused trying to recognize who is in the picture!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Fix a Buggy AI",
+                  "introduction": "Let’s be AI detectives and fix an AI that is making mistakes! You’ll fine-tune an existing model to make it more accurate.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Open Your Project",
+                      "content": "Go to Teachable Machine and open your \"FruitAI.tm\" project."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Make a Mistake",
+                      "content": "Find a different kind of fruit (like a pear) that your AI might get wrong. Show it to your AI. What does it guess?"
+                    },
+                    {
+                      "number": 3,
+                      "title": "1.Add More Examples",
+                      "content": "If the AI guessed \"Apple\" or \"Orange,\" then it got confused. Let's make it smarter! Create a new class called \"Other Fruit.\" Take 20 pictures of the pear and other random fruits for this new class."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Re-Train and Test",
+                      "content": "Click \"Train Model\" again. This will update your AI. Now, show the pear to the AI again. It should now be able to recognize it as \"Other Fruit\"!"
+                    }
+                  ],
+                  "challenge": "Try to find a blurry picture of an apple. If your AI guesses wrong, delete the blurry pictures from your \"Apple\" class, and then re-train the model."
+                }
+              ]
+            },
+            {
+              "code": "11.4",
+              "title": "Planning and Using an Advanced AI Project",
+              "content": "<p>Now it's time to become a full-on AI project designer! You’ve learned how to train a smarter AI and fix its mistakes. Now you can use these skills to plan a more advanced and useful project. You’ll think about how to use your AI in a real-world setting, like a smart light or a game.</p>\n<h3>What is an Advanced Project?</h3>\n<p>An AI that solves a problem or makes something new possible, like an AI that helps you water a plant.</p>\n<p><strong>Example:</strong> An AI that turns a light on when it sees your face, but only after sunset!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll build a 5-step plan for your own advanced AI invention.</p>\n<p><strong>Parent Tip:</strong> Talk with your child about how AI could help with chores or everyday tasks around the house!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Plan Your Advanced AI Invention",
+                  "introduction": "Let's use all your skills to plan an amazing AI invention! You’ll think through every step of your project, from the idea to the final result.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Open a Document",
+                      "content": "Grab a piece of paper or open a blank document on your computer."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Step 2",
+                      "content": "Step 1: The Goal! What's your project? Example: An AI that helps sort trash for recycling."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Step 2: The Training! How will you train your AI? What classes will you use? Example: I will use Image Model and collect pictures for \"Plastic,\" \"Paper,\" and \"Metal\" classes. I will also add a \"Background\" class."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Step 3: The Testing! How will you test your AI to make sure it's smart enough? Example: I will show it new trash items it has never seen before to see if it guesses right."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Step 4: The Improvement! What will you do if your AI makes mistakes? Example:\nIf it guesses wrong, I will collect more pictures of that kind of trash and re-train it."
+                    },
+                    {
+                      "number": 6,
+                      "title": "Step 6",
+                      "content": "Step 5: The Fun Result! How would your AI be used? Example: I would connect it to a small robot that pushes the trash into the correct recycling bin!"
+                    },
+                    {
+                      "number": 7,
+                      "title": "Step 7",
+                      "content": "Save your plan as \"MyAdvancedAIPlan.txt.\""
+                    }
+                  ],
+                  "challenge": "Think about a real-world problem in your community or a cool game you could make with AI. Write down a 5-step plan for it!"
+                }
+              ]
+            },
+            {
+              "code": "11.S",
+              "title": "Chapter 11 Summary and Advanced AI Challenge!",
+              "content": "<h2>You're a Certified AI Architect! You have:</h2>\n<p><strong>11.1</strong> - Learned how to create a smarter AI by dealing with bias.</p>\n<p><strong>11.2</strong> - Trained an AI to understand your body movements with a Pose Model.</p>\n<p><strong>11.3</strong> - Learned how to fine-tune and fix a buggy AI.</p>\n<p><strong>11.4</strong> - Planned an advanced AI project from start to finish.</p>",
+              "activities": [
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "The Family AI Game",
+                  "introduction": "Create a Pose Model that recognizes two simple poses. Challenge your family to a game:\nTell them to do one of the poses. If the AI guesses correctly, they get a point! If the AI guesses wrong, ask your family member to try a different angle, and then you try to fine-tune the model to make it better for next time!",
+                  "steps": []
+                },
+                {
+                  "kind": "challenge",
+                  "title": "Homework",
+                  "introduction": "Play your AI game with your family and explain to them how you trained the AI.",
+                  "steps": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "12",
+          "title": "Building Live Automations with n8n",
+          "content": "<h2>Welcome to Real-World Automation!</h2>\n<p>You've learned the secrets of automation: triggers, actions, and workflows! In this book, you’ll take the next step and build a real, working automation. You'll use n8n's visual builder to connect different apps and make them work together on their own, just like a smart factory!</p>\n<h3>What is a Live Automation?</h3>\n<p>It’s an automation that runs by itself on a computer somewhere, so you don't have to think about it!</p>\n<h3>Why Learn to Build Them?</h3>\n<p>To create powerful automations that save you time and make things easier, like getting an automatic weather report every morning.</p>\n<h3>Chapter Preview:</h3>\n<p>You’ll use the n8n website to build a real workflow, connect to real apps, and add smart decisions to your automations.</p>\n<h3>Instructions:</h3>\n<p>Ask an adult to help you create a free n8n Cloud account so you can build your own workflows. This requires a parent's email.</p>",
+          "lessons": [
+            {
+              "code": "12.1",
+              "title": "Your First Live Workflow (Trigger and Action)",
+              "content": "<p>The first step to building a live automation is to make a simple, working chain with a Trigger and an Action. You’ll build a workflow that starts on a schedule (the Trigger) and does a simple task (the Action). You'll see your first real automation come to life!</p>\n<h3>What is a Schedule Trigger?</h3>\n<p>t’s an automation that starts at a specific time, like every day at 8 AM.</p>\n<h3>Key Tips:</h3>\n<p>Use Always start a new workflow with a Trigger node. Make sure your Action node is connected to the Trigger with a line.</p>\n<p><strong>Fun Fact:</strong> NASA uses automation to get reports from its space missions!</p>\n<h3>Class Activity Preview:</h3>\n<p>uses You'll build a workflow that sends a simple message to you.</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 1,
+                  "title": "Build Your First Live Workflow",
+                  "introduction": "Let’s build a workflow that sends you a message with a fun fact every day! You'll use a Schedule Trigger and a Set node to create your first working automation.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Log into n8n",
+                      "content": "With an adult's help, open the n8n Cloud website and log into your account."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Start a New Workflow",
+                      "content": "Click the \"Create Workflow\" button on the left."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Add a Trigger",
+                      "content": "Click the \"+\" button to add a new node. Search for \"Schedule Trigger\" and click on it."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Set the Schedule",
+                      "content": "In the node's settings, choose a simple schedule, like \"Hourly\" or \"Every 5 minutes\" so you can see it work quickly."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Add the Action",
+                      "content": "Click the small circle on the right side of the Schedule Trigger node to add a new node. Search for \"Set\" and add that node."
+                    },
+                    {
+                      "number": 6,
+                      "title": "Add a Message",
+                      "content": "Inside the \"Set\" node's settings, click \"Add Value.\" For the name, type \"Message,\" and for the value, type \"Hello from my first n8n workflow!\""
+                    },
+                    {
+                      "number": 7,
+                      "title": "Run the Workflow",
+                      "content": "Click \"Save\" and then turn on the workflow with the switch in the top right corner. Wait a few minutes, and you'll see a green checkmark showing it ran!"
+                    }
+                  ],
+                  "challenge": "Change the message to be a joke or a fun fact about AI!"
+                },
+                {
+                  "kind": "home",
+                  "number": 1,
+                  "title": "",
+                  "introduction": "With an adult, build a workflow that sends a message with the date and time every morning at 8 AM.",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "12.2",
+              "title": "Connecting to a Real App (Integration)",
+              "content": "<p>Now for the real magic! n8n can connect to hundreds of different apps and online tools. We call this an integration. You can connect your workflow to a messaging app like Telegram, so your automation can actually send you a message on your phone!</p>\n<h3>What is an Integration?</h3>\n<p>AI It's when a workflow is able to connect to and use another app.</p>\n<h3>Key Tips:</h3>\n<p>You Integrations often need a special key (called an API key) that an adult can help you find. You have to choose the right Action node for the app you want to use.</p>\n<p><strong>Fun Fact:</strong> n8n has integrations for over 400 different apps!</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll build a workflow that sends a real message to you.!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 2,
+                  "title": "Send a Real Message!",
+                  "introduction": "Let’s connect our workflow to a real app and send a live message to your phone. We'll use the Telegram app, with a little help from an adult to get set up!",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Log into n8n",
+                      "content": "Open your n8n account and start a new workflow."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Add Your Trigger",
+                      "content": "Add a \"Schedule Trigger\" node and set it to run \"Hourly.\""
+                    },
+                    {
+                      "number": 3,
+                      "title": "Add a Set Node",
+                      "content": "Add a \"Set\" node and, just like before, add a value with the message you want to send."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Add the Telegram Node",
+                      "content": "Click the circle to add a new node, search for \"Telegram,\" and select the \"Telegram\" node."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Connect Your Account",
+                      "content": "With an adult's help, connect your Telegram account by getting the \"Bot API Key\" and the \"Chat ID.\" This is the part that lets n8n talk to your phone!"
+                    },
+                    {
+                      "number": 6,
+                      "title": "Send the Message",
+                      "content": "In the Telegram node, select the \"Chat ID\" you got and then use the \"Expression\" button to pull the message from your \"Set\" node."
+                    },
+                    {
+                      "number": 7,
+                      "title": "Run and Test",
+                      "content": "Click \"Save\" and turn the workflow on. Wait for the scheduled time, and you should see the message pop up on your phone!"
+                    }
+                  ],
+                  "challenge": "Change the message in your \"Set\" node to send a new joke or fun fact!"
+                },
+                {
+                  "kind": "home",
+                  "number": 2,
+                  "title": "",
+                  "introduction": "With an adult's help, build a new workflow that sends you a message every evening at 6 PM saying, \"Time for family dinner!\"",
+                  "steps": []
+                }
+              ]
+            },
+            {
+              "code": "12.3",
+              "title": "Adding Smart Decisions (If/Then Logic)",
+              "content": "<p>What if you want your automation to be extra smart? You can add an If node, which lets your workflow make a decision. The workflow can follow different paths based on a condition you set. This is called conditional logic! It's like a path that splits: \"IF it is sunny, THEN go left, ELSE go right.\"</p>\n<h3>What is an If Node?</h3>\n<p>It's a special node that checks if a condition is true or false.</p>\n<h3>Key Tips:</h3>\n<p>The If node has a \"True\" branch and a \"False\" branch. You can check for things like numbers (is this number bigger than that one?) or text (does this message say \"Hello\"?)</p>\n<h3>Class Activity Preview:</h3>\n<p>You'll add an If node to your automation to make it smarter.</p>\n<p><strong>DIY Idea:</strong> Think of a rule you follow every day. For example, \"IF it's a school day, THEN I go to bed at 9 PM.\" This is conditional logic!</p>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 3,
+                  "title": "Make Your Automation Smarter",
+                  "introduction": "Let’s add a smart decision to your workflow! You'll build a workflow that only sends a message if the temperature is hot!",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Log into n8n",
+                      "content": "Open a new workflow."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Add a Trigger",
+                      "content": "Add a \"Schedule Trigger\" and set it to run every hour."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Get the Weather",
+                      "content": "Click the circle to add a new node. Search for \"OpenWeatherMap\" and add it. With an adult's help, get a free API key and set the city to your city."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Add the If Node",
+                      "content": "Add a new node after the OpenWeatherMap node. Search for \"If\" and add it."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Set the Condition",
+                      "content": "In the \"If\" node's settings, write your condition. For example, check if the temperature is greater than 25."
+                    },
+                    {
+                      "number": 6,
+                      "title": "Add an Action",
+                      "content": "On the \"True\" branch of the If node (the top branch), add a \"Set\" node and write the message, \"It's a hot day!\""
+                    },
+                    {
+                      "number": 7,
+                      "title": "Run and Test",
+                      "content": "Save and turn on the workflow. If it's a hot day, you'll see a green checkmark on the \"True\" branch! If not, the \"False\" branch will light up."
+                    }
+                  ],
+                  "challenge": "Add a \"Set\" node to the \"False\" branch with the message, \"It's a cool day!\""
+                }
+              ]
+            },
+            {
+              "code": "12.4",
+              "title": "Planning Your Advanced Automation Project",
+              "content": "<p>You're ready to plan a full-on automation! You know how to build workflows, connect to apps, and add smart decisions. Now, you’ll plan a project that uses all these skills to solve a real problem or do something amazing, like a smart shopping list or a homework reminder system!</p>\n<h3>What is an Advanced Project?</h3>\n<p>An automation that uses multiple steps, apps, and decisions to make a complex task easy.</p>\n<p><strong>Example:</strong> An automation that checks the weather, and if it's going to rain, sends you a message to bring an umbrella!</p>\n<h3>Class Activity Preview:</h3>\n<p>You’ll build a 5-step plan for your own advanced automation.</p>\n<p><strong>Parent Tip:</strong> Discuss your child's automation plan and help them think through all the steps and connections!</p>\n<h3>Get Ready:</h3>",
+              "activities": [
+                {
+                  "kind": "class",
+                  "number": 4,
+                  "title": "Plan Your Advanced Automation Invention",
+                  "introduction": "Let's use all your skills to plan an amazing automation invention! You’ll think through every step of your project, from the idea to the final result.",
+                  "steps": [
+                    {
+                      "number": 1,
+                      "title": "Step 1",
+                      "content": "Open a blank document (like Google Docs or a simple text editor) or grab a piece of paper and a pencil."
+                    },
+                    {
+                      "number": 2,
+                      "title": "Open a Document",
+                      "content": "Grab a piece of paper or open a blank document on your computer."
+                    },
+                    {
+                      "number": 3,
+                      "title": "Step 3",
+                      "content": "Step 2: The Goal! What's your automation? Example: An automation that tells me if I need to take a jacket to school."
+                    },
+                    {
+                      "number": 4,
+                      "title": "Step 4",
+                      "content": "Step 3: The Trigger! What starts your automation? Example: A schedule trigger set to run every morning at 7 AM."
+                    },
+                    {
+                      "number": 5,
+                      "title": "Step 5",
+                      "content": "Step 4: The Connections! What apps will your automation connect to? Example: I will connect to a weather app to get the temperature, and to a messaging app to send a message."
+                    },
+                    {
+                      "number": 6,
+                      "title": "Step 6",
+                      "content": "Step 5: The Smart Decision! What decision will your automation make? Example: It will use an \"If\" node to check if the temperature is less than 15 degrees."
+                    },
+                    {
+                      "number": 7,
+                      "title": "Step 7",
+                      "content": "Step 6: The End Result! What is the final action? Example: If the temperature is low, it will send a message that says, \"Don't forget your jacket!\""
+                    }
+                  ],
+                  "challenge": "Add another action to your plan: what should the automation do if the temperature is not low?"
+                }
+              ]
+            },
+            {
+              "code": "12.S",
+              "title": "Chapter 12 Summary Advanced Automation Challenge!",
+              "content": "<h2>You're a Certified Automation Architect! You have:</h2>\n<p><strong>12.1</strong> - Built your first live workflow with a trigger and action.</p>\n<p><strong>12.2</strong> - Connected your workflow to a real app using an integration.</p>\n<p><strong>12.3</strong> - Added smart decisions using an \"If\" node.</p>\n<p><strong>12.4</strong> - Planned an advanced automation project from start to finish.</p>",
+              "activities": [
+                {
+                  "kind": "challenge",
+                  "title": "Homework",
+                  "introduction": "Show your parents your live, working automation and explain how it makes a task easier!",
+                  "steps": []
+                },
+                {
+                  "kind": "home",
+                  "number": 3,
+                  "title": "The Family Automation Helper",
+                  "introduction": "With an adult, pick one of the automation plans you made and try to build a simple version of it in n8n. Remember to follow your plan, and ask for help whenever you get stuck. The best part of automation is seeing it work!",
+                  "steps": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -63,6 +63,8 @@ from authentication.permissions import (
 from .utils import prefill_template, get_remaining_placeholders, get_template_required_fields
 from employees.models import Notification
 
+from core.cache_helpers import cached_api
+
 logger = logging.getLogger(__name__)
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
@@ -920,6 +922,8 @@ def get_student_progress_images(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api('report_events', 'schools')
+
 def student_reports_monthly_breakdown(request):
     month = request.GET.get('month')
     if not month:
@@ -1025,6 +1029,8 @@ def student_reports_monthly_breakdown(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api('report_events', 'schools')
+
 def student_reports_user_summary(request):
     month = request.GET.get('month')
     if not month:
@@ -1062,6 +1068,8 @@ def student_reports_user_summary(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api('report_events', 'schools')
+
 def student_reports_timeline(request):
     month = request.GET.get('month')
     if not month:

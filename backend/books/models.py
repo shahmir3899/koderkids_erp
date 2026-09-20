@@ -245,3 +245,15 @@ class TopicAssignment(models.Model):
             return False
         from django.utils import timezone
         return timezone.now() > self.deadline
+
+
+# --- Expire the cached table of contents (core/cache_helpers.cached_api) ---
+from django.db.models.signals import post_save, post_delete  # noqa: E402
+from django.dispatch import receiver  # noqa: E402
+
+
+@receiver([post_save, post_delete], sender=Topic)
+@receiver([post_save, post_delete], sender=Book)
+def _invalidate_books_cache(sender, **kwargs):
+    from core.cache_helpers import bump_version
+    bump_version('books')

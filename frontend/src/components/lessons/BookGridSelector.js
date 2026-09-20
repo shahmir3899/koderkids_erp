@@ -7,15 +7,15 @@ import { toast } from "react-toastify";
 
 const BookGridSelector = ({ selectedBookId, onBookSelect, error }) => {
   // Use cached books from context
-  const { booksList, loading, fetchBookDetails } = useBooks();
+  const { booksList, loading, fetchBookToc } = useBooks();
   const [loadingBookId, setLoadingBookId] = useState(null);
 
   const handleBookSelect = async (book) => {
     setLoadingBookId(book.id);
 
     try {
-      // This will use cache if available, otherwise fetch
-      const fullBookData = await fetchBookDetails(book.id);
+      // Table of contents only (the wizard just needs topic names/codes, not the activity content)
+      const fullBookData = await fetchBookToc(book.id);
 
       onBookSelect(fullBookData);
       toast.success(`Book "${fullBookData.title}" selected`);

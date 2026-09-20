@@ -5,8 +5,11 @@ from .models import Book, Topic, BookClassVisibility, TopicAssignment
 from .serializers import (
     BookSerializer, BookListSerializer,
     AdminBookListSerializer, AdminBookDetailSerializer, AdminBookWriteSerializer,
-    AdminTopicListSerializer, AdminTopicDetailSerializer, AdminTopicWriteSerializer
+    AdminTopicListSerializer, AdminTopicDetailSerializer, AdminTopicWriteSerializer,
+    topic_sort_key, topic_display_title
 )
+from core.cache_helpers import cached_api, bump_version
+from .importer import import_books_text, CsvImportError
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
@@ -21,6 +24,7 @@ import re
 import io
 from html import unescape
 from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404
 
 
 class IsAdminOrTeacher(BasePermission):
@@ -39,26 +43,17 @@ class BookViewSet(ReadOnlyModelViewSet):
     def get_queryset(self):
         """
         List: Only book metadata
-        Detail: Full topic tree with prefetch
+        Detail: Full topic tree (built from a single query)
         """
         if self.action == 'list':
             # Lightweight: no topics loaded
             return Book.objects.only("id", "title", "isbn", "school_id", "cover")
-        else:
-            # Detail: full hierarchy, N+1 safe
-            return Book.objects.prefetch_related(self.get_full_topic_prefetch())
+        # Detail: the serializer loads the whole topic tree in one query (build_topic_tree)
+        return Book.objects.all()
 
-    def get_full_topic_prefetch(self):
-        """
-        Prefetch topic tree up to depth 3
-        """
-        level_3 = Topic.objects.only("id", "code", "title", "type", "parent_id", "activity_blocks")
-        level_2 = Topic.objects.prefetch_related(Prefetch("children", queryset=level_3))
-        level_1 = Topic.objects.prefetch_related(Prefetch("children", queryset=level_2))
-        return Prefetch(
-            "topics",
-            queryset=Topic.objects.prefetch_related(Prefetch("children", queryset=level_1))
-        )
+    @cached_api("books", timeout=600, per_user=False)
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
     def get_serializer_class(self):
         """
@@ -73,29 +68,76 @@ class BookViewSet(ReadOnlyModelViewSet):
         context["request"] = self.request
         context["q"] = self.request.query_params.get("q", "")
         return context
-    
+
+    @action(detail=True, methods=["get"], url_path="toc")
+    @cached_api("books", timeout=600, per_user=False)
+    def toc(self, request, id=None):
+        """
+        Table of contents only (used by the lesson plan wizard's topic picker).
+        Same shape as the detail response, but each topic carries just what the picker
+        shows: id, code, type, display_title, children (+ activity_kind for activities).
+        All topics load in ONE query and the tree is built in memory, sorted by code number.
+        """
+        book = get_object_or_404(Book.objects.only("id", "title", "isbn", "school_id", "cover"), id=id)
+
+        rows = list(
+            Topic.objects.filter(book_id=book.id)
+            .only("id", "code", "title", "type", "parent_id")
+        )
+        children_of = {}
+        for t in rows:
+            children_of.setdefault(t.parent_id, []).append(t)
+
+        def build(topic):
+            node = {
+                "id": topic.id,
+                "code": topic.code,
+                "type": topic.type,
+                "display_title": topic_display_title(topic.type, topic.code, topic.title),
+                "children": [build(c) for c in sorted(children_of.get(topic.id, []), key=topic_sort_key)],
+            }
+            if topic.type == "activity":
+                parts = (topic.code or "").split(".")
+                node["activity_kind"] = "class" if "class" in parts else "home" if "home" in parts else None
+            return node
+
+        data = BookListSerializer(book, context={"request": request}).data
+        data["topics"] = [build(t) for t in sorted(children_of.get(None, []), key=topic_sort_key)]
+        return Response(data)
+
+
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrTeacher])
 def upload_csv(request):
-    if "csv_file" not in request.FILES:
+    """
+    Import a book from a CSV (columns: Book, Topic, Class Activity, Home Activity, optional Chapter Title)
+    or a JSON file (full content: lesson HTML, activity steps/challenges/images; see books/importer.py).
+    Form fields: csv_file (required; the CSV or JSON file), book (optional title overriding the Book column),
+    dry_run (optional: "true" validates and previews without saving),
+    update_existing (optional: "true" also overwrites titles of rows that already exist).
+    """
+    upload = request.FILES.get("csv_file")
+    if upload is None:
         return Response({"error": "No file"}, status=400)
 
-    file = request.FILES["csv_file"]
-    path = default_storage.save("tmp/" + file.name, file)
-    full_path = default_storage.path(path)
+    raw = upload.read()
+    try:
+        text = raw.decode("utf-8-sig")  # also drops the BOM Excel adds
+    except UnicodeDecodeError:
+        text = raw.decode("cp1252")
 
-    # Auto-detect encoding
-    with open(full_path, "rb") as f:
-        raw = f.read(10000)
-        encoding = chardet.detect(raw)["encoding"] or "utf-8"
+    truthy = ("1", "true", "yes")
+    dry_run = str(request.data.get("dry_run", "")).lower() in truthy
+    update_existing = str(request.data.get("update_existing", "")).lower() in truthy
+    try:
+        report = import_books_text(
+            text, book_title=request.data.get("book") or None,
+            dry_run=dry_run, update_existing=update_existing,
+        )
+    except CsvImportError as e:
+        return Response({"error": "The CSV has problems; nothing was imported.", "errors": e.errors}, status=400)
 
-    # Reuse your import logic
-    from books.management.commands.import_books import Command
-
-    cmd = Command()
-    cmd.handle(csv_file=full_path)
-
-    return Response({"success": "Imported!"}, status=200)
+    return Response({"success": "Preview only - nothing saved" if dry_run else "Imported!", "dry_run": dry_run, "report": report})
 
 
 # ============================================
@@ -214,6 +256,7 @@ class AdminTopicViewSet(ModelViewSet):
             topic.move_to(None, position)
 
         topic.refresh_from_db()
+        bump_version('books')  # MPTT moves use raw SQL, so no post_save signal fires
         return Response(AdminTopicDetailSerializer(topic).data)
 
     @action(detail=True, methods=['post'])
