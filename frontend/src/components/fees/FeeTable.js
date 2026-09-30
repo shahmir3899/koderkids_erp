@@ -48,6 +48,7 @@ const FeeTable = ({
   editedValues,
   onEditValueChange,
   onDelete,
+  onPayInFull,
   loading,
 }) => {
   const { isMobile } = useResponsive();
@@ -258,6 +259,7 @@ const FeeTable = ({
                     editedValues={editedValues}
                     onEditValueChange={onEditValueChange}
                     onDelete={onDelete}
+                    onPayInFull={onPayInFull}
                     isMobile={isMobile}
                   />
                 ))}

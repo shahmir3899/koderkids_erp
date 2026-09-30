@@ -24,17 +24,24 @@ const BulkActionsBar = ({
   selectedCount,
   onBulkUpdate,
   onBulkDelete,
+  onBulkPayInFull,
   loading,
 }) => {
   const { isMobile } = useResponsive();
   const [bulkPaidAmount, setBulkPaidAmount] = useState('');
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
+  const [showPayFullConfirm, setShowPayFullConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleBulkUpdate = () => {
     onBulkUpdate(parseFloat(bulkPaidAmount));
     setBulkPaidAmount('');
     setShowUpdateConfirm(false);
+  };
+
+  const handleBulkPayInFull = () => {
+    onBulkPayInFull();
+    setShowPayFullConfirm(false);
   };
 
   const handleBulkDelete = () => {
@@ -174,6 +181,20 @@ const BulkActionsBar = ({
             </button>
           </div>
 
+          {onBulkPayInFull && (
+            <button
+              onClick={() => setShowPayFullConfirm(true)}
+              disabled={loading}
+              style={{
+                ...styles.applyButton,
+                background: loading ? 'rgba(255, 255, 255, 0.2)' : COLORS.status.success,
+                ...(loading ? styles.applyButtonDisabled : {}),
+              }}
+            >
+              Pay in full (selected)
+            </button>
+          )}
+
           <button
             onClick={() => setShowDeleteConfirm(true)}
             disabled={loading}
@@ -198,6 +219,17 @@ const BulkActionsBar = ({
           confirmColor="blue"
           onConfirm={handleBulkUpdate}
           onCancel={() => setShowUpdateConfirm(false)}
+        />
+      )}
+
+      {showPayFullConfirm && (
+        <ConfirmModal
+          title="Confirm Pay in Full"
+          message={`Mark ${selectedCount} fee record${selectedCount > 1 ? 's' : ''} as fully paid? Each record's received amount will be set to its payable amount and the received date to today.`}
+          confirmLabel="Pay in full"
+          confirmColor="green"
+          onConfirm={handleBulkPayInFull}
+          onCancel={() => setShowPayFullConfirm(false)}
         />
       )}
 

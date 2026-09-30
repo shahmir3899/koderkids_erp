@@ -38,6 +38,7 @@ const FeeTableRow = ({
   editedValues,
   onEditValueChange,
   onDelete,
+  onPayInFull,
   isMobile = false,
 }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -164,6 +165,19 @@ const FeeTableRow = ({
     },
     balanceNegative: {
       color: '#6EE7B7',
+    },
+    payFullButton: {
+      padding: `${SPACING.xs} ${SPACING.sm}`,
+      marginRight: SPACING.xs,
+      border: '1px solid rgba(16, 185, 129, 0.5)',
+      borderRadius: BORDER_RADIUS.md,
+      background: 'rgba(16, 185, 129, 0.2)',
+      color: '#6EE7B7',
+      cursor: 'pointer',
+      fontSize: FONT_SIZES.xs,
+      fontWeight: FONT_WEIGHTS.medium,
+      whiteSpace: 'nowrap',
+      minHeight: isMobile ? '44px' : 'auto',
     },
     deleteButton: {
       padding: SPACING.xs,
@@ -381,6 +395,19 @@ const FeeTableRow = ({
 
         {/* Actions */}
         <td style={{ ...styles.cell, textAlign: 'center' }}>
+          {onPayInFull && parseFloat(fee.balance_due) > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Mark ${fee.student_name} as paid in full (PKR ${formatCurrency(fee.total_fee)})?`)) {
+                  onPayInFull(fee.id);
+                }
+              }}
+              style={styles.payFullButton}
+              title="Mark received amount = payable amount"
+            >
+              Pay in full
+            </button>
+          )}
           <button onClick={handleDeleteClick} style={styles.deleteButton}>
             <svg style={styles.deleteIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

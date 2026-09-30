@@ -85,6 +85,22 @@ from .serializers import SchoolSerializer, SchoolStatsSerializer
 
 # ✅ ADD THIS NEW VIEWSET:
 
+def _monthly_revenue(schools):
+    """
+    Expected monthly revenue across the given schools.
+    Per-student schools: sum of active students' monthly_fee.
+    Lumpsum (monthly_subscription) schools: the school's subscription amount.
+    """
+    per_student = Student.objects.filter(
+        status='Active',
+        school__in=schools.filter(payment_mode='per_student'),
+    ).aggregate(total=Sum('monthly_fee'))['total'] or 0
+    lumpsum = schools.filter(payment_mode='monthly_subscription').aggregate(
+        total=Sum('monthly_subscription_amount')
+    )['total'] or 0
+    return per_student + lumpsum
+
+
 class SchoolViewSet(viewsets.ModelViewSet):
     """
     ViewSet for School CRUD operations
@@ -333,10 +349,7 @@ class SchoolViewSet(viewsets.ModelViewSet):
             school__in=schools
         ).count()
         
-        total_revenue = Student.objects.filter(
-            status='Active',
-            school__in=schools
-        ).aggregate(total=Sum('monthly_fee'))['total'] or 0
+        total_revenue = _monthly_revenue(schools)
         
         data = {
             'total_schools': schools.count(),
@@ -533,10 +546,7 @@ def get_schools_overview(request):
         school__in=schools
     ).count()
     
-    total_revenue = Student.objects.filter(
-        status='Active',
-        school__in=schools
-    ).aggregate(total=Sum('monthly_fee'))['total'] or 0
+    total_revenue = _monthly_revenue(schools)
     
     data = {
         'total_schools': schools.count(),
@@ -753,7 +763,8 @@ def get_students(request):
                         school=school,
                         student_class=data.get("student_class"),
                         student_subtype=student_subtype,
-                        monthly_fee=data.get("monthly_fee"),
+                        # Lumpsum schools bill at school level; no per-student fee
+                        monthly_fee=0 if school.payment_mode == 'monthly_subscription' else data.get("monthly_fee"),
                         phone=data.get("phone"),
                         gender=data.get("gender", "Male"),
                         date_of_registration=data.get("date_of_registration") or datetime.now().date(),
@@ -929,7 +940,7 @@ def add_student(request):
             school=school,  # ✅ Assign school object
             student_class=data.get("student_class") or "N/A",
             student_subtype=student_subtype,
-            monthly_fee=data.get("monthly_fee") or 0,
+            monthly_fee=0 if school.payment_mode == 'monthly_subscription' else (data.get("monthly_fee") or 0),
             phone=data.get("phone") or "",
             gender=data.get("gender") or "Male",
             date_of_birth=data.get("date_of_birth") or None,
@@ -1092,8 +1103,21 @@ def update_fees(request):
                 fee.total_fee = Decimal(str(fee_data["total_fee"]))
                 print(f"🛠️ Updated total_fee to: {fee.total_fee}")
 
-            # Update paid_amount and recalculate balance_due
-            paid_amount = Decimal(str(fee_data.get("paid_amount", 0)))
+            # "Pay in full": received amount = payable amount, dated today unless given
+            pay_in_full = bool(fee_data.get("pay_in_full"))
+            if pay_in_full:
+                paid_amount = fee.total_fee
+                if not fee_data.get("date_received"):
+                    fee.date_received = datetime.now().date()
+            elif "paid_amount" in fee_data:
+                paid_amount = Decimal(str(fee_data["paid_amount"]))
+            else:
+                paid_amount = fee.paid_amount
+
+            # Persist date_received when provided (previously only kept in frontend state)
+            if fee_data.get("date_received"):
+                fee.date_received = datetime.strptime(str(fee_data["date_received"])[:10], "%Y-%m-%d").date()
+
             if paid_amount > fee.total_fee:
                 print(f"❌ Paid amount {paid_amount} exceeds total fee {fee.total_fee} for fee ID {fee.id}")
                 return Response({"error": f"Paid amount {paid_amount} exceeds total fee {fee.total_fee} for fee ID {fee.id}"}, status=400)
@@ -1117,6 +1141,7 @@ def update_fees(request):
                 "paid_amount": str(fee.paid_amount),
                 "balance_due": str(fee.balance_due),
                 "status": fee.status,
+                "date_received": fee.date_received.isoformat() if fee.date_received else None,
                 "student_name": fee.student_name,
                 "student_class": fee.student_class,
                 "month": fee.month,
@@ -1182,6 +1207,7 @@ def get_fees(request):
         "paid_amount": fee.paid_amount,
         "balance_due": fee.balance_due,
         "payment_date": fee.payment_date,
+        "date_received": fee.date_received,
         "status": fee.status,
         "student_id": fee.student_id
     } for fee in fees]
@@ -2518,8 +2544,23 @@ def create_single_fee(request):
                 'existing_fee_id': existing_fee.id
             }, status=status.HTTP_409_CONFLICT)
 
-        # Get monthly_fee from student record (auto-fetch)
-        total_fee = float(student.monthly_fee or 0)
+        # Lumpsum school: equal share of the subscription across active students
+        # (same rule as create_new_month_fees). Otherwise use the student's own fee.
+        student_school = student.school
+        if student_school and student_school.payment_mode == 'monthly_subscription':
+            subscription = student_school.monthly_subscription_amount
+            if not subscription or subscription <= 0:
+                return Response({
+                    'error': 'School is in Monthly Subscription mode but subscription amount is not set.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            active_count = Student.objects.filter(status='Active', school=student_school).count() or 1
+            fee_amount = (Decimal(str(subscription)) / active_count).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+        else:
+            fee_amount = Decimal(str(student.monthly_fee or 0))
+
+        total_fee = float(fee_amount)
         paid_amount = float(paid_amount or 0)
         balance_due = total_fee - paid_amount
         
@@ -2536,7 +2577,7 @@ def create_single_fee(request):
             student_id=student.id,
             student_name=student.name,
             student_class=student.student_class,
-            monthly_fee=student.monthly_fee,
+            monthly_fee=fee_amount,
             month=month,
             total_fee=total_fee,
             paid_amount=paid_amount,

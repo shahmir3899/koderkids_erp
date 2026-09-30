@@ -117,6 +117,10 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
     fetchSchools();
   }, [propSchools]);
 
+  // Lumpsum schools bill at school level, so no per-student monthly fee is entered
+  const selectedSchool = schools.find(sc => String(sc.id) === String(formData.school));
+  const isLumpsumSchool = selectedSchool?.payment_mode === 'monthly_subscription';
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => {
@@ -153,7 +157,7 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
         !formData.name ||
         !formData.school ||
         !formData.student_class ||
-        !formData.monthly_fee ||
+        (!isLumpsumSchool && !formData.monthly_fee) ||
         !formData.phone ||
         !formData.date_of_registration ||
         !formData.gender ||
@@ -192,7 +196,7 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
         name: formData.name,
         school: parseInt(formData.school),
         student_class: formData.student_class,
-        monthly_fee: parseFloat(formData.monthly_fee),
+        monthly_fee: isLumpsumSchool ? 0 : parseFloat(formData.monthly_fee),
         phone: formData.phone,
         gender: formData.gender,
         password: formData.password,
@@ -377,7 +381,21 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
                 />
               </div>
 
-              {/* Monthly Fee */}
+              {/* Monthly Fee - not applicable for lumpsum (monthly subscription) schools */}
+              {isLumpsumSchool ? (
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Monthly Fee</label>
+                  <input
+                    type="text"
+                    value="Set at school level"
+                    disabled
+                    style={{ ...styles.input, ...styles.inputDisabled }}
+                  />
+                  <small style={styles.helperText}>
+                    Lumpsum school: PKR {Number(selectedSchool.monthly_subscription_amount || 0).toLocaleString()}/month is split across active students when fees are generated.
+                  </small>
+                </div>
+              ) : (
               <div style={styles.formGroup}>
                 <label style={styles.label}>
                   Monthly Fee <span style={styles.required}>*</span>
@@ -392,6 +410,7 @@ function AddStudentPopup({ onClose, onStudentAdded, schools: propSchools }) {
                   className="add-student-input"
                 />
               </div>
+              )}
 
               {/* Phone */}
               <div style={styles.formGroup}>

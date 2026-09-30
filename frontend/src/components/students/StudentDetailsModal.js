@@ -187,6 +187,12 @@ export const StudentDetailsModal = ({
     }
   };
 
+  // Lumpsum schools bill at school level, so the per-student fee doesn't apply
+  const isLumpsumSchool = schools.some(
+    s => (String(s.id) === String(formData.school) || s.name === formData.school) &&
+         s.payment_mode === 'monthly_subscription'
+  );
+
   // Get the current school name for display in view mode
   const getSchoolDisplayName = () => {
     // If formData.school is a number (ID), find the name
@@ -380,7 +386,8 @@ export const StudentDetailsModal = ({
                 </div>
               )}
 
-              {/* Monthly Fee */}
+              {/* Monthly Fee - not applicable for lumpsum (monthly subscription) schools */}
+              {!isLumpsumSchool && (
               <div style={styles.formGroup}>
                 <label style={styles.label}>Monthly Fee</label>
                 {isEditing ? (
@@ -399,6 +406,7 @@ export const StudentDetailsModal = ({
                   </div>
                 )}
               </div>
+              )}
 
               {/* Phone */}
               <div style={styles.formGroup}>

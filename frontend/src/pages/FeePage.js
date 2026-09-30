@@ -142,6 +142,7 @@ function FeePage() {
     createSingleFee,
     updateFee,
     bulkUpdateFees,
+    payInFull,
     deleteFeeRecords,
     updateLocalDateReceived,
   } = useFees();
@@ -236,6 +237,10 @@ function FeePage() {
       }
     } else if (field === 'date_received') {
       updateLocalDateReceived(feeId, editedValues.dateReceived);
+      if (editedValues.dateReceived) {
+        // Persist (backend previously never saved date_received)
+        await updateFee(feeId, { dateReceived: editedValues.dateReceived });
+      }
       setEditingFeeId(null);
       setEditedValues({ paidAmount: '', dateReceived: null });
     }
@@ -257,6 +262,15 @@ function FeePage() {
   const handleBulkUpdate = useCallback(async (paidAmount) => {
     await bulkUpdateFees(selectedFeeIds, paidAmount);
   }, [bulkUpdateFees, selectedFeeIds]);
+
+  // Pay in full: selected records / single record
+  const handleBulkPayInFull = useCallback(async () => {
+    await payInFull(selectedFeeIds);
+  }, [payInFull, selectedFeeIds]);
+
+  const handlePayInFullSingle = useCallback(async (feeId) => {
+    await payInFull([feeId]);
+  }, [payInFull]);
 
   // Handle bulk delete
   const handleBulkDelete = useCallback(async () => {
@@ -344,6 +358,7 @@ function FeePage() {
         selectedCount={selectedFeeIds.length}
         onBulkUpdate={handleBulkUpdate}
         onBulkDelete={handleBulkDelete}
+        onBulkPayInFull={handleBulkPayInFull}
         loading={loading.update || loading.delete}
       />
 
@@ -382,6 +397,7 @@ function FeePage() {
           editedValues={editedValues}
           onEditValueChange={handleEditValueChange}
           onDelete={handleDeleteSingle}
+          onPayInFull={handlePayInFullSingle}
           loading={isLoading}
         />
       )}

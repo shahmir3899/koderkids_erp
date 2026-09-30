@@ -11,6 +11,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import * as feeService from '../services/feeService';
 
+// yyyy-MM-dd in local time (toISOString would shift the day in UTC+ timezones)
+const formatLocalDate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 export const useFees = (initialFilters = {}) => {
   // Refs for cleanup
   const isMounted = useRef(true);
@@ -196,7 +200,9 @@ export const useFees = (initialFilters = {}) => {
       const feeUpdate = {
         id: feeId,
         paid_amount: updates.paidAmount?.toString(),
-        date_received: updates.dateReceived,
+        date_received: updates.dateReceived instanceof Date
+          ? formatLocalDate(updates.dateReceived)
+          : updates.dateReceived,
       };
 
       Object.keys(feeUpdate).forEach(key => 
@@ -354,6 +360,55 @@ export const useFees = (initialFilters = {}) => {
       }
     }
   }, [fees]);
+
+  /**
+   * Pay in full: set received amount = payable amount for the given fees
+   * (each fee uses its own total_fee; backend also stamps date_received = today)
+   */
+  const payInFull = useCallback(async (feeIds) => {
+    if (!feeIds || feeIds.length === 0 || !isMounted.current) {
+      return { success: false };
+    }
+
+    setLoading(prev => ({ ...prev, update: true }));
+    setError(null);
+
+    try {
+      const response = await feeService.updateFees(
+        feeIds.map(id => ({ id, pay_in_full: true }))
+      );
+
+      if (!isMounted.current) return { success: false };
+
+      const updatedFees = response.fees;
+      setFees(prev => prev.map(fee => {
+        const uf = updatedFees.find(u => u.id === fee.id);
+        return uf
+          ? {
+              ...fee,
+              paid_amount: parseFloat(uf.paid_amount),
+              balance_due: parseFloat(uf.balance_due),
+              status: uf.status,
+              date_received: uf.date_received || fee.date_received,
+            }
+          : fee;
+      }));
+
+      setSelectedFeeIds(prev => prev.filter(id => !feeIds.includes(id)));
+      setSuccessMessage(`Marked ${updatedFees.length} fee record(s) as paid in full.`);
+      return { success: true };
+    } catch (err) {
+      if (!isMounted.current) return { success: false };
+
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to mark as paid.';
+      setError(`Failed to pay in full: ${errorMsg}`);
+      return { success: false, error: errorMsg };
+    } finally {
+      if (isMounted.current) {
+        setLoading(prev => ({ ...prev, update: false }));
+      }
+    }
+  }, []);
 
   /**
    * Delete fee records
@@ -556,6 +611,7 @@ export const useFees = (initialFilters = {}) => {
     createSingleFee,
     updateFee,
     bulkUpdateFees,
+    payInFull,
     deleteFeeRecords,
     updateLocalDateReceived,
   };

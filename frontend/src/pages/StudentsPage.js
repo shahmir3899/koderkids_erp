@@ -403,7 +403,16 @@ function StudentsPage() {
 
   const studentStats = useMemo(() => {
     const uniqueSchools = new Set(students.map(s => s.school).filter(Boolean));
-    const totalFees = students.reduce((sum, s) => sum + (s.monthly_fee || 0), 0);
+    // Lumpsum schools bill at school level: count their subscription once, not per-student fees
+    const lumpsumSchools = schools.filter(sc => sc.payment_mode === 'monthly_subscription');
+    const lumpsumNames = new Set(lumpsumSchools.map(sc => sc.name));
+    const perStudentTotal = students
+      .filter(s => !lumpsumNames.has(s.school))
+      .reduce((sum, s) => sum + (Number(s.monthly_fee) || 0), 0);
+    const presentLumpsum = lumpsumSchools
+      .filter(sc => students.some(s => s.school === sc.name))
+      .reduce((sum, sc) => sum + (Number(sc.monthly_subscription_amount) || 0), 0);
+    const totalFees = perStudentTotal + presentLumpsum;
 
     return {
       totalStudents: students.length,
@@ -411,7 +420,7 @@ function StudentsPage() {
       schoolsCount: uniqueSchools.size,
       totalFees: totalFees,
     };
-  }, [students, filteredStudents]);
+  }, [students, filteredStudents, schools]);
 
   // ============================================
   // RENDER
@@ -511,7 +520,11 @@ function StudentsPage() {
             label: 'Monthly Fee',
             sortable: true,
             align: 'right',
-            render: (value) => (value ? `PKR ${value.toLocaleString()}` : 'N/A'),
+            render: (value, row) => {
+              const rowSchool = schools.find(sc => sc.name === row?.school);
+              if (rowSchool?.payment_mode === 'monthly_subscription') return 'Lumpsum';
+              return value ? `PKR ${value.toLocaleString()}` : 'N/A';
+            },
           },
           {
             key: 'phone',
