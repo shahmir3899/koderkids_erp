@@ -207,6 +207,111 @@ const FeeTable = ({
   const totalFeeCount = groupedFees.reduce((sum, g) => sum + g.fees.length, 0);
   const columnCount = isMobile ? 5 : 8;
 
+  // Mobile: card list (a 5-column table leaves no room for names/amounts on a phone)
+  if (isMobile) {
+    const strip = {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: SPACING.sm,
+      flexWrap: 'wrap',
+      padding: `${SPACING.sm} ${SPACING.md}`,
+      color: COLORS.text.white,
+      fontSize: FONT_SIZES.sm,
+    };
+    const sortOptions = [
+      ['student_name', 'Name'],
+      ['paid_amount', 'Received'],
+      ['balance_due', 'Balance'],
+    ];
+
+    return (
+      <div style={styles.container}>
+        <div style={{ ...strip, background: 'rgba(255, 255, 255, 0.15)', borderBottom: '1px solid rgba(255, 255, 255, 0.2)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm, fontWeight: FONT_WEIGHTS.semibold }}>
+            <input
+              type="checkbox"
+              checked={isAllSelected}
+              onChange={(e) => onSelectAll(e.target.checked)}
+              style={styles.checkbox}
+            />
+            Select all
+          </label>
+          <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs }}>
+            {sortOptions.map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => onSort(key)}
+                style={{
+                  background: sortConfig.key === key ? COLORS.primary : 'rgba(255, 255, 255, 0.1)',
+                  color: COLORS.text.white,
+                  border: 'none',
+                  borderRadius: BORDER_RADIUS.md,
+                  padding: `${SPACING.xs} ${SPACING.sm}`,
+                  fontSize: FONT_SIZES.xs,
+                  minHeight: '32px',
+                  cursor: 'pointer',
+                }}
+              >
+                {label} {getSortIcon(key)}
+              </button>
+            ))}
+          </span>
+        </div>
+
+        {groupedFees.map((group) => (
+          <React.Fragment key={group.class}>
+            <div style={{ ...styles.groupRow, ...strip, justifyContent: 'flex-start' }}>
+              <span style={styles.groupLabel}>Class {group.class}</span>
+              <span style={styles.groupCount}>({group.fees.length})</span>
+            </div>
+
+            {group.fees.map((fee) => (
+              <FeeTableRow
+                key={fee.id}
+                fee={fee}
+                isSelected={selectedFeeIds.includes(fee.id)}
+                onToggleSelect={() => onToggleSelect(fee.id)}
+                isEditing={editingFeeId}
+                onEditStart={onEditStart}
+                onEditSave={onEditSave}
+                onEditCancel={onEditCancel}
+                editedValues={editedValues}
+                onEditValueChange={onEditValueChange}
+                onDelete={onDelete}
+                onPayInFull={onPayInFull}
+                isMobile
+              />
+            ))}
+
+            <div style={{ ...styles.subtotalRow, ...strip, fontWeight: FONT_WEIGHTS.semibold }}>
+              <span>Class {group.class} subtotal</span>
+              <span>
+                <span style={styles.paidAmount}>{formatCurrency(group.subtotals.paid_amount)}</span>
+                {' / '}
+                {formatCurrency(group.subtotals.total_fee)}
+              </span>
+            </div>
+          </React.Fragment>
+        ))}
+
+        <div style={{ ...styles.grandTotalRow, ...strip, fontWeight: FONT_WEIGHTS.bold, borderTop: '2px solid rgba(255, 255, 255, 0.2)' }}>
+          <span>Total ({totalFeeCount})</span>
+          <span style={{ textAlign: 'right' }}>
+            <div>
+              <span style={styles.paidAmount}>{formatCurrency(totals.paid_amount)}</span>
+              {' / '}
+              {formatCurrency(totals.total_fee)}
+            </div>
+            <div style={{ ...styles.balanceAmount, fontSize: FONT_SIZES.xs }}>
+              Balance {formatCurrency(totals.balance_due)}
+            </div>
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.tableWrapper}>

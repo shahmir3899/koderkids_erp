@@ -1048,13 +1048,16 @@ def students_per_school(request):
 @permission_classes([IsAuthenticated])
 def update_fees(request):
     """
-    Updates total_fee, status, and paid_amount in the Fee table
+    Updates total_fee, status, paid_amount and date_received in the Fee table.
+
+    Supports "pay_in_full": true per fee (paid_amount = total_fee, date_received = today).
+    Batched: fees and students are loaded in one query each, everything is validated
+    first, then written with a single bulk_update inside one transaction (all or nothing).
 
     Permission: Admin or Teacher only
     """
-    from .permissions import IsAdminOrTeacher, check_school_access
+    from .permissions import IsAdminOrTeacher, check_school_access, check_timeslot_access
 
-    # Check permissions
     permission = IsAdminOrTeacher()
     if not permission.has_permission(request, None):
         return Response({
@@ -1062,101 +1065,98 @@ def update_fees(request):
         }, status=status.HTTP_403_FORBIDDEN)
 
     fees_data = request.data.get("fees", [])
-
     if not fees_data:
-        print("❌ No fee data received in request")  # Debugging
         return Response({"error": "No fee data received"}, status=400)
 
-    print(f"✅ Received {len(fees_data)} fee updates")  # Debugging
-    updated_fees = []
+    try:
+        fee_ids = [int(fd["id"]) for fd in fees_data]
+    except (KeyError, TypeError, ValueError):
+        return Response({"error": "Each fee update needs a valid 'id'"}, status=400)
+
+    fees_by_id = {f.id: f for f in Fee.objects.filter(id__in=fee_ids).select_related('school')}
+    students_by_id = {
+        st.id: st for st in Student.objects
+        .filter(id__in={f.student_id for f in fees_by_id.values()})
+        .select_related('time_slot__teacher')
+    }
+
+    school_access_cache = {}
+    to_update = []
+    today = datetime.now().date()
 
     for fee_data in fees_data:
+        fee = fees_by_id.get(int(fee_data["id"]))
+        if fee is None:
+            continue  # unknown id: skipped, as before
+
+        # Access: time-slot ownership for ONLINE students, school access otherwise
+        student = students_by_id.get(fee.student_id)
+        if student is not None and student.student_subtype == 'ONLINE':
+            if not check_timeslot_access(request.user, student):
+                return Response({
+                    "error": "You don't have permission to update fees for this online student."
+                }, status=status.HTTP_403_FORBIDDEN)
+        elif fee.school_id:
+            if fee.school_id not in school_access_cache:
+                school_access_cache[fee.school_id] = check_school_access(request.user, fee.school_id)
+            if not school_access_cache[fee.school_id]:
+                return Response({
+                    "error": "You don't have permission to update fees for this school."
+                }, status=status.HTTP_403_FORBIDDEN)
+
         try:
-            print(f"🔄 Processing fee ID: {fee_data['id']}")  # Debugging
-
-            # Fetch the fee record from the database
-            fee = Fee.objects.get(id=fee_data["id"])
-
-            # Check school access for teachers (ONSITE) or time-slot access (ONLINE)
-            from .permissions import check_timeslot_access
-            try:
-                fee_student = Student.objects.select_related('time_slot__teacher').get(id=fee.student_id)
-                is_online = fee_student.student_subtype == 'ONLINE'
-            except Student.DoesNotExist:
-                fee_student = None
-                is_online = False
-
-            if is_online:
-                if not check_timeslot_access(request.user, fee_student):
-                    return Response({
-                        "error": "You don't have permission to update fees for this online student."
-                    }, status=status.HTTP_403_FORBIDDEN)
-            else:
-                if fee.school_id and not check_school_access(request.user, fee.school_id):
-                    print(f"❌ Access denied for fee ID {fee.id} - user doesn't have access to school {fee.school_id}")
-                    return Response({
-                        "error": f"You don't have permission to update fees for this school."
-                    }, status=status.HTTP_403_FORBIDDEN)
-
-            # Update total_fee if present
             if "total_fee" in fee_data:
                 fee.total_fee = Decimal(str(fee_data["total_fee"]))
-                print(f"🛠️ Updated total_fee to: {fee.total_fee}")
 
-            # "Pay in full": received amount = payable amount, dated today unless given
-            pay_in_full = bool(fee_data.get("pay_in_full"))
-            if pay_in_full:
+            # Received amount: pay in full, explicit amount, or keep what is stored
+            if fee_data.get("pay_in_full"):
                 paid_amount = fee.total_fee
                 if not fee_data.get("date_received"):
-                    fee.date_received = datetime.now().date()
+                    fee.date_received = today
             elif "paid_amount" in fee_data:
                 paid_amount = Decimal(str(fee_data["paid_amount"]))
             else:
                 paid_amount = fee.paid_amount
 
-            # Persist date_received when provided (previously only kept in frontend state)
             if fee_data.get("date_received"):
                 fee.date_received = datetime.strptime(str(fee_data["date_received"])[:10], "%Y-%m-%d").date()
-
-            if paid_amount > fee.total_fee:
-                print(f"❌ Paid amount {paid_amount} exceeds total fee {fee.total_fee} for fee ID {fee.id}")
-                return Response({"error": f"Paid amount {paid_amount} exceeds total fee {fee.total_fee} for fee ID {fee.id}"}, status=400)
-            
-            fee.paid_amount = paid_amount
-            fee.balance_due = fee.total_fee - fee.paid_amount
-
-            # Update status based on balance_due
-            fee.status = "Paid" if fee.balance_due == 0 else "Pending"
-
-            # Save the updated record
-            fee.save()
-
-            # Debugging logs
-            print(f"✅ Updated Fee ID: {fee.id} | Total Fee: {fee.total_fee} | Paid: {fee.paid_amount} | Status: {fee.status} | Balance Due: {fee.balance_due}")
-
-            # Collect updated fee for response
-            updated_fees.append({
-                "id": fee.id,
-                "total_fee": str(fee.total_fee),
-                "paid_amount": str(fee.paid_amount),
-                "balance_due": str(fee.balance_due),
-                "status": fee.status,
-                "date_received": fee.date_received.isoformat() if fee.date_received else None,
-                "student_name": fee.student_name,
-                "student_class": fee.student_class,
-                "month": fee.month,
-                "school": fee.school.name if fee.school else ""
-            })
-
-        except Fee.DoesNotExist:
-            print(f"❌ Fee ID {fee_data['id']} not found in database")  # Debugging
-            continue
-
         except Exception as e:
-            print(f"❌ Error updating fee ID {fee_data['id']}: {e}")  # Debugging
-            return Response({"error": str(e)}, status=500)
+            return Response({"error": f"Invalid data for fee ID {fee.id}: {e}"}, status=400)
+
+        if paid_amount > fee.total_fee:
+            return Response({
+                "error": f"Paid amount {paid_amount} exceeds total fee {fee.total_fee} for fee ID {fee.id}"
+            }, status=400)
+
+        fee.paid_amount = paid_amount
+        fee.balance_due = fee.total_fee - fee.paid_amount
+        fee.status = "Paid" if fee.balance_due == 0 else "Pending"
+        to_update.append(fee)
+
+    if to_update:
+        with transaction.atomic():
+            Fee.objects.bulk_update(
+                to_update,
+                ['total_fee', 'paid_amount', 'balance_due', 'status', 'date_received'],
+                batch_size=500,
+            )
+
+    updated_fees = [{
+        "id": fee.id,
+        "total_fee": str(fee.total_fee),
+        "paid_amount": str(fee.paid_amount),
+        "balance_due": str(fee.balance_due),
+        "status": fee.status,
+        "date_received": fee.date_received.isoformat() if fee.date_received else None,
+        "student_name": fee.student_name,
+        "student_class": fee.student_class,
+        "month": fee.month,
+        "school": fee.school.name if fee.school else "",
+    } for fee in to_update]
 
     return Response({"message": "Fee records updated successfully!", "fees": updated_fees})
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def schools_list(request):

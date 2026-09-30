@@ -394,8 +394,23 @@ export const useFees = (initialFilters = {}) => {
           : fee;
       }));
 
-      setSelectedFeeIds(prev => prev.filter(id => !feeIds.includes(id)));
-      setSuccessMessage(`Marked ${updatedFees.length} fee record(s) as paid in full.`);
+      // Trust the saved result, not the request: count only rows that really came back paid
+      const isPaid = (uf) => uf.status === 'Paid' && parseFloat(uf.balance_due) === 0;
+      const paidIds = updatedFees.filter(isPaid).map(uf => uf.id);
+      const failedCount = feeIds.length - paidIds.length;
+
+      setSelectedFeeIds(prev => prev.filter(id => !paidIds.includes(id)));
+
+      if (failedCount > 0) {
+        setError(
+          paidIds.length === 0
+            ? 'No records were updated. The server did not mark them as paid in full - please refresh and try again.'
+            : `Only ${paidIds.length} of ${feeIds.length} records were marked paid. Please refresh and check the rest.`
+        );
+        return { success: false, paid: paidIds.length };
+      }
+
+      setSuccessMessage(`Marked ${paidIds.length} fee record(s) as paid in full.`);
       return { success: true };
     } catch (err) {
       if (!isMounted.current) return { success: false };

@@ -261,6 +261,196 @@ const FeeTableRow = ({
     },
   };
 
+  const deleteModal = showDeleteConfirm && (
+    <div style={styles.modalOverlay}>
+      <div style={styles.modalContent}>
+        <h3 style={styles.modalTitle}>Delete Fee Record</h3>
+        <p style={styles.modalText}>
+          Are you sure you want to delete the fee record for <strong>{fee.student_name}</strong>?
+          This action cannot be undone.
+        </p>
+        <div style={styles.modalButtons}>
+          <button onClick={() => setShowDeleteConfirm(false)} style={styles.cancelButton}>
+            Cancel
+          </button>
+          <button onClick={handleDeleteConfirm} style={styles.deleteConfirmButton}>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ---- Mobile: stacked card instead of a cramped table row ----
+  if (isMobile) {
+    const balance = parseFloat(fee.balance_due);
+    const m = {
+      card: {
+        padding: SPACING.md,
+        borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+        background: isSelected ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+      },
+      top: { display: 'flex', alignItems: 'flex-start', gap: SPACING.sm },
+      nameBox: { flex: 1, minWidth: 0 },
+      name: {
+        color: COLORS.text.white,
+        fontSize: FONT_SIZES.base,
+        fontWeight: FONT_WEIGHTS.semibold,
+        lineHeight: 1.3,
+        wordBreak: 'break-word',
+      },
+      reg: { color: COLORS.text.whiteMedium, fontSize: FONT_SIZES.xs, marginTop: '2px' },
+      amounts: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap: SPACING.sm,
+        marginTop: SPACING.sm,
+      },
+      amountBox: {
+        background: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: BORDER_RADIUS.md,
+        padding: `${SPACING.xs} ${SPACING.sm}`,
+        minWidth: 0,
+      },
+      amountLabel: {
+        color: COLORS.text.whiteMedium,
+        fontSize: FONT_SIZES.xs,
+        textTransform: 'uppercase',
+        letterSpacing: '0.03em',
+      },
+      amountValue: {
+        color: COLORS.text.white,
+        fontSize: FONT_SIZES.sm,
+        fontWeight: FONT_WEIGHTS.semibold,
+        marginTop: '2px',
+        whiteSpace: 'nowrap',
+      },
+      tappable: {
+        cursor: 'pointer',
+        textDecoration: 'underline dotted',
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        font: 'inherit',
+        color: 'inherit',
+        textAlign: 'left',
+        minHeight: '32px',
+      },
+      editRow: { display: 'flex', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.sm },
+      editInputM: { ...styles.editInput, width: '100%', flex: 1, textAlign: 'left', minHeight: '44px' },
+      dateNote: { color: COLORS.text.whiteMedium, fontSize: FONT_SIZES.xs, marginTop: SPACING.xs },
+      actions: { display: 'flex', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.sm },
+      payFull: { ...styles.payFullButton, flex: 1, marginRight: 0, fontSize: FONT_SIZES.sm, minHeight: '44px' },
+    };
+
+    return (
+      <div style={m.card}>
+        <div style={m.top}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelect}
+            style={{ ...styles.checkbox, marginTop: '2px', flexShrink: 0 }}
+          />
+          <div style={m.nameBox}>
+            <div style={m.name}>{fee.student_name}</div>
+            {fee.reg_num && <div style={m.reg}>{fee.reg_num}</div>}
+          </div>
+          <span style={{ ...getStatusStyles(fee.status), flexShrink: 0 }}>{fee.status}</span>
+          <button
+            onClick={handleDeleteClick}
+            style={{ ...styles.deleteButton, marginTop: '-10px', marginRight: '-10px', flexShrink: 0 }}
+            aria-label={`Delete fee record for ${fee.student_name}`}
+          >
+            <svg style={styles.deleteIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+
+        <div style={m.amounts}>
+          <div style={m.amountBox}>
+            <div style={m.amountLabel}>Total</div>
+            <div style={m.amountValue}>{formatCurrency(fee.total_fee)}</div>
+          </div>
+          <div style={m.amountBox}>
+            <div style={m.amountLabel}>Received</div>
+            <div style={m.amountValue}>
+              <button
+                type="button"
+                onClick={() => onEditStart(fee, 'paid_amount')}
+                style={m.tappable}
+                aria-label={`Edit received amount for ${fee.student_name}`}
+              >
+                {formatCurrency(fee.paid_amount)}
+              </button>
+            </div>
+          </div>
+          <div style={m.amountBox}>
+            <div style={m.amountLabel}>Balance</div>
+            <div style={{ ...m.amountValue, ...(balance > 0 ? styles.balancePositive : styles.balanceNegative) }}>
+              {formatCurrency(fee.balance_due)}
+            </div>
+          </div>
+        </div>
+
+        {isEditingPaid && (
+          <div style={m.editRow}>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={editedValues.paidAmount}
+              onChange={(e) => onEditValueChange({ paidAmount: e.target.value })}
+              onKeyDown={(e) => handleKeyDown(e, 'paid_amount')}
+              style={m.editInputM}
+              min="0"
+              max={fee.total_fee}
+              step="0.01"
+              autoFocus
+            />
+            <button
+              onClick={() => onEditSave(fee.id, fee.total_fee, 'paid_amount')}
+              style={{ ...styles.editButton, minWidth: '44px', minHeight: '44px' }}
+              aria-label="Save"
+            >
+              <svg style={styles.saveIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+            <button
+              onClick={onEditCancel}
+              style={{ ...styles.editButton, minWidth: '44px', minHeight: '44px' }}
+              aria-label="Cancel"
+            >
+              <svg style={styles.cancelIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {fee.date_received && <div style={m.dateNote}>Received on {formatDate(fee.date_received)}</div>}
+
+        {onPayInFull && balance > 0 && (
+          <div style={m.actions}>
+            <button
+              onClick={() => {
+                if (window.confirm(`Mark ${fee.student_name} as paid in full (PKR ${formatCurrency(fee.total_fee)})?`)) {
+                  onPayInFull(fee.id);
+                }
+              }}
+              style={m.payFull}
+            >
+              Pay in full
+            </button>
+          </div>
+        )}
+
+        {deleteModal}
+      </div>
+    );
+  }
+
   return (
     <>
       <tr style={styles.row}>
@@ -434,31 +624,7 @@ const FeeTableRow = ({
 
       {showDeleteConfirm && (
         <tr>
-          <td colSpan={isMobile ? 5 : 8}>
-            <div style={styles.modalOverlay}>
-              <div style={styles.modalContent}>
-                <h3 style={styles.modalTitle}>Delete Fee Record</h3>
-                <p style={styles.modalText}>
-                  Are you sure you want to delete the fee record for <strong>{fee.student_name}</strong>?
-                  This action cannot be undone.
-                </p>
-                <div style={styles.modalButtons}>
-                  <button
-                    onClick={() => setShowDeleteConfirm(false)}
-                    style={styles.cancelButton}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleDeleteConfirm}
-                    style={styles.deleteConfirmButton}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          </td>
+          <td colSpan={8}>{deleteModal}</td>
         </tr>
       )}
     </>

@@ -73,3 +73,46 @@ class LumpsumAndPayInFullTests(TestCase):
         fee.refresh_from_db()
         self.assertEqual(fee.paid_amount, 100)
         self.assertEqual(fee.date_received, date(2026, 9, 10))
+
+
+class UpdateFeesBatchTests(TestCase):
+    def setUp(self):
+        self.admin = CustomUser.objects.create_user(username="adm2", password="x", role="Admin")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+        self.school = School.objects.create(name="Batch School", payment_mode="per_student")
+        self.fees = []
+        for i in range(30):
+            st = Student.objects.create(name=f"B{i}", reg_num=f"B{i}", school=self.school,
+                                        student_class="1", monthly_fee=500 + i)
+            self.fees.append(Fee.objects.create(
+                student_id=st.id, student_name=st.name, school=self.school, month="Aug-2026",
+                total_fee=500 + i, paid_amount=0, balance_due=500 + i, monthly_fee=500 + i))
+
+    def test_bulk_pay_in_full_uses_constant_queries(self):
+        payload = {"fees": [{"id": f.id, "pay_in_full": True} for f in self.fees]}
+        # 2 reads + 1 bulk UPDATE (+ savepoint open/release): constant, not per-fee
+        with self.assertNumQueries(5):
+            r = self.client.post("/api/fees/update/", payload, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(len(r.data["fees"]), 30)
+        self.assertEqual(Fee.objects.filter(status="Paid", balance_due=0).count(), 30)
+        for f in Fee.objects.all():
+            self.assertEqual(f.paid_amount, f.total_fee)
+            self.assertEqual(f.date_received, date.today())
+
+    def test_invalid_amount_saves_nothing(self):
+        payload = {"fees": [
+            {"id": self.fees[0].id, "pay_in_full": True},
+            {"id": self.fees[1].id, "paid_amount": 999999},
+        ]}
+        r = self.client.post("/api/fees/update/", payload, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(Fee.objects.filter(paid_amount__gt=0).count(), 0)
+
+    def test_unknown_id_is_skipped(self):
+        r = self.client.post("/api/fees/update/",
+                             {"fees": [{"id": 99999999, "pay_in_full": True},
+                                       {"id": self.fees[0].id, "pay_in_full": True}]}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.data["fees"]), 1)
