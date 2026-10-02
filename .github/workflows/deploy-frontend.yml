@@ -1,7 +1,9 @@
 name: Deploy frontend (FTPS)
 
 # Builds the React app and uploads frontend/build to the cPanel host (portal.koderkids.pk).
-# Required repository secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
+# Required repository secrets: FTP_USERNAME, FTP_PASSWORD
+# FTP host: cPanel shows ftp.1clickestore.com but that name has no DNS record;
+# ftp.koderkids.pk resolves to the same Pure-FTPd server (162.55.88.225).
 # The FTP account is locked to the site folder (/home/clickest/portal.koderkids.pk),
 # so the server-dir below is its root.
 
@@ -45,7 +47,7 @@ jobs:
       - name: Upload to server (explicit FTPS)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
+          server: ftp.koderkids.pk
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
