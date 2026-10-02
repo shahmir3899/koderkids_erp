@@ -1,0 +1,54 @@
+name: Deploy frontend (FTPS)
+
+# Builds the React app and uploads frontend/build to the cPanel host (portal.koderkids.pk).
+# Required repository secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_SERVER_DIR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+# One deploy at a time; a newer push waits instead of cancelling a half-finished upload
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        env:
+          # CRA treats ESLint warnings as errors when CI=true; this codebase has many warnings
+          CI: 'false'
+        run: npm run build
+
+      - name: Upload to server (explicit FTPS)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: frontend/build/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          # Only files this action uploaded earlier are ever deleted; pre-existing
+          # server files (e.g. .htaccess) are left alone.
