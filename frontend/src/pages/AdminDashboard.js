@@ -526,22 +526,6 @@ function AdminDashboard() {
         onProfileUpdate={handleProfileUpdate}
       />
 
-      {/* TEMP-DEPLOY-TEST: remove this banner once the FTP deploy is confirmed */}
-      <div
-        style={{
-          margin: '12px 16px',
-          padding: '10px 14px',
-          borderRadius: '12px',
-          background: 'rgba(16, 185, 129, 0.25)',
-          border: '1px solid rgba(16, 185, 129, 0.6)',
-          color: '#ffffff',
-          fontWeight: 600,
-          textAlign: 'center',
-        }}
-      >
-        ✅ Deploy test: auto-deployed via GitHub Actions FTP (2026-10-02)
-      </div>
-
       <div>
 
       {/* Login Activity Widget - Shows login counts per school */}
