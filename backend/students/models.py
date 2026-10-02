@@ -328,6 +328,41 @@ class Fee(models.Model):
     def __str__(self):
         return f"{self.student_name} - {self.month}"
 
+
+class SchoolInvoice(models.Model):
+    """
+    One invoice per school per month for schools billed as a lumpsum
+    (payment_mode == 'monthly_subscription'). Replaces per-student Fee rows for
+    those schools. Student/class counts are a snapshot taken at generation time.
+    """
+    STATUS_CHOICES = [
+        ('Paid', 'Paid'),
+        ('Pending', 'Pending'),
+        ('Overdue', 'Overdue'),
+    ]
+
+    school = models.ForeignKey('students.School', on_delete=models.CASCADE, related_name='invoices')
+    month = models.CharField(max_length=10)  # E.g., "Oct-2026"
+    invoice_no = models.CharField(max_length=100)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    students_count = models.PositiveIntegerField(default=0)
+    classes_count = models.PositiveIntegerField(default=0)
+    class_names = models.JSONField(default=list, blank=True)
+    paid_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    balance_due = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    date_received = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('school', 'month')
+        ordering = ['-id']
+
+    def __str__(self):
+        return f"{self.school.name} - {self.month} (invoice)"
+
+
 class Attendance(models.Model):
     student = models.ForeignKey('students.Student', on_delete=models.CASCADE)
     session_date = models.DateField()

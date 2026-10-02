@@ -30,6 +30,7 @@ const CreateRecordsSection = ({
   onMonthChange,
   onCreateMonthly,
   onOpenSingleFeeModal,
+  singleFeeDisabled = false,
   loading,
   loadingStudents,
   successMessage,
@@ -167,7 +168,7 @@ const CreateRecordsSection = ({
   };
 
   const isCreateDisabled = !selectedSchoolId || !selectedMonth || loading;
-  const isSingleDisabled = !selectedSchoolId || loading || loadingStudents;
+  const isSingleDisabled = !selectedSchoolId || loading || loadingStudents || singleFeeDisabled;
 
   return (
     <div style={styles.container}>
@@ -298,6 +299,7 @@ const CreateRecordsSection = ({
           <button
             onClick={onOpenSingleFeeModal}
             disabled={isSingleDisabled}
+            title={singleFeeDisabled ? 'Lumpsum schools are billed with one monthly invoice' : undefined}
             style={{
               ...styles.secondaryButton,
               ...(isSingleDisabled ? styles.secondaryButtonDisabled : {}),

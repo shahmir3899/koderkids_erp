@@ -82,6 +82,31 @@ export const updateFees = async (fees) => {
 };
 
 /**
+ * Lumpsum (monthly subscription) school invoices
+ */
+export const fetchSchoolInvoices = async ({ schoolId, month }) => {
+  const response = await axios.get(`${API_URL}/api/fees/invoices/`, {
+    headers: getAuthHeaders(),
+    params: { school_id: schoolId || undefined, month: month || undefined },
+  });
+  return response.data;
+};
+
+export const updateSchoolInvoice = async (payload) => {
+  const response = await axios.post(`${API_URL}/api/fees/invoices/update/`, payload, {
+    headers: getAuthHeaders(),
+  });
+  return response.data;
+};
+
+export const deleteSchoolInvoice = async (id) => {
+  const response = await axios.post(`${API_URL}/api/fees/invoices/delete/`, { id }, {
+    headers: getAuthHeaders(),
+  });
+  return response.data;
+};
+
+/**
  * Delete fee records
  */
 export const deleteFees = async (feeIds) => {

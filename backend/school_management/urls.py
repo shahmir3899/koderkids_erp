@@ -29,6 +29,7 @@ from students.views import (
 
 
     my_student_data, create_single_fee, delete_fees, my_progress,
+    get_school_invoices, update_school_invoice, delete_school_invoice,
     my_progress_images, weekly_check_in, my_narrative,
     get_fee_defaulters, compare_fee_months, online_student_dashboard,
 
@@ -101,6 +102,9 @@ urlpatterns = [
     path('api/fee-per-month/', fee_received_per_month, name='fee_received_per_month'),
     path('api/fees/create-single/', create_single_fee, name='create-single-fee'),
     path('api/fees/delete/', delete_fees, name='delete-fees'),
+    path('api/fees/invoices/', get_school_invoices, name='school-invoices'),
+    path('api/fees/invoices/update/', update_school_invoice, name='school-invoice-update'),
+    path('api/fees/invoices/delete/', delete_school_invoice, name='school-invoice-delete'),
     path('api/fees/defaulters/', get_fee_defaulters, name='fee-defaulters'),
     path('api/fees/compare/', compare_fee_months, name='compare-fee-months'),
 

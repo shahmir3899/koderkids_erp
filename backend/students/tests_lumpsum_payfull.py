@@ -36,21 +36,22 @@ class LumpsumAndPayInFullTests(TestCase):
         self.assertEqual(r.status_code, 201, r.data)
         self.assertEqual(Student.objects.get(id=r.data["id"]).monthly_fee, 500)
 
-    def test_single_fee_lumpsum_uses_share(self):
-        for i in range(3):
-            self._student(self.lump, i)
-        s = Student.objects.filter(school=self.lump).first()
+    def test_single_fee_rejected_for_lumpsum_school(self):
+        s = self._student(self.lump, 0)
         r = self.client.post("/api/fees/create-single/", {"student_id": s.id, "month": "Sep-2026"}, format="json")
-        self.assertEqual(r.status_code, 201, r.data)
-        self.assertEqual(Decimal(r.data["fee"]["total_fee"]), Decimal("1000.00"))
+        self.assertEqual(r.status_code, 400, r.data)
+        self.assertEqual(Fee.objects.count(), 0)
 
-    def test_late_joiner_does_not_resplit_existing_fees(self):
+    def test_late_joiner_does_not_change_existing_invoice(self):
+        from .models import SchoolInvoice
         for i in range(2):
             self._student(self.lump, i)
         self.client.post("/api/fees/create/", {"school_id": self.lump.id, "month": "Sep-2026"}, format="json")
-        before = sorted(Fee.objects.filter(school=self.lump).values_list("id", "total_fee"))
+        inv = SchoolInvoice.objects.get(school=self.lump, month="Sep-2026")
+        before = (inv.total_amount, inv.students_count)
         self._student(self.lump, 9)
-        self.assertEqual(before, sorted(Fee.objects.filter(school=self.lump).values_list("id", "total_fee")))
+        inv.refresh_from_db()
+        self.assertEqual(before, (inv.total_amount, inv.students_count))
 
     def test_pay_in_full(self):
         s = self._student(self.per, 1, fee=700)

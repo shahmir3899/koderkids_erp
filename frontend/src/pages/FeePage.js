@@ -41,6 +41,7 @@ import BulkActionsBar from '../components/fees/BulkActionsBar';
 import FeeSummaryHeader from '../components/fees/FeeSummaryHeader';
 import FeeTable from '../components/fees/FeeTable';
 import SingleFeeModal from '../components/fees/SingleFeeModal';
+import SchoolInvoiceCard from '../components/fees/SchoolInvoiceCard';
 import { PageHeader } from '../components/common/PageHeader';
 import { CollapsibleSection } from '../components/common/cards/CollapsibleSection';
 import FeeAgentChat from '../components/finance/FeeAgentChat';
@@ -122,6 +123,10 @@ function FeePage() {
     groupedFees,
     totals,
     students,
+    invoices,
+    payInvoiceInFull,
+    updateInvoicePaid,
+    deleteInvoice,
     filters,
     updateFilters,
     loading,
@@ -164,7 +169,7 @@ function FeePage() {
   }, [filters.schoolId, fetchClassesBySchool]);
 
   // PDF export hook
-  const { exportToPDF } = useFeePDF();
+  const { exportToPDF, exportInvoicePDF } = useFeePDF();
 
   // UI State
   const [showSingleFeeModal, setShowSingleFeeModal] = useState(false);
@@ -177,6 +182,7 @@ function FeePage() {
   // Get school name for display
   const selectedSchool = schools.find(s => s.id === parseInt(filters.schoolId));
   const schoolName = selectedSchool?.name || 'All Schools';
+  const isSubscriptionSchool = selectedSchool?.payment_mode === 'monthly_subscription';
 
   // Handle monthly fee creation with conflict handling
   const handleCreateMonthly = useCallback(async () => {
@@ -298,6 +304,9 @@ function FeePage() {
 
   const pageLoading = schoolsLoading || loading.fees;
 
+  const showInvoices = invoices.length > 0;
+  const showSubscriptionHint = isSubscriptionSchool && !showInvoices && fees.length === 0 && !pageLoading;
+
   return (
     <div style={responsiveStyles.pageContainer}>
       <div style={responsiveStyles.contentWrapper}>
@@ -317,6 +326,7 @@ function FeePage() {
         onMonthChange={(date) => updateFilters({ month: date })}
         onCreateMonthly={handleCreateMonthly}
         onOpenSingleFeeModal={handleOpenSingleFeeModal}
+        singleFeeDisabled={isSubscriptionSchool}
         loading={loading.create}
         loadingStudents={loading.students}
         successMessage={successMessage}
@@ -353,6 +363,25 @@ function FeePage() {
         hasData={fees.length > 0}
       />
 
+      {/* Lumpsum school invoice(s) */}
+      {!pageLoading && showInvoices && invoices.map((inv) => (
+        <SchoolInvoiceCard
+          key={inv.id}
+          invoice={inv}
+          loading={loading.update || loading.delete}
+          onPayInFull={payInvoiceInFull}
+          onSavePaid={updateInvoicePaid}
+          onDelete={deleteInvoice}
+          onDownloadPDF={(invoice) => exportInvoicePDF({ invoice, schoolAddress: selectedSchool?.address })}
+        />
+      ))}
+
+      {showSubscriptionHint && (
+        <div style={{ ...responsiveStyles.loadingContainer, color: COLORS.text.whiteMedium, textAlign: 'center' }}>
+          This school is billed as a lumpsum subscription. Choose a month and click “Create Monthly Records” to generate its invoice.
+        </div>
+      )}
+
       {/* Bulk Actions Bar */}
       <BulkActionsBar
         selectedCount={selectedFeeIds.length}
@@ -380,7 +409,7 @@ function FeePage() {
       )}
 
       {/* Fee Table */}
-      {!pageLoading && (
+      {!pageLoading && !showSubscriptionHint && !(showInvoices && fees.length === 0) && (
         <FeeTable
           groupedFees={groupedFees}
           totals={totals}

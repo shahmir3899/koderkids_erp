@@ -23,6 +23,7 @@ export const useFees = (initialFilters = {}) => {
   // Data state
   const [fees, setFees] = useState([]);
   const [students, setStudents] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   
   // Filter state
   const [filters, setFilters] = useState({
@@ -92,14 +93,22 @@ export const useFees = (initialFilters = {}) => {
 
     try {
       const monthStr = feeService.formatMonthForAPI(filters.month);
-      const data = await feeService.fetchFees({
-        schoolId: filters.schoolId,
-        studentClass: filters.studentClass,
-        month: monthStr,
-        timeSlotId: filters.timeSlotId,
-      });
+      // Lumpsum schools have one invoice per month; a failure here must never hide the fee rows
+      const [data, invoiceData] = await Promise.all([
+        feeService.fetchFees({
+          schoolId: filters.schoolId,
+          studentClass: filters.studentClass,
+          month: monthStr,
+          timeSlotId: filters.timeSlotId,
+        }),
+        filters.schoolId
+          ? feeService.fetchSchoolInvoices({ schoolId: filters.schoolId, month: monthStr }).catch(() => [])
+          : Promise.resolve([]),
+      ]);
 
       if (!isMounted.current) return; // Component unmounted during fetch
+
+      setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
 
       const sortedFees = data
         .sort((a, b) => (a.student_class || '').localeCompare(b.student_class || ''))
@@ -426,6 +435,73 @@ export const useFees = (initialFilters = {}) => {
   }, []);
 
   /**
+   * Lumpsum school invoice actions
+   */
+  const replaceInvoice = (updated) =>
+    setInvoices(prev => prev.map(inv => (inv.id === updated.id ? updated : inv)));
+
+  const payInvoiceInFull = useCallback(async (invoiceId) => {
+    if (!isMounted.current) return { success: false };
+    setLoading(prev => ({ ...prev, update: true }));
+    setError(null);
+    try {
+      const res = await feeService.updateSchoolInvoice({ id: invoiceId, pay_in_full: true });
+      if (!isMounted.current) return { success: false };
+      const inv = res.invoice;
+      if (!inv || inv.status !== 'Paid' || parseFloat(inv.balance_due) !== 0) {
+        setError('The server did not mark the invoice as paid in full. Please refresh and try again.');
+        return { success: false };
+      }
+      replaceInvoice(inv);
+      setSuccessMessage(`Invoice for ${inv.school_name} (${inv.month}) marked as paid in full.`);
+      return { success: true };
+    } catch (err) {
+      if (!isMounted.current) return { success: false };
+      setError(`Failed to update invoice: ${err.response?.data?.error || err.message}`);
+      return { success: false };
+    } finally {
+      if (isMounted.current) setLoading(prev => ({ ...prev, update: false }));
+    }
+  }, []);
+
+  const updateInvoicePaid = useCallback(async (invoiceId, paidAmount) => {
+    if (!isMounted.current) return { success: false };
+    setLoading(prev => ({ ...prev, update: true }));
+    setError(null);
+    try {
+      const res = await feeService.updateSchoolInvoice({ id: invoiceId, paid_amount: paidAmount });
+      if (!isMounted.current) return { success: false };
+      replaceInvoice(res.invoice);
+      return { success: true };
+    } catch (err) {
+      if (!isMounted.current) return { success: false };
+      setError(`Failed to update invoice: ${err.response?.data?.error || err.message}`);
+      return { success: false };
+    } finally {
+      if (isMounted.current) setLoading(prev => ({ ...prev, update: false }));
+    }
+  }, []);
+
+  const deleteInvoice = useCallback(async (invoiceId) => {
+    if (!isMounted.current) return { success: false };
+    setLoading(prev => ({ ...prev, delete: true }));
+    setError(null);
+    try {
+      await feeService.deleteSchoolInvoice(invoiceId);
+      if (!isMounted.current) return { success: false };
+      setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+      setSuccessMessage('Invoice deleted.');
+      return { success: true };
+    } catch (err) {
+      if (!isMounted.current) return { success: false };
+      setError(`Failed to delete invoice: ${err.response?.data?.error || err.message}`);
+      return { success: false };
+    } finally {
+      if (isMounted.current) setLoading(prev => ({ ...prev, delete: false }));
+    }
+  }, []);
+
+  /**
    * Delete fee records
    */
   const deleteFeeRecords = useCallback(async (feeIds) => {
@@ -606,6 +682,10 @@ export const useFees = (initialFilters = {}) => {
     groupedFees,
     totals,
     students,
+    invoices,
+    payInvoiceInFull,
+    updateInvoicePaid,
+    deleteInvoice,
     filters,
     updateFilters,
     loading,

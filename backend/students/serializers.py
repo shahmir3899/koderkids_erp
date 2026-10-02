@@ -366,22 +366,8 @@ class SchoolSerializer(serializers.ModelSerializer):
         if revenue_by_school is not None:
             return revenue_by_school.get(obj.id, 0.0)
 
-        from django.db.models import Sum
-        from .models import Fee
-
-        # Find the latest month that has fee records for this school
-        latest_month = Fee.objects.filter(school_id=obj.id).order_by('-id').values_list('month', flat=True).first()
-
-        if not latest_month:
-            return 0.0
-
-        # Sum total_fee for that month
-        total = Fee.objects.filter(
-            school_id=obj.id,
-            month=latest_month
-        ).aggregate(total=Sum('total_fee'))['total']
-
-        return float(total) if total else 0.0
+        from .billing import latest_revenue_for_schools
+        return latest_revenue_for_schools([obj.id]).get(obj.id, 0.0)
 
     def get_capacity_utilization(self, obj):
         """Percentage of capacity filled"""
@@ -423,22 +409,8 @@ class SchoolStatsSerializer(serializers.ModelSerializer):
         Sum of total_fee from Fee records for the latest month available.
         Finds the most recent month directly from database.
         """
-        from django.db.models import Sum
-        from .models import Fee
-
-        # Find the latest month that has fee records for this school
-        latest_month = Fee.objects.filter(school_id=obj.id).order_by('-id').values_list('month', flat=True).first()
-
-        if not latest_month:
-            return 0.0
-
-        # Sum total_fee for that month
-        total = Fee.objects.filter(
-            school_id=obj.id,
-            month=latest_month
-        ).aggregate(total=Sum('total_fee'))['total']
-
-        return float(total) if total else 0.0
+        from .billing import latest_revenue_for_schools
+        return latest_revenue_for_schools([obj.id]).get(obj.id, 0.0)
 
     def get_capacity_utilization(self, obj):
         if not obj.total_capacity:
@@ -448,10 +420,12 @@ class SchoolStatsSerializer(serializers.ModelSerializer):
 
     def _get_latest_fee_month(self, school_id):
         """Helper: Find latest month with fee records for a school"""
-        from .models import Fee
+        from .billing import latest_billed_month
 
-        # Get the latest month directly from database (by most recent record ID)
-        return Fee.objects.filter(school_id=school_id).order_by('-id').values_list('month', flat=True).first()
+        # Per-class revenue only exists for per-student Fee rows; a newer lumpsum
+        # invoice has no class split, so don't show an older month's figures.
+        month, has_fee, _ = latest_billed_month(school_id)
+        return month if has_fee else None
 
     def get_class_breakdown(self, obj):
         """Returns list of classes with student count and revenue from Fee records"""

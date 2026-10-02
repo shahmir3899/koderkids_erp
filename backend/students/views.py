@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from supabase import create_client
 from django.contrib.auth import get_user_model
-from .models import Student, Fee, School, Attendance, CustomUser, LessonPlan, Badge, StudentBadge, TimeSlot, WeeklyCheckIn
+from .models import Student, Fee, School, Attendance, CustomUser, LessonPlan, Badge, StudentBadge, TimeSlot, WeeklyCheckIn, SchoolInvoice
 from .subtypes import StudentSubtype, DEFAULT_STUDENT_SUBTYPE
 from .serializers import StudentSerializer, SchoolSerializer,  FeeSummarySerializer, StudentProfileSerializer, StudentProfileDetailSerializer, TimeSlotSerializer
 from django.shortcuts import render
@@ -175,27 +175,9 @@ class SchoolViewSet(viewsets.ModelViewSet):
         if not school_ids:
             return {}
 
-        # "Latest" fee record per school = the one with the highest id,
-        # matching the original Fee.objects.filter(...).order_by('-id').first()
-        latest_rows = (
-            Fee.objects.filter(school_id__in=school_ids)
-            .order_by('school_id', '-id')
-            .distinct('school_id')
-            .values('school_id', 'month')
-        )
-        latest_month_by_school = {row['school_id']: row['month'] for row in latest_rows}
-
-        sums = (
-            Fee.objects.filter(school_id__in=school_ids)
-            .values('school_id', 'month')
-            .annotate(total=Sum('total_fee'))
-        )
-        revenue_by_key = {(row['school_id'], row['month']): row['total'] for row in sums}
-
-        return {
-            school_id: float(revenue_by_key.get((school_id, month), 0) or 0)
-            for school_id, month in latest_month_by_school.items()
-        }
+        # Latest billed month per school (per-student fees and lumpsum invoices)
+        from .billing import latest_revenue_for_schools
+        return latest_revenue_for_schools(school_ids)
 
     def create(self, request, *args, **kwargs):
         """Only admin can create schools"""
@@ -683,17 +665,30 @@ class FeeSummaryView(APIView):
             schools = School.objects.all()
             school_map = {school.id: school.name for school in schools}
 
+            # Per-student fee rows + lumpsum school invoices, merged per school
+            from .billing import invoice_totals_by_school
+            merged = {}
+            for entry in fee_summary:
+                merged[entry['school_id']] = {
+                    'total_fee': float(entry['total_fee'] or 0),
+                    'paid_amount': float(entry['paid_amount'] or 0),
+                    'balance_due': float(entry['balance_due'] or 0),
+                }
+            for inv in invoice_totals_by_school(month):
+                m = merged.setdefault(inv['school_id'], {'total_fee': 0.0, 'paid_amount': 0.0, 'balance_due': 0.0})
+                m['total_fee'] += float(inv['total'] or 0)
+                m['paid_amount'] += float(inv['paid'] or 0)
+                m['balance_due'] += float(inv['balance'] or 0)
+
             # Prepare response data
             result = []
-            for entry in fee_summary:
-                school_id = entry['school_id']
-                school_name = school_map.get(school_id, f"School {school_id}")
+            for school_id, m in merged.items():
                 result.append({
                     'school_id': school_id,
-                    'school_name': school_name,
-                    'total_fee': float(entry['total_fee']),
-                    'paid_amount': float(entry['paid_amount']),
-                    'balance_due': float(entry['balance_due'])
+                    'school_name': school_map.get(school_id, f"School {school_id}"),
+                    'total_fee': m['total_fee'],
+                    'paid_amount': m['paid_amount'],
+                    'balance_due': m['balance_due'],
                 })
 
             serializer = FeeSummarySerializer(result, many=True)
@@ -1217,7 +1212,12 @@ def get_fees(request):
 
 @api_view(['GET'])
 def fee_received_per_month(request):
-    data = Fee.objects.values('school', 'month').annotate(total_fee=Sum('paid_amount'))
+    data = list(Fee.objects.values('school', 'month').annotate(total_fee=Sum('paid_amount')))
+    # Lumpsum schools: received amount per invoice month (same row shape)
+    data += [
+        {'school': r['school_id'], 'month': r['month'], 'total_fee': r['total']}
+        for r in SchoolInvoice.objects.values('school_id', 'month').annotate(total=Sum('paid_amount'))
+    ]
     return Response(data)
 
 @api_view(['DELETE'])
@@ -1258,18 +1258,75 @@ def new_registrations(request):
 
 
 
+def _generate_school_invoice(school_instance, month_str, force_overwrite):
+    """
+    Lumpsum (monthly_subscription) schools get ONE invoice per month instead of
+    per-student fee rows. Class/student counts are snapshotted now.
+    """
+    from . import billing
+
+    amount = school_instance.monthly_subscription_amount
+    if not amount or amount <= 0:
+        return Response({
+            "error": "School is in Monthly Subscription mode but subscription amount is not set or invalid.",
+            "action_required": "Set monthly_subscription_amount for this school."
+        }, status=400)
+
+    existing_invoice = SchoolInvoice.objects.filter(school=school_instance, month=month_str)
+    legacy_rows = Fee.objects.filter(school=school_instance, month=month_str)
+    if (existing_invoice.exists() or legacy_rows.exists()) and not force_overwrite:
+        return Response({
+            "warning": f"Records for {month_str} already exist.",
+            "action_required": "Set 'force_overwrite' to True to replace."
+        }, status=409)
+
+    students_count, classes_count, class_names = billing.snapshot_school_counts(school_instance)
+    if students_count == 0:
+        return Response({
+            "warning": f"No active students found for {school_instance.name}.",
+            "records_created": 0
+        }, status=200)
+
+    total = Decimal(str(amount))
+    with transaction.atomic():
+        existing_invoice.delete()
+        legacy_rows.delete()
+        invoice = SchoolInvoice.objects.create(
+            school=school_instance,
+            month=month_str,
+            invoice_no=billing.build_invoice_no(school_instance, month_str),
+            total_amount=total,
+            students_count=students_count,
+            classes_count=classes_count,
+            class_names=class_names,
+            paid_amount=Decimal('0.00'),
+            balance_due=total,
+            status="Pending",
+        )
+
+    return Response({
+        "message": f"✅ Invoice created for {school_instance.name} - {month_str}",
+        "records_created": 1,
+        "payment_mode": school_instance.payment_mode,
+        "school_name": school_instance.name,
+        "month": month_str,
+        "invoice": billing.invoice_to_dict(invoice),
+    }, status=201)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_new_month_fees(request):
     """
     Create monthly fee records for a school.
-    Supports two payment modes:
-    1. Per Student: Uses individual student.monthly_fee
-    2. Monthly Subscription: Divides total subscription among active students
+    - Per Student: one Fee row per active student using student.monthly_fee
+    - Monthly Subscription (lumpsum): a single SchoolInvoice for the school
+      (school name, classes covered, students enrolled, subscription amount)
 
     Permission: Admin or Teacher only
     """
     from .permissions import IsAdminOrTeacher, check_school_access
+    from . import billing
 
     # Check permissions
     permission = IsAdminOrTeacher()
@@ -1301,9 +1358,9 @@ def create_new_month_fees(request):
     if selected_month:
         month_str = selected_month
     else:
-        latest_fee = Fee.objects.filter(school_id=school_id).order_by('-id').first()
-        if latest_fee:
-            prev_month_date = datetime.strptime(latest_fee.month, "%b-%Y")
+        latest_month, _, _ = billing.latest_billed_month(school_id)
+        if latest_month:
+            prev_month_date = datetime.strptime(latest_month, "%b-%Y")
             next_month = prev_month_date.month + 1
             next_year = prev_month_date.year
             if next_month > 12:
@@ -1312,6 +1369,10 @@ def create_new_month_fees(request):
             month_str = datetime(next_year, next_month, 1).strftime("%b-%Y")
         else:
             month_str = datetime.now().strftime("%b-%Y")
+
+    # Lumpsum schools: one invoice, no per-student rows
+    if school_instance.payment_mode == 'monthly_subscription':
+        return _generate_school_invoice(school_instance, month_str, force_overwrite)
 
     # Check for existing records
     existing = Fee.objects.filter(school_id=school_id, month=month_str)
@@ -1324,60 +1385,24 @@ def create_new_month_fees(request):
     # Get active students
     active_students = Student.objects.filter(status="Active", school_id=school_id)
     student_count = active_students.count()
-    
+
     if student_count == 0:
         return Response({
             "warning": f"No active students found for {school_instance.name}.",
             "records_created": 0
         }, status=200)
 
-    # 💰 PAYMENT MODE LOGIC - THIS IS THE NEW PART
-    payment_mode = school_instance.payment_mode
-    
-    # Validate subscription mode
-    if payment_mode == 'monthly_subscription':
-        if not school_instance.monthly_subscription_amount or school_instance.monthly_subscription_amount <= 0:
-            return Response({
-                "error": "School is in Monthly Subscription mode but subscription amount is not set or invalid.",
-                "action_required": "Set monthly_subscription_amount for this school."
-            }, status=400)
-        
-        # Calculate fee per student
-        subscription_amount = Decimal(str(school_instance.monthly_subscription_amount))
-        fee_per_student = (subscription_amount / student_count).quantize(
-            Decimal('0.01'), 
-            rounding=ROUND_HALF_UP
-        )
-        
-        # Calculate adjustment for rounding
-        total_before_adjustment = fee_per_student * student_count
-        adjustment = subscription_amount - total_before_adjustment
-    else:
-        # Per Student Mode
-        fee_per_student = None
-        adjustment = Decimal('0.00')
-
     # Delete existing if overwrite
     if force_overwrite:
         existing.delete()
 
-    # Create fee records
+    # Create fee records (each student pays their own monthly_fee)
     now = datetime.now()
     new_fees = []
-    adjustment_applied = False
-    
+
     with transaction.atomic():
         for student in active_students:
-            # Determine fee for this student
-            if payment_mode == 'monthly_subscription':
-                student_fee = fee_per_student
-                # Apply adjustment to first student
-                if not adjustment_applied and adjustment != 0:
-                    student_fee += adjustment
-                    adjustment_applied = True
-            else:
-                # Use individual student fee
-                student_fee = student.monthly_fee
+            student_fee = student.monthly_fee
 
             new_fees.append(Fee(
                 student_id=student.id,
@@ -1392,17 +1417,123 @@ def create_new_month_fees(request):
                 status="Pending",
                 school=school_instance
             ))
-        
+
         Fee.objects.bulk_create(new_fees)
 
     # Response
     return Response({
         "message": f"✅ Fee records created for {school_instance.name} - {month_str}",
         "records_created": len(new_fees),
-        "payment_mode": payment_mode,
+        "payment_mode": school_instance.payment_mode,
         "school_name": school_instance.name,
         "month": month_str,
     }, status=201)
+
+
+# ---------------- Lumpsum school invoices ----------------
+
+def _invoice_access_error(request, invoice):
+    from .permissions import IsAdminOrTeacher, check_school_access
+    if not IsAdminOrTeacher().has_permission(request, None):
+        return Response({"error": "Only administrators and teachers can manage invoices."},
+                        status=status.HTTP_403_FORBIDDEN)
+    if not check_school_access(request.user, invoice.school_id):
+        return Response({"error": "You don't have permission to access this school's invoices."},
+                        status=status.HTTP_403_FORBIDDEN)
+    return None
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_school_invoices(request):
+    """
+    GET /api/fees/invoices/?school_id=&month=
+    Invoices for lumpsum schools (Admin: all schools; Teacher: assigned schools).
+    """
+    from .permissions import IsAdminOrTeacher, check_school_access
+    from . import billing
+
+    if not IsAdminOrTeacher().has_permission(request, None):
+        return Response({"error": "Only administrators and teachers can view invoices."},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    school_id = request.GET.get("school_id")
+    month = request.GET.get("month")
+
+    qs = SchoolInvoice.objects.select_related('school')
+    if school_id:
+        if not check_school_access(request.user, school_id):
+            return Response([])
+        qs = qs.filter(school_id=school_id)
+    elif request.user.role == 'Teacher':
+        qs = qs.filter(school_id__in=request.user.assigned_schools.values_list('id', flat=True))
+    if month:
+        qs = qs.filter(month=month)
+
+    return Response([billing.invoice_to_dict(inv) for inv in qs])
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_school_invoice(request):
+    """
+    POST /api/fees/invoices/update/
+    {"id": 1, "paid_amount": 5000}                  partial / explicit payment
+    {"id": 1, "pay_in_full": true}                  received = payable, dated today
+    {"id": 1, "date_received": "2026-10-05"}        date only (amount unchanged)
+    """
+    from . import billing
+
+    try:
+        invoice = SchoolInvoice.objects.select_related('school').get(id=request.data.get("id"))
+    except (SchoolInvoice.DoesNotExist, ValueError, TypeError):
+        return Response({"error": "Invoice not found"}, status=404)
+
+    denied = _invoice_access_error(request, invoice)
+    if denied:
+        return denied
+
+    data = request.data
+    try:
+        if data.get("pay_in_full"):
+            paid_amount = invoice.total_amount
+            if not data.get("date_received"):
+                invoice.date_received = datetime.now().date()
+        elif "paid_amount" in data:
+            paid_amount = Decimal(str(data["paid_amount"]))
+        else:
+            paid_amount = invoice.paid_amount
+
+        if data.get("date_received"):
+            invoice.date_received = datetime.strptime(str(data["date_received"])[:10], "%Y-%m-%d").date()
+    except Exception as e:
+        return Response({"error": f"Invalid data: {e}"}, status=400)
+
+    if paid_amount < 0 or paid_amount > invoice.total_amount:
+        return Response({
+            "error": f"Received amount must be between 0 and {invoice.total_amount}"
+        }, status=400)
+
+    billing.apply_payment(invoice, paid_amount)
+    invoice.save()
+    return Response({"message": "Invoice updated", "invoice": billing.invoice_to_dict(invoice)})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def delete_school_invoice(request):
+    """POST /api/fees/invoices/delete/  {"id": 1}"""
+    try:
+        invoice = SchoolInvoice.objects.select_related('school').get(id=request.data.get("id"))
+    except (SchoolInvoice.DoesNotExist, ValueError, TypeError):
+        return Response({"error": "Invoice not found"}, status=404)
+
+    denied = _invoice_access_error(request, invoice)
+    if denied:
+        return denied
+
+    invoice.delete()
+    return Response({"message": "Invoice deleted"})
 
 
 @api_view(['POST'])
@@ -2544,21 +2675,15 @@ def create_single_fee(request):
                 'existing_fee_id': existing_fee.id
             }, status=status.HTTP_409_CONFLICT)
 
-        # Lumpsum school: equal share of the subscription across active students
-        # (same rule as create_new_month_fees). Otherwise use the student's own fee.
+        # Lumpsum schools are billed with one monthly invoice, not per-student rows
         student_school = student.school
         if student_school and student_school.payment_mode == 'monthly_subscription':
-            subscription = student_school.monthly_subscription_amount
-            if not subscription or subscription <= 0:
-                return Response({
-                    'error': 'School is in Monthly Subscription mode but subscription amount is not set.'
-                }, status=status.HTTP_400_BAD_REQUEST)
-            active_count = Student.objects.filter(status='Active', school=student_school).count() or 1
-            fee_amount = (Decimal(str(subscription)) / active_count).quantize(
-                Decimal('0.01'), rounding=ROUND_HALF_UP
-            )
-        else:
-            fee_amount = Decimal(str(student.monthly_fee or 0))
+            return Response({
+                'error': f'{student_school.name} is billed as a lumpsum subscription. '
+                         f'Use "Create Monthly Records" to generate the school invoice instead of a student fee.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        fee_amount = Decimal(str(student.monthly_fee or 0))
 
         total_fee = float(fee_amount)
         paid_amount = float(paid_amount or 0)
@@ -3294,9 +3419,24 @@ def get_fee_defaulters(request):
         unpaid_months__gte=months_threshold
     ).order_by('-total_due')
 
+    # Lumpsum schools: unpaid invoices in each of the last N months
+    invoice_query = SchoolInvoice.objects.filter(
+        month__in=month_strings,
+        status__in=['Pending', 'Overdue'],
+        balance_due__gt=0,
+    )
+    if school_id:
+        invoice_query = invoice_query.filter(school_id=school_id)
+    school_defaulters = invoice_query.values('school_id', 'school__name').annotate(
+        unpaid_months=Count('id'),
+        total_due=Sum('balance_due'),
+    ).filter(unpaid_months__gte=months_threshold).order_by('-total_due')
+
     return Response({
         "defaulters": list(defaulters),
         "count": defaulters.count(),
+        "school_defaulters": list(school_defaulters),
+        "school_defaulters_count": school_defaulters.count(),
         "months_checked": months_threshold,
         "months": month_strings
     })
@@ -3328,6 +3468,26 @@ def compare_fee_months(request):
             pending_count=Count('id', filter=Q(status__in=['Pending', 'Overdue']))
         )
         stats['month'] = month
+
+        # Lumpsum invoices count as one record per enrolled student
+        inv = SchoolInvoice.objects.filter(month=month)
+        if school_id:
+            inv = inv.filter(school_id=school_id)
+        inv_stats = inv.aggregate(
+            total_fee=Sum('total_amount'),
+            total_paid=Sum('paid_amount'),
+            total_balance=Sum('balance_due'),
+            records=Sum('students_count'),
+            paid_records=Sum('students_count', filter=Q(status='Paid')),
+            pending_records=Sum('students_count', filter=Q(status__in=['Pending', 'Overdue'])),
+        )
+        stats['total_fee'] = (stats['total_fee'] or 0) + (inv_stats['total_fee'] or 0)
+        stats['total_paid'] = (stats['total_paid'] or 0) + (inv_stats['total_paid'] or 0)
+        stats['total_balance'] = (stats['total_balance'] or 0) + (inv_stats['total_balance'] or 0)
+        stats['total_records'] = (stats['total_records'] or 0) + (inv_stats['records'] or 0)
+        stats['paid_count'] = (stats['paid_count'] or 0) + (inv_stats['paid_records'] or 0)
+        stats['pending_count'] = (stats['pending_count'] or 0) + (inv_stats['pending_records'] or 0)
+
         total_fee = float(stats['total_fee'] or 0)
         total_paid = float(stats['total_paid'] or 0)
         stats['recovery_rate'] = round(total_paid / total_fee * 100, 1) if total_fee > 0 else 0
