@@ -116,3 +116,23 @@ class UpdateFeesBatchTests(TestCase):
                                        {"id": self.fees[0].id, "pay_in_full": True}]}, format="json")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(len(r.data["fees"]), 1)
+
+
+class StudentEditNullFeeTests(TestCase):
+    def setUp(self):
+        self.admin = CustomUser.objects.create_user(username="adm3", password="x", role="Admin")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+        self.school = School.objects.create(name="Lump2", payment_mode="monthly_subscription",
+                                            monthly_subscription_amount=Decimal("1000"))
+        self.st = Student.objects.create(name="X", reg_num="LX1", school=self.school,
+                                         student_class="1", monthly_fee=0)
+
+    def test_edit_with_null_fee_saves_as_zero(self):
+        r = self.client.put(f"/api/students/{self.st.id}/",
+                            {"reg_num": "LX1", "name": "X2", "school": self.school.id,
+                             "student_class": "2", "monthly_fee": None, "phone": ""}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.st.refresh_from_db()
+        self.assertEqual(self.st.monthly_fee, 0)
+        self.assertEqual(self.st.student_class, "2")

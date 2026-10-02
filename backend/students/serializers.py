@@ -46,9 +46,13 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = '__all__'
+        # Clients send null when no fee is entered (e.g. lumpsum schools); treat as 0
+        extra_kwargs = {'monthly_fee': {'allow_null': True}}
     
     def validate(self, attrs):
         """Enforce time_slot business rule: only valid for ONLINE students"""
+        if 'monthly_fee' in attrs and attrs['monthly_fee'] is None:
+            attrs['monthly_fee'] = 0
         # time_slot is only allowed for ONLINE students
         time_slot = attrs.get('time_slot')
         student_subtype = attrs.get('student_subtype')

@@ -233,7 +233,8 @@ function StudentsPage() {
       name: updatedStudent.name,
       school: Number(updatedStudent.school),
       student_class: String(updatedStudent.student_class),
-      monthly_fee: updatedStudent.monthly_fee ? Number(updatedStudent.monthly_fee) : null,
+      // 0 is a valid fee (lumpsum schools store 0); the API rejects null
+      monthly_fee: Number(updatedStudent.monthly_fee) || 0,
       phone: updatedStudent.phone || '',
       time_slot: updatedStudent.time_slot ? Number(updatedStudent.time_slot) : null,
     };
