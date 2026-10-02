@@ -1,7 +1,9 @@
 name: Deploy frontend (FTPS)
 
 # Builds the React app and uploads frontend/build to the cPanel host (portal.koderkids.pk).
-# Required repository secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_SERVER_DIR
+# Required repository secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
+# The FTP account is locked to the site folder (/home/clickest/portal.koderkids.pk),
+# so the server-dir below is its root.
 
 on:
   push:
@@ -49,6 +51,6 @@ jobs:
           protocol: ftps
           port: 21
           local-dir: frontend/build/
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          server-dir: ./
           # Only files this action uploaded earlier are ever deleted; pre-existing
           # server files (e.g. .htaccess) are left alone.
