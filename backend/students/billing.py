@@ -173,5 +173,56 @@ def invoice_totals_by_school(month, school_id=None):
     )
 
 
+def school_month_stats(month, school_ids=None):
+    """
+    Per-school totals for a month across per-student Fee rows AND lumpsum invoices.
+
+    {school_id: {fee_count, invoice_count, total_fee_sum, paid_amount_sum, balance_due_sum}}
+    fee_count is the number of billing records (fee rows + invoices); the *_sum keys
+    match the shape the AI fee agent already used for Fee-only aggregates.
+    """
+    fee_qs = Fee.objects.filter(month=month)
+    inv_qs = SchoolInvoice.objects.filter(month=month)
+    if school_ids is not None:
+        fee_qs = fee_qs.filter(school_id__in=school_ids)
+        inv_qs = inv_qs.filter(school_id__in=school_ids)
+
+    stats = {}
+
+    def bucket(school_id):
+        return stats.setdefault(school_id, {
+            'fee_count': 0, 'invoice_count': 0,
+            'total_fee_sum': Decimal('0'), 'paid_amount_sum': Decimal('0'), 'balance_due_sum': Decimal('0'),
+        })
+
+    for r in fee_qs.values('school_id').annotate(
+        n=Count('id'), total=Sum('total_fee'), paid=Sum('paid_amount'), balance=Sum('balance_due')
+    ):
+        b = bucket(r['school_id'])
+        b['fee_count'] += r['n']
+        b['total_fee_sum'] += r['total'] or 0
+        b['paid_amount_sum'] += r['paid'] or 0
+        b['balance_due_sum'] += r['balance'] or 0
+
+    for r in inv_qs.values('school_id').annotate(
+        n=Count('id'), total=Sum('total_amount'), paid=Sum('paid_amount'), balance=Sum('balance_due')
+    ):
+        b = bucket(r['school_id'])
+        b['fee_count'] += r['n']
+        b['invoice_count'] += r['n']
+        b['total_fee_sum'] += r['total'] or 0
+        b['paid_amount_sum'] += r['paid'] or 0
+        b['balance_due_sum'] += r['balance'] or 0
+
+    return stats
+
+
+def schools_with_records(month):
+    """IDs of schools that already have any billing record (fee row or invoice) for the month."""
+    ids = set(Fee.objects.filter(month=month).values_list('school_id', flat=True).distinct())
+    ids |= set(SchoolInvoice.objects.filter(month=month).values_list('school_id', flat=True))
+    return ids
+
+
 def decimal(value):
     return Decimal(str(value))

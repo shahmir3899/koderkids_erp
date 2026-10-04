@@ -753,3 +753,26 @@ if (!health.ai_available) {
 
 **Document Maintainer:** School Management System Team
 **Feedback:** Report issues or suggestions via GitHub Issues
+
+
+---
+
+## Lumpsum school invoices (Fee Agent)
+
+Schools with `payment_mode = monthly_subscription` are billed with **one `SchoolInvoice` per month**
+(school, students enrolled, classes covered, amount) instead of per-student `Fee` rows. The Fee Agent
+understands both:
+
+| Area | Behaviour |
+|------|-----------|
+| `CREATE_MONTHLY_FEES`, `CREATE_FEES_ALL_SCHOOLS`, `CREATE_FEES_MULTIPLE_SCHOOLS`, `CREATE_MISSING_FEES` | Call `create_new_month_fees`, which makes an invoice for lumpsum schools. Responses carry `invoices` / `invoice_created`; undo (`CREATE_INVOICE`) deletes the invoice. `CREATE_MISSING_FEES` never creates per-student rows for lumpsum schools. |
+| `UPDATE_INVOICE` (new, write) | `school_name` + `month` + `paid_amount` (`"full"`, `"balance"` or a number = total received so far) and/or `date_received`. Undoable. |
+| `DELETE_INVOICE` (new, delete) | Needs confirmation like `DELETE_FEES`. |
+| `BULK_UPDATE_FEES` for a lumpsum school | Resolver redirects to `UPDATE_INVOICE` when the school has an invoice and no per-student rows for that month (`resolution["redirect"]`, handled in `service._resolve_and_execute_action`). |
+| `UPDATE_FEE` for a student in a lumpsum school | Resolver explains that there is no student fee and points to the invoice. |
+| `GET_FEES`, `GET_FEE_SUMMARY`, `GET_RECOVERY_REPORT`, `GET_SCHOOLS_WITHOUT_FEES`, `GET_DEFAULTERS`, `COMPARE_MONTHS` | Include invoices. `GET_FEES` returns them in `data.invoices` (never in `fee_ids`); class/student filters exclude them. Defaulters adds `school_defaulters`. |
+
+Shared helpers live in `backend/students/billing.py` (`school_month_stats`, `schools_with_records`,
+`latest_revenue_for_schools`, ...). Tests: `backend/ai/tests_invoices.py`. In the chat UI
+(`FeeAgentChat.js`) invoices render as small cards; the form templates (create, pending, summary)
+are invoice-aware too.

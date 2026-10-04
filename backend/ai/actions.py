@@ -168,6 +168,24 @@ FEE_ACTIONS: Dict[str, ActionDefinition] = {
         requires_confirmation=True,
         description="Record multiple student payments in one go"
     ),
+    "UPDATE_INVOICE": ActionDefinition(
+        name="UPDATE_INVOICE",
+        action_type=ActionType.WRITE,
+        required_params=["school_id", "month"],  # resolver turns school_name into school_id
+        optional_params=["school_name", "paid_amount", "date_received"],
+        handler="update_invoice",
+        requires_confirmation=False,
+        description="Record a payment or received date on a lumpsum school's monthly invoice"
+    ),
+    "DELETE_INVOICE": ActionDefinition(
+        name="DELETE_INVOICE",
+        action_type=ActionType.DELETE,
+        required_params=["school_id", "month"],
+        optional_params=["school_name"],
+        handler="delete_invoice",
+        requires_confirmation=True,
+        description="Delete a lumpsum school's monthly invoice"
+    ),
     "EXPORT_PDF": ActionDefinition(
         name="EXPORT_PDF",
         action_type=ActionType.READ,

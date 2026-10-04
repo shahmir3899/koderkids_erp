@@ -297,6 +297,12 @@ def resolve_fee_for_update(params: Dict[str, Any]) -> Tuple[Optional[int], Optio
         ).order_by('-id')
 
         if not fees.exists():
+            if student.school and student.school.payment_mode == 'monthly_subscription':
+                return None, (
+                    f"{student.name} is in {student.school.name}, which is billed as a lumpsum "
+                    f"(one invoice per month), so there is no individual student fee. "
+                    f"To record a payment say e.g. 'mark {student.school.name} invoice as paid'."
+                ), None
             return None, f"No pending fee found for {student.name}. Try specifying a month.", None
 
         fee = fees.first()
@@ -379,6 +385,9 @@ class ParameterResolver:
 
         if action_name == 'CREATE_MISSING_FEES':
             return self._resolve_create_missing_fees(params)
+
+        if action_name in ['UPDATE_INVOICE', 'DELETE_INVOICE']:
+            return self._resolve_invoice_target(params, action_name)
 
         # Inventory actions that need item resolution
         if action_name in ['TRANSFER_ITEM', 'ASSIGN_ITEM', 'EDIT_ITEM',
@@ -772,6 +781,11 @@ class ParameterResolver:
                 return {"success": False, "clarify": err}
             school_id = resolved_school_id
 
+        if school_id and not student_class:
+            redirect = self._invoice_redirect(school_id, month, paid_amount, params)
+            if redirect:
+                return redirect
+
         if school_id:
             fees = fees.filter(school_id=school_id)
 
@@ -830,6 +844,106 @@ class ParameterResolver:
             params['school_id'] = resolved_id
         return {"success": True, "params": params}
 
+    def _invoice_redirect(self, school_id, month, paid_amount, params):
+        """
+        BULK_UPDATE_FEES aimed at a lumpsum school that has an invoice (and no per-student
+        fee rows) for the month is really "pay the invoice": hand over to UPDATE_INVOICE.
+        """
+        from students.models import School, Fee, SchoolInvoice
+        from datetime import date
+
+        school = School.objects.filter(id=school_id).first()
+        if not school or school.payment_mode != 'monthly_subscription':
+            return None
+
+        month = month or self.context.get('current_month') or date.today().strftime('%b-%Y')
+        if Fee.objects.filter(school_id=school_id, month=month).exists():
+            return None  # legacy per-student rows exist for that month: normal bulk path
+        if not SchoolInvoice.objects.filter(school_id=school_id, month=month).exists():
+            return None
+
+        return {
+            "success": True,
+            "redirect": {
+                "action": "UPDATE_INVOICE",
+                "params": {
+                    "school_id": school_id,
+                    "school_name": school.name,
+                    "month": month,
+                    "paid_amount": paid_amount,
+                },
+            },
+        }
+
+    def _resolve_invoice_target(self, params: Dict[str, Any], action_name: str) -> Dict[str, Any]:
+        """Resolve school + month to one lumpsum invoice for UPDATE_INVOICE / DELETE_INVOICE."""
+        from students.models import SchoolInvoice
+        from datetime import date
+
+        school_id = params.get('school_id')
+        if params.get('school_name') and not school_id:
+            school_id, err = self._resolve_school(params['school_name'])
+            if err:
+                return {"success": False, "clarify": err}
+            params['school_id'] = school_id
+
+        if not school_id:
+            lumpsum = list(
+                self._get_accessible_schools_queryset()
+                .filter(payment_mode='monthly_subscription').order_by('name')[:10]
+            )
+            if lumpsum:
+                names = "\n".join(f"  {i + 1}. {s.name}" for i, s in enumerate(lumpsum))
+                return {"success": False, "clarify": f"Which school's invoice?\n\nLumpsum schools:\n{names}"}
+            return {"success": False, "clarify": "Which school's invoice do you mean?"}
+
+        school = self._get_accessible_schools_queryset().filter(id=school_id).first()
+        if not school:
+            return {"success": False, "clarify": "I couldn't find that school, or you don't have access to it."}
+
+        month = params.get('month') or self.context.get('current_month') or date.today().strftime('%b-%Y')
+        params['month'] = month
+
+        if school.payment_mode != 'monthly_subscription':
+            return {
+                "success": False,
+                "clarify": (
+                    f"{school.name} is billed per student, so it has no school invoice. "
+                    f"To record payments there, say e.g. 'mark {school.name} fees as paid' "
+                    f"or 'update fee for [student]'."
+                ),
+            }
+
+        invoice = SchoolInvoice.objects.filter(school=school, month=month).first()
+        if not invoice:
+            return {
+                "success": False,
+                "clarify": (
+                    f"There is no {month} invoice for {school.name} yet. "
+                    f"Say 'create fees for {school.name} for {month}' to generate it."
+                ),
+            }
+
+        if action_name == 'UPDATE_INVOICE' and not params.get('paid_amount') and not params.get('date_received'):
+            return {
+                "success": False,
+                "clarify": (
+                    f"What would you like to update on the {month} invoice for {school.name} "
+                    f"(PKR {float(invoice.total_amount):,.0f}, received PKR {float(invoice.paid_amount):,.0f})?\n"
+                    f"- Mark it fully paid\n- Record an amount received\n- Set the date received"
+                ),
+            }
+
+        params['school_name'] = school.name
+        params['_preview_total'] = float(invoice.total_amount)
+        params['_preview_paid'] = float(invoice.paid_amount)
+        params['_preview_status'] = invoice.status
+        return {
+            "success": True,
+            "params": params,
+            "info": {"school_name": school.name, "month": month, "invoice_id": invoice.id},
+        }
+
     def _resolve_create_missing_fees(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Resolve and gather preview data for CREATE_MISSING_FEES."""
         from students.models import School, Fee, Student
@@ -851,10 +965,9 @@ class ParameterResolver:
         if school_id:
             all_schools = all_schools.filter(id=school_id)
 
-        # Find which schools have fees for this month
-        schools_with_fees_ids = set(
-            Fee.objects.filter(month=month).values_list('school_id', flat=True).distinct()
-        )
+        # Find which schools have fees (or a lumpsum invoice) for this month
+        from students import billing
+        schools_with_fees_ids = billing.schools_with_records(month)
 
         # PART 1: Schools without any fees
         schools_without_fees = [s for s in all_schools if s.id not in schools_with_fees_ids]
@@ -865,6 +978,8 @@ class ParameterResolver:
         schools_with_fees = [s for s in all_schools if s.id in schools_with_fees_ids]
 
         for school in schools_with_fees:
+            if school.payment_mode == 'monthly_subscription':
+                continue  # billed by invoice: no per-student gaps to fill
             active_students = Student.objects.filter(school=school, status='Active')
             students_with_fees = set(
                 Fee.objects.filter(school=school, month=month).values_list('student_id', flat=True)

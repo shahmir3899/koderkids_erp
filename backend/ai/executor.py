@@ -65,7 +65,7 @@ class ActionExecutor:
 
     def execute_undo(self) -> Dict:
         """Undo the last write action."""
-        from students.models import Fee
+        from students.models import Fee, SchoolInvoice
 
         cache_key = f"ai_undo_{self.user.id}"
         undo_state = cache.get(cache_key)
@@ -112,6 +112,38 @@ class ActionExecutor:
                 return {
                     "success": True,
                     "message": f"Undone: Restored {restored} fee record(s) to their previous values.",
+                    "data": {"restored_count": restored}
+                }
+
+            elif action == 'CREATE_INVOICE':
+                # Undo = delete the school invoice(s) that were just created
+                deleted_count = SchoolInvoice.objects.filter(id__in=data.get('invoice_ids', [])).delete()[0]
+                if deleted_count:
+                    cache.delete(cache_key)
+                    return {
+                        "success": True,
+                        "message": f"Undone: Deleted the school invoice that was just created.",
+                        "data": {"deleted_count": deleted_count}
+                    }
+                return {"success": False, "message": "No invoice to undo."}
+
+            elif action == 'UPDATE_INVOICE':
+                restored = 0
+                for item in data.get('old_values', []):
+                    try:
+                        invoice = SchoolInvoice.objects.get(id=item['invoice_id'])
+                    except SchoolInvoice.DoesNotExist:
+                        continue
+                    invoice.paid_amount = item['paid_amount']
+                    invoice.balance_due = item['balance_due']
+                    invoice.status = item['status']
+                    invoice.date_received = item.get('date_received')
+                    invoice.save()
+                    restored += 1
+                cache.delete(cache_key)
+                return {
+                    "success": True,
+                    "message": f"Undone: Restored {restored} invoice(s) to their previous values.",
                     "data": {"restored_count": restored}
                 }
 
@@ -171,6 +203,8 @@ class ActionExecutor:
             'GET_DEFAULTERS': self._execute_get_defaulters,
             'COMPARE_MONTHS': self._execute_compare_months,
             'BATCH_UPDATE_FEES': self._execute_batch_update_fees,
+            'UPDATE_INVOICE': self._execute_update_invoice,
+            'DELETE_INVOICE': self._execute_delete_invoice,
 
             # Inventory actions
             'GET_ITEMS': self._execute_get_inventory_items,
@@ -268,6 +302,27 @@ class ActionExecutor:
             except:
                 school_name = f"School #{school_id}"
 
+            if response.status_code in [200, 201] and data.get('invoice'):
+                # Lumpsum school: ONE invoice instead of per-student fee rows
+                inv = data['invoice']
+                data['school_name'] = school_name
+                data['invoices'] = [self._invoice_agent_dict_from_api(inv)]
+                self._save_undo_state('CREATE_INVOICE', {
+                    'invoice_ids': [inv['id']],
+                    'school_name': school_name,
+                    'month': month
+                })
+                data['can_undo'] = True
+                return {
+                    "success": True,
+                    "message": (
+                        f"Created the {month} invoice for {school_name}: "
+                        f"{inv['students_count']} students, {inv['classes_count']} classes, "
+                        f"PKR {float(inv['total_amount']):,.0f}"
+                    ),
+                    "data": data
+                }
+
             if response.status_code in [200, 201]:
                 # Build detailed success message
                 records = data.get('records_created', 0)
@@ -296,9 +351,12 @@ class ActionExecutor:
                 }
             elif response.status_code == 409:
                 # Records already exist - ask user if they want to overwrite
+                from students.models import School as _School
+                _school = _School.objects.filter(id=school_id).first()
+                what = "The invoice" if (_school and _school.payment_mode == 'monthly_subscription') else "Fee records"
                 return {
                     "success": False,
-                    "message": f"Fee records for {school_name} - {month} already exist. Do you want to overwrite them?",
+                    "message": f"{what} for {school_name} - {month} already exist{'s' if what == 'The invoice' else ''}. Do you want to overwrite {'it' if what == 'The invoice' else 'them'}?",
                     "data": {
                         "school_id": school_id,
                         "school_name": school_name,
@@ -335,6 +393,7 @@ class ActionExecutor:
 
         results = []
         total_created = 0
+        invoices_created = 0
         errors = []
 
         for school in schools:
@@ -350,12 +409,16 @@ class ActionExecutor:
                 if hasattr(response, 'data'):
                     data = response.data
                     if response.status_code in [200, 201]:
-                        created = data.get('records_created', 0)
+                        is_invoice = bool(data.get('invoice'))
+                        created = 0 if is_invoice else data.get('records_created', 0)
                         total_created += created
+                        if is_invoice:
+                            invoices_created += 1
                         results.append({
                             'school_id': school.id,
                             'school_name': school.name,
                             'records_created': created,
+                            'invoice_created': is_invoice,
                             'success': True
                         })
                     else:
@@ -376,10 +439,13 @@ class ActionExecutor:
 
         return {
             "success": success_count > 0,
-            "message": f"Created {total_created} fee records across {success_count} school(s)" +
+            "message": f"Created {total_created} fee records" +
+                      (f" and {invoices_created} school invoice(s)" if invoices_created else "") +
+                      f" across {success_count} school(s)" +
                       (f" ({error_count} school(s) had errors)" if error_count > 0 else ""),
             "data": {
                 "total_records_created": total_created,
+                "invoices_created": invoices_created,
                 "schools_processed": success_count,
                 "schools_with_errors": error_count,
                 "results": results,
@@ -648,10 +714,20 @@ class ActionExecutor:
             total_count=Count('id')
         )
 
+        # Lumpsum school invoices for the same month/filters (not student-level, so they
+        # are skipped when filtering by class or student)
+        invoices = self._invoice_queryset(params, month)
+        inv_aggr = invoices.aggregate(
+            total=Sum('total_amount'), paid=Sum('paid_amount'),
+            pending=Sum('balance_due'), n=Count('id')
+        )
+        invoice_count = inv_aggr['n'] or 0
+        invoice_list = [self._invoice_agent_dict(inv) for inv in invoices.order_by('-id')[:20]]
+
         total_count = aggregates['total_count'] or 0
-        total_fee = float(aggregates['total_fee'] or 0)
-        total_paid = float(aggregates['total_paid'] or 0)
-        total_pending = float(aggregates['total_pending'] or 0)
+        total_fee = float(aggregates['total_fee'] or 0) + float(inv_aggr['total'] or 0)
+        total_paid = float(aggregates['total_paid'] or 0) + float(inv_aggr['paid'] or 0)
+        total_pending = float(aggregates['total_pending'] or 0) + float(inv_aggr['pending'] or 0)
 
         # Order by id descending and get sample for display
         fees = fees.order_by('-id')
@@ -687,8 +763,11 @@ class ActionExecutor:
 
         filter_text = f" ({', '.join(filter_desc)})" if filter_desc else ""
 
-        message = f"Found {total_count} fee record(s){filter_text}"
-        if total_count > 0:
+        message = f"Found {total_count} fee record(s)"
+        if invoice_count:
+            message += f" and {invoice_count} school invoice(s)"
+        message += filter_text
+        if total_count + invoice_count > 0:
             message += f" | Total: PKR {total_fee:,.0f} | Paid: PKR {total_paid:,.0f} | Pending: PKR {total_pending:,.0f}"
 
         # Include fee IDs in message for context (if 10 or fewer results)
@@ -707,6 +786,8 @@ class ActionExecutor:
                 "total_paid": total_paid,
                 "total_pending": total_pending,
                 "showing": len(fee_list),
+                "invoices": invoice_list,
+                "invoice_count": invoice_count,
                 "truncated": total_count > 50,
                 # Include filter params for context preservation
                 "month": params.get('month'),
@@ -776,14 +857,26 @@ class ActionExecutor:
             partial_count=Count('id', filter=Q(status='Partial'))
         )
 
+        # Add lumpsum school invoices (skipped when filtering by class)
+        invoices = self._invoice_queryset(params, month)
+        inv = invoices.aggregate(
+            total=Sum('total_amount'), received=Sum('paid_amount'), pending=Sum('balance_due'),
+            n=Count('id'),
+            paid=Count('id', filter=Q(status='Paid')),
+            pend=Count('id', filter=Q(status='Pending', paid_amount=0)),
+            part=Count('id', filter=Q(paid_amount__gt=0, balance_due__gt=0)),
+        )
+        invoice_count = inv['n'] or 0
+
         summary = {
-            "total_records": aggregates['total_records'] or 0,
-            "total_fee": float(aggregates['total_fee'] or 0),
-            "total_received": float(aggregates['total_received'] or 0),
-            "total_pending": float(aggregates['total_pending'] or 0),
-            "paid_count": aggregates['paid_count'] or 0,
-            "pending_count": aggregates['pending_count'] or 0,
-            "partial_count": aggregates['partial_count'] or 0,
+            "total_records": (aggregates['total_records'] or 0) + invoice_count,
+            "total_fee": float(aggregates['total_fee'] or 0) + float(inv['total'] or 0),
+            "total_received": float(aggregates['total_received'] or 0) + float(inv['received'] or 0),
+            "total_pending": float(aggregates['total_pending'] or 0) + float(inv['pending'] or 0),
+            "paid_count": (aggregates['paid_count'] or 0) + (inv['paid'] or 0),
+            "pending_count": (aggregates['pending_count'] or 0) + (inv['pend'] or 0),
+            "partial_count": (aggregates['partial_count'] or 0) + (inv['part'] or 0),
+            "invoice_count": invoice_count,
             "month": month,
             "school_name": school_name
         }
@@ -791,6 +884,8 @@ class ActionExecutor:
         # Build descriptive message
         scope = f"{school_name}" if school_name else "All Schools"
         message = f"Fee Summary for {month} ({scope}): Total PKR {summary['total_fee']:,.0f} | Received PKR {summary['total_received']:,.0f} | Pending PKR {summary['total_pending']:,.0f}"
+        if invoice_count:
+            message += f" (includes {invoice_count} school invoice(s))"
 
         return {
             "success": True,
@@ -811,19 +906,10 @@ class ActionExecutor:
         if accessible_ids is not None:
             all_schools = all_schools.filter(id__in=accessible_ids)
 
-        # Get fee statistics per school for this month
-        # Fee model has direct school ForeignKey, not through student
-        fee_stats = Fee.objects.filter(month=month).values('school_id').annotate(
-            fee_count=Count('id'),
-            total_fee_sum=Sum('total_fee'),
-            paid_amount_sum=Sum('paid_amount'),
-            balance_due_sum=Sum('balance_due')
-        )
-
-        # Create a lookup dict for fee stats
-        fee_stats_dict = {
-            stat['school_id']: stat for stat in fee_stats
-        }
+        # Get billing statistics per school for this month: per-student fee rows
+        # plus lumpsum school invoices (a lumpsum school with an invoice HAS fees)
+        from students import billing
+        fee_stats_dict = billing.school_month_stats(month)
 
         # Categorize schools
         schools_without_fees = []
@@ -852,6 +938,7 @@ class ActionExecutor:
                     'name': school.name,
                     'student_count': student_count,
                     'fee_records': stats['fee_count'],
+                    'invoices': stats['invoice_count'],
                     'total_fee': total_fee,
                     'paid_amount': paid_amount,
                     'balance_due': balance_due,
@@ -941,6 +1028,7 @@ class ActionExecutor:
 
         # Track results
         schools_created = []
+        invoices_created = []
         students_created = []
         total_school_records = 0
         total_student_records = 0
@@ -954,10 +1042,9 @@ class ActionExecutor:
         if school_id:
             all_schools = all_schools.filter(id=school_id)
 
-        # Find which schools have fees for this month
-        schools_with_fees_ids = set(
-            Fee.objects.filter(month=month).values_list('school_id', flat=True).distinct()
-        )
+        # Find which schools have fees (or a lumpsum invoice) for this month
+        from students import billing
+        schools_with_fees_ids = billing.schools_with_records(month)
 
         # PART 1: Create fees for schools WITHOUT any fee records
         schools_without_fees = [s for s in all_schools if s.id not in schools_with_fees_ids]
@@ -972,6 +1059,12 @@ class ActionExecutor:
                 response = create_new_month_fees(request)
 
                 if hasattr(response, 'data') and response.status_code in [200, 201]:
+                    if response.data.get('invoice'):
+                        invoices_created.append({
+                            'school_name': school.name,
+                            'invoice': self._invoice_agent_dict_from_api(response.data['invoice'])
+                        })
+                        continue
                     created = response.data.get('records_created', 0)
                     total_school_records += created
                     schools_created.append({
@@ -985,6 +1078,10 @@ class ActionExecutor:
         schools_with_fees = [s for s in all_schools if s.id in schools_with_fees_ids]
 
         for school in schools_with_fees:
+            # Lumpsum schools are billed by invoice; there are no per-student fee rows to fill in
+            if school.payment_mode == 'monthly_subscription':
+                continue
+
             # Get all active students in this school
             active_students = Student.objects.filter(school=school, status='Active')
 
@@ -1016,7 +1113,7 @@ class ActionExecutor:
                     errors.append(f"Student {student.name} ({school.name}): {str(e)}")
 
         # Build response message
-        total_created = total_school_records + total_student_records
+        total_created = total_school_records + total_student_records + len(invoices_created)
 
         if total_created == 0:
             return {
@@ -1043,7 +1140,13 @@ class ActionExecutor:
                 student_names += f" +{len(students_created) - 3} more"
             message_parts.append(f"{total_student_records} records for {len(students_created)} student(s) ({student_names})")
 
-        message = f"Created {total_created} fee records for {month}: " + "; ".join(message_parts)
+        if invoices_created:
+            inv_names = ", ".join([i['school_name'] for i in invoices_created[:3]])
+            if len(invoices_created) > 3:
+                inv_names += f" +{len(invoices_created) - 3} more"
+            message_parts.append(f"{len(invoices_created)} school invoice(s) ({inv_names})")
+
+        message = f"Created {total_created} billing record(s) for {month}: " + "; ".join(message_parts)
         if errors:
             message += f". {len(errors)} error(s) occurred."
 
@@ -1054,6 +1157,7 @@ class ActionExecutor:
                 "month": month,
                 "total_records_created": total_created,
                 "schools_created": schools_created,
+                "invoices_created": invoices_created,
                 "students_created": students_created,
                 "errors": errors if errors else None
             }
@@ -1129,6 +1233,7 @@ class ActionExecutor:
         # Create fees for matched schools
         results = []
         total_created = 0
+        invoices_created = 0
         errors = []
 
         for school in matched_schools:
@@ -1144,12 +1249,16 @@ class ActionExecutor:
                 if hasattr(response, 'data'):
                     data = response.data
                     if response.status_code in [200, 201]:
-                        created = data.get('records_created', 0)
+                        is_invoice = bool(data.get('invoice'))
+                        created = 0 if is_invoice else data.get('records_created', 0)
                         total_created += created
+                        if is_invoice:
+                            invoices_created += 1
                         results.append({
                             'school_id': school.id,
                             'school_name': school.name,
                             'records_created': created,
+                            'invoice_created': is_invoice,
                             'success': True
                         })
                     else:
@@ -1169,7 +1278,9 @@ class ActionExecutor:
         error_count = len(errors)
         school_names_display = ", ".join([r['school_name'] for r in results])
 
-        message = f"Created {total_created} fee records for {success_count} school(s) ({school_names_display})"
+        message = f"Created {total_created} fee records" + \
+                  (f" and {invoices_created} school invoice(s)" if invoices_created else "") + \
+                  f" for {success_count} school(s) ({school_names_display})"
         if unmatched_names:
             message += f". Could not match: {', '.join(unmatched_names)}"
         if error_count > 0:
@@ -1181,6 +1292,7 @@ class ActionExecutor:
             "data": {
                 "month": month,
                 "total_records_created": total_created,
+                "invoices_created": invoices_created,
                 "schools_processed": success_count,
                 "schools_with_errors": error_count,
                 "unmatched_schools": unmatched_names,
@@ -1202,16 +1314,9 @@ class ActionExecutor:
         if accessible_ids is not None:
             all_schools = all_schools.filter(id__in=accessible_ids)
 
-        # Get fee statistics per school for this month
-        # Fee model has direct school ForeignKey
-        fee_stats = Fee.objects.filter(month=month).values('school_id').annotate(
-            fee_count=Count('id'),
-            total_fee_sum=Sum('total_fee'),
-            paid_amount_sum=Sum('paid_amount'),
-            balance_due_sum=Sum('balance_due')
-        )
-
-        fee_stats_dict = {stat['school_id']: stat for stat in fee_stats}
+        # Billing statistics per school: per-student fee rows plus lumpsum school invoices
+        from students import billing
+        fee_stats_dict = billing.school_month_stats(month)
 
         # Build report
         report = []
@@ -1242,6 +1347,7 @@ class ActionExecutor:
                     'school_name': school.name,
                     'student_count': student_count,
                     'fee_records': stats['fee_count'],
+                    'invoices': stats['invoice_count'],
                     'total_fee': total_fee,
                     'collected': paid_amount,
                     'pending': balance_due,
@@ -1421,10 +1527,11 @@ class ActionExecutor:
         if hasattr(response, 'data') and response.status_code == 200:
             data = response.data
             count = data.get('count', 0)
-            if count == 0:
+            school_defaulters = data.get('school_defaulters', [])
+            if count == 0 and not school_defaulters:
                 return {
                     "success": True,
-                    "message": f"No defaulters found! All students have paid within the last {months} month(s).",
+                    "message": f"No defaulters found! All students and schools have paid within the last {months} month(s).",
                     "data": data
                 }
 
@@ -1434,9 +1541,23 @@ class ActionExecutor:
             for d in defaulters[:15]:
                 lines.append(f"• {d['student_name']} ({d.get('student_class', '?')}) - {d.get('school__name', '?')} - {d['unpaid_months']} months - PKR {float(d['total_due']):,.0f} due")
 
-            message = f"Found {count} defaulter(s) with {months}+ months unpaid:\n" + "\n".join(lines)
-            if count > 15:
-                message += f"\n\n(Showing 15 of {count})"
+            message_parts = []
+            if count:
+                part = f"Found {count} defaulter(s) with {months}+ months unpaid:\n" + "\n".join(lines)
+                if count > 15:
+                    part += f"\n\n(Showing 15 of {count})"
+                message_parts.append(part)
+
+            if school_defaulters:
+                school_lines = [
+                    f"• {d.get('school__name', '?')} (school invoice) - {d['unpaid_months']} months - PKR {float(d['total_due']):,.0f} due"
+                    for d in school_defaulters[:15]
+                ]
+                message_parts.append(
+                    f"{len(school_defaulters)} lumpsum school(s) with {months}+ unpaid invoices:\n" + "\n".join(school_lines)
+                )
+
+            message = "\n\n".join(message_parts)
 
             return {
                 "success": True,
@@ -1563,6 +1684,187 @@ class ActionExecutor:
             "success": True,
             "message": message,
             "data": {"results": results, "errors": errors, "total_collected": total_collected}
+        }
+
+    # ============================================
+    # LUMPSUM SCHOOL INVOICES
+    # ============================================
+
+    def _invoice_queryset(self, params: Dict, month: str):
+        """
+        SchoolInvoice rows matching the agent's fee filters. Invoices are school-level,
+        so class / student filters (which only make sense for per-student fees) exclude them.
+        """
+        from students.models import SchoolInvoice
+
+        if params.get('class') or params.get('student_id'):
+            return SchoolInvoice.objects.none()
+
+        qs = self._filter_by_accessible_schools(
+            SchoolInvoice.objects.select_related('school').filter(month=month)
+        )
+        if params.get('school_id'):
+            qs = qs.filter(school_id=params['school_id'])
+
+        status = params.get('status')
+        if status == 'Paid':
+            qs = qs.filter(status='Paid')
+        elif status == 'Pending':
+            qs = qs.filter(status='Pending', paid_amount=0)
+        elif status == 'Partial':
+            qs = qs.filter(paid_amount__gt=0, balance_due__gt=0)
+        elif status:
+            qs = qs.filter(status=status)
+        return qs
+
+    @staticmethod
+    def _invoice_agent_dict(invoice) -> Dict:
+        partial = float(invoice.paid_amount) > 0 and float(invoice.balance_due) > 0
+        return {
+            'invoice_id': invoice.id,
+            'school_id': invoice.school_id,
+            'school_name': invoice.school.name if invoice.school else 'Unknown',
+            'month': invoice.month,
+            'invoice_no': invoice.invoice_no,
+            'students_count': invoice.students_count,
+            'classes_count': invoice.classes_count,
+            'total_amount': float(invoice.total_amount),
+            'paid_amount': float(invoice.paid_amount),
+            'balance_due': float(invoice.balance_due),
+            'status': 'Partial' if partial else invoice.status,
+            'date_received': str(invoice.date_received) if invoice.date_received else None,
+        }
+
+    @staticmethod
+    def _invoice_agent_dict_from_api(inv: Dict) -> Dict:
+        """Same shape as _invoice_agent_dict, built from the create-fees API payload."""
+        total = float(inv['total_amount'])
+        paid = float(inv['paid_amount'])
+        return {
+            'invoice_id': inv['id'],
+            'school_id': inv['school_id'],
+            'school_name': inv['school_name'],
+            'month': inv['month'],
+            'invoice_no': inv['invoice_no'],
+            'students_count': inv['students_count'],
+            'classes_count': inv['classes_count'],
+            'total_amount': total,
+            'paid_amount': paid,
+            'balance_due': float(inv['balance_due']),
+            'status': 'Partial' if 0 < paid < total else inv['status'],
+            'date_received': inv.get('date_received'),
+        }
+
+    def _execute_update_invoice(self, params: Dict) -> Dict:
+        """Record a payment (or received date) on a lumpsum school's monthly invoice."""
+        from students.models import SchoolInvoice
+        from students import billing
+        from datetime import date, datetime, timedelta
+        from decimal import Decimal
+
+        invoice = SchoolInvoice.objects.select_related('school').filter(
+            school_id=params.get('school_id'), month=params.get('month')
+        ).first()
+        if not invoice:
+            return {"success": False, "message": f"No {params.get('month')} invoice found for that school.", "data": None}
+
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None and invoice.school_id not in accessible_ids:
+            return {"success": False, "message": "You don't have access to this school's invoices.", "data": None}
+
+        paid_amount = params.get('paid_amount')
+        date_received = params.get('date_received')
+
+        # Amount: 'full' / 'balance' / 'remaining' all settle the invoice; a number is the total received so far
+        new_paid = None
+        if paid_amount is not None and str(paid_amount).strip() != '':
+            keyword = str(paid_amount).lower().strip()
+            if keyword in ('full', 'total', 'payable', 'balance', 'remaining', 'due', 'pending'):
+                new_paid = invoice.total_amount
+            else:
+                try:
+                    new_paid = Decimal(str(paid_amount).replace(',', ''))
+                except Exception:
+                    return {"success": False, "message": f"'{paid_amount}' is not a valid amount.", "data": None}
+                if new_paid < 0 or new_paid > invoice.total_amount:
+                    return {
+                        "success": False,
+                        "message": f"Received amount must be between 0 and PKR {float(invoice.total_amount):,.0f} for this invoice.",
+                        "data": None
+                    }
+
+        # Date received: today / yesterday / explicit date
+        parsed_date = None
+        if date_received:
+            text = str(date_received).lower().strip()
+            if text == 'today':
+                parsed_date = date.today()
+            elif text == 'yesterday':
+                parsed_date = date.today() - timedelta(days=1)
+            else:
+                for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y'):
+                    try:
+                        parsed_date = datetime.strptime(text, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+                if not parsed_date:
+                    return {"success": False, "message": f"Could not read the date '{date_received}'.", "data": None}
+        elif new_paid is not None and new_paid > 0 and not invoice.date_received:
+            parsed_date = date.today()
+
+        if new_paid is None and not parsed_date:
+            return {"success": False, "message": "Nothing to update: give a payment amount or a received date.", "data": None}
+
+        old_values = {
+            'invoice_id': invoice.id,
+            'paid_amount': float(invoice.paid_amount),
+            'balance_due': float(invoice.balance_due),
+            'status': invoice.status,
+            'date_received': str(invoice.date_received) if invoice.date_received else None,
+        }
+
+        changes = []
+        if new_paid is not None:
+            billing.apply_payment(invoice, new_paid)
+            changes.append(f"received PKR {float(new_paid):,.0f}")
+        if parsed_date:
+            invoice.date_received = parsed_date
+            changes.append(f"date received: {parsed_date}")
+        invoice.save()
+
+        self._save_undo_state('UPDATE_INVOICE', {'old_values': [old_values]})
+
+        status_text = "fully paid" if invoice.status == 'Paid' else f"balance PKR {float(invoice.balance_due):,.0f}"
+        data = self._invoice_agent_dict(invoice)
+        data['invoices'] = [dict(data)]
+        data['can_undo'] = True
+        return {
+            "success": True,
+            "message": f"Updated the {invoice.month} invoice for {invoice.school.name}: {', '.join(changes)} ({status_text})",
+            "data": data
+        }
+
+    def _execute_delete_invoice(self, params: Dict) -> Dict:
+        """Delete a lumpsum school's monthly invoice (confirmed beforehand)."""
+        from students.models import SchoolInvoice
+
+        invoice = SchoolInvoice.objects.select_related('school').filter(
+            school_id=params.get('school_id'), month=params.get('month')
+        ).first()
+        if not invoice:
+            return {"success": False, "message": f"No {params.get('month')} invoice found for that school.", "data": None}
+
+        accessible_ids = self._get_accessible_school_ids()
+        if accessible_ids is not None and invoice.school_id not in accessible_ids:
+            return {"success": False, "message": "You don't have access to this school's invoices.", "data": None}
+
+        school_name, month = invoice.school.name, invoice.month
+        invoice.delete()
+        return {
+            "success": True,
+            "message": f"Deleted the {month} invoice for {school_name}.",
+            "data": {"school_name": school_name, "month": month}
         }
 
     # ============================================

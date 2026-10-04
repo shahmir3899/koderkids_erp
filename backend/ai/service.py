@@ -376,6 +376,14 @@ Current user message: {message}"""
                 'COMPARE_FEE_MONTHS': 'COMPARE_MONTHS',
                 'MONTH_COMPARISON': 'COMPARE_MONTHS',
                 'FEE_COMPARISON': 'COMPARE_MONTHS',
+                # Lumpsum school invoice variations
+                'MARK_INVOICE_PAID': 'UPDATE_INVOICE',
+                'PAY_INVOICE': 'UPDATE_INVOICE',
+                'RECORD_INVOICE_PAYMENT': 'UPDATE_INVOICE',
+                'UPDATE_SCHOOL_INVOICE': 'UPDATE_INVOICE',
+                'INVOICE_PAYMENT': 'UPDATE_INVOICE',
+                'REMOVE_INVOICE': 'DELETE_INVOICE',
+                'DELETE_SCHOOL_INVOICE': 'DELETE_INVOICE',
             }
             if action_name in action_name_mapping:
                 action_name = action_name_mapping[action_name]
@@ -627,6 +635,14 @@ Current user message: {message}"""
                 "data": None,
                 "audit_log_id": audit_log.id
             }
+
+        # The resolver may hand the request to a different action (lumpsum school: pay its invoice)
+        redirect = resolution.get('redirect')
+        if redirect:
+            return self._resolve_and_execute_action(
+                agent, redirect['action'], {'action': redirect['action'], **redirect['params']},
+                context, audit_log, start_time
+            )
 
         # Use resolved params
         params = resolution.get('params', params)
@@ -1162,6 +1178,15 @@ Current user message: {message}"""
             return {
                 "message": f"Delete {len(fee_ids)} fee record(s)?",
                 "items": [{"id": fid} for fid in fee_ids]
+            }
+
+        if action_name == 'DELETE_INVOICE':
+            return {
+                "message": (
+                    f"Delete the {params.get('month')} invoice for {params.get('school_name', 'this school')} "
+                    f"(PKR {params.get('_preview_total', 0):,.0f}, received PKR {params.get('_preview_paid', 0):,.0f})?"
+                ),
+                "items": [{"school_id": params.get('school_id'), "month": params.get('month')}]
             }
 
         if action_name == 'DELETE_ITEM':

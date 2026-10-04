@@ -27,8 +27,28 @@ import {
     createSingleFee,
     updateFees,
     fetchFees,
+    fetchSchoolInvoices,
     formatMonthForAPI
 } from '../../services/feeService';
+
+// Lumpsum schools have one invoice per month. Convert the REST payload (decimal strings)
+// into the same shape the AI agent returns so one renderer handles both.
+const invoiceFromApi = (inv) => {
+    const total = parseFloat(inv.total_amount) || 0;
+    const paid = parseFloat(inv.paid_amount) || 0;
+    return {
+        invoice_id: inv.id,
+        school_id: inv.school_id,
+        school_name: inv.school_name,
+        month: inv.month,
+        students_count: inv.students_count,
+        classes_count: inv.classes_count,
+        total_amount: total,
+        paid_amount: paid,
+        balance_due: parseFloat(inv.balance_due) || 0,
+        status: paid > 0 && paid < total ? 'Partial' : inv.status,
+    };
+};
 
 // Shared Agent Chat Components
 import { AgentChatInput, useSpeechSynthesis } from '../agentChat';
@@ -573,6 +593,19 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
             month
         });
 
+        // Lumpsum school: one invoice instead of per-student fee rows
+        if (response.invoice) {
+            return {
+                success: true,
+                message: `✅ ${response.message || 'Invoice created!'}`,
+                data: {
+                    invoices: [invoiceFromApi(response.invoice)],
+                    school: response.school_name,
+                    month
+                }
+            };
+        }
+
         return {
             success: true,
             message: `✅ ${response.message || 'Monthly fees created successfully!'}`,
@@ -621,13 +654,22 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
 
         const pendingFees = fees.filter(f => f.status === 'Pending' || f.balance_due > 0);
 
+        // Lumpsum school invoices that still have a balance
+        const invoices = (await fetchSchoolInvoices({
+            schoolId: school_id ? parseInt(school_id) : undefined
+        }).catch(() => [])).filter(inv => parseFloat(inv.balance_due) > 0).map(invoiceFromApi);
+
+        const invoiceNote = invoices.length ? ` and ${invoices.length} unpaid school invoice(s)` : '';
+
         return {
             success: true,
-            message: `Found ${pendingFees.length} pending fee records`,
+            message: `Found ${pendingFees.length} pending fee records${invoiceNote}`,
             data: {
                 count: pendingFees.length,
-                total_pending: pendingFees.reduce((sum, f) => sum + parseFloat(f.balance_due || 0), 0),
-                results: pendingFees.slice(0, 10)
+                total_pending: pendingFees.reduce((sum, f) => sum + parseFloat(f.balance_due || 0), 0)
+                    + invoices.reduce((sum, inv) => sum + inv.balance_due, 0),
+                results: pendingFees.slice(0, 10),
+                invoices
             }
         };
     };
@@ -638,13 +680,22 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
             schoolId: school_id ? parseInt(school_id) : undefined
         });
 
+        // Lumpsum school invoices count towards the totals
+        const invoices = (await fetchSchoolInvoices({
+            schoolId: school_id ? parseInt(school_id) : undefined
+        }).catch(() => [])).map(invoiceFromApi);
+
         const summary = {
-            total_records: fees.length,
-            total_fee: fees.reduce((sum, f) => sum + parseFloat(f.total_fee || 0), 0),
-            total_received: fees.reduce((sum, f) => sum + parseFloat(f.paid_amount || 0), 0),
-            total_pending: fees.reduce((sum, f) => sum + parseFloat(f.balance_due || 0), 0),
-            paid_count: fees.filter(f => f.status === 'Paid').length,
-            pending_count: fees.filter(f => f.status === 'Pending').length
+            total_records: fees.length + invoices.length,
+            total_fee: fees.reduce((sum, f) => sum + parseFloat(f.total_fee || 0), 0)
+                + invoices.reduce((sum, inv) => sum + inv.total_amount, 0),
+            total_received: fees.reduce((sum, f) => sum + parseFloat(f.paid_amount || 0), 0)
+                + invoices.reduce((sum, inv) => sum + inv.paid_amount, 0),
+            total_pending: fees.reduce((sum, f) => sum + parseFloat(f.balance_due || 0), 0)
+                + invoices.reduce((sum, inv) => sum + inv.balance_due, 0),
+            paid_count: fees.filter(f => f.status === 'Paid').length + invoices.filter(inv => inv.status === 'Paid').length,
+            pending_count: fees.filter(f => f.status === 'Pending').length + invoices.filter(inv => inv.status !== 'Paid').length,
+            invoice_count: invoices.length
         };
 
         return {
@@ -711,6 +762,13 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
         'BATCH_UPDATE_FEES': [
             { label: 'View Summary', action: 'show fee summary' },
             { label: 'More Payments', action: 'record payment' },
+        ],
+        'UPDATE_INVOICE': [
+            { label: 'View Summary', action: 'show fee summary' },
+            { label: 'Recovery Report', action: 'show recovery report' },
+        ],
+        'DELETE_INVOICE': [
+            { label: 'View Fees', action: 'show fees' },
         ],
     };
 
@@ -1222,6 +1280,56 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
         }
     };
 
+    // ========== Render Lumpsum School Invoices ==========
+    const renderInvoiceCards = (invoices) => {
+        if (!Array.isArray(invoices) || invoices.length === 0) return null;
+        const invoiceStatusColors = { 'Paid': '#4ADE80', 'Pending': '#FBBF24', 'Partial': '#FB923C', 'Overdue': '#FCA5A5' };
+        const money = (v) => `PKR ${(parseFloat(v) || 0).toLocaleString()}`;
+
+        return (
+            <div style={{ marginTop: SPACING.sm }}>
+                <div style={{ fontWeight: 600, marginBottom: SPACING.xs }}>
+                    School invoice{invoices.length > 1 ? 's' : ''}
+                </div>
+                {invoices.map((inv) => (
+                    <div key={inv.invoice_id} style={{
+                        padding: SPACING.xs,
+                        marginBottom: SPACING.xs,
+                        backgroundColor: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: BORDER_RADIUS.sm
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: SPACING.xs }}>
+                            <div style={{ fontWeight: 600 }}>{inv.school_name}</div>
+                            <div style={{
+                                fontSize: FONT_SIZES.xs,
+                                fontWeight: 600,
+                                color: invoiceStatusColors[inv.status] || '#FBBF24'
+                            }}>
+                                {inv.status === 'Paid' ? '✓ Paid' : inv.status}
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>
+                            {inv.month} • {inv.students_count} students • {inv.classes_count} classes
+                        </div>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: SPACING.xs,
+                            marginTop: '4px',
+                            fontSize: FONT_SIZES.xs
+                        }}>
+                            <span>Payable {money(inv.total_amount)}</span>
+                            <span style={{ color: '#4ADE80' }}>Received {money(inv.paid_amount)}</span>
+                            <span style={{ color: '#FCA5A5' }}>Balance {money(inv.balance_due)}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     // ========== Render Data Display ==========
     const renderDataDisplay = (data, messageId = null) => {
         if (!data) return null;
@@ -1248,7 +1356,7 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
                     </div>
                     {data.results.map((school, idx) => (
                         <div key={idx} style={{ padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                            {school.school_name}: {school.records_created} records created
+                            {school.school_name}: {school.invoice_created ? 'school invoice created' : `${school.records_created} records created`}
                         </div>
                     ))}
                     {data.unmatched_schools && data.unmatched_schools.length > 0 && (
@@ -1264,6 +1372,48 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
                             ))}
                         </div>
                     )}
+                </div>
+            );
+        }
+
+        // Handle CREATE_MISSING_FEES that created lumpsum school invoices
+        if (Array.isArray(data.invoices_created) && data.invoices_created.length > 0 && data.invoices_created[0]?.invoice) {
+            return (
+                <div style={styles.dataDisplay}>
+                    {renderInvoiceCards(data.invoices_created.map((item) => item.invoice))}
+                </div>
+            );
+        }
+
+        // Lumpsum schools only: invoices but no per-student fee rows
+        // (GET_FEES for a lumpsum school, CREATE_MONTHLY_FEES / UPDATE_INVOICE results)
+        if (Array.isArray(data.invoices) && data.invoices.length > 0 && !(data.results && data.results[0]?.student_name)) {
+            return (
+                <div style={styles.dataDisplay}>
+                    {data.total_paid !== undefined && (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, 1fr)',
+                            gap: SPACING.xs,
+                            padding: SPACING.xs,
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            borderRadius: BORDER_RADIUS.sm
+                        }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: FONT_SIZES.sm, fontWeight: 600, color: '#4ADE80' }}>
+                                    PKR {(data.total_paid || 0).toLocaleString()}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Paid</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: FONT_SIZES.sm, fontWeight: 600, color: '#FBBF24' }}>
+                                    PKR {(data.total_pending || 0).toLocaleString()}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Pending</div>
+                            </div>
+                        </div>
+                    )}
+                    {renderInvoiceCards(data.invoices)}
                 </div>
             );
         }
@@ -1335,6 +1485,8 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
                             </div>
                         </div>
                     ))}
+
+                    {renderInvoiceCards(data.invoices)}
 
                     {/* Show More / Show Less Button */}
                     {data.results.length > 8 && messageId && (
@@ -1449,6 +1601,11 @@ const FeeAgentChat = ({ schools = [], students = [], onRefresh, onExportPDF, hei
                             <div style={styles.summaryLabel}>Pending</div>
                         </div>
                     </div>
+                    {data.invoice_count > 0 && (
+                        <div style={{ marginTop: SPACING.xs, fontSize: '10px', color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>
+                            Includes {data.invoice_count} lumpsum school invoice{data.invoice_count > 1 ? 's' : ''}
+                        </div>
+                    )}
                 </div>
             );
         }
