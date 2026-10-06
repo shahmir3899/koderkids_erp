@@ -36,9 +36,14 @@ const ReportAnalyticsSection = ({ isMobile, selectedMonth, analytics, pageStyles
             }}
           >
             <KpiCard
-              label="Student Reports Generated"
+              label="Unique Student Reports"
               value={analytics.monthBreakdown.total || 0}
               accent="#60A5FA"
+              hint={
+                analytics.monthBreakdown.attempts > analytics.monthBreakdown.total
+                  ? `${analytics.monthBreakdown.attempts} generations incl. reruns`
+                  : undefined
+              }
             />
             <KpiCard
               label="Active Report Users"
@@ -46,13 +51,8 @@ const ReportAnalyticsSection = ({ isMobile, selectedMonth, analytics, pageStyles
               accent="#34D399"
             />
             <KpiCard
-              label="Classes Tracked"
-              value={
-                analytics.monthBreakdown.by_school?.reduce(
-                  (acc, school) => acc + (school.classes?.length || 0),
-                  0
-                ) || 0
-              }
+              label="Classes With Reports"
+              value={analytics.monthBreakdown.classes_with_reports ?? 0}
               accent="#FBBF24"
             />
           </div>
@@ -93,6 +93,11 @@ const ReportAnalyticsSection = ({ isMobile, selectedMonth, analytics, pageStyles
                   >
                     {user.generated_count || 0} reports
                   </div>
+                  {user.attempts > user.generated_count && (
+                    <div style={{ color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs }}>
+                      {user.attempts} generations incl. reruns
+                    </div>
+                  )}
                   <div style={{ marginTop: SPACING.xs, color: COLORS.text.whiteSubtle, fontSize: FONT_SIZES.xs }}>
                     Last: {user.last_generated_at ? moment(user.last_generated_at).format('YYYY-MM-DD HH:mm') : '-'}
                   </div>
@@ -224,7 +229,7 @@ const ReportAnalyticsSection = ({ isMobile, selectedMonth, analytics, pageStyles
   );
 };
 
-const KpiCard = ({ label, value, accent }) => (
+const KpiCard = ({ label, value, accent, hint }) => (
   <div
     style={{
       ...MIXINS.glassmorphicSubtle,
@@ -256,6 +261,9 @@ const KpiCard = ({ label, value, accent }) => (
     >
       {Number(value || 0).toLocaleString()}
     </div>
+    {hint && (
+      <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.text.whiteSubtle }}>{hint}</div>
+    )}
   </div>
 );
 

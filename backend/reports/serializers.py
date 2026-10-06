@@ -457,6 +457,7 @@ class StudentReportUserSummarySerializer(serializers.Serializer):
     full_name = serializers.CharField(allow_blank=True)
     assigned_schools = serializers.ListField(child=serializers.DictField(), required=False)
     generated_count = serializers.IntegerField()
+    attempts = serializers.IntegerField(required=False)
     last_generated_at = serializers.DateTimeField(allow_null=True)
 
 

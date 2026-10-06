@@ -38,6 +38,7 @@
     "html2pdf.js": "^0.10.3",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.5.25",
+    "jszip": "^3.10.2",
     "leaflet": "^1.9.4",
     "livekit-client": "^2.19.0",
     "moment": "^2.30.1",

@@ -2,7 +2,7 @@
 // REPORTS PAGE - Glassmorphism Design Version
 // ============================================
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { getAuthHeaders, getClasses, API_URL } from '../api';
@@ -33,6 +33,8 @@ import { MonthSelector } from '../components/common/ui/MonthSelector';
 
 // Page-specific Components
 import ImageManagementModal from './ImageManagementModal';
+import { BulkReportProgress } from '../components/reports/BulkReportProgress';
+import { runBulkReportJob, buildZipName } from '../services/bulkReportService';
 
 // Hooks
 import { useSchools } from '../hooks/useSchools';
@@ -354,6 +356,8 @@ const ReportsPage = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalStudentId, setModalStudentId] = useState(null);
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(null);
+  const bulkAbortRef = useRef(null);
 
   // ============================================
   // REPORT GENERATION HOOK
@@ -587,53 +591,82 @@ const ReportsPage = () => {
     });
   }, [selectedStudentIds, selectedImages]);
 
+  const downloadBlob = useCallback((blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+  }, []);
+
+  const handleCancelBulk = useCallback(() => {
+    bulkAbortRef.current?.abort();
+  }, []);
+
+  const handleCloseBulkProgress = useCallback(() => setBulkProgress(null), []);
+
   const handleGenerateBulkReports = useCallback(async () => {
     if (selectedStudentIds.length === 0) {
       toast.warning('Please select at least one student first.');
       return;
     }
 
+    const controller = new AbortController();
+    bulkAbortRef.current = controller;
     setIsGeneratingBulk(true);
+    setBulkProgress({ phase: 'running', batches: [], totalStudents: selectedStudentIds.length, generated: 0, failedCount: 0, elapsedMs: 0 });
+
+    const schoolName = schools.find((sc) => String(sc.id) === String(selectedSchool))?.name;
+    const period = mode === 'month' ? selectedMonth : `${startDate}_to_${endDate}`;
 
     try {
-      const response = await axios.post(
-        `${API_URL}/reports/api/generate-bulk-pdf-zip/`,
-        {
-          student_ids: selectedStudentIds,
+      const result = await runBulkReportJob({
+        studentIds: selectedStudentIds,
+        params: {
           mode,
           month: selectedMonth,
           start_date: startDate,
           end_date: endDate,
           school_id: selectedSchool,
           student_class: selectedClass,
-          selectedImages: selectedImages,
-          includeBackground: includeBackground,
           max_images: maxImagesPerReport,
         },
-        {
-          headers: getAuthHeaders(),
-          responseType: 'blob',
-          timeout: 120000,
-        }
-      );
+        selectedImages,
+        includeBackground,
+        zipName: buildZipName({ schoolName, className: selectedClass, period }),
+        signal: controller.signal,
+        onProgress: (snapshot) => setBulkProgress((prev) => ({ ...(prev || {}), ...snapshot })),
+      });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Student_Reports_${new Date().toISOString().slice(0, 10)}.zip`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      setBulkProgress((prev) => ({ ...(prev || {}), result }));
 
-      toast.success(`ZIP with ${selectedStudentIds.length} reports downloaded!`);
+      if (result.blob) {
+        downloadBlob(result.blob, result.filename);
+      }
+
+      if (result.cancelled) {
+        toast.info(result.blob ? `Cancelled - downloaded the ${result.generated} reports finished so far.` : 'Cancelled.');
+      } else if (!result.blob) {
+        toast.error('No reports could be generated. See the details in the progress window.');
+      } else if (result.failed.length) {
+        toast.warning(`${result.generated} of ${selectedStudentIds.length} reports downloaded; ${result.failed.length} failed (see FAILED.txt in the ZIP).`);
+      } else {
+        toast.success(`ZIP with ${result.generated} reports downloaded!`);
+      }
     } catch (error) {
       console.error('Bulk ZIP error:', error);
-      toast.error('Failed to generate ZIP. Please try again.');
+      setBulkProgress((prev) => ({ ...(prev || {}), phase: 'finished', result: { failed: [{ student_id: '-', name: 'Unexpected error', stage: 'client', reason: error?.message || String(error) }] } }));
+      toast.error(`Bulk report failed unexpectedly: ${error?.message || error}`);
     } finally {
+      bulkAbortRef.current = null;
       setIsGeneratingBulk(false);
     }
   }, [
     selectedStudentIds,
+    schools,
     mode,
     selectedMonth,
     startDate,
@@ -643,6 +676,7 @@ const ReportsPage = () => {
     selectedImages,
     includeBackground,
     maxImagesPerReport,
+    downloadBlob,
   ]);
 
   // ============================================
@@ -1002,6 +1036,14 @@ const ReportsPage = () => {
             </div>
           )}
         </CollapsibleSection>
+
+        {/* Bulk generation progress */}
+        <BulkReportProgress
+          state={bulkProgress}
+          onCancel={handleCancelBulk}
+          onClose={handleCloseBulkProgress}
+          onDownload={() => bulkProgress?.result?.blob && downloadBlob(bulkProgress.result.blob, bulkProgress.result.filename)}
+        />
 
         {/* Image Management Modal */}
         {showImageModal && (

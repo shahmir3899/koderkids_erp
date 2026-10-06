@@ -2,6 +2,10 @@ import logging
 import re
 import os
 import uuid
+import json
+import time
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from zipfile import ZIP_DEFLATED, ZipFile
 from django.http import HttpResponse
 from django.utils.timezone import now
@@ -10,7 +14,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from students.models import Student, Attendance, LessonPlan, Student, Attendance, LessonPlan, StudentImage
-from django.db.models import Count, Max, Sum
+from django.db.models import Count, Max, Min, Sum, Q
 from django.db.models.functions import TruncDay
 from datetime import datetime, timedelta
 from weasyprint import HTML, CSS
@@ -335,7 +339,7 @@ def generate_report_pdf(
 # Initialize Supabase Client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
-def fetch_image(url, timeout=8, max_size=(600, 600), retries=2):
+def fetch_image(url, timeout=8, max_size=(600, 600), retries=1):
     """Fetch image from URL with robust error handling, resizing, and retries."""
     logger.info(f"Fetching image from {url}")
     if not url:
@@ -501,6 +505,64 @@ def _month_boundaries(month_str):
     return month_start, month_end
 
 
+# --- Report analytics counting -------------------------------------------------
+# One row is logged per PDF *generation*, so reruns/retries of the same student add
+# rows. The dashboard counts UNIQUE reports instead: one per student per month.
+# Rows whose student was later deleted (student is NULL) can't be matched to a person;
+# for those we count the size of the largest single request per (school, class, period),
+# i.e. "one full run", instead of every rerun. Raw row counts are exposed as "attempts".
+_ROW_FIELDS = ('student_id', 'generated_by_id', 'school_id', 'student_class',
+               'request_id', 'generated_at', 'period_start', 'period_end')
+
+
+def _event_rows(events):
+    return list(events.order_by().values(*_ROW_FIELDS))
+
+
+def _unique_days(rows):
+    """Return a Counter {date: unique_reports_first_generated_that_day} for these rows."""
+    from django.utils import timezone as dj_tz
+    per_day = Counter()
+    first_seen = {}
+    unlinked = {}  # (school, class, start, end) -> {request_id or per-row token: [rows, first_date]}
+    for i, r in enumerate(rows):
+        day = dj_tz.localtime(r['generated_at']).date()
+        if r['student_id'] is not None:
+            if r['student_id'] not in first_seen or day < first_seen[r['student_id']]:
+                first_seen[r['student_id']] = day
+        else:
+            group = unlinked.setdefault((r['school_id'], r['student_class'], r['period_start'], r['period_end']), {})
+            token = r['request_id'] or f'single-{i}'
+            entry = group.setdefault(token, [0, day])
+            entry[0] += 1
+            entry[1] = min(entry[1], day)
+    for day in first_seen.values():
+        per_day[day] += 1
+    for group in unlinked.values():
+        count, day = max(group.values(), key=lambda e: e[0])  # the largest single run
+        per_day[day] += count
+    return per_day
+
+
+def _unique_count(rows):
+    return sum(_unique_days(rows).values())
+
+
+def _unique_by(rows, key):
+    grouped = {}
+    for r in rows:
+        grouped.setdefault(key(r), []).append(r)
+    return {k: _unique_count(v) for k, v in grouped.items()}
+
+
+def _unique_timeline(rows):
+    from django.utils import timezone as dj_tz
+    return [
+        {'bucket': dj_tz.make_aware(datetime.combine(day, datetime.min.time())), 'generated_count': count}
+        for day, count in sorted(_unique_days(rows).items())
+    ]
+
+
 def _scoped_report_events(request, month, school_id=None, class_id=None, user_id=None):
     month_start, month_end = _month_boundaries(month)
     queryset = StudentReportGenerationEvent.objects.filter(
@@ -601,19 +663,35 @@ def fetch_student_images(student_id, start_date, end_date, max_images=DEFAULT_RE
     image_urls = all_urls[:max_images]
     logger.info(f"Fetched {len(image_urls)} image URLs: {image_urls}")
     return image_urls# reports/views.py (add this function near generate_pdf)
+def _bulk_error(code, message, http_status, request_id, **extra):
+    """Structured JSON error so the frontend can say exactly what went wrong."""
+    body = {"code": code, "error": message, "request_id": str(request_id)}
+    body.update(extra)
+    response = Response(body, status=http_status)
+    response['X-Request-Id'] = str(request_id)
+    return response
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_bulk_pdf_zip(request):
     """
     Receives a list of student_ids + report parameters
-    Returns a single ZIP file containing one PDF per student
+    Returns a single ZIP file containing one PDF per student.
+
+    Diagnostics: every request gets a request_id (logged + returned in X-Request-Id),
+    per-student timings are logged, and students that fail are reported in the
+    X-Report-Failed* headers and in a FAILED.txt inside the ZIP.
     """
-    logger.info(f"Bulk ZIP request by {request.user.username} – payload: {request.data}")
+    request_uuid = uuid.uuid4()
+    request_start = time.monotonic()
+    rid = str(request_uuid)[:8]
+    logger.info(f"[bulk-zip {rid}] request by {request.user.username} - payload: {request.data}")
 
     try:
         student_ids = request.data.get('student_ids', [])
         if not student_ids:
-            return Response({"error": "No students selected"}, status=400)
+            return _bulk_error('no_students', "No students selected", 400, request_uuid)
 
         # Re-use exactly the same parameters you already send for single reports
         mode = request.data.get('mode')
@@ -623,33 +701,67 @@ def generate_bulk_pdf_zip(request):
         school_id = request.data.get('school_id')
         student_class = request.data.get('student_class')
         selected_images_dict = request.data.get('selectedImages', {})  # {student_id: [url1, url2]}
-        include_background_dict = request.data.get('includeBackground', {})  # {student_id: bool} – per student
+        include_background_dict = request.data.get('includeBackground', {})  # {student_id: bool} - per student
         max_images = clamp_max_images(request.data.get('max_images'))
 
-        start_date_parsed, end_date_parsed, period = get_date_range(mode, month, start_date, end_date)
-        request_uuid = uuid.uuid4()
+        try:
+            start_date_parsed, end_date_parsed, period = get_date_range(mode, month, start_date, end_date)
+        except ValueError as exc:
+            return _bulk_error('invalid_dates', str(exc), 400, request_uuid)
+
+        # Prefetch image URLs (Supabase list + sign = network only, no DB) in parallel
+        # for students that don't have manually selected images.
+        need_auto_images = [sid for sid in student_ids if not selected_images_dict.get(str(sid))]
+        prefetched_images = {}
+        prefetch_start = time.monotonic()
+        if need_auto_images:
+            def _prefetch(sid):
+                try:
+                    return sid, fetch_student_images(sid, start_date_parsed, end_date_parsed, max_images=max_images), None
+                except Exception as exc:  # reported per-student below
+                    return sid, None, exc
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                for sid, urls, exc in pool.map(_prefetch, need_auto_images):
+                    prefetched_images[sid] = (urls, exc)
+        logger.info(f"[bulk-zip {rid}] image prefetch for {len(need_auto_images)} students took {time.monotonic() - prefetch_start:.1f}s")
+
+        generated = []          # [(student, filename)]
+        failed = []             # [{student_id, name, stage, reason}]
+        school_name = None
+        class_name = student_class
 
         # Create ZIP in memory
         zip_buffer = BytesIO()
         with ZipFile(zip_buffer, 'w', ZIP_DEFLATED) as zip_file:
             for student_id in student_ids:
+                stage = 'data'
+                student_name = None
+                t0 = time.monotonic()
                 try:
                     student, attendance_data, lessons_data = fetch_student_data(
                         student_id, school_id, student_class, start_date_parsed, end_date_parsed
                     )
                     if not student:
+                        failed.append({"student_id": student_id, "name": None, "stage": stage,
+                                       "reason": "Student not found in the selected school/class"})
                         continue
+                    student_name = student.name
+                    school_name = school_name or student.school.name
 
-                    # Use manually selected images if any, otherwise auto-fetch
+                    stage = 'images'
                     image_urls = selected_images_dict.get(str(student_id), None)
                     if not image_urls:
-                        image_urls = fetch_student_images(
+                        urls, prefetch_exc = prefetched_images.get(student_id, (None, None))
+                        if prefetch_exc is not None:
+                            raise prefetch_exc
+                        image_urls = urls if urls is not None else fetch_student_images(
                             student_id, start_date_parsed, end_date_parsed, max_images=max_images
                         )
 
                     # Use per-student include_background if provided, else True
                     include_background = include_background_dict.get(str(student_id), True)
 
+                    stage = 'pdf'
                     pdf_buffer = generate_pdf_content(
                         student, attendance_data, lessons_data, image_urls, period,
                         include_background=include_background, max_images=max_images
@@ -659,8 +771,8 @@ def generate_bulk_pdf_zip(request):
                         event_type='bulk_pdf_item',
                         user=request.user,
                         student=student,
-                        school=student.school if student else None,
-                        student_class=student.student_class if student else student_class,
+                        school=student.school,
+                        student_class=student.student_class,
                         mode=mode,
                         month=month,
                         start_date=start_date_parsed,
@@ -670,21 +782,50 @@ def generate_bulk_pdf_zip(request):
 
                     safe_name = f"{student.reg_num}_{student.name.replace(' ', '_')}.pdf"
                     zip_file.writestr(safe_name, pdf_buffer.getvalue())
+                    generated.append((student, safe_name))
+                    logger.info(f"[bulk-zip {rid}] student {student_id} ok in {time.monotonic() - t0:.1f}s")
 
                 except Exception as e:
-                    logger.exception(f"Failed to generate PDF for student {student_id}: {e}")
-                    continue  # don’t break the whole ZIP if one student fails
+                    # don't break the whole ZIP if one student fails
+                    logger.exception(f"[bulk-zip {rid}] student {student_id} FAILED at stage '{stage}' after {time.monotonic() - t0:.1f}s: {e}")
+                    failed.append({"student_id": student_id, "name": student_name, "stage": stage,
+                                   "reason": f"{type(e).__name__}: {e}"[:300]})
+
+            if failed:
+                lines = [f"{len(generated)} of {len(student_ids)} reports generated. Request {request_uuid}", ""]
+                for f in failed:
+                    lines.append(f"- {f['name'] or 'Student #' + str(f['student_id'])} (id {f['student_id']}) "
+                                 f"failed at '{f['stage']}': {f['reason']}")
+                zip_file.writestr("FAILED.txt", "\n".join(lines))
+
+        total_secs = time.monotonic() - request_start
+        if not generated:
+            logger.error(f"[bulk-zip {rid}] no PDFs produced for {len(student_ids)} students after {total_secs:.1f}s: {failed}")
+            return _bulk_error(
+                'no_reports_generated',
+                "None of the selected students' reports could be generated.",
+                422, request_uuid, failed=failed,
+            )
 
         zip_buffer.seek(0)
         response = HttpResponse(zip_buffer, content_type='application/zip')
-        filename = f"{student.school.name}_{student_class}_Reports_{period}_{now().strftime('%Y%m%d')}.zip"
+        filename = f"{school_name or 'School'}_{class_name}_Reports_{period}_{now().strftime('%Y%m%d')}.zip"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        logger.info(f"Bulk ZIP generated successfully – {len(student_ids)} students")
+        response['X-Request-Id'] = str(request_uuid)
+        response['X-Report-Generated'] = str(len(generated))
+        response['X-Report-Failed'] = str(len(failed))
+        if failed:
+            # ASCII-safe JSON: headers must be latin-1
+            response['X-Report-Failed-Students'] = json.dumps(failed, ensure_ascii=True)[:4000]
+        logger.info(
+            f"[bulk-zip {rid}] done in {total_secs:.1f}s - generated={len(generated)} failed={len(failed)} "
+            f"requested={len(student_ids)}"
+        )
         return response
 
     except Exception as e:
-        logger.exception("Bulk ZIP generation failed")
-        return Response({"error": "Failed to generate ZIP"}, status=500)
+        logger.exception(f"[bulk-zip {rid}] Bulk ZIP generation failed after {time.monotonic() - request_start:.1f}s")
+        return _bulk_error('server_error', f"Failed to generate ZIP ({type(e).__name__}: {e})"[:300], 500, request_uuid)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -940,16 +1081,20 @@ def student_reports_monthly_breakdown(request):
     except ValueError:
         return Response({"error": "Invalid month format. Use YYYY-MM"}, status=400)
 
-    by_class = list(
-        events.values('student_class').annotate(generated_count=Count('id')).order_by('student_class')
-    )
+    rows = _event_rows(events)
+    by_class = [
+        {'student_class': cls, 'generated_count': count}
+        for cls, count in sorted(_unique_by(rows, lambda r: r['student_class']).items(), key=lambda kv: str(kv[0]))
+    ]
     by_user_raw = list(
-        events.values('generated_by_id', 'generated_by__username', 'generated_by__first_name', 'generated_by__last_name')
-        .annotate(generated_count=Count('id'), last_generated_at=Max('generated_at'))
-        .order_by('-generated_count')
+        events.order_by().values('generated_by_id', 'generated_by__username', 'generated_by__first_name', 'generated_by__last_name')
+        .annotate(attempts=Count('id'), last_generated_at=Max('generated_at'))
     )
-    timeline = list(
-        events.annotate(bucket=TruncDay('generated_at')).values('bucket').annotate(generated_count=Count('id')).order_by('bucket')
+    timeline = _unique_timeline(rows)
+    unique_by_user = _unique_by(rows, lambda r: r['generated_by_id'])
+    by_user_raw = sorted(
+        ({**row, 'generated_count': unique_by_user.get(row['generated_by_id'], 0)} for row in by_user_raw),
+        key=lambda row: -row['generated_count'],
     )
 
     user_ids = [row['generated_by_id'] for row in by_user_raw if row['generated_by_id']]
@@ -969,6 +1114,7 @@ def student_reports_monthly_breakdown(request):
                 for school in users_map[row['generated_by_id']].assigned_schools.all()
             ] if row['generated_by_id'] in users_map else [],
             'generated_count': row['generated_count'],
+            'attempts': row['attempts'],
             'last_generated_at': row['last_generated_at'],
         }
         for row in by_user_raw
@@ -990,10 +1136,7 @@ def student_reports_monthly_breakdown(request):
     for row in class_rows:
         classes_per_school.setdefault(row['school_id'], set()).add(row['student_class'])
 
-    event_class_counts = {
-        (row['school_id'], row['student_class']): row['generated_count']
-        for row in events.values('school_id', 'student_class').annotate(generated_count=Count('id'))
-    }
+    event_class_counts = _unique_by(rows, lambda r: (r['school_id'], r['student_class']))
 
     by_school = []
     for school in school_rows:
@@ -1018,7 +1161,9 @@ def student_reports_monthly_breakdown(request):
     return Response(
         {
             'month': month,
-            'total': events.count(),
+            'total': _unique_count(rows),
+            'attempts': events.count(),
+            'classes_with_reports': sum(1 for school in by_school for cls in school['classes'] if cls['generated_count'] > 0),
             'by_class': StudentReportClassBreakdownSerializer(by_class, many=True).data,
             'by_user': StudentReportUserSummarySerializer(by_user, many=True).data,
             'by_school': SchoolReportCardSerializer(by_school, many=True).data,
@@ -1048,10 +1193,13 @@ def student_reports_user_summary(request):
         return Response({"error": "Invalid month format. Use YYYY-MM"}, status=400)
 
     summary = list(
-        events.values('generated_by_id', 'generated_by__username', 'generated_by__first_name', 'generated_by__last_name')
-        .annotate(generated_count=Count('id'), last_generated_at=Max('generated_at'))
-        .order_by('-generated_count')
+        events.order_by().values('generated_by_id', 'generated_by__username', 'generated_by__first_name', 'generated_by__last_name')
+        .annotate(attempts=Count('id'), last_generated_at=Max('generated_at'))
     )
+    unique_by_user = _unique_by(_event_rows(events), lambda r: r['generated_by_id'])
+    for row in summary:
+        row['generated_count'] = unique_by_user.get(row['generated_by_id'], 0)
+    summary.sort(key=lambda row: -row['generated_count'])
     payload = [
         {
             'user_id': row['generated_by_id'],
@@ -1059,6 +1207,7 @@ def student_reports_user_summary(request):
             'full_name': f"{row['generated_by__first_name'] or ''} {row['generated_by__last_name'] or ''}".strip(),
             'assigned_schools': [],
             'generated_count': row['generated_count'],
+            'attempts': row['attempts'],
             'last_generated_at': row['last_generated_at'],
         }
         for row in summary
@@ -1090,9 +1239,7 @@ def student_reports_timeline(request):
     except ValueError:
         return Response({"error": "Invalid month format. Use YYYY-MM"}, status=400)
 
-    timeline = list(
-        events.annotate(bucket=TruncDay('generated_at')).values('bucket').annotate(generated_count=Count('id')).order_by('bucket')
-    )
+    timeline = _unique_timeline(_event_rows(events))
     return Response(
         {
             'month': month,
@@ -1197,18 +1344,21 @@ def generate_pdf_content(student, attendance_data, lessons_data, image_urls, per
     logger.info("Generating PDF content")
     max_images = clamp_max_images(max_images)
 
-    progress_images = []
-    for url in image_urls[:max_images]:
-        logger.info(f"Fetching progress image: {url}")
+    def _load_progress_image(url):
         img_buffer = fetch_image(url)
         if img_buffer:
-            img_data = base64.b64encode(img_buffer.read()).decode("utf-8")
-            img_mime = "image/jpeg"
-            progress_images.append((img_data, img_mime))
             logger.info(f"Progress image fetched: {url}")
-        else:
-            progress_images.append(None)
-            logger.warning(f"Failed to fetch progress image: {url}")
+            return (base64.b64encode(img_buffer.read()).decode("utf-8"), "image/jpeg")
+        logger.warning(f"Failed to fetch progress image: {url}")
+        return None
+
+    # Images are independent network downloads – fetch them in parallel (order preserved by map)
+    urls_to_fetch = list(image_urls[:max_images])
+    if urls_to_fetch:
+        with ThreadPoolExecutor(max_workers=min(4, len(urls_to_fetch))) as pool:
+            progress_images = list(pool.map(_load_progress_image, urls_to_fetch))
+    else:
+        progress_images = []
 
     # Load background image if enabled
     bg_image_css = ""

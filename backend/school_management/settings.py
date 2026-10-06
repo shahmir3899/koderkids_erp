@@ -90,6 +90,14 @@ CORS_ALLOW_HEADERS = [
     'authorization',
     'x-requested-with',
 ]
+# Lets the browser read bulk-report diagnostics (see reports.views.generate_bulk_pdf_zip)
+CORS_EXPOSE_HEADERS = [
+    'content-disposition',
+    'x-request-id',
+    'x-report-generated',
+    'x-report-failed',
+    'x-report-failed-students',
+]
 
 # Installed Apps
 INSTALLED_APPS = [
