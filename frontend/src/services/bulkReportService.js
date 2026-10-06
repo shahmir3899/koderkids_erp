@@ -7,6 +7,7 @@
 import axios from 'axios';
 import JSZip from 'jszip';
 import { getAuthHeaders, API_URL } from '../api';
+import { shortSchoolName } from '../utils/schoolShortName';
 
 export const BATCH_SIZE = 8;
 const REQUEST_TIMEOUT_MS = 90000;
@@ -279,7 +280,10 @@ export async function runBulkReportJob({
 }
 
 export const buildZipName = ({ schoolName, className, period }) =>
-  `${safe(schoolName) || 'School'}_${safe(className) || 'Class'}_Reports_${safe(period)}_${new Date()
-    .toISOString()
-    .slice(0, 10)
-    .replace(/-/g, '')}.zip`;
+  `${safe(shortSchoolName(schoolName)) || 'School'}_${safe(className) || 'Class'}_Reports_${safe(period)}_${pakistanDateStamp()}.zip`;
+
+// YYYYMMDD in Pakistan time (Asia/Karachi), regardless of the browser's timezone
+const pakistanDateStamp = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date())
+    .replace(/-/g, '');

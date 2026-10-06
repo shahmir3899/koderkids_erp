@@ -30,6 +30,8 @@ import {
     fetchSchoolInvoices,
     formatMonthForAPI
 } from '../../services/feeService';
+// Shared Agent Chat Components
+import { AgentChatInput, useSpeechSynthesis } from '../agentChat';
 
 // Lumpsum schools have one invoice per month. Convert the REST payload (decimal strings)
 // into the same shape the AI agent returns so one renderer handles both.
@@ -49,9 +51,6 @@ const invoiceFromApi = (inv) => {
         status: paid > 0 && paid < total ? 'Partial' : inv.status,
     };
 };
-
-// Shared Agent Chat Components
-import { AgentChatInput, useSpeechSynthesis } from '../agentChat';
 
 // ============================================
 // QUICK ACTION TEMPLATES (Fallback)
