@@ -1167,6 +1167,7 @@ def schools_list(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_fees(request):
     fees = Fee.objects.all()
 
