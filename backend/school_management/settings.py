@@ -72,6 +72,8 @@ ALLOWED_HOSTS = [
     'koderkids-erp.onrender.com',
     'personal-gateway.onrender.com'
 ]
+# Extra hosts (comma-separated) so new Render hostnames need no code change.
+ALLOWED_HOSTS += [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
 # Local vs production defaults derived from ENVIRONMENT — override with FRONTEND_URL/
 # NGROK_URL in .env only if you need something other than the standard local/prod URL.
 FRONTEND_URL = os.getenv(
