@@ -24,8 +24,11 @@ SUPABASE_BUCKET = "profile-photos"
 # Secret key & Debug mode from environment
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-secret-key")
 
-# DEBUG is derived from ENVIRONMENT — no separate toggle needed
-DEBUG = not IS_PRODUCTION
+# DEBUG follows ENVIRONMENT by default, but APP_DEBUG overrides it on its own. The live
+# service runs ENVIRONMENT=local (flipping that also shortens logins, locks CORS and
+# switches email backends), so DEBUG used to be on in production and served debug
+# pages that list every URL. Set APP_DEBUG=false there to turn only debug off.
+DEBUG = os.getenv('APP_DEBUG', str(not IS_PRODUCTION)).strip().lower() in ('1', 'true', 'yes')
 DJANGO_DEBUG = DEBUG
 
 # Database Configuration
