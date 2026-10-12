@@ -73,7 +73,8 @@ ALLOWED_HOSTS = [
     'frontend.koderkids.pk',
     'portal.koderkids.pk',
     'koderkids-erp.onrender.com',
-    'personal-gateway.onrender.com'
+    'personal-gateway.onrender.com',
+    'personal-gateway-sg.onrender.com',
 ]
 # Extra hosts (comma-separated) so new Render hostnames need no code change.
 ALLOWED_HOSTS += [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
