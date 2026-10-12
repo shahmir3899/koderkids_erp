@@ -5,7 +5,7 @@
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import Compressor from 'compressorjs';
+import { compressImage } from '../../../utils/compressImage';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import {
   COLORS,
@@ -89,30 +89,24 @@ export const ImageUploadModal = ({
 
     setIsProcessing(true);
 
-    new Compressor(file, {
-      quality: compressionOptions.quality,
-      maxWidth: compressionOptions.maxWidth,
-      maxHeight: compressionOptions.maxHeight,
-      mimeType: file.type,
-      success(result) {
-        const processedFile = new File([result], file.name, { type: file.type });
+    compressImage(file, compressionOptions)
+      .then((processedFile) => {
         console.log(`✅ Processed image size: ${(processedFile.size / 1024).toFixed(2)} KB`);
 
         setSelectedFile(processedFile);
-        
+
         // Create preview URL
         const url = URL.createObjectURL(processedFile);
         setPreviewUrl(url);
-        
+
         setIsProcessing(false);
         toast.success('Image processed successfully!');
-      },
-      error(err) {
+      })
+      .catch((err) => {
         console.error('❌ Compression error:', err);
         setIsProcessing(false);
         toast.error('Failed to process image.');
-      },
-    });
+      });
 
     // Reset file input
     event.target.value = '';

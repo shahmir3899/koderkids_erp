@@ -32,6 +32,7 @@ import { AttendanceButton } from '../components/common/ui/AttendanceButton';
 import { ProgressIndicator } from '../components/common/ui/ProgressIndicator';
 import { CompactRichTextEditor } from '../components/common/ui/CompactRichTextEditor';
 import { ImageUploadModal } from '../components/common/modals/ImageUploadModal';
+import { GroupImageUploadModal } from '../components/progress/GroupImageUploadModal';
 import { PageHeader } from '../components/common/PageHeader';
 
 // ============================================
@@ -240,6 +241,7 @@ const ProgressPage = () => {
 
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedStudentForImage, setSelectedStudentForImage] = useState(null);
+  const [groupUploadOpen, setGroupUploadOpen] = useState(false);
 
   // Feature 2: Apply to All
   const [sharedTopicText, setSharedTopicText] = useState('');
@@ -432,6 +434,13 @@ const ProgressPage = () => {
       }));
     }
   }, [selectedStudentForImage]);
+
+  const closeGroupUpload = useCallback(() => setGroupUploadOpen(false), []);
+
+  // Group upload: show the latest uploaded image as each student's thumbnail
+  const handleGroupStudentUploaded = useCallback((studentId, imageUrl) => {
+    setUploadedImages((prev) => ({ ...prev, [studentId]: imageUrl }));
+  }, []);
 
   const handleDeleteImage = useCallback((studentId) => {
     setUploadedImages((prev) => {
@@ -819,6 +828,12 @@ const ProgressPage = () => {
                     >
                       ✓ Mark All Present
                     </button>
+                    <button
+                      onClick={() => setGroupUploadOpen(true)}
+                      style={{ ...responsiveStyles.markAllButton, backgroundColor: COLORS.status.info }}
+                    >
+                      📷 Group Progress Upload
+                    </button>
                   </div>
 
                   {/* Apply to All */}
@@ -951,6 +966,17 @@ const ProgressPage = () => {
               sessionDate={filters.date}
               onUploadComplete={handleImageUploadComplete}
               uploadHandler={handleImageUpload}
+            />
+
+            {/* Group Progress Upload Modal (uses the already-loaded students) */}
+            <GroupImageUploadModal
+              isOpen={groupUploadOpen}
+              onClose={closeGroupUpload}
+              students={students}
+              attendanceData={attendanceData}
+              sessionDate={filters.date}
+              uploadHandler={handleImageUpload}
+              onStudentUploaded={handleGroupStudentUploaded}
             />
           </>
         )}
