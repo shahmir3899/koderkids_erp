@@ -17,6 +17,11 @@ from datetime import datetime, date
 from typing import Dict, List, Any, Optional, Tuple
 import logging
 
+from .statement_parser import (
+    parse_table, parse_positioned_lines, rows_from_words, parse_amount as _new_parse_amount,
+    chain_mismatches,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -111,8 +116,13 @@ class BankStatementParser:
         with pdfplumber.open(file_content) as pdf:
             full_text = ""
             all_tables = []
+            positioned_lines = []
 
             for page_num, page in enumerate(pdf.pages):
+                try:
+                    positioned_lines.extend(rows_from_words(page.extract_words()))
+                except Exception:  # positional parsing is best-effort
+                    logger.exception('Could not read word positions on page %s', page_num)
                 # Extract text for metadata
                 page_text = page.extract_text() or ""
                 full_text += page_text + "\n"
@@ -130,6 +140,16 @@ class BankStatementParser:
 
             # Parse transaction rows from tables
             transactions = self._parse_transaction_tables(all_tables)
+
+            # Layout-independent parse; keep whichever result follows the running balance better.
+            parse_notes = []
+            if positioned_lines:
+                new = parse_positioned_lines(positioned_lines)
+                transactions, parse_notes = self._choose_parse(transactions, new)
+                if opening_balance is None:
+                    opening_balance = new['opening_balance']
+                if closing_balance is None:
+                    closing_balance = new['closing_balance']
 
         # Calculate summary
         total_withdrawals = sum(t['withdrawal'] for t in transactions if t['withdrawal'])
@@ -150,8 +170,22 @@ class BankStatementParser:
                 'total_withdrawals': total_withdrawals,
                 'total_deposits': total_deposits,
                 'transaction_count': len(transactions)
-            }
+            },
+            'parse_notes': parse_notes,
         }
+
+    def _choose_parse(self, old_txns: List[Dict], new: Dict[str, Any]) -> Tuple[List[Dict], List[str]]:
+        """Pick between the older table parse and the layout-independent parse."""
+        new_txns = new['transactions']
+        if not new_txns:
+            return old_txns, []
+        if not old_txns:
+            return new_txns, new['notes']
+        old_bad = chain_mismatches(old_txns)[1]
+        new_bad = chain_mismatches(new_txns)[1]
+        if new_bad <= old_bad:
+            return new_txns, new['notes']
+        return old_txns, [f'Used the table parser ({old_bad} balance mismatches vs {new_bad}).']
 
     def _extract_account_info(self, text: str) -> Tuple[Optional[str], Optional[str]]:
         """Extract account name and number from statement text."""
@@ -337,8 +371,13 @@ class BankStatementParser:
         else:
             file_content = file
 
-        df = pd.read_excel(file_content)
-        return self._parse_dataframe(df)
+        raw = pd.read_excel(file_content, header=None, dtype=object)
+        result = self._parse_grid(raw)
+        if result:
+            return result
+        if hasattr(file_content, 'seek'):
+            file_content.seek(0)
+        return self._parse_dataframe(pd.read_excel(file_content))
 
     def _parse_csv(self, file) -> Dict[str, Any]:
         """Parse CSV bank statement."""
@@ -356,8 +395,38 @@ class BankStatementParser:
         else:
             file_content = file
 
-        df = pd.read_csv(file_content)
-        return self._parse_dataframe(df)
+        raw = pd.read_csv(file_content, header=None, dtype=object, skip_blank_lines=True,
+                          on_bad_lines='skip', engine='python')
+        result = self._parse_grid(raw)
+        if result:
+            return result
+        if hasattr(file_content, 'seek'):
+            file_content.seek(0)
+        return self._parse_dataframe(pd.read_csv(file_content))
+
+    def _parse_grid(self, raw) -> Optional[Dict[str, Any]]:
+        """Layout-independent parse of a header-less dataframe. None when nothing was found."""
+        import pandas as pd
+        grid = raw.astype(object).where(pd.notna(raw), None).values.tolist()
+        parsed = parse_table(grid)
+        txns = parsed['transactions']
+        if not txns:
+            return None
+        return {
+            'success': True,
+            'account_name': None,
+            'account_number': None,
+            'opening_balance': parsed['opening_balance'],
+            'closing_balance': parsed['closing_balance'],
+            'statement_period': {'from': txns[0]['date'], 'to': txns[-1]['date']},
+            'transactions': txns,
+            'summary': {
+                'total_withdrawals': sum(t['withdrawal'] for t in txns),
+                'total_deposits': sum(t['deposit'] for t in txns),
+                'transaction_count': len(txns),
+            },
+            'parse_notes': parsed['notes'],
+        }
 
     def _parse_dataframe(self, df) -> Dict[str, Any]:
         """Parse pandas DataFrame to extract transactions."""
@@ -510,6 +579,22 @@ class BankStatementParser:
         closing_balance = self._extract_closing_balance(text)
         statement_from, statement_to = self._extract_statement_period(text)
 
+        # Try positioned OCR words through the layout-independent parser first
+        ocr_transactions, ocr_notes = [], []
+        try:
+            data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+            words = [
+                {'text': t, 'x0': data['left'][i], 'x1': data['left'][i] + data['width'][i], 'top': data['top'][i]}
+                for i, t in enumerate(data['text']) if t and t.strip()
+            ]
+            if words:
+                parsed = parse_positioned_lines(rows_from_words(words, line_tol=8, gap=25))
+                ocr_transactions, ocr_notes = parsed['transactions'], parsed['notes']
+                opening_balance = opening_balance or parsed['opening_balance']
+                closing_balance = closing_balance or parsed['closing_balance']
+        except Exception:
+            logger.exception('Positioned OCR failed; falling back to plain text')
+
         # For images, we can't easily extract tables
         # Return basic info and let user manually verify
         return {
@@ -522,12 +607,13 @@ class BankStatementParser:
                 'from': statement_from,
                 'to': statement_to
             },
-            'transactions': [],  # Manual entry needed for images
+            'transactions': ocr_transactions,
             'summary': {
-                'total_withdrawals': Decimal('0'),
-                'total_deposits': Decimal('0'),
-                'transaction_count': 0
+                'total_withdrawals': sum((t['withdrawal'] for t in ocr_transactions), Decimal('0')),
+                'total_deposits': sum((t['deposit'] for t in ocr_transactions), Decimal('0')),
+                'transaction_count': len(ocr_transactions)
             },
+            'parse_notes': ocr_notes,
             'raw_text': text,  # Include raw text for debugging
             'note': 'Image OCR completed. Transactions may need manual verification.'
         }
@@ -560,27 +646,8 @@ class BankStatementParser:
         return None
 
     def _parse_amount(self, amount_str: str) -> Optional[Decimal]:
-        """Parse amount string to Decimal."""
-        if not amount_str or not isinstance(amount_str, str):
-            return None
-
-        # Clean the string
-        amount_str = amount_str.strip()
-
-        # Remove currency symbols and spaces
-        amount_str = re.sub(r'[PKR\s₨Rs\.]+', '', amount_str, flags=re.IGNORECASE)
-
-        # Remove commas
-        amount_str = amount_str.replace(',', '')
-
-        # Handle empty or invalid strings
-        if not amount_str or amount_str in ['-', '--', 'N/A', 'n/a']:
-            return None
-
-        try:
-            return Decimal(amount_str)
-        except InvalidOperation:
-            return None
+        """Parse amount string to Decimal (keeps decimals, handles brackets and Dr/Cr)."""
+        return _new_parse_amount(amount_str)
 
 
 # Convenience function for direct use

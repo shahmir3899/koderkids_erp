@@ -3648,14 +3648,9 @@ class ActionExecutor:
 
         try:
             with db_transaction.atomic():
-                # Update balance if requested
-                if update_balance and new_balance is not None:
-                    new_balance = Decimal(str(new_balance))
-                    account.current_balance = new_balance
-                    account.save(update_fields=['current_balance'])
-                    changes_made.append(f"Balance updated: PKR {old_balance:,.0f} → PKR {float(new_balance):,.0f}")
-
-                # Add missing transactions
+                # Add missing transactions first. Transaction.save() moves the account
+                # balance itself, so the explicit balance override (if any) must come after,
+                # otherwise the same money is counted twice.
                 transactions_created = 0
                 for txn_data in transactions_to_add:
                     deposit = float(txn_data.get('deposit', 0) or 0)
@@ -3687,6 +3682,13 @@ class ActionExecutor:
 
                 if transactions_created > 0:
                     changes_made.append(f"Created {transactions_created} transaction(s)")
+
+                # Update balance if requested (after the transactions above have moved it)
+                if update_balance and new_balance is not None:
+                    new_balance = Decimal(str(new_balance))
+                    balance_before = float(Account.objects.get(pk=account.pk).current_balance or 0)
+                    Account.objects.filter(pk=account.pk).update(current_balance=new_balance)
+                    changes_made.append(f"Balance updated: PKR {balance_before:,.0f} → PKR {float(new_balance):,.0f}")
 
         except Exception as e:
             return {

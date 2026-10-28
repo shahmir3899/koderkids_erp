@@ -168,3 +168,82 @@ class AIAuditLog(models.Model):
         """Mark as cancelled by user."""
         self.status = 'cancelled'
         self.save()
+
+
+class ReconciliationSession(models.Model):
+    """
+    One bank-statement reconciliation for one account.
+    Keeps the parsed statement and each line's review state, so a user can
+    leave and come back without losing progress.
+    """
+
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('completed', 'Completed'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='reconciliation_sessions'
+    )
+    account = models.ForeignKey('finance.Account', on_delete=models.CASCADE, related_name='reconciliation_sessions')
+    file_name = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+
+    statement_opening = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    statement_closing = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    period_from = models.DateField(null=True, blank=True)
+    period_to = models.DateField(null=True, blank=True)
+    anchor_index = models.IntegerField(null=True, blank=True)
+    anchor_note = models.CharField(max_length=255, blank=True)
+    parse_notes = models.JSONField(default=list, blank=True)
+    parse_mismatches = models.IntegerField(default=0)
+
+    adjustment_transaction = models.ForeignKey(
+        'finance.Transaction', on_delete=models.SET_NULL, null=True, blank=True, related_name='+'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Reconciliation #{self.pk} - {self.account_id} ({self.status})"
+
+
+class ReconciliationLine(models.Model):
+    """A single statement row and what the user decided to do with it."""
+
+    BUCKET_CHOICES = [
+        ('matched', 'Already in system'),
+        ('new', 'Not entered yet'),
+        ('earlier', 'Unmatched, before sync point'),
+        ('unreadable', 'Could not read amount'),
+    ]
+    STATUS_CHOICES = [
+        ('matched', 'Matched'),
+        ('pending', 'Pending review'),
+        ('approved', 'Approved'),
+        ('skipped', 'Skipped'),
+    ]
+
+    session = models.ForeignKey(ReconciliationSession, on_delete=models.CASCADE, related_name='lines')
+    index = models.IntegerField()
+    date = models.DateField(null=True, blank=True)
+    description = models.CharField(max_length=300, blank=True)
+    deposit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    withdrawal = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    balance = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    balance_ok = models.BooleanField(null=True, blank=True)
+
+    bucket = models.CharField(max_length=12, choices=BUCKET_CHOICES)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    matched_transaction_id = models.IntegerField(null=True, blank=True)
+    suggestion = models.JSONField(default=dict, blank=True)
+    transaction = models.ForeignKey(
+        'finance.Transaction', on_delete=models.SET_NULL, null=True, blank=True, related_name='+'
+    )
+
+    class Meta:
+        ordering = ['session', 'index']
+        unique_together = [('session', 'index')]

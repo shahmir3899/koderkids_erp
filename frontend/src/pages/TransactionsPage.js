@@ -55,6 +55,7 @@ import { TransactionFilters } from "../components/transactions/TransactionFilter
 import { TransactionDetailsModal } from "../components/transactions/TransactionDetailsModal";
 import { TransactionFormModal } from "../components/transactions/TransactionFormModal";
 import TransactionAgentChat from "../components/transactions/TransactionAgentChat";
+import ReconciliationWizard from "../components/transactions/ReconciliationWizard";
 
 // Static constants (defined outside component to avoid re-creation)
 const TRANSFER_CATEGORIES = ["Bank Transfer", "Cash Transfer"];
@@ -185,6 +186,8 @@ function TransactionsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showAgent, setShowAgent] = useState(false);
+  const [agentTab, setAgentTab] = useState('guided');
 
   // Derived Loading States from React Query
   const loading = {
@@ -604,20 +607,60 @@ function TransactionsPage() {
         subtitle="Record and manage income, expenses, and transfers"
       />
 
-      {/* AI Reconciliation Agent */}
-      <CollapsibleSection
-        title="🤖 Reconciliation Agent"
-        defaultOpen={false}
-      >
-        <TransactionAgentChat
-          accounts={accounts}
-          onRefresh={() => {
-            queryClient.invalidateQueries({ queryKey: transactionKeys.all });
-            queryClient.invalidateQueries({ queryKey: ['accounts'] });
-          }}
-          height="400px"
-        />
-      </CollapsibleSection>
+      {/* AI Reconciliation Agent - opens in a side drawer */}
+      {showAgent && (
+        <>
+          <div onClick={() => setShowAgent(false)} style={styles.drawerBackdrop} />
+          <aside style={styles.drawer} aria-label="Reconciliation Agent">
+            <div style={styles.drawerHeader}>
+              <h2 style={styles.drawerTitle}>🤖 Reconciliation Agent</h2>
+              <button
+                type="button"
+                onClick={() => setShowAgent(false)}
+                style={styles.drawerClose}
+                aria-label="Close reconciliation agent"
+              >
+                ✕
+              </button>
+            </div>
+            <div style={styles.drawerTabs}>
+              {[
+                { id: 'guided', label: 'Guided reconciliation' },
+                { id: 'chat', label: 'Chat' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setAgentTab(tab.id)}
+                  style={agentTab === tab.id ? styles.drawerTabActive : styles.drawerTab}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div style={styles.drawerBody}>
+              {agentTab === 'guided' ? (
+                <ReconciliationWizard
+                  accounts={accounts}
+                  onRefresh={() => {
+                    queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+                    queryClient.invalidateQueries({ queryKey: ['accounts'] });
+                  }}
+                />
+              ) : (
+                <TransactionAgentChat
+                  accounts={accounts}
+                  onRefresh={() => {
+                    queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+                    queryClient.invalidateQueries({ queryKey: ['accounts'] });
+                  }}
+                  height="calc(100vh - 190px)"
+                />
+              )}
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* Transaction Type Selector & Add Button */}
       <div style={styles.headerRow}>
@@ -632,6 +675,10 @@ function TransactionsPage() {
           size="md"
         />
 
+        <div style={styles.headerActions}>
+        <Button onClick={() => setShowAgent(true)} variant="secondary" style={styles.addButton}>
+          🤖 Reconciliation Agent
+        </Button>
         <Button
           onClick={() => {
             setIsEditing(false);
@@ -655,6 +702,7 @@ function TransactionsPage() {
         >
           ➕ Add Transaction
         </Button>
+        </div>
       </div>
 
       {/* Transactions Table */}
@@ -701,11 +749,16 @@ function TransactionsPage() {
               label: 'Amount',
               sortable: true,
               align: 'right',
-              render: (value) => (
-                <span style={styles.amountText}>
-                  PKR {parseFloat(value).toLocaleString()}
-                </span>
-              ),
+              render: (value, row) => {
+                const type = (row.transaction_type || '').toLowerCase();
+                const sign = type === 'income' ? '+ ' : type === 'expense' ? '− ' : '';
+                const color = type === 'income' ? '#047857' : type === 'expense' ? '#B91C1C' : COLORS.text.primary;
+                return (
+                  <span style={{ ...styles.amountText, color, fontVariantNumeric: 'tabular-nums' }}>
+                    {sign}PKR {parseFloat(value).toLocaleString()}
+                  </span>
+                );
+              },
             },
             {
               key: 'category',
@@ -764,6 +817,8 @@ function TransactionsPage() {
             },
           ]}
           emptyMessage="No transactions found. Try adjusting your filters or add your first transaction above!"
+          maxHeight="65vh"
+          stickyHeader
           striped
           hoverable
         />
@@ -855,6 +910,77 @@ const styles = {
     flexWrap: 'wrap',
     gap: SPACING.lg,
     marginBottom: SPACING.xl,
+  },
+  headerActions: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+  },
+  drawerBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1000,
+  },
+  drawer: {
+    position: 'fixed',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 'min(640px, 100vw)',
+    background: '#1E1B4B',
+    boxShadow: '-8px 0 32px rgba(0, 0, 0, 0.4)',
+    zIndex: 1001,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  drawerHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+  },
+  drawerTitle: {
+    margin: 0,
+    fontSize: FONT_SIZES.xl,
+    color: COLORS.text.white,
+  },
+  drawerClose: {
+    background: 'transparent',
+    border: 'none',
+    color: COLORS.text.white,
+    fontSize: FONT_SIZES.xl,
+    cursor: 'pointer',
+    padding: SPACING.sm,
+  },
+  drawerTabs: {
+    display: 'flex',
+    gap: SPACING.sm,
+    padding: `${SPACING.sm} ${SPACING.lg}`,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+  },
+  drawerTab: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    background: 'transparent',
+    color: COLORS.text.white,
+    cursor: 'pointer',
+  },
+  drawerTabActive: {
+    padding: `${SPACING.sm} ${SPACING.md}`,
+    borderRadius: BORDER_RADIUS.md,
+    border: '1px solid #fff',
+    background: 'rgba(255, 255, 255, 0.25)',
+    color: COLORS.text.white,
+    fontWeight: FONT_WEIGHTS.bold,
+    cursor: 'pointer',
+  },
+  drawerBody: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: SPACING.md,
   },
   addButton: {
     display: 'flex',

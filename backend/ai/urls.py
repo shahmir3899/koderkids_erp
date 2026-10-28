@@ -16,6 +16,14 @@ from .views import (
     AIFileUploadView,
     AIRewriteView,
 )
+from .reconcile_views import (
+    ReconcileStartView,
+    ReconcileOpenView,
+    ReconcileDetailView,
+    ReconcileLineActionView,
+    ReconcileAdjustView,
+    ReconcileCompleteView,
+)
 
 urlpatterns = [
     # Health check
@@ -37,4 +45,13 @@ urlpatterns = [
 
     # Text rewrite
     path('rewrite/', AIRewriteView.as_view(), name='ai-rewrite'),
+
+    # Guided bank-statement reconciliation
+    path('reconcile/start/', ReconcileStartView.as_view(), name='reconcile-start'),
+    path('reconcile/open/', ReconcileOpenView.as_view(), name='reconcile-open'),
+    path('reconcile/<int:pk>/', ReconcileDetailView.as_view(), name='reconcile-detail'),
+    path('reconcile/<int:pk>/lines/<int:line_id>/<str:action>/', ReconcileLineActionView.as_view(),
+         name='reconcile-line-action'),
+    path('reconcile/<int:pk>/adjust/', ReconcileAdjustView.as_view(), name='reconcile-adjust'),
+    path('reconcile/<int:pk>/complete/', ReconcileCompleteView.as_view(), name='reconcile-complete'),
 ]
