@@ -13,10 +13,12 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
 import { financeDashboardService } from '../../services/financeDashboardService';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import { ChartSkeleton, ChartEmptyState } from './ChartStates';
 import {
   COLORS,
   SPACING,
@@ -26,8 +28,18 @@ import {
   TRANSITIONS,
   MIXINS,
 } from '../../utils/designConstants';
+import {
+  SERIES_COLORS,
+  AREA_GRADIENT_TOP_OPACITY,
+  getAxisProps,
+  getGridProps,
+  getChartTheme,
+  formatCompact,
+  useChartHeight,
+} from '../../utils/chartTheme';
 
 export const CashFlowChart = ({ schools, isVisible = true }) => {
+  const chartHeight = useChartHeight();
   const [data, setData] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -174,37 +186,36 @@ export const CashFlowChart = ({ schools, isVisible = true }) => {
 
       {/* Chart */}
       {loading ? (
-        <div style={styles.loadingContainer}>
-          <LoadingSpinner message="Loading cash flow..." />
-        </div>
+        <ChartSkeleton variant="dark" />
       ) : data.length === 0 ? (
-        <div style={styles.emptyState}>
-          <p style={styles.emptyText}>No cash flow data available</p>
-        </div>
+        <ChartEmptyState variant="dark" />
       ) : (
-        <div style={styles.chartContainer}>
+        <div style={{ ...styles.chartContainer, height: `${chartHeight}px` }}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
+            <AreaChart data={data} margin={{ top: 10, right: 16, left: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorClosing" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                  <stop offset="5%" stopColor={SERIES_COLORS.net} stopOpacity={AREA_GRADIENT_TOP_OPACITY} />
+                  <stop offset="95%" stopColor={SERIES_COLORS.net} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-              <XAxis dataKey="month_label" stroke={COLORS.text.whiteSubtle} tick={{ fontSize: 12 }} />
-              <YAxis stroke={COLORS.text.whiteSubtle} tick={{ fontSize: 12 }} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+              <CartesianGrid {...getGridProps('dark')} />
+              <XAxis dataKey="month_label" {...getAxisProps('dark')} />
+              <YAxis width={56} {...getAxisProps('dark')} tickFormatter={formatCompact} />
+              <ReferenceLine y={0} stroke={getChartTheme('dark').zeroLine} strokeWidth={1.5} />
               <Tooltip content={<CustomTooltip />} />
               <Legend
                 wrapperStyle={{ paddingTop: '1rem' }}
-                formatter={(value) => <span style={{ color: COLORS.text.whiteMedium }}>{value}</span>}
+                formatter={(value) => <span style={{ color: getChartTheme('dark').legendText, fontWeight: 600 }}>{value}</span>}
               />
               <Area
                 type="monotone"
                 dataKey="closing_balance"
-                stroke="#3B82F6"
-                strokeWidth={2}
+                stroke={SERIES_COLORS.net}
+                strokeWidth={3}
                 fill="url(#colorClosing)"
+                dot={{ r: 4, fill: SERIES_COLORS.net, stroke: '#fff', strokeWidth: 1.5 }}
+                activeDot={{ r: 7, stroke: '#fff', strokeWidth: 2 }}
                 name="Closing Balance"
               />
             </AreaChart>

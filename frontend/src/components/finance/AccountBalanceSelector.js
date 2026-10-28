@@ -15,10 +15,21 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import { ChartSkeleton, ChartEmptyState } from './ChartStates';
 import { Button } from '../common/ui/Button';
+import {
+  SERIES_COLORS,
+  AREA_GRADIENT_TOP_OPACITY,
+  getAxisProps,
+  getGridProps,
+  getChartTheme,
+  formatCompact,
+  useChartHeight,
+} from '../../utils/chartTheme';
 
 // Mock data generator
 const generateMockAccountHistory = (accountName, months = 6) => {
@@ -44,6 +55,7 @@ const generateMockAccountHistory = (accountName, months = 6) => {
 };
 
 export const AccountBalanceSelector = ({ accounts }) => {
+  const chartHeight = useChartHeight();
   // Use account_name as identifier instead of ID
   const [selectedAccountName, setSelectedAccountName] = useState('');
   const [timeframe, setTimeframe] = useState('monthly');
@@ -300,36 +312,33 @@ export const AccountBalanceSelector = ({ accounts }) => {
 
       {/* Chart */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
-          <LoadingSpinner message="Loading balance history..." />
-        </div>
+        <ChartSkeleton variant="light" />
       ) : data.length === 0 ? (
-        <div style={{ padding: '3rem', textAlign: 'center', backgroundColor: '#F9FAFB', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
-          <p style={{ color: '#6B7280', margin: 0, fontSize: '1rem' }}>
-            No transaction history available for {selectedAccountInfo?.account_name || 'this account'}
-          </p>
-        </div>
+        <ChartEmptyState variant="light" title={`No history for ${selectedAccountInfo?.account_name || 'this account'}`} hint="Transactions will appear here once this account has activity." />
       ) : (
-        <div style={{ height: '400px' }}>
+        <div style={{ height: `${chartHeight}px` }}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
+            <AreaChart data={data} margin={{ top: 10, right: 16, left: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                  <stop offset="5%" stopColor={SERIES_COLORS.balance} stopOpacity={AREA_GRADIENT_TOP_OPACITY} />
+                  <stop offset="95%" stopColor={SERIES_COLORS.balance} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="label" stroke="#6B7280" tick={{ fontSize: 12 }} />
-              <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+              <CartesianGrid {...getGridProps('light')} />
+              <XAxis dataKey="label" {...getAxisProps('light')} />
+              <YAxis width={56} {...getAxisProps('light')} tickFormatter={formatCompact} />
+              <ReferenceLine y={0} stroke={getChartTheme('light').zeroLine} strokeWidth={1.5} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ paddingTop: '1rem' }} formatter={() => selectedAccountInfo?.account_name} />
               <Area
                 type="monotone"
                 dataKey="balance"
-                stroke="#3B82F6"
-                strokeWidth={2}
+                stroke={SERIES_COLORS.balance}
+                strokeWidth={3}
                 fill="url(#colorBalance)"
+                dot={{ r: 4, fill: SERIES_COLORS.balance, stroke: '#fff', strokeWidth: 1.5 }}
+                activeDot={{ r: 7, stroke: '#fff', strokeWidth: 2 }}
                 name="Balance"
               />
             </AreaChart>

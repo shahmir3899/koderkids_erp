@@ -24,6 +24,7 @@ import {
  * @param {boolean} props.sortable - Whether column is sortable (default: true)
  * @param {string} props.width - Column width (optional)
  * @param {string} props.className - Additional CSS classes
+ * @param {boolean} props.sticky - Pin header while the table body scrolls (uses opaque colours)
  */
 export const TableHeader = ({
   label,
@@ -34,6 +35,7 @@ export const TableHeader = ({
   sortable = true,
   width = 'auto',
   className = '',
+  sticky = false,
 }) => {
   const isSorted = sortConfig.key === sortKey;
   const direction = sortConfig.direction;
@@ -44,13 +46,17 @@ export const TableHeader = ({
     }
   };
 
+  const baseBg = sticky ? '#4B3F9E' : 'rgba(139, 92, 246, 0.3)';
+  const hoverBg = sticky ? '#5C4FB5' : 'rgba(139, 92, 246, 0.5)';
+
   const headerStyle = {
     padding: SPACING.sm,
     textAlign: align,
     fontWeight: FONT_WEIGHTS.bold,
     fontSize: FONT_SIZES.sm,
     color: '#FBBF24', // Golden Yellow for headers
-    backgroundColor: 'rgba(139, 92, 246, 0.3)', // Purple tint background
+    backgroundColor: baseBg, // Purple tint background
+    ...(sticky && { position: 'sticky', top: 0, zIndex: 2 }),
     cursor: sortable ? 'pointer' : 'default',
     userSelect: 'none',
     transition: `background-color ${TRANSITIONS.fast} ease`,
@@ -82,11 +88,11 @@ export const TableHeader = ({
       onClick={handleClick}
       onMouseEnter={(e) => {
         if (sortable) {
-          e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.5)';
+          e.currentTarget.style.backgroundColor = hoverBg;
         }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
+        e.currentTarget.style.backgroundColor = baseBg;
       }}
       className={className}
     >

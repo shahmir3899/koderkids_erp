@@ -15,10 +15,12 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
 import { financeDashboardService } from '../../services/financeDashboardService';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import { ChartSkeleton, ChartEmptyState } from './ChartStates';
 import { Button } from '../common/ui/Button';
 import {
   COLORS,
@@ -29,8 +31,19 @@ import {
   TRANSITIONS,
   MIXINS,
 } from '../../utils/designConstants';
+import {
+  SERIES_COLORS,
+  getAxisProps,
+  getGridProps,
+  getLineProps,
+  getChartTheme,
+  formatCompact,
+  formatPKR,
+  useChartHeight,
+} from '../../utils/chartTheme';
 
 export const MonthlyTrendsChart = ({ schools, isVisible = true }) => {
+  const chartHeight = useChartHeight();
   const [data, setData] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -113,13 +126,13 @@ export const MonthlyTrendsChart = ({ schools, isVisible = true }) => {
             {payload[0].payload.month_label}
           </p>
           <p style={styles.tooltipIncome}>
-            Income: PKR {payload[0].value.toLocaleString()}
+            Income: {formatPKR(payload[0].payload.income)}
           </p>
           <p style={styles.tooltipExpense}>
-            Expenses: PKR {payload[1].value.toLocaleString()}
+            Expenses: {formatPKR(payload[0].payload.expenses)}
           </p>
           <p style={styles.tooltipNet}>
-            Net: PKR {payload[2].value.toLocaleString()}
+            Net: {formatPKR(payload[0].payload.net)}
           </p>
         </div>
       );
@@ -215,28 +228,25 @@ export const MonthlyTrendsChart = ({ schools, isVisible = true }) => {
 
       {/* Chart */}
       {loading ? (
-        <div style={styles.loadingContainer}>
-          <LoadingSpinner message="Loading trends..." />
-        </div>
+        <ChartSkeleton variant="dark" />
       ) : data.length === 0 ? (
-        <div style={styles.emptyState}>
-          <p style={styles.emptyText}>No data available for selected period</p>
-        </div>
+        <ChartEmptyState variant="dark" />
       ) : (
-        <div style={styles.chartContainer}>
+        <div style={{ ...styles.chartContainer, height: `${chartHeight}px` }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-              <XAxis dataKey="month_label" stroke={COLORS.text.whiteSubtle} tick={{ fontSize: 12 }} />
-              <YAxis stroke={COLORS.text.whiteSubtle} tick={{ fontSize: 12 }} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+            <LineChart data={data} margin={{ top: 10, right: 16, left: 4, bottom: 0 }}>
+              <CartesianGrid {...getGridProps('dark')} />
+              <XAxis dataKey="month_label" {...getAxisProps('dark')} />
+              <YAxis width={56} {...getAxisProps('dark')} tickFormatter={formatCompact} />
+              <ReferenceLine y={0} stroke={getChartTheme('dark').zeroLine} strokeWidth={1.5} />
               <Tooltip content={<CustomTooltip />} />
               <Legend
                 wrapperStyle={{ paddingTop: '1rem' }}
-                formatter={(value) => <span style={{ color: COLORS.text.whiteMedium }}>{value}</span>}
+                formatter={(value) => <span style={{ color: getChartTheme('dark').legendText, fontWeight: 600 }}>{value}</span>}
               />
-              <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} name="Income" />
-              <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Expenses" />
-              <Line type="monotone" dataKey="net" stroke="#3B82F6" strokeWidth={3} name="Net" />
+              <Line dataKey="income" name="Income" {...getLineProps(SERIES_COLORS.income)} />
+              <Line dataKey="expenses" name="Expenses" {...getLineProps(SERIES_COLORS.expense)} />
+              <Line dataKey="net" name="Net" {...getLineProps(SERIES_COLORS.net, 4)} />
             </LineChart>
           </ResponsiveContainer>
         </div>

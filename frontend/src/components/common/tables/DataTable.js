@@ -25,6 +25,7 @@ import {
  * @param {boolean} props.striped - Alternating row colors (default: true)
  * @param {boolean} props.hoverable - Hover effect on rows (default: true)
  * @param {string} props.maxHeight - Max height with scroll (optional)
+ * @param {boolean} props.stickyHeader - Pin header row while scrolling; use with maxHeight (optional)
  * @param {Function} props.onRowClick - Row click handler (optional)
  * @param {string} props.className - Additional CSS classes
  * @param {Object} props.initialSort - Initial sort config (optional)
@@ -38,6 +39,7 @@ export const DataTable = ({
   striped = true,
   hoverable = true,
   maxHeight = null,
+  stickyHeader = false,
   onRowClick = null,
   className = '',
   initialSort = { key: null, direction: 'asc' },
@@ -134,6 +136,7 @@ export const DataTable = ({
                 align={column.align || 'left'}
                 sortable={column.sortable !== false}
                 width={column.width}
+                sticky={stickyHeader}
               />
             ))}
           </tr>

@@ -88,7 +88,8 @@ export const FinancialSummaryCard = ({
               style={{
                 ...styles.value,
                 color: metric.color,
-                fontSize: isMobile ? FONT_SIZES.xl : FONT_SIZES['2xl'],
+                fontSize: isMobile ? FONT_SIZES['2xl'] : FONT_SIZES['3xl'],
+                fontVariantNumeric: 'tabular-nums',
               }}
             >
               {formatCurrency(metric.value)}
@@ -126,6 +127,8 @@ const styles = {
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
     marginBottom: SPACING.sm,
     fontFamily: 'Inter, sans-serif',
   },

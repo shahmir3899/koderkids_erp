@@ -15,7 +15,9 @@ import {
 } from 'recharts';
 import { financeDashboardService } from '../../services/financeDashboardService';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import { ChartSkeleton, ChartEmptyState } from './ChartStates';
 import { Button } from '../common/ui/Button';
+import { groupSmallSlices } from '../../utils/chartTheme';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'];
 
@@ -86,6 +88,10 @@ export const IncomeCategoriesPie = ({ schools }) => {
     setShowCustomModal(false);
     fetchData();
   };
+
+  const sortedData = [...data].sort((a, b) => (b.total || 0) - (a.total || 0));
+  const pieData = groupSmallSlices(data);
+  const renderSliceLabel = ({ percentage }) => (percentage >= 4 ? `${percentage.toFixed(0)}%` : '');
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -305,23 +311,11 @@ export const IncomeCategoriesPie = ({ schools }) => {
 
       {/* Chart and Table */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
-          <LoadingSpinner message="Loading categories..." />
-        </div>
+        <ChartSkeleton variant="light" />
       ) : data.length === 0 ? (
-        <div
-          style={{
-            padding: '3rem',
-            textAlign: 'center',
-            backgroundColor: '#F9FAFB',
-            borderRadius: '8px',
-            border: '1px solid #E5E7EB',
-          }}
-        >
-          <p style={{ color: '#6B7280', margin: 0, fontSize: '1rem' }}>No data available for selected period</p>
-        </div>
+        <ChartEmptyState variant="light" />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
           {/* Pie Chart */}
           <div>
             <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: '#1F2937' }}>Distribution</h4>
@@ -329,7 +323,7 @@ export const IncomeCategoriesPie = ({ schools }) => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={data}
+                    data={pieData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -337,9 +331,9 @@ export const IncomeCategoriesPie = ({ schools }) => {
                     fill="#8884d8"
                     dataKey="total"
                     nameKey="category"  // Ensures legend uses 'category'
-                    label={({ percentage }) => `${percentage.toFixed(0)}%`}  // Uses backend-rounded percentage
+                    label={renderSliceLabel}
                   >
-                    {data.map((entry, index) => (
+                    {pieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -348,7 +342,7 @@ export const IncomeCategoriesPie = ({ schools }) => {
                     layout="vertical"
                     align="right"
                     verticalAlign="middle"
-                    wrapperStyle={{ fontSize: '0.875rem', color: '#6B7280' }}
+                    wrapperStyle={{ fontSize: '0.9rem', color: '#374151', fontWeight: 500 }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -410,7 +404,7 @@ export const IncomeCategoriesPie = ({ schools }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((item, index) => (
+                  {sortedData.map((item, index) => (
                     <tr
                       key={item.category}
                       style={{

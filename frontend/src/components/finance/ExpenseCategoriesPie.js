@@ -15,7 +15,9 @@ import {
 } from 'recharts';
 import { financeDashboardService } from '../../services/financeDashboardService';
 import { LoadingSpinner } from '../common/ui/LoadingSpinner';
+import { ChartSkeleton, ChartEmptyState } from './ChartStates';
 import { Button } from '../common/ui/Button';
+import { groupSmallSlices } from '../../utils/chartTheme';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'];
 
@@ -85,6 +87,10 @@ export const ExpenseCategoriesPie = ({ schools }) => {
     setShowCustomModal(false);
     fetchData();
   };
+
+  const sortedData = [...data].sort((a, b) => (b.total || 0) - (a.total || 0));
+  const pieData = groupSmallSlices(data);
+  const renderSliceLabel = ({ percentage }) => (percentage >= 4 ? `${percentage.toFixed(0)}%` : '');
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -277,21 +283,9 @@ export const ExpenseCategoriesPie = ({ schools }) => {
 
       {/* Chart and Table Side by Side */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
-          <LoadingSpinner message="Loading expense categories..." />
-        </div>
+        <ChartSkeleton variant="light" />
       ) : data.length === 0 ? (
-        <div
-          style={{
-            padding: '3rem',
-            textAlign: 'center',
-            backgroundColor: '#F9FAFB',
-            borderRadius: '8px',
-            border: '1px solid #E5E7EB',
-          }}
-        >
-          <p style={{ color: '#6B7280', margin: 0, fontSize: '1rem' }}>No expense data available for selected filters</p>
-        </div>
+        <ChartEmptyState variant="light" />
       ) : (
         <div
           style={{
@@ -309,20 +303,20 @@ export const ExpenseCategoriesPie = ({ schools }) => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={data}
+                    data={pieData}
                     dataKey="total"
                     nameKey="category"
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
-                    label={({ percentage }) => `${percentage.toFixed(0)}%`}
+                    label={renderSliceLabel}
                   >
-                    {data.map((entry, index) => (
+                    {pieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend verticalAlign="bottom" height={36} />
+                  <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: '0.9rem', color: '#374151', fontWeight: 500 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -376,7 +370,7 @@ export const ExpenseCategoriesPie = ({ schools }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((item, index) => (
+                  {sortedData.map((item, index) => (
                     <tr
                       key={item.category}
                       style={{
