@@ -44,6 +44,8 @@ def _statement_rows(parsed: Dict[str, Any]) -> List[Dict[str, Any]]:
             'balance': t.get('balance'),
             'balance_ok': t.get('balance_ok'),
             'row_no': t.get('row_no'),
+            'date_inferred': t.get('date_inferred', False),
+            'date_range': t.get('date_range'),
         }
         for t in parsed.get('transactions', [])
     ]

@@ -42,6 +42,22 @@ def _amount(row: Dict[str, Any]) -> Decimal:
     return row['deposit'] or row['withdrawal']
 
 
+def _date_gap(row: Dict[str, Any], entry_date) -> int:
+    """
+    Days between a statement row and a system entry. A row with no printed date
+    carries the range it must fall in; inside that range the gap is zero.
+    """
+    if not entry_date or not row.get('date'):
+        return 99
+    rng = row.get('date_range')
+    if rng:
+        lo, hi = rng
+        if lo <= entry_date <= hi:
+            return 0
+        return min(abs((entry_date - lo).days), abs((entry_date - hi).days))
+    return abs((entry_date - row['date']).days)
+
+
 def _words(text: Optional[str]) -> str:
     return re.sub(r'[^a-z0-9 ]+', ' ', (text or '').lower()).strip()
 
@@ -74,7 +90,7 @@ def match_rows(statement: List[Dict[str, Any]], system: List[Dict[str, Any]],
                 continue
             if abs(entry['amount'] - _amount(row)) > TOLERANCE:
                 continue
-            days = abs((entry['date'] - row['date']).days) if entry['date'] and row['date'] else 99
+            days = _date_gap(row, entry['date'])
             if days > window_days:
                 continue
             text = _similarity(row['description'], entry.get('notes'))
@@ -188,6 +204,10 @@ def analyse(statement: List[Dict[str, Any]], system: List[Dict[str, Any]],
             'suggestion': {
                 **suggest_type(row, accounts, this_account_id),
                 'category': suggest_category(row['description'], direction, system),
+                **({'date_inferred': True,
+                    'date_min': row['date_range'][0].isoformat() if row.get('date_range') else None,
+                    'date_max': row['date_range'][1].isoformat() if row.get('date_range') else None}
+                   if row.get('date_inferred') else {}),
             },
         }
         if anchor is None or si > anchor:

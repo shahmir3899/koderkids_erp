@@ -151,6 +151,16 @@ class BankStatementParser:
                 if closing_balance is None:
                     closing_balance = new['closing_balance']
 
+        # Scanned or photographed statements (CamScanner etc.) have no text layer: read them with OCR.
+        if not transactions:
+            raw = file_content.getvalue() if hasattr(file_content, 'getvalue') else open(file_content, 'rb').read()
+            scanned = self._parse_scanned_pdf(raw)
+            if scanned['transactions']:
+                transactions = scanned['transactions']
+                parse_notes = ['Scanned PDF read with OCR; check amounts against the original.'] + scanned['notes']
+                opening_balance = scanned['opening_balance'] if scanned['opening_balance'] is not None else opening_balance
+                closing_balance = scanned['closing_balance'] if scanned['closing_balance'] is not None else closing_balance
+
         # Calculate summary
         total_withdrawals = sum(t['withdrawal'] for t in transactions if t['withdrawal'])
         total_deposits = sum(t['deposit'] for t in transactions if t['deposit'])
@@ -173,6 +183,14 @@ class BankStatementParser:
             },
             'parse_notes': parse_notes,
         }
+
+    def _parse_scanned_pdf(self, pdf_bytes: bytes) -> Dict[str, Any]:
+        """OCR every page and run the layout-independent parser over all lines."""
+        from .ocr import ocr_pdf_pages, line_settings
+        lines = []
+        for words in ocr_pdf_pages(pdf_bytes):
+            lines.extend(rows_from_words(words, **line_settings(words)))
+        return parse_positioned_lines(lines)
 
     def _choose_parse(self, old_txns: List[Dict], new: Dict[str, Any]) -> Tuple[List[Dict], List[str]]:
         """Pick between the older table parse and the layout-independent parse."""
@@ -552,8 +570,38 @@ class BankStatementParser:
     def _parse_image(self, file) -> Dict[str, Any]:
         """
         Parse image bank statement using OCR.
-        Requires pytesseract and tesseract-ocr to be installed.
+        Uses RapidOCR (pip only) first; falls back to pytesseract if that is installed.
         """
+        try:
+            from PIL import Image
+            from .ocr import ocr_image_words, line_settings
+            image = Image.open(file)
+            words = ocr_image_words(image)
+            parsed = parse_positioned_lines(rows_from_words(words, **line_settings(words)))
+            if parsed['transactions']:
+                txns = parsed['transactions']
+                return {
+                    'success': True,
+                    'account_name': None,
+                    'account_number': None,
+                    'opening_balance': parsed['opening_balance'],
+                    'closing_balance': parsed['closing_balance'],
+                    'statement_period': {'from': txns[0]['date'], 'to': txns[-1]['date']},
+                    'transactions': txns,
+                    'summary': {
+                        'total_withdrawals': sum(t['withdrawal'] for t in txns),
+                        'total_deposits': sum(t['deposit'] for t in txns),
+                        'transaction_count': len(txns),
+                    },
+                    'parse_notes': ['Image read with OCR; check amounts against the original.'] + parsed['notes'],
+                }
+            if hasattr(file, 'seek'):
+                file.seek(0)
+        except Exception:
+            logger.exception('RapidOCR image parsing failed; trying pytesseract')
+            if hasattr(file, 'seek'):
+                file.seek(0)
+
         try:
             import pytesseract
             from PIL import Image

@@ -150,3 +150,68 @@ class PositionedParsingTests(SimpleTestCase):
         self.assertIn('March', tx[1]['description'])
         self.assertEqual(out['mismatches'], 0)
         self.assertEqual(out['opening_balance'], D('100000.00'))
+
+
+class ScannedStatementTests(SimpleTestCase):
+    """Shapes seen in photographed (OCR) statements."""
+
+    def _cells(self, *items):
+        return [{'text': t, 'x0': x - 60, 'x1': x} for t, x in items]
+
+    def _page(self):
+        header = [self._cells(('Date', 80), ('Description', 220), ('Withdrawal', 360)),
+                  self._cells(('Deposit', 450), ('Balance', 560))]
+        rows = [
+            self._cells(('Opening Balance :', 100), ('PKR 100,000.00', 560)),
+            # date glued to the description, one amount under Withdrawal
+            self._cells(('01/03/2026Inward Clearing To 123', 220), ('5,000.00', 360), ('95,000.00', 560)),
+            # wrapped description, then a row with no date of its own (deposit), thousands comma misread as dot
+            self._cells(('CHQ00024269', 220)),
+            self._cells(('From:SOMEONE', 220), ('10,000.00', 450), ('105.000.00', 560)),
+            self._cells(('Printed By : X | Page 1 of 2', 400)),
+            header[0], header[1],
+            self._cells(('02/03/2026 Raast From 9', 220), ('2,500.00', 450), ('107,500.00', 560)),
+            self._cells(('DEBIT TRANSACTIONS COUNT: 1', 300), ('TOTAL DEBIT AMOUNT', 450), ('5,000.00', 560)),
+            self._cells(('AVAILABLE BALANCE AS ON 02-Mar-2026 :', 300), ('PKR 107,500.00', 560)),
+        ]
+        return header + rows
+
+    def test_scanned_page(self):
+        out = parse_positioned_lines(self._page())
+        tx = out['transactions']
+        self.assertEqual(len(tx), 3, tx)
+        self.assertEqual(out['mismatches'], 0)
+        self.assertEqual(out['opening_balance'], D('100000.00'))
+        self.assertEqual(out['closing_balance'], D('107500.00'))
+        self.assertEqual(tx[0]['withdrawal'], D('5000.00'))
+        self.assertEqual(tx[1]['deposit'], D('10000.00'))        # no date of its own
+        self.assertTrue(tx[1]['date_inferred'])
+        self.assertEqual(tx[1]['date_range'], (date(2026, 3, 1), date(2026, 3, 2)))
+        self.assertEqual(tx[1]['balance'], D('105000.00'))       # 105.000.00 repaired
+        self.assertIn('CHQ00024269', tx[0]['description'])
+        self.assertEqual(tx[2]['deposit'], D('2500.00'))         # the totals line is not a row
+
+    def test_missing_balance_is_bridged(self):
+        rows = [
+            ['Date', 'Description', 'Received', 'Deducted', 'Balance'],
+            ['01/03/2026', 'A', '', '1,000', '9,000'],
+            ['02/03/2026', 'B (balance unreadable)', '', '500', ''],
+            ['03/03/2026', 'C', '200', '', '8,700'],
+        ]
+        out = parse_table(rows)
+        self.assertEqual(out['mismatches'], 0)
+
+    def test_swapped_columns_are_repaired_from_balance(self):
+        rows = [
+            ['Date', 'Description', 'Received', 'Deducted', 'Balance'],
+            ['01/03/2026', 'A', '', '1,000', '9,000'],
+            ['02/03/2026', 'B', '', '500', '9,500'],   # actually received 500
+        ]
+        out = parse_table(rows)
+        self.assertEqual(out['mismatches'], 0)
+        self.assertEqual(out['transactions'][1]['deposit'], D('500'))
+
+    def test_mixed_separator_amounts(self):
+        self.assertEqual(parse_amount('266.390.00'), D('266390.00'))
+        self.assertEqual(parse_amount('20.130.00'), D('20130.00'))
+        self.assertEqual(parse_amount('1,234.50'), D('1234.50'))

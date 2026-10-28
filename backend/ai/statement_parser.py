@@ -83,6 +83,7 @@ def parse_amount(value: Any) -> Optional[Decimal]:
     text = str(value).strip()
     if not text or text in ('-', '--', '—', 'N/A', 'n/a', 'nan', 'None'):
         return None
+    text = _fix_separators(text)
     match = _AMOUNT_RE.match(text)
     if not match:
         return None
@@ -90,6 +91,22 @@ def parse_amount(value: Any) -> Optional[Decimal]:
     number = Decimal(whole.replace(',', '') + frac)
     negative = text.startswith('(') or text.lstrip('+( ').startswith('-') or (suffix or '').upper() == 'DR'
     return -number if negative else number
+
+
+_MIXED_SEP_RE = re.compile(r'^(\D*?)(\d{1,3}(?:[.,]\d{3})+[.,]\d{2})(\D*)$')
+
+
+def _fix_separators(text: str) -> str:
+    """
+    Scans often misread the thousands comma as a dot ("266.390.00"). When a number
+    has thousands groups and ends in two decimals, rebuild it as 266390.00.
+    """
+    m = _MIXED_SEP_RE.match(text)
+    if not m:
+        return text
+    core = m.group(2)
+    whole = re.sub(r'[.,]', '', core[:-3])
+    return f'{m.group(1)}{whole}.{core[-2:]}{m.group(3)}'
 
 
 def _is_amount_like(text: str) -> bool:
@@ -277,52 +294,166 @@ def rows_from_words(words: List[Dict[str, Any]], line_tol: float = 3.0, gap: flo
     return result
 
 
+_DATE_PREFIX_RE = re.compile(
+    r'^(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{1,2}[- ][A-Za-z]{3}[- ]\d{2,4})(?![\d])\s*(.*)$'
+)
+_OPENING_RE = re.compile(r'opening\s+balance', re.IGNORECASE)
+_CLOSING_RE = re.compile(r'closing\s+balance', re.IGNORECASE)
+_AVAILABLE_RE = re.compile(r'available\s+balance', re.IGNORECASE)
+# Summary lines printed under the table; they contain numbers but are not transactions.
+_FOOTER_RE = re.compile(
+    r'transactions?\s+count|total\s+(debit|credit|withdrawal|deposit)|printed\s+by|end\s+of\s+statement|'
+    r'this\s+is\s+a\s+computer',
+    re.IGNORECASE,
+)
+_PAGE_LINE_RE = re.compile(r'page\s*\d+\s*of\s*\d+', re.IGNORECASE)
+
+
+def _split_leading_dates(cells: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """OCR often glues the date to the description ("31/01/2026RaastPTP..."): split them."""
+    out: List[Dict[str, Any]] = []
+    for cell in cells:
+        text = cell['text'].strip()
+        m = _DATE_PREFIX_RE.match(text)
+        if m and parse_date(m.group(1)) and m.group(2):
+            width = cell['x1'] - cell['x0']
+            cut = cell['x0'] + width * len(m.group(1)) / max(len(text), 1)
+            out.append({'text': m.group(1), 'x0': cell['x0'], 'x1': cut})
+            out.append({'text': m.group(2), 'x0': cut, 'x1': cell['x1']})
+        else:
+            out.append(cell)
+    return out
+
+
+def _header_fields(cells: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    found: Dict[str, Dict[str, Any]] = {}
+    for cell in cells:
+        if parse_date(cell['text']) or _looks_numeric(cell['text']):
+            return {}
+        field = classify_header_cell(cell['text'])
+        if field and field not in found:
+            found[field] = cell
+    return found
+
+
+def _money_fields(fields: Dict[str, Any]) -> int:
+    return len({'deposit', 'withdrawal', 'balance'} & set(fields))
+
+
 def parse_positioned_lines(lines: List[List[Dict[str, Any]]]) -> Dict[str, Any]:
-    """Parse lines of positioned cells. Uses header x-positions when a header exists."""
+    """
+    Parse lines of positioned cells (PDF words or OCR).
+
+    The header is re-detected wherever it appears, so each scanned page uses its
+    own column positions (photographed pages are rarely aligned). A header split
+    over two lines is merged. A row whose date sits on a different line from its
+    amounts is stitched together, and an amounts-only line reuses the previous date.
+    """
     notes: List[str] = []
-    header_idx = None
-    header_cols: Dict[str, Dict[str, float]] = {}
-
-    for i, cells in enumerate(lines[:60]):
-        found: Dict[str, Dict[str, float]] = {}
-        for cell in cells:
-            field = classify_header_cell(cell['text'])
-            if field and field not in found:
-                found[field] = cell
-        if 'date' in found and len({'deposit', 'withdrawal', 'balance'} & set(found)) >= 2:
-            header_idx, header_cols = i, found
-            break
-
-    parsed: List[Optional[Dict[str, Any]]] = []
+    header_cols: Dict[str, Dict[str, Any]] = {}
+    saw_header = False
+    parsed: List[Dict[str, Any]] = []
     last: Optional[Dict[str, Any]] = None
-    start = (header_idx + 1) if header_idx is not None else 0
+    pending: Optional[Dict[str, Any]] = None   # a dated line that has no amounts yet
+    opening_hint: Optional[Decimal] = None
+    closing_hint: Optional[Decimal] = None
+    inferred_dates = 0
+    in_footer = False
 
-    for cells in lines[start:]:
-        texts = [c['text'].strip() for c in cells]
-        date_idx = next((i for i, t in enumerate(texts) if parse_date(t)), None)
-        if date_idx is None:
-            # A continuation line of a wrapped description.
-            if last is not None and texts and not any(_looks_numeric(t) for t in texts):
-                if classify_header_cell(' '.join(texts)) is None:
-                    last['description'] = (last['description'] + ' ' + ' '.join(texts)).strip()
+    i = 0
+    while i < len(lines):
+        cells = _split_leading_dates(lines[i])
+        i += 1
+        if not cells:
             continue
 
-        txn_date = parse_date(texts[date_idx])
-        right = cells[date_idx + 1:]
+        # Header (possibly split over two lines).
+        fields = _header_fields(cells)
+        if len(fields) >= 2:
+            if _money_fields(fields) < 2 and i < len(lines):
+                extra = _header_fields(_split_leading_dates(lines[i]))
+                if extra and len(extra) >= 1:
+                    merged = {**extra, **fields}
+                    if _money_fields(merged) >= 2:
+                        fields = merged
+                        i += 1
+            if _money_fields(fields) >= 2:
+                header_cols, saw_header = fields, True
+                pending, in_footer = None, False
+                continue
+
+        texts = [c['text'].strip() for c in cells]
+        joined = ' '.join(texts)
+
+        if _OPENING_RE.search(joined) or _CLOSING_RE.search(joined) or _AVAILABLE_RE.search(joined):
+            amount = next((parse_amount(t) for t in reversed(texts) if parse_amount(t) is not None), None)
+            if amount is not None and _OPENING_RE.search(joined) and opening_hint is None:
+                opening_hint = amount
+            elif amount is not None and (_CLOSING_RE.search(joined) or _AVAILABLE_RE.search(joined)):
+                closing_hint = amount
+                in_footer = True
+            last, pending = None, None
+            continue
+
+        if _PAGE_LINE_RE.search(joined):
+            continue
+        if _FOOTER_RE.search(joined):
+            in_footer, last, pending = True, None, None
+            continue
+        if in_footer and not any(parse_date(t) for t in texts):
+            continue
+
+        date_idx = next((k for k, t in enumerate(texts) if parse_date(t)), None)
+        txn_date = parse_date(texts[date_idx]) if date_idx is not None else None
+        right = cells[date_idx + 1:] if date_idx is not None else cells
         desc_parts = [c['text'] for c in right if not _looks_numeric(c['text'])]
         num_cells = [c for c in right if _looks_numeric(c['text'])]
 
-        if header_cols and any(f in header_cols for f in ('deposit', 'withdrawal', 'balance')):
-            row = _assign_by_header(txn_date, ' '.join(desc_parts), num_cells, header_cols)
+        if txn_date is not None and not num_cells:
+            pending = {'date': txn_date, 'description': ' '.join(desc_parts)}
+            last = None
+            continue
+
+        if not num_cells:
+            # Continuation of a wrapped description.
+            extra = ' '.join(texts)
+            if pending is not None:
+                pending['description'] = (pending['description'] + ' ' + extra).strip()
+            elif last is not None:
+                last['description'] = (last['description'] + ' ' + extra).strip()
+            continue
+
+        description = ' '.join(desc_parts)
+        date_was_inferred = False
+        if txn_date is None:
+            if pending is not None:
+                txn_date, description = pending['date'], (pending['description'] + ' ' + description).strip()
+                pending = None
+            elif last is not None:
+                txn_date = last['date']
+                inferred_dates += 1
+                date_was_inferred = True
+            else:
+                continue  # numbers above the first transaction (account details, totals)
         else:
-            row = _from_numbers(txn_date, ' '.join(desc_parts), [parse_amount(c['text']) for c in num_cells])
+            pending = None
+            in_footer = False
+
+        if header_cols and _money_fields(header_cols) >= 2:
+            row = _assign_by_header(txn_date, description, num_cells, header_cols)
+        else:
+            row = _from_numbers(txn_date, description, [parse_amount(c['text']) for c in num_cells])
         if row:
+            if date_was_inferred:
+                row['date_inferred'] = True
             parsed.append(row)
             last = row
 
-    if header_idx is None:
+    if not saw_header:
         notes.append('No header row found; columns were inferred from the data.')
-    return _finish(parsed, 'header' if header_idx is not None else 'content', notes)
+    if inferred_dates:
+        notes.append(f'{inferred_dates} row(s) had no date of their own and use the previous row date.')
+    return _finish(parsed, 'header' if saw_header else 'content', notes, opening_hint, closing_hint)
 
 
 def _assign_by_header(txn_date: date, description: str, num_cells: List[Dict[str, Any]],
@@ -356,7 +487,8 @@ def _assign_by_header(txn_date: date, description: str, num_cells: List[Dict[str
 # Ordering, direction inference and verification
 # ---------------------------------------------------------------------------
 
-def _finish(parsed: List[Optional[Dict[str, Any]]], mode: str, notes: List[str]) -> Dict[str, Any]:
+def _finish(parsed: List[Optional[Dict[str, Any]]], mode: str, notes: List[str],
+            opening_hint: Optional[Decimal] = None, closing_hint: Optional[Decimal] = None) -> Dict[str, Any]:
     rows = [r for r in parsed if r]
     if not rows:
         return {'transactions': [], 'opening_balance': None, 'closing_balance': None,
@@ -368,14 +500,18 @@ def _finish(parsed: List[Optional[Dict[str, Any]]], mode: str, notes: List[str])
         rows.reverse()
         notes.append('Statement was newest-first; rows were put in date order.')
 
-    _infer_directions(rows)
-    verified, mismatches = _verify_chain(rows)
+    _infer_directions(rows, opening_hint)
+    verified, mismatches, flipped = _verify_chain(rows, opening_hint)
+    if flipped:
+        notes.append(f'{flipped} row(s) had received/deducted swapped; fixed using the running balance.')
 
-    opening = None
+    opening = opening_hint
     first = rows[0]
-    if first['balance'] is not None:
+    if opening is None and first['balance'] is not None:
         opening = first['balance'] - first['deposit'] + first['withdrawal']
-    closing = next((r['balance'] for r in reversed(rows) if r['balance'] is not None), None)
+    closing = closing_hint if closing_hint is not None else next(
+        (r['balance'] for r in reversed(rows) if r['balance'] is not None), None)
+    _add_date_ranges(rows)
 
     for i, r in enumerate(rows):
         r['row_no'] = i + 1
@@ -386,6 +522,16 @@ def _finish(parsed: List[Optional[Dict[str, Any]]], mode: str, notes: List[str])
             'mode': mode, 'notes': notes, 'verified': verified, 'mismatches': mismatches}
 
 
+def _add_date_ranges(rows: List[Dict[str, Any]]) -> None:
+    """A row with no printed date happened between its neighbours' dates; record that range."""
+    for i, r in enumerate(rows):
+        if not r.get('date_inferred'):
+            continue
+        lo = next((rows[j]['date'] for j in range(i - 1, -1, -1) if not rows[j].get('date_inferred')), r['date'])
+        hi = next((rows[j]['date'] for j in range(i + 1, len(rows)) if not rows[j].get('date_inferred')), r['date'])
+        r['date_range'] = (min(lo, hi), max(lo, hi))
+
+
 def _is_descending(rows: List[Dict[str, Any]]) -> bool:
     asc = sum(1 for a, b in zip(rows, rows[1:]) if b['date'] >= a['date'])
     desc = sum(1 for a, b in zip(rows, rows[1:]) if b['date'] <= a['date'])
@@ -394,13 +540,13 @@ def _is_descending(rows: List[Dict[str, Any]]) -> bool:
     return desc > asc
 
 
-def _infer_directions(rows: List[Dict[str, Any]]) -> None:
+def _infer_directions(rows: List[Dict[str, Any]], opening_hint: Optional[Decimal] = None) -> None:
     """For rows with one amount plus a balance, decide received vs deducted from the balance move."""
     for i, r in enumerate(rows):
         amount = r.get('_ambiguous')
         if amount is None or r['balance'] is None:
             continue
-        prev_balance = rows[i - 1]['balance'] if i > 0 else None
+        prev_balance = rows[i - 1]['balance'] if i > 0 else opening_hint
         if prev_balance is None:
             r['balance_ok'] = None
             r['needs_direction'] = True
@@ -419,22 +565,43 @@ def _infer_directions(rows: List[Dict[str, Any]]) -> None:
                 r['withdrawal'] = amount
 
 
-def _verify_chain(rows: List[Dict[str, Any]]):
-    verified = mismatches = 0
+def _verify_chain(rows: List[Dict[str, Any]], opening_hint: Optional[Decimal] = None):
+    """
+    Check every row against the running balance. When a row only fits with
+    received and deducted swapped (a number read under the wrong column), swap it.
+    """
+    verified = mismatches = flipped = 0
+    known = opening_hint      # last balance we trust
+    drift = ZERO              # net movement of rows since then whose balance was unreadable
     for i, r in enumerate(rows):
         if r.get('needs_direction'):
+            known, drift = r['balance'], ZERO
             continue
-        if i == 0 or r['balance'] is None or rows[i - 1]['balance'] is None:
+        if r['balance'] is None:
+            # The balance cell was not read; carry this row's movement into the next check.
             r.setdefault('balance_ok', None)
+            drift += r['deposit'] - r['withdrawal']
             continue
-        expected = rows[i - 1]['balance'] + r['deposit'] - r['withdrawal']
+        if known is None:
+            r.setdefault('balance_ok', None)
+            known, drift = r['balance'], ZERO
+            continue
+        prev = known + drift
+        expected = prev + r['deposit'] - r['withdrawal']
         ok = abs(expected - r['balance']) <= TOLERANCE
+        if not ok and (r['deposit'] or r['withdrawal']):
+            swapped = prev + r['withdrawal'] - r['deposit']
+            if abs(swapped - r['balance']) <= TOLERANCE:
+                r['deposit'], r['withdrawal'] = r['withdrawal'], r['deposit']
+                ok = True
+                flipped += 1
+        known, drift = r['balance'], ZERO
         r['balance_ok'] = ok
         if ok:
             verified += 1
         else:
             mismatches += 1
-    return verified, mismatches
+    return verified, mismatches, flipped
 
 
 def chain_mismatches(rows: List[Dict[str, Any]]):

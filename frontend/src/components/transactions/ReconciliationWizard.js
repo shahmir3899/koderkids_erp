@@ -55,6 +55,7 @@ export const ReconciliationWizard = ({ accounts = [], onRefresh }) => {
       category: s.category || '',
       notes: current.description || '',
       counter_account_id: s.counter_account_id || '',
+      date: current.date || '',
     });
   }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -106,6 +107,7 @@ export const ReconciliationWizard = ({ accounts = [], onRefresh }) => {
       transaction_type: edit.transaction_type,
       category: edit.category,
       notes: edit.notes,
+      date: edit.date || undefined,
       counter_account_id: edit.counter_account_id ? Number(edit.counter_account_id) : undefined,
     });
   }, [current, edit, act]);
@@ -256,7 +258,23 @@ export const ReconciliationWizard = ({ accounts = [], onRefresh }) => {
             {current.bucket === 'earlier' && <span style={styles.tag}>Before the sync point</span>}
             {current.balance_ok === false && <span style={{ ...styles.tag, background: '#991B1B' }}>Balance mismatch</span>}
           </div>
-          <div style={styles.date}>{current.date}</div>
+          {current.suggestion?.date_inferred ? (
+            <label style={styles.label}>
+              Date (not printed on the statement; confirm it
+              {current.suggestion.date_min && current.suggestion.date_max
+                ? `, between ${current.suggestion.date_min} and ${current.suggestion.date_max}`
+                : ''}
+              )
+              <input
+                type="date"
+                value={edit.date || ''}
+                onChange={(e) => setEdit({ ...edit, date: e.target.value })}
+                style={styles.input}
+              />
+            </label>
+          ) : (
+            <div style={styles.date}>{current.date}</div>
+          )}
           <div style={styles.desc}>{current.description || '(no description)'}</div>
           <div style={{ ...styles.amount, color: current.deposit > 0 ? '#6EE7B7' : '#FCA5A5' }}>
             {current.deposit > 0 ? '+ ' : '− '}

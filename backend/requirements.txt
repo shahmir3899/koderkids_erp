@@ -31,6 +31,8 @@ pillow==11.3.0
 weasyprint==68.1
 reportlab
 pdfplumber>=0.10.0
+pypdfium2>=4.0
+rapidocr-onnxruntime>=1.2.3
 
 # Task Queue & Scheduling
 celery[redis]==5.4.0
