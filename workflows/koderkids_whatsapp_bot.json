@@ -1,0 +1,655 @@
+{
+  "name": "KoderKids WhatsApp Bot — Safe Version",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["messages"],
+        "options": {}
+      },
+      "id": "3a1c8b2d-0001-4f7e-a123-000000000001",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "webhookId": "koderkids-whatsapp-bot",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "whatsapp-business-creds",
+          "name": "WhatsApp Business API"
+        }
+      },
+      "notes": "Receives all incoming WhatsApp messages. Configure the Meta WhatsApp Business API credentials and set the Verify Token in Meta Developer Console."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-participant-exists",
+              "leftValue": "={{ $json.participant }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cond-group-jid",
+              "leftValue": "={{ $json.from }}",
+              "rightValue": "@g.us",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "3a1c8b2d-0002-4f7e-a123-000000000002",
+      "name": "Is Group Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "notes": "Filters out WhatsApp group messages. Group messages have a 'participant' field or a 'from' ending in @g.us. When true → ignore; when false → continue processing."
+    },
+    {
+      "parameters": {},
+      "id": "3a1c8b2d-0003-4f7e-a123-000000000003",
+      "name": "Ignore Group Message",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [520, 100],
+      "notes": "No action taken for group messages. The workflow stops here silently."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and normalize the incoming WhatsApp message payload.\n// Supports both the n8n WhatsApp Trigger output and raw Meta webhook payloads.\nconst data = $input.item.json;\n\n// --- phone number ---\n// n8n WhatsApp trigger exposes `from` directly at the top level.\nconst from = (data.from || '').replace(/[^0-9]/g, '');\n\n// --- message body ---\nconst msgType = (data.type || 'text');\nlet body = '';\nif (msgType === 'text') {\n  body = (data.text && data.text.body) ? data.text.body : (data.body || '');\n} else if (msgType === 'interactive') {\n  // Button / list reply\n  const interactive = data.interactive || {};\n  if (interactive.type === 'button_reply') {\n    body = interactive.button_reply?.id || interactive.button_reply?.title || '';\n  } else if (interactive.type === 'list_reply') {\n    body = interactive.list_reply?.id || interactive.list_reply?.title || '';\n  }\n} else {\n  // Unsupported types (image, audio, document, etc.) → route to Koder Agent\n  body = '__unsupported__';\n}\n\n// --- sender display name ---\n// The n8n WhatsApp trigger may include contacts array\nlet senderName = 'Friend';\nif (data.contacts && data.contacts.length > 0) {\n  senderName = data.contacts[0]?.profile?.name || 'Friend';\n} else if (data.pushName) {\n  senderName = data.pushName;\n}\n\n// --- message ID (for deduplication) ---\nconst messageId = data.id || data.messageId || '';\n\n// --- intent classification ---\nconst rawBody = body.trim();\nconst lc = rawBody.toLowerCase();\n\nlet intent = 'koder'; // default fallback\n\nif (rawBody === '__unsupported__') {\n  intent = 'unsupported';\n} else if (/^(hi|hello|hey|salam|start|menu|help|مرحبا|سلام|کوڈر|koder|helo|hii|hai)$/i.test(lc) || lc === '') {\n  intent = 'greeting';\n} else if (/^1$/.test(lc) || /\\bfee(s)?\\b/.test(lc) || /\\bpayment\\b/.test(lc) || /\\bfeature\\b/.test(lc)) {\n  intent = 'fee';\n} else if (/^2$/.test(lc) || /\\b(lead|enquiry|inquiry|prospect|school enquiry|new school)\\b/.test(lc)) {\n  intent = 'lead';\n} else if (/^3$/.test(lc) || /\\b(inventory|stock|item|supply|supplies|equipment)\\b/.test(lc)) {\n  intent = 'inventory';\n} else if (/^4$/.test(lc) || /\\b(task|todo|assign|assignment|reminder)\\b/.test(lc)) {\n  intent = 'task';\n} else if (/^5$/.test(lc) || /\\b(general|koder agent|assistant|bot|robot)\\b/.test(lc)) {\n  intent = 'koder';\n}\n// anything else falls through to the default 'koder' intent\n\nreturn [\n  {\n    json: {\n      from,\n      body: rawBody,\n      senderName,\n      messageId,\n      intent,\n      msgType,\n    }\n  }\n];"
+      },
+      "id": "3a1c8b2d-0004-4f7e-a123-000000000004",
+      "name": "Extract & Classify Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 400],
+      "notes": "Extracts phone number, message body, sender name and classifies the message intent. Greeting/menu keywords → 'greeting'; numbered selections and keywords → specialist agents; all others → 'koder' (Koder Agent fallback)."
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "intent-greeting",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "greeting",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "greeting"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "intent-fee",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "fee",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fee"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "intent-lead",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "lead",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "lead"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "intent-inventory",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "inventory",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "inventory"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "intent-task",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "task",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "task"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "koder"
+        }
+      },
+      "id": "3a1c8b2d-0005-4f7e-a123-000000000005",
+      "name": "Route by Intent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [780, 400],
+      "notes": "Routes the message to the correct handler based on classified intent. Outputs: greeting, fee, lead, inventory, task, koder (fallback/default). All unmatched intents go to the Koder Agent."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the plain-text welcome menu.\n// This is sent ONLY when a greeting is detected, so no specialist agent\n// is invoked and no duplicate message is produced.\nconst name = $input.item.json.senderName || 'Friend';\n\nconst menuText = `👋 السلام علیکم ${name}! KoderKids ERP میں خوش آمدید 🎓\n\nAssalam o Alaikum! Welcome to KoderKids ERP. How can I help you today?\n\nPlease reply with a number:\n\n1️⃣  Fee Enquiry (فیس)\n2️⃣  Lead / School Enquiry (لیڈ)\n3️⃣  Inventory / Stock (انوینٹری)\n4️⃣  Task Management (ٹاسک)\n5️⃣  General Help — Koder Agent\n\nOr just type your question and I will do my best to help! 😊`;\n\nreturn [\n  {\n    json: {\n      from: $input.item.json.from,\n      replyText: menuText,\n    }\n  }\n];"
+      },
+      "id": "3a1c8b2d-0006-4f7e-a123-000000000006",
+      "name": "Build Welcome Menu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 100],
+      "notes": "Builds the plain-text welcome/menu message. Called ONLY on greeting intent — this prevents the duplicate-first-message problem where both a welcome and an agent response were sent simultaneously."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_URL }}/api/ai/execute/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.BOT_JWT_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"{{ $json.body }}\",\n  \"agent\": \"fee\",\n  \"context\": {},\n  \"conversation_history\": []\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "3a1c8b2d-0007-4f7e-a123-000000000007",
+      "name": "Fee Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1060, 220],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bot-auth-creds",
+          "name": "KoderKids Bot JWT"
+        }
+      },
+      "notes": "Calls the backend Fee Agent (POST /api/ai/execute/ with agent=fee). Requires a valid BOT_JWT_TOKEN environment variable set in n8n."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_URL }}/api/crm/leads/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.BOT_JWT_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{{ $json.from }}\",\n  \"notes\": \"WhatsApp Enquiry: {{ $json.body }}\",\n  \"lead_source\": \"Social Media\",\n  \"status\": \"New\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "3a1c8b2d-0008-4f7e-a123-000000000008",
+      "name": "Lead Agent — Create Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1060, 340],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bot-auth-creds",
+          "name": "KoderKids Bot JWT"
+        }
+      },
+      "notes": "Creates a new CRM lead from the WhatsApp enquiry (POST /api/crm/leads/). Records the sender's phone number and their message as notes. Lead source is set to 'Social Media'."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_URL }}/api/ai/execute/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.BOT_JWT_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"{{ $json.body }}\",\n  \"agent\": \"inventory\",\n  \"context\": {},\n  \"conversation_history\": []\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "3a1c8b2d-0009-4f7e-a123-000000000009",
+      "name": "Inventory Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1060, 460],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bot-auth-creds",
+          "name": "KoderKids Bot JWT"
+        }
+      },
+      "notes": "Calls the backend Inventory Agent (POST /api/ai/execute/ with agent=inventory)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_URL }}/api/ai/execute/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.BOT_JWT_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"{{ $json.body }}\",\n  \"agent\": \"task\",\n  \"context\": {},\n  \"conversation_history\": []\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "3a1c8b2d-0010-4f7e-a123-000000000010",
+      "name": "Task Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1060, 580],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bot-auth-creds",
+          "name": "KoderKids Bot JWT"
+        }
+      },
+      "notes": "Calls the backend Task Agent (POST /api/ai/execute/ with agent=task)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_URL }}/api/robot-reply/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"{{ $json.body }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "3a1c8b2d-0011-4f7e-a123-000000000011",
+      "name": "Koder Agent (General)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1060, 700],
+      "notes": "The default catch-all agent. Calls /api/robot-reply/ (no auth required). Handles all unmatched/general messages including unsupported media types."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize responses from all upstream agent nodes into a single {from, replyText} shape.\n// Each input branch (fee, lead, inventory, task, koder) can have a different response schema.\nconst data = $input.item.json;\nconst from = data.from || '';\n\nlet replyText = '';\n\n// Welcome / menu node passes replyText directly\nif (data.replyText) {\n  replyText = data.replyText;\n\n// robot-reply / Koder Agent returns { reply: '...' }\n} else if (data.reply) {\n  replyText = data.reply;\n\n// AI execute endpoint returns { message: '...', success: true/false }\n} else if (data.message) {\n  replyText = data.message;\n\n// CRM lead creation returns { id, phone, status, ... }\n} else if (data.id && data.phone) {\n  replyText = `✅ Your enquiry has been logged! A KoderKids team member will contact you at +${data.phone} shortly.\\n\\nReference ID: #${data.id}`;\n\n// Fallback plain-text menu\n} else {\n  replyText = `I couldn't process your request right now. Please try again, or type *menu* to see available options.\\n\\n1️⃣ Fee\\n2️⃣ Lead Enquiry\\n3️⃣ Inventory\\n4️⃣ Task\\n5️⃣ General Help`;\n}\n\nreturn [{ json: { from, replyText } }];"
+      },
+      "id": "3a1c8b2d-0012-4f7e-a123-000000000012",
+      "name": "Format Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 400],
+      "notes": "Normalizes the response from all upstream branches (welcome, fee, lead, inventory, task, koder) into a consistent {from, replyText} object. If no meaningful response was produced, falls back to a plain-text menu."
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.from }}",
+        "textBody": "={{ $json.replyText }}",
+        "additionalFields": {}
+      },
+      "id": "3a1c8b2d-0013-4f7e-a123-000000000013",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1580, 400],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "whatsapp-send-creds",
+          "name": "WhatsApp Business API (Send)"
+        }
+      },
+      "notes": "Sends the formatted reply back to the user via WhatsApp Business Cloud API. Requires WHATSAPP_PHONE_NUMBER_ID environment variable."
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Is Group Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Group Message?": {
+      "main": [
+        [
+          {
+            "node": "Ignore Group Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract & Classify Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Classify Message": {
+      "main": [
+        [
+          {
+            "node": "Route by Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Intent": {
+      "main": [
+        [
+          {
+            "node": "Build Welcome Menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fee Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lead Agent — Create Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Inventory Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Koder Agent (General)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Welcome Menu": {
+      "main": [
+        [
+          {
+            "node": "Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fee Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Agent — Create Lead": {
+      "main": [
+        [
+          {
+            "node": "Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inventory Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Koder Agent (General)": {
+      "main": [
+        [
+          {
+            "node": "Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Reply": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "versionId": "3a1c8b2d-safe-0001-4f7e-koderkids",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "tags": [
+    {
+      "createdAt": "2026-05-14T00:00:00.000Z",
+      "updatedAt": "2026-05-14T00:00:00.000Z",
+      "id": "koderkids-whatsapp",
+      "name": "KoderKids WhatsApp Bot"
+    }
+  ]
+}
