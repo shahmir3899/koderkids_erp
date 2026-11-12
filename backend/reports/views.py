@@ -855,13 +855,19 @@ def students_progress(request):
     logger.info(f"Lesson plan found: {lesson_plan.id if lesson_plan else 'None'}")
 
     # Fetch Students
-    students = Student.objects.filter(status="Active", school_id=school_id, student_class=student_class)
-    logger.info(f"Found {students.count()} active students")
+    students = list(Student.objects.filter(status="Active", school_id=school_id, student_class=student_class))
+    logger.info(f"Found {len(students)} active students")
+
+    # One query for all attendance rows. (student, session_date) is unique, so
+    # there is at most one row per student for this date.
+    attendance_by_student = {
+        a.student_id: a
+        for a in Attendance.objects.filter(student__in=students, session_date=session_date)
+    }
 
     student_data = []
     for student in students:
-        attendance = Attendance.objects.filter(student=student, session_date=session_date).first()
-        logger.info(f"Student {student.id} ({student.name}) - Attendance: {attendance.status if attendance else 'None'}")
+        attendance = attendance_by_student.get(student.id)
 
         student_data.append({
             "id": student.id,
@@ -903,11 +909,11 @@ def get_student_achieved_topics_count(request):
         end_date = (datetime(year, month_num + 1, 1) - timedelta(days=1)).date() if month_num < 12 else datetime(year, 12, 31).date()
 
         # Filter students by school and class
-        students = Student.objects.filter(
+        students = list(Student.objects.filter(
             school_id=school_id,
             student_class=student_class,
             status="Active"
-        )
+        ))
 
         # Restrict to teacher's assigned schools if role is Teacher
         if user.role == "Teacher":
@@ -921,12 +927,15 @@ def get_student_achieved_topics_count(request):
             session_date__range=[start_date, end_date],
             achieved_topic__isnull=False,  # Ensure not null
         ).exclude(achieved_topic='')  # Exclude empty strings directly
-        achieved_topics = achieved_topics.values('student_id').annotate(topics_count=Count('achieved_topic', distinct=True))
+        topics_counts = {
+            item['student_id']: item['topics_count']
+            for item in achieved_topics.values('student_id').annotate(topics_count=Count('achieved_topic', distinct=True))
+        }
 
         # Prepare response data
         student_data = []
         for student in students:
-            topics_count = next((item['topics_count'] for item in achieved_topics if item['student_id'] == student.id), 0)
+            topics_count = topics_counts.get(student.id, 0)
             student_data.append({
                 "student_id": student.id,
                 "name": student.name,

@@ -1,13 +1,117 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from io import BytesIO
 from unittest.mock import patch
 
 from django.core.management import call_command
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from reports.models import ReportRequest, ReportTemplate, StudentReportGenerationEvent
-from students.models import CustomUser, School, Student
+from students.models import Attendance, CustomUser, LessonPlan, School, Student
+
+
+class StudentsProgressQueryTests(APITestCase):
+    """students_progress and get_student_achieved_topics_count must not issue per-student queries."""
+
+    def setUp(self):
+        self.teacher = CustomUser.objects.create_user(
+            username='teacher_progress', password='testpass123', role='Teacher',
+        )
+        self.school = School.objects.create(name='Progress School')
+        self.teacher.assigned_schools.add(self.school)
+        self.date = date(2026, 3, 12)
+        self.students = [
+            Student.objects.create(
+                reg_num=f'PRG-{i:02d}', name=f'Pupil {i:02d}', school=self.school,
+                student_class='Class 5', status='Active',
+            )
+            for i in range(10)
+        ]
+        # Inactive / other-class students must be excluded.
+        Student.objects.create(reg_num='PRG-X1', name='Inactive', school=self.school,
+                               student_class='Class 5', status='Inactive')
+        Student.objects.create(reg_num='PRG-X2', name='Other class', school=self.school,
+                               student_class='Class 6', status='Active')
+        self.lesson_plan = LessonPlan.objects.create(
+            session_date=self.date, teacher=self.teacher, school=self.school,
+            student_class='Class 5', planned_topic='Loops',
+        )
+        # 0-3 Present with topics, 4-5 Absent, 6-9 no attendance row.
+        self.attendance = {}
+        for i, s in enumerate(self.students[:6]):
+            self.attendance[s.id] = Attendance.objects.create(
+                student=s, session_date=self.date, teacher=self.teacher,
+                status='Present' if i < 4 else 'Absent',
+                achieved_topic=f'Topic {i}' if i < 4 else None,
+            )
+        self.client.force_authenticate(self.teacher)
+
+    def _get_progress(self):
+        return self.client.get(
+            '/api/reports/students-progress/',
+            {'school_id': self.school.id, 'class_id': 'Class 5', 'session_date': '03/12/2026'},
+        )
+
+    def test_students_progress_query_count_is_constant(self):
+        # lesson plan + students + attendance + lesson plan serializer lookups (fixed, not per student)
+        with CaptureQueriesContext(connection) as ctx:
+            response = self._get_progress()
+        self.assertEqual(response.status_code, 200)
+        attendance_queries = [q for q in ctx.captured_queries if 'students_attendance' in q['sql']]
+        self.assertEqual(len(attendance_queries), 1)
+        self.assertLessEqual(len(ctx.captured_queries), 6, [q['sql'] for q in ctx.captured_queries])
+
+    def test_students_progress_response_unchanged(self):
+        response = self._get_progress()
+        self.assertEqual(response.status_code, 200)
+        expected = []
+        for s in self.students:  # Student ordering is by name, matching creation order
+            att = self.attendance.get(s.id)
+            expected.append({
+                'id': s.id,
+                'name': s.name,
+                'class_id': 'Class 5',
+                'school_id': self.school.id,
+                'attendance_id': att.id if att else None,
+                'status': att.status if att else 'N/A',
+                'achieved_topic': att.achieved_topic if att else '',
+                'lesson_plan_id': self.lesson_plan.id,
+            })
+        self.assertEqual(response.data['students'], expected)
+        self.assertEqual(response.data['lesson_plan']['id'], self.lesson_plan.id)
+        # None achieved_topic on an Absent row is returned as None, as before.
+        self.assertIsNone(response.data['students'][4]['achieved_topic'])
+
+    def test_students_progress_does_not_log_student_details(self):
+        with self.assertLogs('reports.views', level='INFO') as logs:
+            self._get_progress()
+        joined = '\n'.join(logs.output)
+        self.assertIn('Found 10 active students', joined)
+        for s in self.students:
+            self.assertNotIn(s.name, joined)
+
+    def test_achieved_topics_count_query_count_and_output(self):
+        # Extra topic rows on a different date for student 0, so distinct count is 2.
+        Attendance.objects.create(
+            student=self.students[0], session_date=date(2026, 3, 13), teacher=self.teacher,
+            status='Present', achieved_topic='Topic extra',
+        )
+        with CaptureQueriesContext(connection) as ctx:
+            response = self.client.get(
+                '/api/reports/student-achieved-topics-count/',
+                {'month': '2026-03', 'school_id': self.school.id, 'student_class': 'Class 5'},
+            )
+        self.assertEqual(response.status_code, 200)
+        # assigned_schools check + students + aggregate; never per student
+        self.assertLessEqual(len(ctx.captured_queries), 3, [q['sql'] for q in ctx.captured_queries])
+        expected_counts = [2, 1, 1, 1] + [0] * 6
+        self.assertEqual(
+            response.data,
+            [{'student_id': s.id, 'name': s.name, 'topics_achieved': c}
+             for s, c in zip(self.students, expected_counts)],
+        )
 
 
 class ReportAnalyticsTests(APITestCase):
